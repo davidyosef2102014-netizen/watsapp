@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WatsApp</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%2300BCD4'/%3E%3Cpath fill='white' d='M11.99 2C6.47 2 2 6.48 2 12c0 1.85.51 3.58 1.39 5.07L2 20l3.03-1.35A9.94 9.94 0 0 0 12 20c5.52 0 10-4.48 10-10S17.51 2 11.99 2zM12 18c-1.51 0-2.93-.41-4.14-1.12l-.3-.17-2.94.77.79-2.87-.19-.3A7.94 7.94 0 0 1 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8zm4.39-5.83c-.24-.12-1.41-.7-1.63-.77-.22-.08-.38-.12-.54.12-.16.24-.62.77-.76.93-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.19-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.19-.46-.39-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.09 3.62.57.25 1.02.39 1.37.5.57.18 1.09.16 1.5.1.46-.07 1.41-.58 1.61-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-container">
+      <div class="login-logo">
+        <!-- סמל WatsApp - זהה לווטצאפ בטורקיז -->
+        <svg width="90" height="90" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <rect width="24" height="24" rx="6" fill="#25D366"/>
+          <path fill="white" d="M11.99 2C6.47 2 2 6.48 2 12c0 1.85.51 3.58 1.39 5.07L2 20l3.03-1.35A9.94 9.94 0 0 0 12 20c5.52 0 10-4.48 10-10S17.51 2 11.99 2zM12 18c-1.51 0-2.93-.41-4.14-1.12l-.3-.17-2.94.77.79-2.87-.19-.3A7.94 7.94 0 0 1 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8zm4.39-5.83c-.24-.12-1.41-.7-1.63-.77-.22-.08-.38-.12-.54.12-.16.24-.62.77-.76.93-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.19-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.19-.46-.39-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.09 3.62.57.25 1.02.39 1.37.5.57.18 1.09.16 1.5.1.46-.07 1.41-.58 1.61-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z"/>
+        </svg>
+      </div>
+      <h1 class="login-title">WatsApp</h1>
+      <p class="login-subtitle">מסרים מהירים, פשוטים ומאובטחים</p>
+
+      <!-- Profile photo picker -->
+      <label class="avatar-picker" id="avatar-picker" title="Add profile photo">
+        <input type="file" id="avatar-input" accept="image/*" style="display:none" />
+        <div class="avatar-picker-inner" id="avatar-picker-inner">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="white" stroke-width="1.5">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span style="font-size:12px;color:rgba(255,255,255,0.9);margin-top:4px">הוסף תמונה</span>
+        </div>
+      </label>
+
+      <!-- Name -->
+      <input type="text" id="name-input" placeholder="השם שלך" style="width:100%;border:1.5px solid #e9edef;border-radius:8px;padding:12px 14px;font-size:16px;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='#25D366'" onblur="this.style.borderColor='#e9edef'" />
+
+      <div class="phone-input-group">
+        <div class="phone-prefix">+972</div>
+        <input type="tel" id="phone-input" placeholder="05X-XXX-XXXX" maxlength="15" />
+      </div>
+      <p class="login-hint">אנשים יוכלו למצוא אותך לפי מספר הטלפון</p>
+      <button id="login-btn" class="login-btn">התחל לשוחח</button>
+      <p class="demo-hint">פתח בטאב אחר עם מספר שונה לצ'אט בין מכשירים</p>
+    </div>
+    <div class="login-footer">נוצר ע"י חברת BIRGSOL 2026</div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app" class="app hidden">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <!-- Sidebar Header -->
+      <div class="sidebar-header">
+        <div class="header-avatar" id="my-avatar-btn">
+          <img id="my-avatar" src="" alt="Me" />
+        </div>
+        <div class="header-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" style="vertical-align:middle;margin-left:6px">
+            <rect width="24" height="24" rx="5" fill="#25D366"/>
+            <path fill="white" d="M11.99 2C6.47 2 2 6.48 2 12c0 1.85.51 3.58 1.39 5.07L2 20l3.03-1.35A9.94 9.94 0 0 0 12 20c5.52 0 10-4.48 10-10S17.51 2 11.99 2zM12 18c-1.51 0-2.93-.41-4.14-1.12l-.3-.17-2.94.77.79-2.87-.19-.3A7.94 7.94 0 0 1 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8zm4.39-5.83c-.24-.12-1.41-.7-1.63-.77-.22-.08-.38-.12-.54.12-.16.24-.62.77-.76.93-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.19-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.19-.46-.39-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.09 3.62.57.25 1.02.39 1.37.5.57.18 1.09.16 1.5.1.46-.07 1.41-.58 1.61-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z"/>
+          </svg>
+          WatsApp
+        </div>
+        <div class="header-icons">
+          <button class="icon-btn" id="new-status-btn" title="סטטוס חדש">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+          </button>
+          <button class="icon-btn" id="new-chat-btn" title="צ'אט חדש">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </button>
+          <button class="icon-btn" id="menu-btn" title="תפריט">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="search-bar">
+        <div class="search-icon-wrap">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#667781" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </div>
+        <input type="text" id="search-input" placeholder="חיפוש" />
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="chats">צ'אטים</button>
+        <button class="tab" data-tab="status">סטטוס</button>
+        <button class="tab" data-tab="channels">ערוצים</button>
+        <button class="tab" data-tab="communities">קהילות</button>
+      </div>
+
+      <!-- Chats Tab -->
+      <div class="tab-content active" id="tab-chats">
+        <div class="chat-list" id="chat-list">
+          <div class="loading-spinner">טוען צ'אטים...</div>
+        </div>
+      </div>
+
+      <!-- Status Tab -->
+      <div class="tab-content hidden" id="tab-status">
+        <div class="status-my-section">
+          <div class="status-my-item" id="my-status-item">
+            <div class="status-avatar-wrap">
+              <img id="status-my-avatar" src="" alt="Me" />
+              <div class="status-add-btn">+</div>
+            </div>
+            <div class="status-info">
+              <div class="status-name">הסטטוס שלי</div>
+              <div class="status-time" id="my-status-time">לחץ להוסיף עדכון סטטוס</div>
+            </div>
+          </div>
+        </div>
+        <div class="status-section-title">עדכונים אחרונים</div>
+        <div id="contacts-status-list"></div>
+      </div>
+
+      <!-- Channels Tab -->
+      <div class="tab-content hidden" id="tab-channels">
+        <div class="channels-header">
+          <h3>ערוצים</h3>
+          <button class="find-channels-btn" id="find-channels-btn">מצא ערוצים</button>
+        </div>
+        <div id="channels-list"></div>
+      </div>
+
+      <!-- Communities Tab -->
+      <div class="tab-content hidden" id="tab-communities">
+        <div class="communities-placeholder">
+          <svg viewBox="0 0 100 100" width="80" height="80" fill="none">
+            <circle cx="50" cy="35" r="18" fill="#25D366" opacity="0.3"/>
+            <circle cx="25" cy="55" r="14" fill="#25D366" opacity="0.3"/>
+            <circle cx="75" cy="55" r="14" fill="#25D366" opacity="0.3"/>
+            <ellipse cx="50" cy="80" rx="30" ry="12" fill="#25D366" opacity="0.2"/>
+          </svg>
+          <h3>הישאר מחובר עם קהילה</h3>
+          <p>קהילות מחברות חברים בקבוצות לפי נושא. כל קהילה שתתווסף תופיע כאן.</p>
+          <button class="create-community-btn">צור קהילה</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat/Main Area -->
+    <div class="main-area" id="main-area">
+      <!-- Welcome Screen -->
+      <div class="welcome-screen" id="welcome-screen">
+        <div class="welcome-content">
+          <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="96" fill="#25D366" opacity="0.1"/>
+            <circle cx="100" cy="100" r="70" fill="#25D366" opacity="0.15"/>
+            <path d="M100 30C62.4 30 32 60.4 32 98c0 12.6 3.4 24.4 9.4 34.6L30 170l38.4-9.2C78.6 166 89 169 100 169c37.6 0 68-30.4 68-68S137.6 30 100 30zm35 97c-1.4 4-8.4 7.6-11.4 8-3 .2-3 2.4-18.8-4-19-7.6-30.6-27-31.6-28.2-1-1.2-7.6-10.2-7.6-19.4s4.8-13.8 6.6-15.6c1.8-1.8 3.8-1.6 5.2-1.6 1.2 0 2.4 0 3.4.2 1 .2 2.4-.4 3.8 2.8 1.4 3.2 4.6 11.4 5 12.2.4.8.6 1.8.2 2.8-.4 1-.6 1.6-1.4 2.4-.8.8-1.6 1.8-2.2 2.4-.8.6-1.6 1.4-.6 2.8.8 1.4 4 6.4 8.6 10.4 5.8 5 10.8 6.6 12.2 7.4 1.4.6 2.2.6 3-.4.8-.8 3.6-4.2 4.6-5.6 1-1.4 2-1.2 3.4-.6 1.4.4 8.8 4.2 10.2 5 1.4.8 2.4 1.2 2.8 2 .4.6 0 4-1.6 8z" fill="#25D366"/>
+          </svg>
+          <h2>WatsApp - העידן החדש של תקשורת</h2>
+          <p>שלח הודעות, תמונות והודעות קוליות. כל השיחות שלך מוצפנות מקצה לקצה.</p>
+          <div class="welcome-encrypted">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#667781" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            ההודעות שלך מוצפנות מקצה לקצה
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Window -->
+      <div class="chat-window hidden" id="chat-window">
+        <div class="chat-header" id="chat-header">
+          <button class="icon-btn" id="back-btn" style="display:none" title="חזור">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+        <div class="chat-header-info">
+            <img class="chat-header-avatar" id="chat-header-avatar" src="" alt="" />
+            <div>
+              <div class="chat-header-name" id="chat-header-name"></div>
+              <div class="chat-header-status" id="chat-header-status">online</div>
+            </div>
+          </div>
+          <div class="chat-header-icons">
+            <button class="icon-btn" title="שיחת וידאו">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+            </button>
+            <button class="icon-btn" title="שיחת קול">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.78a16 16 0 0 0 6.31 6.31l.87-.87a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </button>
+            <button class="icon-btn" title="חיפוש">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
+            <button class="icon-btn" title="תפריט">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="messages-area" id="messages-area">
+          <!-- Messages rendered here -->
+        </div>
+
+        <!-- Typing indicator -->
+        <div class="typing-indicator hidden" id="typing-indicator">
+          <div class="typing-bubble">
+            <span></span><span></span><span></span>
+          </div>
+          <span id="typing-name"></span> is typing...
+        </div>
+
+        <!-- Image preview area -->
+        <div id="img-preview-bar" class="img-preview-bar hidden">
+          <img id="img-preview-thumb" src="" alt="" />
+          <span id="img-preview-name"></span>
+          <button id="img-preview-remove" class="icon-btn">✕</button>
+        </div>
+
+        <div class="message-input-bar">
+          <button class="icon-btn emoji-btn" id="emoji-btn" title="אמוג'י">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#667781" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
+            </svg>
+          </button>
+          <!-- Attach menu -->
+          <div class="attach-menu-wrap">
+            <button class="icon-btn attach-btn" id="attach-btn" title="צרף">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#667781" stroke-width="2">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </button>
+            <div class="attach-menu hidden" id="attach-menu">
+              <label class="attach-option" title="תמונה">
+                <input type="file" id="image-input" accept="image/*" style="display:none" />
+                <div class="attach-icon-circle" style="background:#bf59cf">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="white"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
+                <span>תמונה</span>
+              </label>
+              <label class="attach-option" title="מסמך">
+                <input type="file" id="doc-input" accept=".pdf,.doc,.docx,.txt" style="display:none" />
+                <div class="attach-icon-circle" style="background:#0063cb">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="white"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <span>מסמך</span>
+              </label>
+              <label class="attach-option" title="מצלמה">
+                <div class="attach-icon-circle" style="background:#00a884" id="camera-attach-btn">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="white"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </div>
+                <span>מצלמה</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="message-input-wrap">
+            <input type="text" id="message-input" placeholder="הקלד הודעה" autocomplete="off" />
+          </div>
+
+          <!-- Mic / Send button (toggles) -->
+          <button class="icon-btn mic-btn" id="mic-btn" title="הודעה קולית">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="#667781">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#667781" stroke-width="2" fill="none" stroke-linecap="round"/>
+              <line x1="12" y1="19" x2="12" y2="23" stroke="#667781" stroke-width="2" stroke-linecap="round"/>
+              <line x1="8" y1="23" x2="16" y2="23" stroke="#667781" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="icon-btn send-btn hidden" id="send-btn" title="שלח">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="#25D366">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Voice recording bar -->
+        <div class="voice-recording-bar hidden" id="voice-recording-bar">
+          <button class="icon-btn" id="cancel-voice-btn" style="color:#f15c6d">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
+          <div class="voice-rec-info">
+            <span class="voice-rec-dot"></span>
+            <span id="voice-rec-time">0:00</span>
+            <span style="color:#667781;font-size:13px;margin-left:8px">מקליט...</span>
+          </div>
+          <button class="send-voice-btn" id="send-voice-btn">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+
+        <!-- Emoji picker -->
+        <div class="emoji-picker hidden" id="emoji-picker">
+          <div class="emoji-grid" id="emoji-grid"></div>
+        </div>
+      </div>
+
+      <!-- Channel View -->
+      <div class="channel-window hidden" id="channel-window">
+        <div class="channel-header" id="channel-header">
+          <div class="channel-header-info">
+            <img class="channel-header-avatar" id="channel-header-avatar" src="" alt="" />
+            <div>
+              <div class="channel-header-name" id="channel-header-name"></div>
+              <div class="channel-header-subs" id="channel-header-subs"></div>
+            </div>
+          </div>
+          <div class="chat-header-icons">
+            <button class="icon-btn" id="channel-search-btn" title="חיפוש">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="channel-messages-area" id="channel-messages-area"></div>
+        <div class="channel-input-bar" id="channel-admin-bar">
+          <input type="text" id="channel-input" placeholder="כתוב לערוץ..." />
+          <button class="icon-btn" id="channel-send-btn">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="#25D366">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Status View -->
+      <div class="status-view hidden" id="status-view">
+        <div class="status-view-header">
+          <button class="icon-btn" id="close-status-btn">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+          <img id="status-view-avatar" src="" alt="" />
+          <div>
+            <div id="status-view-name"></div>
+            <div id="status-view-time" class="status-view-time"></div>
+          </div>
+        </div>
+        <div class="status-view-content" id="status-view-content"></div>
+        <div class="status-progress" id="status-progress">
+          <div class="status-progress-bar" id="status-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Chat Modal -->
+  <div class="modal hidden" id="new-chat-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <button class="icon-btn" id="close-new-chat">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <h3>צ'אט חדש</h3>
+      </div>
+      <div class="modal-search">
+        <input type="text" id="contact-search" placeholder="חפש אנשי קשר..." />
+      </div>
+      <div class="modal-action-row" id="new-group-row">
+        <div class="action-icon group-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <span>קבוצה חדשה</span>
+      </div>
+      <div id="contacts-list" class="contacts-list"></div>
+    </div>
+  </div>
+
+  <!-- New Group Modal -->
+  <div class="modal hidden" id="new-group-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <button class="icon-btn" id="close-new-group">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <h3>קבוצה חדשה</h3>
+      </div>
+      <div class="group-name-input">
+        <input type="text" id="group-name-input" placeholder="שם הקבוצה" />
+      </div>
+      <p class="modal-label">הוסף משתתפים</p>
+      <div id="group-contacts-list" class="contacts-list"></div>
+      <div id="selected-members" class="selected-members"></div>
+      <button class="create-group-btn" id="create-group-btn">צור קבוצה</button>
+    </div>
+  </div>
+
+  <!-- Status Post Modal -->
+  <div class="modal hidden" id="status-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <button class="icon-btn" id="close-status-modal">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <h3>הוסף עדכון סטטוס</h3>
+      </div>
+      <textarea id="status-text-input" placeholder="כתוב סטטוס (נעלם אחרי 24 שעות)..." maxlength="700"></textarea>
+      <button class="send-status-btn" id="send-status-btn">פרסם סטטוס</button>
+    </div>
+  </div>
+
+  <!-- Discover Channels Modal -->
+  <div class="modal hidden" id="discover-channels-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <button class="icon-btn" id="close-discover-channels">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <h3>גלה ערוצים</h3>
+      </div>
+      <div id="discover-channels-list" class="contacts-list"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+
+  <!-- Footer -->
+  <div class="app-footer">נוצר ע"י חברת BIRGSOL 2026</div>
+</body>
+</html>
