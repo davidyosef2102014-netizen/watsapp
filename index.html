@@ -231,6 +231,28 @@ body{overflow:hidden;height:100dvh}
 .tab{font-size:11px;padding:12px 2px}
 .welcome-screen{display:none}
 }
+
+.msg-context-menu{position:fixed;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:6px;z-index:9000;min-width:180px;animation:fadeIn 0.15s ease}
+.msg-ctx-item{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;border-radius:8px;font-size:14px;transition:background 0.1s}
+.msg-ctx-item:hover{background:var(--bg)}
+.msg-ctx-danger{color:#f44336}
+.reaction-popup{position:fixed;background:white;border-radius:30px;padding:8px 12px;box-shadow:0 8px 32px rgba(0,0,0,0.25);display:flex;gap:6px;z-index:9001;animation:fadeIn 0.15s ease}
+.reaction-popup button{background:none;border:none;font-size:26px;cursor:pointer;padding:2px;border-radius:8px;transition:transform 0.15s}
+.reaction-popup button:hover{transform:scale(1.4)}
+.msg-reactions{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.msg-reaction-chip{background:rgba(0,0,0,0.06);border-radius:12px;padding:2px 8px;font-size:13px;cursor:pointer;border:1px solid transparent}
+.msg-reaction-chip.mine{background:var(--teal-light);border-color:var(--teal)}
+@keyframes fadeIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+.msg-bubble{position:relative;touch-action:pan-y;transition:transform 0.2s}
+.edited-label{font-size:10px;color:var(--text-secondary);font-style:italic;margin-left:4px}
+.settings-modal-box{position:fixed;top:0;right:0;width:340px;height:100vh;background:white;z-index:5000;box-shadow:-4px 0 20px rgba(0,0,0,0.15);display:flex;flex-direction:column;animation:slideIn 0.25s ease}
+@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+.settings-header{background:var(--teal);color:white;padding:50px 20px 20px;display:flex;flex-direction:column;gap:8px}
+.settings-item{display:flex;align-items:center;gap:16px;padding:16px 20px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.15s}
+.settings-item:hover{background:var(--bg)}
+.settings-icon{width:40px;height:40px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
+.admin-badge{background:#f44336;color:white;font-size:11px;border-radius:12px;padding:2px 8px;margin-left:auto}
+@media(max-width:768px){.settings-modal-box{width:100%}}
 </style>
 </head>
 <body>
@@ -541,7 +563,204 @@ body{overflow:hidden;height:100dvh}
 <div class="app-footer">WatsApp Web · פועל בכל המכשירים</div>
 
 <!-- GUN.JS -->
-<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js">
+// ===== NOTIFICATION SOUND =====
+let audioCtxUnlocked = false;
+document.addEventListener('click', () => { audioCtxUnlocked = true; }, {once: true});
+function playNotifSound() {
+  if (!audioCtxUnlocked) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.1);
+    g.gain.setValueAtTime(0.25, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    o.start(); o.stop(ctx.currentTime + 0.35);
+  } catch(e) {}
+}
+
+// ===== SETTINGS =====
+function openSettings() {
+  document.getElementById('settings-panel').style.display = 'block';
+  const ad = document.getElementById('settings-avatar-display');
+  if (currentUser.avatar) {
+    ad.innerHTML = '<img src="' + currentUser.avatar + '" style="width:100%;height:100%;object-fit:cover"/>';
+  } else {
+    ad.textContent = getInitials(currentUser.name);
+    ad.style.background = strToColor(currentUser.name);
+  }
+  document.getElementById('settings-name-display').textContent = currentUser.name;
+  document.getElementById('settings-phone-display').textContent = 'מספר: ' + currentUser.phone;
+}
+function closeSettings() { document.getElementById('settings-panel').style.display = 'none'; }
+
+function editSettingsName() {
+  const n = prompt('שם חדש:', currentUser.name);
+  if (!n || n === currentUser.name) return;
+  currentUser.name = n;
+  localStorage.setItem('wt_user', JSON.stringify(currentUser));
+  gun.get(NS).get('users').get(currentUser.phone).put({ name: n });
+  document.getElementById('settings-name-display').textContent = n;
+  showApp(); showToast('השם שונה!');
+}
+
+function changeAvatar(input) {
+  const f = input.files[0]; if (!f) return;
+  resizeImg(f, 300, d => {
+    currentUser.avatar = d;
+    localStorage.setItem('wt_user', JSON.stringify(currentUser));
+    gun.get(NS).get('users').get(currentUser.phone).put({ avatar: d });
+    const ad = document.getElementById('settings-avatar-display');
+    ad.innerHTML = '<img src="' + d + '" style="width:100%;height:100%;object-fit:cover"/>';
+    showApp(); showToast('תמונת הפרופיל עודכנה!');
+  });
+}
+
+function logoutUser() {
+  if (!confirm('להתנתק?')) return;
+  localStorage.removeItem('wt_user');
+  location.reload();
+}
+
+// ===== ADMIN =====
+function openAdminPanel() { closeSettings(); document.getElementById('admin-login-area').style.display='flex'; document.getElementById('admin-content').classList.add('hidden'); showModal('admin-modal'); }
+function tryAdminLogin() {
+  const pw = document.getElementById('admin-pw-input').value;
+  if (pw !== 'usto2014' && currentUser.phone !== '0533202630') { showToast('סיסמה שגויה'); return; }
+  document.getElementById('admin-login-area').style.display = 'none';
+  document.getElementById('admin-content').classList.remove('hidden');
+  loadAdminUsers();
+}
+function loadAdminUsers() {
+  const list = document.getElementById('admin-users-list');
+  list.innerHTML = '<div style="color:#667781;font-size:13px;padding:8px">טוען...</div>';
+  const users = [];
+  gun.get(NS).get('users').map().once((u, phone) => { if (u && u.name) users.push({...u, phone}); });
+  setTimeout(() => {
+    list.innerHTML = users.map(u => '<div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid #e9edef">' +
+      avatarHTML(u.avatar, u.name, 40) +
+      '<div style="flex:1"><div style="font-weight:500">' + escHtml(u.name) + '</div><div style="font-size:12px;color:#667781">' + u.phone + '</div></div>' +
+      (u.phone !== currentUser.phone ? '<button onclick="adminDeleteUser('' + u.phone + '')" style="background:#f44336;color:white;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">מחק</button>' : '<span style="font-size:12px;color:#25D366">אתה</span>') +
+      '</div>').join('') || '<div style="color:#667781;padding:8px">אין משתמשים</div>';
+  }, 800);
+}
+function adminDeleteUser(phone) {
+  if (!confirm('למחוק ' + phone + '?')) return;
+  gun.get(NS).get('users').get(phone).put(null);
+  showToast('נמחק: ' + phone); loadAdminUsers();
+}
+
+// ===== CONTEXT MENU =====
+let _lpTimer = null;
+function setupMsgLongPress(el, msg) {
+  const show = (px, py) => { clearTimeout(_lpTimer); showMsgContextMenu(msg, px, py); };
+  el.addEventListener('contextmenu', e => { e.preventDefault(); show(e.clientX, e.clientY); });
+  el.addEventListener('touchstart', e => { const t = e.touches[0]; _lpTimer = setTimeout(() => show(t.clientX, t.clientY), 500); }, {passive:true});
+  el.addEventListener('touchend', () => clearTimeout(_lpTimer), {passive:true});
+  el.addEventListener('touchmove', () => clearTimeout(_lpTimer), {passive:true});
+}
+function showMsgContextMenu(msg, x, y) {
+  closeContextMenu();
+  const isOwn = msg.senderId === currentUser.phone;
+  const m = document.getElementById('msg-context-menu');
+  m.innerHTML =
+    '<div class="msg-ctx-item" onclick="ctxReply('' + msg.id + '')">↩️ <span>הגב</span></div>' +
+    '<div class="msg-ctx-item" onclick="ctxReact('' + msg.id + '',' + x + ',' + y + ')">😊 <span>תגובה</span></div>' +
+    (isOwn ? '<div class="msg-ctx-item" onclick="ctxEdit('' + msg.id + '')">✏️ <span>ערוך</span></div>' : '') +
+    (isOwn ? '<div class="msg-ctx-item msg-ctx-danger" onclick="ctxDelete('' + msg.id + '')">🗑️ <span>מחק</span></div>' : '');
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let lx = x, ly = y + 10;
+  if (lx + 200 > vw) lx = vw - 205;
+  if (ly + 180 > vh) ly = y - 175;
+  m.style.left = lx + 'px'; m.style.top = ly + 'px'; m.style.display = 'block';
+  document.getElementById('ctx-overlay').style.display = 'block';
+}
+function closeContextMenu() {
+  document.getElementById('msg-context-menu').style.display = 'none';
+  document.getElementById('reaction-popup').style.display = 'none';
+  document.getElementById('ctx-overlay').style.display = 'none';
+}
+function ctxReply(msgId) {
+  closeContextMenu();
+  const chat = chatsMap[currentChatId];
+  const msg = (chat && chat.messages) ? chat.messages.find(m => m.id === msgId) : null;
+  if (!msg) return;
+  replyToMsg = msg;
+  document.getElementById('message-input').placeholder = '↩ משיב ל: ' + (msg.text || 'media').substring(0,30) + '...';
+  document.getElementById('message-input').focus();
+}
+function ctxEdit(msgId) {
+  closeContextMenu();
+  const chat = chatsMap[currentChatId];
+  const msg = chat && chat.messages ? chat.messages.find(m => m.id === msgId) : null;
+  if (!msg) return;
+  const newText = prompt('ערוך:', msg.text || '');
+  if (newText === null || newText === msg.text) return;
+  const updated = Object.assign({}, msg, {text: newText, edited: true});
+  gun.get(NS).get('messages').get(currentChatId).get(msgId).put(updated);
+  if (chatMsgMaps[currentChatId]) chatMsgMaps[currentChatId].set(msgId, updated);
+  const idx = chat.messages.findIndex(m => m.id === msgId);
+  if (idx > -1) { chat.messages[idx] = updated; renderMessages(chat.messages); }
+  showToast('הודעה עודכנה');
+}
+function ctxDelete(msgId) {
+  closeContextMenu();
+  if (!confirm('למחוק הודעה זו?')) return;
+  const del = {id: msgId, text: '🚫 הודעה זו נמחקה', senderId: 'system', ts: Date.now(), deleted: true};
+  gun.get(NS).get('messages').get(currentChatId).get(msgId).put(del);
+  const chat = chatsMap[currentChatId];
+  if (chat && chat.messages) {
+    const idx = chat.messages.findIndex(m => m.id === msgId);
+    if (idx > -1) { chat.messages[idx] = del; renderMessages(chat.messages); }
+  }
+}
+function ctxReact(msgId, x, y) {
+  document.getElementById('msg-context-menu').style.display = 'none';
+  const EMJS = ['👍','❤️','😂','😮','😢','🙏','🔥','🎉','😍','💯'];
+  const p = document.getElementById('reaction-popup');
+  p.innerHTML = EMJS.map(e => '<button onclick="addReaction('' + msgId + '','' + e + '')">' + e + '</button>').join('');
+  const vw = window.innerWidth;
+  let lx = x - 150; if (lx < 5) lx = 5; if (lx + 300 > vw) lx = vw - 305;
+  p.style.left = lx + 'px'; p.style.top = (y - 80) + 'px'; p.style.display = 'flex';
+}
+function addReaction(msgId, emoji) {
+  closeContextMenu();
+  gun.get(NS).get('reactions').get(currentChatId + '_' + msgId).get(currentUser.phone).put({emoji, ts: Date.now()});
+  showToast(emoji + ' נוסף!');
+}
+
+// ===== SWIPE TO REPLY =====
+function setupSwipeReply(bubble, msg) {
+  let sx = 0, swiping = false;
+  bubble.addEventListener('touchstart', e => { sx = e.touches[0].clientX; swiping = false; }, {passive:true});
+  bubble.addEventListener('touchmove', e => {
+    const dx = e.touches[0].clientX - sx;
+    const isOut = msg.senderId === currentUser.phone;
+    const threshold = 40;
+    if (!isOut && dx > threshold) { swiping = true; bubble.style.transform = 'translateX(' + Math.min(80, dx - threshold) + 'px)'; }
+    else if (isOut && dx < -threshold) { swiping = true; bubble.style.transform = 'translateX(' + Math.max(-80, dx + threshold) + 'px)'; }
+  }, {passive:true});
+  bubble.addEventListener('touchend', () => {
+    bubble.style.transform = '';
+    if (swiping) { swiping = false; ctxReply(msg.id); }
+  }, {passive:true});
+}
+
+// ===== SETTINGS BUTTON in header =====
+setTimeout(() => {
+  const hi = document.querySelector('.header-icons');
+  if (hi && !document.getElementById('settings-open-btn')) {
+    const btn = document.createElement('button');
+    btn.id = 'settings-open-btn'; btn.className = 'icon-btn'; btn.title = 'הגדרות';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.18c.04-.32.07-.65.07-.82s-.03-.66-.07-1l2.11-1.63c.19-.15.25-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1s.03.65.07.98l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66z"/></svg>';
+    btn.onclick = openSettings;
+    hi.prepend(btn);
+  }
+}, 100);
+
+</script>
 <script>
 // ===== CONSTANTS =====
 const NS = 'watsapp_birgsol_v3_2026';
@@ -730,8 +949,10 @@ function subMsgsBg(chatId) {
     if (!chat.lastMessage || msg.ts > chat.lastMessage.ts) {
       chat.lastMessage = msg; chat.lastTs = msg.ts;
       if (chatId !== currentChatId && msg.senderId !== currentUser.phone) {
-        if (!chatMsgMaps[chatId] || !chatMsgMaps[chatId].has(key))
+        if (!chatMsgMaps[chatId] || !chatMsgMaps[chatId].has(key)) {
           chat.unreadCount = (chat.unreadCount||0)+1;
+          playNotifSound();
+        }
       }
       chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
       renderChatList();
@@ -813,7 +1034,7 @@ function loadChatMsgs(chatId) {
     gun.get(NS).get('messages').get(chatId).map().on((msg,key) => {
       if (!msg||!msg.ts||!msg.senderId||mm.has(key)) return;
       mm.set(key,msg);
-      if (currentChatId===chatId) { renderMessage(msg,true); scrollToBottom(); }
+      if (currentChatId===chatId) { renderMessage(msg,true); scrollToBottom(); if(msg.senderId!==currentUser.phone) playNotifSound(); }
       const c=chatsMap[chatId]; if(c){c.lastMessage=msg;c.lastTs=msg.ts;chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));renderChatList();}
     });
     gun.get(NS).get('typing').get(chatId).map().on((data,phone) => {
@@ -860,9 +1081,12 @@ function renderMessage(msg,append) {
   } else {
     html+=`<div class="msg-text">${escHtml(msg.text||'')}</div>`;
   }
-  html+=`<div class="msg-meta"><span>${formatTime(msg.ts||0)}</span>${isOut?`<span>${doubleCheckSVG(false)}</span>`:''}</div>`;
+  html+=`<div class="msg-meta">${msg.edited?'<span class="edited-label">נערך</span>':''}<span>${formatTime(msg.ts||0)}</span>${isOut?`<span>${doubleCheckSVG(false)}</span>`:''}</div>`;
   bubble.innerHTML=html;
   bubble.ondblclick=()=>{replyToMsg=msg;document.getElementById('message-input').placeholder=`↩ משיב ל: ${(msg.text||'media').substring(0,30)}...`;document.getElementById('message-input').focus();};
+  bubble.setAttribute('data-msgid', msg.id);
+  setupMsgLongPress(bubble, msg);
+  setupSwipeReply(bubble, msg);
   group.appendChild(bubble); area.appendChild(group);
   if(msg.voiceData) initVoicePlayer(msg.id,msg.voiceData);
 }
@@ -1222,5 +1446,52 @@ function showModal(id) { document.getElementById(id).classList.remove('hidden');
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 function showToast(msg) { const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.add('hidden'),3000); }
 </script>
+
+<div id="settings-panel" style="display:none">
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:4999" onclick="closeSettings()"></div>
+  <div class="settings-modal-box">
+    <div class="settings-header">
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="position:relative;cursor:pointer" onclick="document.getElementById('settings-avatar-input').click()">
+          <div id="settings-avatar-display" style="width:72px;height:72px;border-radius:50%;border:3px solid rgba(255,255,255,0.5);overflow:hidden;background:rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:white"></div>
+          <div style="position:absolute;bottom:0;right:0;background:rgba(0,0,0,0.5);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px">📷</div>
+        </div>
+        <input type="file" id="settings-avatar-input" accept="image/*" style="display:none" onchange="changeAvatar(this)">
+        <div style="flex:1">
+          <div id="settings-name-display" style="font-size:18px;font-weight:600;cursor:pointer" onclick="editSettingsName()"></div>
+          <div id="settings-phone-display" style="font-size:12px;opacity:0.8;margin-top:2px"></div>
+        </div>
+      </div>
+    </div>
+    <div style="overflow-y:auto;flex:1">
+      <div class="settings-item" onclick="editSettingsName()"><div class="settings-icon">✏️</div><div><div style="font-size:15px">שנה שם</div><div style="font-size:12px;color:#667781">שנה את שמך בווטסאפ</div></div></div>
+      <div class="settings-item" onclick="document.getElementById('settings-avatar-input').click()"><div class="settings-icon">🖼️</div><div><div style="font-size:15px">תמונת פרופיל</div><div style="font-size:12px;color:#667781">שנה תמונה</div></div></div>
+      <div class="settings-item" onclick="openAdminPanel()"><div class="settings-icon">🔐</div><div><div style="font-size:15px">אזור ניהול</div><div style="font-size:12px;color:#667781">למנהל בלבד</div></div><div class="admin-badge">ADMIN</div></div>
+      <div class="settings-item" onclick="logoutUser()"><div class="settings-icon">🚪</div><div><div style="font-size:15px;color:#f44336">התנתק</div><div style="font-size:12px;color:#667781">יציאה מהחשבון</div></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="admin-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <button class="icon-btn" onclick="closeModal('admin-modal')"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <h3>🔐 אזור ניהול</h3>
+    </div>
+    <div id="admin-login-area" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:14px;color:#667781;text-align:center">הזן סיסמת מנהל</div>
+      <input type="password" id="admin-pw-input" placeholder="סיסמה" style="border:1px solid #e9edef;border-radius:8px;padding:12px;font-size:15px;outline:none;width:100%" />
+      <button onclick="tryAdminLogin()" style="background:var(--teal);color:white;border:none;border-radius:8px;padding:12px;font-size:15px;font-weight:600;cursor:pointer">כניסה</button>
+    </div>
+    <div id="admin-content" class="hidden" style="padding:16px">
+      <div style="font-size:14px;font-weight:600;color:var(--teal);padding:0 0 10px">ניהול משתמשים</div>
+      <div id="admin-users-list" style="max-height:400px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<div id="ctx-overlay" style="display:none;position:fixed;inset:0;z-index:8999" onclick="closeContextMenu()"></div>
+<div id="msg-context-menu" class="msg-context-menu" style="display:none"></div>
+<div id="reaction-popup" class="reaction-popup" style="display:none"></div>
 </body>
 </html>
