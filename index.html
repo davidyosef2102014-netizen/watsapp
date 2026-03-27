@@ -583,8 +583,8 @@ body{overflow:hidden;height:100dvh}
 <div id="toast" class="toast hidden"></div>
 <div class="app-footer">Watspp · פועל בכל המכשירים</div>
 
-<!-- GUN.JS -->
-<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<!-- MQTT.JS -->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script>
 // ===== NOTIFICATION SOUND =====
 let audioCtxUnlocked = false;
@@ -930,7 +930,6 @@ window.addEventListener('load', function() {
 <script>
 // ===== CONSTANTS =====
 const NS = 'watsapp_birgsol_v3_2026';
-const GUN_PEERS = ['https://gun.eco/gun', 'https://peer.wallie.io/gun'];
 const EMOJIS = ['😀','😂','😍','🥰','😎','🤔','😮','😢','😡','👍','👎','❤️','🔥','🎉','🙏','💯','😅','🤣','😊','😭','😤','🤯','🥳','🤩','😴','🤒','👋','✌️','🤝','💪','🎵','🎮','⚽','🍕','🍔','☕','🌍','🚀','⭐','💡','📱','💻','🎁','🌈','🌙','☀️','❄️','🌺','🦋'];
 const DEFAULT_CHANNELS = [
   {id:'news_il',name:'חדשות ישראל',description:'עדכוני חדשות שוטפים'},
@@ -938,8 +937,57 @@ const DEFAULT_CHANNELS = [
   {id:'funny',name:'הומור',description:'בדיחות ומשעשעים'}
 ];
 
-// ===== INIT GUN =====
-const gun = Gun(GUN_PEERS);
+// ===== MQTT ADAPTER (replaces Gun.js) =====
+const _mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+  clientId: 'watspp_' + Math.random().toString(16).slice(2,10),
+  keepalive: 60,
+  reconnectPeriod: 2000,
+  connectTimeout: 10000
+});
+const _mqttSubs = {};
+_mqttClient.on('connect', () => {
+  Object.keys(_mqttSubs).forEach(t => _mqttClient.subscribe(t, {qos:1}));
+});
+_mqttClient.on('message', (topic, payload) => {
+  let data;
+  try { data = JSON.parse(payload.toString()); } catch(e) { return; }
+  const parts = topic.split('/');
+  const key = parts[parts.length - 1];
+  const wildcardTopic = parts.slice(0, -1).join('/') + '/+';
+  if (_mqttSubs[topic]) _mqttSubs[topic].slice().forEach(h => h(data, key));
+  if (_mqttSubs[wildcardTopic]) _mqttSubs[wildcardTopic].slice().forEach(h => h(data, key));
+});
+function _mqttSub(topic, handler) {
+  if (!_mqttSubs[topic]) { _mqttSubs[topic] = []; _mqttClient.subscribe(topic, {qos:1}); }
+  if (!_mqttSubs[topic].includes(handler)) _mqttSubs[topic].push(handler);
+}
+function _mqttPub(topic, data, retain) {
+  if (data === null || data === undefined) return;
+  _mqttClient.publish(topic, JSON.stringify(data), {retain: retain !== false, qos: 1});
+}
+function _mkNode(path) {
+  return {
+    get: k => _mkNode(path + '/' + String(k).replace(/\//g,'_')),
+    put: (data, cb) => { _mqttPub(path, data, true); if(cb) setTimeout(cb, 100); },
+    on: cb => _mqttSub(path, cb),
+    once: cb => {
+      let done = false;
+      const h = (d, k) => { if (!done) { done = true; cb(d, k); _mqttSubs[path] = (_mqttSubs[path]||[]).filter(x=>x!==h); } };
+      _mqttSub(path, h);
+      setTimeout(() => { if (!done) { done = true; cb(null); _mqttSubs[path] = (_mqttSubs[path]||[]).filter(x=>x!==h); } }, 5000);
+    },
+    map: () => ({
+      on: cb => _mqttSub(path + '/+', cb),
+      once: cb => {
+        const wc = path + '/+';
+        const h = (d, k) => cb(d, k);
+        _mqttSub(wc, h);
+        setTimeout(() => { _mqttSubs[wc] = (_mqttSubs[wc]||[]).filter(x=>x!==h); }, 4000);
+      }
+    })
+  };
+}
+const gun = { get: k => _mkNode(k) };
 
 // ===== STATE =====
 let currentUser = JSON.parse(localStorage.getItem('wt_user') || 'null');
