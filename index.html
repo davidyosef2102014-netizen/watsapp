@@ -1214,27 +1214,36 @@ function insertChat(chat) {
 }
 
 function subMsgsBg(chatId) {
+  if (!chatMsgMaps[chatId]) chatMsgMaps[chatId] = new Map();
   gun.get(NS).get('messages').get(chatId).map().on((msg, key) => {
     if (!msg||!msg.ts||!msg.senderId) return;
-    const chat = chatsMap[chatId];
-    if (!chat) return;
-    if (!chat.lastMessage || msg.ts > chat.lastMessage.ts) {
-      chat.lastMessage = msg; chat.lastTs = msg.ts;
-      if (chatId !== currentChatId && msg.senderId !== currentUser.phone) {
-        if (!chatMsgMaps[chatId] || !chatMsgMaps[chatId].has(key)) {
-          chat.unreadCount = (chat.unreadCount||0)+1;
-          playNotifSound();
-          const senderName = allContacts[msg.senderId]?.name || msg.senderName || msg.senderId;
-          if (document.hidden) showBrowserNotif(senderName, msg.text || 'הודעה חדשה');
-        }
+    const chat = chatsMap[chatId]; if (!chat) return;
+    // Always store in map regardless of whether chat is open
+    if (!chatMsgMaps[chatId]) chatMsgMaps[chatId] = new Map();
+    const mm = chatMsgMaps[chatId];
+    const isNew = !mm.has(key);
+    if (isNew) mm.set(key, msg);
+    // Update last message & unread
+    if (isNew) {
+      if (!chat.lastMessage || msg.ts > chat.lastMessage.ts) {
+        chat.lastMessage = msg; chat.lastTs = msg.ts;
+        chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
+        renderChatList();
       }
-      chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
-      renderChatList();
+      if (chatId !== currentChatId && msg.senderId !== currentUser.phone) {
+        chat.unreadCount = (chat.unreadCount||0)+1;
+        playNotifSound();
+        const senderName = allContacts[msg.senderId]?.name || msg.senderName || msg.senderId;
+        if (document.hidden) showBrowserNotif(senderName, msg.text || 'הודעה חדשה');
+      }
     }
-    if (chatId === currentChatId && chatMsgMaps[chatId] && !chatMsgMaps[chatId].has(key)) {
-      chatMsgMaps[chatId].set(key, msg);
-      renderMessage(msg, true);
-      scrollToBottom();
+    // Render to DOM only when chat is open AND initial load is done (no spinner)
+    if (chatId === currentChatId && isNew) {
+      const area = document.getElementById('messages-area');
+      if (area && !area.querySelector('.loading-spinner')) {
+        renderMessage(msg, true);
+        scrollToBottom();
+      }
     }
   });
 }
@@ -1293,21 +1302,14 @@ function openChat(chatId) {
 }
 
 function loadChatMsgs(chatId) {
-  // Set to null to block subMsgsBg from rendering during initial bulk load
-  chatMsgMaps[chatId] = null;
   document.getElementById('messages-area').innerHTML = '<div class="loading-spinner">טוען הודעות...</div>';
-  const buf = []; const seen = new Set(); let done = false;
-  // Use on() instead of once() — catches retained (history) AND future messages during load window
-  gun.get(NS).get('messages').get(chatId).map().on((msg, key) => {
-    if (done || !msg||!msg.ts||!msg.senderId||seen.has(key)) return;
-    seen.add(key); buf.push(msg);
-  });
-  setTimeout(() => {
+  if (!chatMsgMaps[chatId]) chatMsgMaps[chatId] = new Map();
+
+  const doRender = () => {
     if (currentChatId !== chatId) return;
-    done = true;
+    const mm = chatMsgMaps[chatId] || new Map();
+    const buf = [...mm.values()].filter(m => m&&m.ts&&m.senderId);
     buf.sort((a,b) => a.ts - b.ts);
-    // Populate map so subMsgsBg can handle real-time messages going forward
-    chatMsgMaps[chatId] = new Map(buf.map(m => [m.id, m]));
     const chat = chatsMap[chatId]; if (chat) chat.messages = [...buf];
     renderMessages(buf);
     buf.forEach(m => loadMsgReactions(chatId, m.id));
@@ -1320,7 +1322,14 @@ function loadChatMsgs(chatId) {
         setTimeout(()=>ind.classList.add('hidden'),3000);
       } else ind.classList.add('hidden');
     });
-  }, 2500);
+  };
+
+  // Wait for MQTT to connect then 1.5s for retained messages to arrive via subMsgsBg
+  if (_mqttClient.connected) {
+    setTimeout(doRender, 1500);
+  } else {
+    _mqttClient.once('connect', () => setTimeout(doRender, 1500));
+  }
 }
 
 // ===== RENDER MESSAGES =====
