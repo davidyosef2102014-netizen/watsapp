@@ -1096,6 +1096,17 @@ function doLogin() {
 function showApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  // Add settings gear button now that the header is visible
+  setTimeout(() => {
+    const hi = document.querySelector('.header-icons');
+    if (hi && !document.getElementById('settings-open-btn')) {
+      const btn = document.createElement('button');
+      btn.id = 'settings-open-btn'; btn.className = 'icon-btn'; btn.title = 'הגדרות';
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.18c.04-.32.07-.65.07-.82s-.03-.66-.07-1l2.11-1.63c.19-.15.25-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1s.03.65.07.98l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66z"/></svg>';
+      btn.onclick = openSettings;
+      hi.prepend(btn);
+    }
+  }, 100);
   if (currentUser.avatar) {
     document.getElementById('my-avatar').src = currentUser.avatar;
     document.getElementById('status-my-avatar').src = currentUser.avatar;
@@ -1131,16 +1142,31 @@ function loadUserChats() {
     } else {
       const other = members.find(p => p !== currentUser.phone);
       if (!other) return;
-      gun.get(NS).get('users').get(other).once(ud => {
-        const displayName = ud?.name || other;
-        const displayAvatar = ud?.avatar || null;
+      // Use .on() so name updates as soon as the other user logs in
+      gun.get(NS).get('users').get(other).on(ud => {
+        const displayName = (ud && ud.name) ? ud.name : other;
+        const displayAvatar = (ud && ud.avatar) ? ud.avatar : null;
         if (ud) allContacts[other] = ud;
-        const chat = { id:chatId, type:'private', members, displayName, displayAvatar, name:displayName, messages:[], unreadCount:0, lastMessage:null, lastTs:chatData.lastTs||0 };
+        if (!chatsMap[chatId]) {
+          const chat = { id:chatId, type:'private', members, displayName, displayAvatar, name:displayName, messages:[], unreadCount:0, lastMessage:null, lastTs:chatData.lastTs||0 };
+          chatsMap[chatId] = chat;
+          insertChat(chat);
+          subMsgsBg(chatId);
+        } else {
+          chatsMap[chatId].displayName = displayName;
+          chatsMap[chatId].name = displayName;
+          if (displayAvatar) chatsMap[chatId].displayAvatar = displayAvatar;
+        }
+        renderChatList();
+      });
+      // Show immediately with phone number while waiting for profile
+      if (!chatsMap[chatId]) {
+        const chat = { id:chatId, type:'private', members, displayName:other, displayAvatar:null, name:other, messages:[], unreadCount:0, lastMessage:null, lastTs:chatData.lastTs||0 };
         chatsMap[chatId] = chat;
         insertChat(chat);
         renderChatList();
         subMsgsBg(chatId);
-      });
+      }
     }
   });
 }
