@@ -664,7 +664,7 @@ function loadAdminUsers() {
     list.innerHTML = users.map(u => '<div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid #e9edef">' +
       avatarHTML(u.avatar, u.name, 40) +
       '<div style="flex:1"><div style="font-weight:500">' + escHtml(u.name) + '</div><div style="font-size:12px;color:#667781">' + u.phone + '</div></div>' +
-      (u.phone !== currentUser.phone ? '<button onclick="adminDeleteUser('' + u.phone + '')" style="background:#f44336;color:white;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">מחק</button>' : '<span style="font-size:12px;color:#25D366">אתה</span>') +
+      (u.phone !== currentUser.phone ? `<button onclick="adminDeleteUser('${u.phone}')" style="background:#f44336;color:white;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">מחק</button>` : '<span style="font-size:12px;color:#25D366">אתה</span>') +
       '</div>').join('') || '<div style="color:#667781;padding:8px">אין משתמשים</div>';
   }, 800);
 }
@@ -688,10 +688,10 @@ function showMsgContextMenu(msg, x, y) {
   const isOwn = msg.senderId === currentUser.phone;
   const m = document.getElementById('msg-context-menu');
   m.innerHTML =
-    '<div class="msg-ctx-item" onclick="ctxReply('' + msg.id + '')">↩️ <span>הגב</span></div>' +
-    '<div class="msg-ctx-item" onclick="ctxReact('' + msg.id + '',' + x + ',' + y + ')">😊 <span>תגובה</span></div>' +
-    (isOwn ? '<div class="msg-ctx-item" onclick="ctxEdit('' + msg.id + '')">✏️ <span>ערוך</span></div>' : '') +
-    (isOwn ? '<div class="msg-ctx-item msg-ctx-danger" onclick="ctxDelete('' + msg.id + '')">🗑️ <span>מחק</span></div>' : '');
+    `<div class="msg-ctx-item" onclick="ctxReply('${msg.id}')">↩️ <span>הגב</span></div>` +
+    `<div class="msg-ctx-item" onclick="ctxReact('${msg.id}',${x},${y})">😊 <span>תגובה</span></div>` +
+    (isOwn ? `<div class="msg-ctx-item" onclick="ctxEdit('${msg.id}')">✏️ <span>ערוך</span></div>` : '') +
+    (isOwn ? `<div class="msg-ctx-item msg-ctx-danger" onclick="ctxDelete('${msg.id}')">🗑️ <span>מחק</span></div>` : '');
   const vw = window.innerWidth, vh = window.innerHeight;
   let lx = x, ly = y + 10;
   if (lx + 200 > vw) lx = vw - 205;
@@ -742,7 +742,7 @@ function ctxReact(msgId, x, y) {
   document.getElementById('msg-context-menu').style.display = 'none';
   const EMJS = ['👍','❤️','😂','😮','😢','🙏','🔥','🎉','😍','💯'];
   const p = document.getElementById('reaction-popup');
-  p.innerHTML = EMJS.map(e => '<button onclick="addReaction('' + msgId + '','' + e + '')">' + e + '</button>').join('');
+  p.innerHTML = EMJS.map(e => `<button onclick="addReaction('${msgId}','${e}')">${e}</button>`).join('');
   const vw = window.innerWidth;
   let lx = x - 150; if (lx < 5) lx = 5; if (lx + 300 > vw) lx = vw - 305;
   p.style.left = lx + 'px'; p.style.top = (y - 80) + 'px'; p.style.display = 'flex';
@@ -840,7 +840,7 @@ function openDiscoverChannelsWithCustom() {
       '<div class="discover-channel-info">' + avatarHTML(null, ch.name, 49) +
       '<div><div style="font-weight:600">' + escHtml(ch.name) + '</div>' +
       '<div style="font-size:12px;color:#667781">' + escHtml(ch.description || '') + '</div></div></div>' +
-      '<button class="subscribe-btn" onclick="subscribeChannel('' + ch.id + '')">Follow</button></div>';
+      `<button class="subscribe-btn" onclick="subscribeChannel('${ch.id}')">Follow</button></div>`;
   });
   // Also load custom channels from registry
   gun.get(NS).get('channels_registry').map().once(function(chData, chId) {
@@ -850,7 +850,7 @@ function openDiscoverChannelsWithCustom() {
       '<div class="discover-channel-info">' + avatarHTML(null, chData.name, 49) +
       '<div><div style="font-weight:600">' + escHtml(chData.name) + '</div>' +
       '<div style="font-size:12px;color:#667781">' + escHtml(chData.description || '') + '</div></div></div>' +
-      '<button class="subscribe-btn" onclick="joinCustomChannel('' + chId + '')">הצטרף</button></div>'
+      `<button class="subscribe-btn" onclick="joinCustomChannel('${chId}')">הצטרף</button></div>`
     );
   });
   setTimeout(function() {
