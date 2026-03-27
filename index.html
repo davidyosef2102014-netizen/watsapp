@@ -544,8 +544,7 @@ body{overflow:hidden;height:100dvh}
       <button class="icon-btn" id="close-status-modal"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       <h3>הוסף סטטוס</h3>
     </div>
-    <textarea id="status-text-input" placeholder="מה קורה? 🙂"></textarea>
-    <button class="send-status-btn" id="send-status-btn">פרסם סטטוס</button>
+    <div style="padding:0 16px 12px;display:flex;flex-direction:column;gap:10px"><textarea id="status-text-input" placeholder="מה קורה? 🙂" style="border:1px solid #e9edef;border-radius:8px;padding:12px;font-size:15px;outline:none;resize:none;height:100px;font-family:inherit;width:100%"></textarea><div id="status-img-preview" style="display:none"><img id="status-img-thumb" src="" style="max-width:100%;border-radius:8px;max-height:180px;object-fit:cover"/><button onclick="clearStatusImg()" style="margin-top:4px;background:#f44336;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">הסר תמונה</button></div><label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#25D366;font-size:14px;font-weight:500"><svg viewBox="0 0 24 24" width="20" height="20" fill="#25D366"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>הוסף תמונה לסטטוס<input type="file" id="status-img-input" accept="image/*" style="display:none" onchange="handleStatusImg(this)"/></label></div><button class="send-status-btn" id="send-status-btn">פרסם סטטוס</button>
   </div>
 </div>
 
@@ -759,6 +758,150 @@ setTimeout(() => {
     hi.prepend(btn);
   }
 }, 100);
+
+
+// ===== CREATE CHANNEL =====
+function openCreateChannelModal() { showModal('create-channel-modal'); }
+
+function createChannel() {
+  const name = document.getElementById('new-channel-name').value.trim();
+  const desc = document.getElementById('new-channel-desc').value.trim();
+  if (!name) { showToast('הכנס שם לערוץ'); return; }
+  const chId = 'ch_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+  const chData = { id: chId, name, description: desc, adminId: currentUser.phone, ts: Date.now() };
+  gun.get(NS).get('channels_registry').get(chId).put(chData);
+  gun.get(NS).get('user_channels').get(currentUser.phone).get(chId).put({ subscribed: true, ts: Date.now() });
+  const ch = Object.assign({}, chData, { messages: [], subscribers: [currentUser.phone] });
+  userChannels.push(ch);
+  renderChannelList();
+  closeModal('create-channel-modal');
+  document.getElementById('new-channel-name').value = '';
+  document.getElementById('new-channel-desc').value = '';
+  showToast('הערוץ נוצר! 📢');
+  openChannel(chId);
+}
+
+function loadUserCreatedChannels() {
+  gun.get(NS).get('channels_registry').map().on((chData, chId) => {
+    if (!chData || !chId || chId === '_') return;
+    if (!userChannels.find(function(c){ return c.id === chId; })) {
+      // subscribe user automatically to channels they created
+      if (chData.adminId === currentUser.phone) {
+        gun.get(NS).get('user_channels').get(currentUser.phone).get(chId).put({ subscribed: true, ts: Date.now() });
+        userChannels.push(Object.assign({}, chData, { messages: [], subscribers: [currentUser.phone] }));
+        renderChannelList();
+      }
+    }
+  });
+  // Also load channels from discover for subscribed ones
+  gun.get(NS).get('user_channels').get(currentUser.phone).map().once(function(data, chId) {
+    if (!data || !chId || chId === '_') return;
+    if (userChannels.find(function(c){ return c.id === chId; })) return;
+    gun.get(NS).get('channels_registry').get(chId).once(function(chData) {
+      if (!chData || !chData.name) return;
+      if (!userChannels.find(function(c){ return c.id === chId; })) {
+        userChannels.push(Object.assign({}, chData, { messages: [], subscribers: [currentUser.phone] }));
+        renderChannelList();
+      }
+    });
+  });
+}
+
+// Also allow any user to find and join channels others created
+function openDiscoverChannelsWithCustom() {
+  const list = document.getElementById('discover-channels-list');
+  const subscribedIds = userChannels.map(function(c){ return c.id; });
+  const available = DEFAULT_CHANNELS.filter(function(c){ return !subscribedIds.includes(c.id); });
+  const items = available.map(function(ch) {
+    return '<div class="discover-channel-item">' +
+      '<div class="discover-channel-info">' + avatarHTML(null, ch.name, 49) +
+      '<div><div style="font-weight:600">' + escHtml(ch.name) + '</div>' +
+      '<div style="font-size:12px;color:#667781">' + escHtml(ch.description || '') + '</div></div></div>' +
+      '<button class="subscribe-btn" onclick="subscribeChannel('' + ch.id + '')">Follow</button></div>';
+  });
+  // Also load custom channels from registry
+  gun.get(NS).get('channels_registry').map().once(function(chData, chId) {
+    if (!chData || !chId || subscribedIds.includes(chId)) return;
+    items.push(
+      '<div class="discover-channel-item">' +
+      '<div class="discover-channel-info">' + avatarHTML(null, chData.name, 49) +
+      '<div><div style="font-weight:600">' + escHtml(chData.name) + '</div>' +
+      '<div style="font-size:12px;color:#667781">' + escHtml(chData.description || '') + '</div></div></div>' +
+      '<button class="subscribe-btn" onclick="joinCustomChannel('' + chId + '')">הצטרף</button></div>'
+    );
+  });
+  setTimeout(function() {
+    list.innerHTML = items.length ? items.join('') : '<div style="padding:24px;text-align:center;color:#667781">אין ערוצים זמינים כרגע</div>';
+  }, 600);
+  showModal('discover-channels-modal');
+}
+
+function joinCustomChannel(chId) {
+  gun.get(NS).get('channels_registry').get(chId).once(function(chData) {
+    if (!chData) { showToast('ערוץ לא נמצא'); return; }
+    gun.get(NS).get('user_channels').get(currentUser.phone).get(chId).put({ subscribed: true, ts: Date.now() });
+    if (!userChannels.find(function(c){ return c.id === chId; })) {
+      userChannels.push(Object.assign({}, chData, { messages: [], subscribers: [currentUser.phone] }));
+      renderChannelList();
+    }
+    showToast('הצטרפת לערוץ!');
+    closeModal('discover-channels-modal');
+  });
+}
+
+// Also allow channel members (not just admin) to post
+// Override openChannel to show input bar for all
+const _origOpenChannel = openChannel;
+openChannel = function(channelId) {
+  _origOpenChannel(channelId);
+  setTimeout(function() {
+    const adminBar = document.getElementById('channel-admin-bar');
+    if (adminBar) adminBar.style.display = 'flex'; // allow everyone to post
+  }, 200);
+};
+
+// ===== STATUS WITH IMAGE =====
+let statusImgData = null;
+
+function handleStatusImg(input) {
+  const f = input.files[0]; if (!f) return;
+  resizeImg(f, 1200, function(d) {
+    statusImgData = d;
+    document.getElementById('status-img-thumb').src = d;
+    document.getElementById('status-img-preview').style.display = 'block';
+  });
+  input.value = '';
+}
+
+function clearStatusImg() {
+  statusImgData = null;
+  document.getElementById('status-img-preview').style.display = 'none';
+  document.getElementById('status-img-thumb').src = '';
+}
+
+// Override postStatus to handle images
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('send-status-btn').onclick = function() {
+    const text = document.getElementById('status-text-input').value.trim();
+    if (!text && !statusImgData) { showToast('כתוב משהו או הוסף תמונה'); return; }
+    const colors = ['#25D366','#7c4dff','#f44336','#4caf50','#ff9800','#e91e63'];
+    const bg = statusImgData ? '#000' : colors[Math.floor(Math.random() * colors.length)];
+    const sid = Date.now() + '_' + currentUser.phone;
+    gun.get(NS).get('statuses').get(sid).put({
+      id: sid, userId: currentUser.phone, userName: currentUser.name,
+      content: text, bgColor: bg, imageData: statusImgData || null, ts: Date.now()
+    });
+    document.getElementById('status-text-input').value = '';
+    clearStatusImg();
+    closeModal('status-modal');
+    showToast('סטטוס פורסם! 🎉');
+    setTimeout(loadStatuses, 500);
+  };
+
+  // Override discover channels to include custom
+  const findBtn = document.getElementById('find-channels-btn');
+  if (findBtn) findBtn.onclick = openDiscoverChannelsWithCustom;
+});
 
 </script>
 <script>
@@ -1222,7 +1365,7 @@ function viewStatusData(s) {
   document.getElementById('status-view-time').textContent=formatTime(s.ts);
   const av=allContacts[s.userId]?.avatar;
   const avEl=document.getElementById('status-view-avatar'); if(av) avEl.src=av; else avEl.src='';
-  document.getElementById('status-view-content').innerHTML=`<div style="background:${s.bgColor||'#25D366'};padding:24px 32px;border-radius:12px;font-size:22px;font-weight:500;max-width:400px;text-align:center">${escHtml(s.content)}</div>`;
+  document.getElementById('status-view-content').innerHTML = s.imageData ? ('<div style="display:flex;flex-direction:column;align-items:center;gap:16px">' + '<img src="' + s.imageData + '" style="max-width:90vw;max-height:60vh;border-radius:12px;object-fit:contain"/>' + (s.content ? '<div style="background:rgba(0,0,0,0.6);padding:12px 24px;border-radius:12px;color:white;font-size:18px">' + escHtml(s.content) + '</div>' : '') + '</div>') : '<div style="background:' + (s.bgColor||'#25D366') + ';padding:24px 32px;border-radius:12px;font-size:22px;font-weight:500;max-width:400px;text-align:center">' + escHtml(s.content) + '</div>';
   const bar=document.getElementById('status-progress-bar'); bar.style.width='0%'; setTimeout(()=>bar.style.width='100%',100);
   document.getElementById('welcome-screen').classList.add('hidden');
   document.getElementById('chat-window').classList.add('hidden');
@@ -1249,6 +1392,7 @@ function postStatus() {
 
 // ===== CHANNELS =====
 function loadChannels() {
+  loadUserCreatedChannels();
   gun.get(NS).get('user_channels').get(currentUser.phone).map().on((data,channelId) => {
     if(!data||!channelId||channelId==='_') return;
     const ch=DEFAULT_CHANNELS.find(c=>c.id===channelId)||{id:channelId,name:channelId,description:''};
@@ -1493,5 +1637,5 @@ function showToast(msg) { const t=document.getElementById('toast');t.textContent
 <div id="ctx-overlay" style="display:none;position:fixed;inset:0;z-index:8999" onclick="closeContextMenu()"></div>
 <div id="msg-context-menu" class="msg-context-menu" style="display:none"></div>
 <div id="reaction-popup" class="reaction-popup" style="display:none"></div>
-</body>
+<div id="create-channel-modal" class="modal hidden"><div class="modal-box"><div class="modal-header"><button class="icon-btn" onclick="closeModal('create-channel-modal')"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button><h3>📢 צור ערוץ חדש</h3></div><div style="padding:16px;display:flex;flex-direction:column;gap:12px"><input type="text" id="new-channel-name" placeholder="שם הערוץ" style="border:1.5px solid #e9edef;border-radius:8px;padding:12px;font-size:15px;outline:none;width:100%"/><input type="text" id="new-channel-desc" placeholder="תיאור קצר (אופציונלי)" style="border:1.5px solid #e9edef;border-radius:8px;padding:12px;font-size:15px;outline:none;width:100%"/><button onclick="createChannel()" style="background:#25D366;color:white;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:600;cursor:pointer">צור ערוץ</button></div></div></div></body>
 </html>
