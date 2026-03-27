@@ -1159,6 +1159,22 @@ function isOnline(phone, cb) {
   gun.get(NS).get('online').get(phone).once(ts => cb(ts && Date.now()-ts < 40000));
 }
 
+// ===== LOCAL MESSAGE CACHE (localStorage) =====
+function saveMsgsToLocal(chatId, mm) {
+  try {
+    const msgs = [...mm.values()].filter(m=>m&&m.ts&&m.senderId).sort((a,b)=>a.ts-b.ts).slice(-300);
+    localStorage.setItem('wt_msgs_' + chatId, JSON.stringify(msgs));
+  } catch(e) {}
+}
+function loadMsgsFromLocal(chatId) {
+  try { const r=localStorage.getItem('wt_msgs_'+chatId); return r?JSON.parse(r):[]; } catch(e) { return []; }
+}
+let _saveDebounce = {};
+function debounceSave(chatId, mm) {
+  clearTimeout(_saveDebounce[chatId]);
+  _saveDebounce[chatId] = setTimeout(() => saveMsgsToLocal(chatId, mm), 500);
+}
+
 // ===== LOAD CHATS =====
 function loadUserChats() {
   gun.get(NS).get('user_chats').get(currentUser.phone).map().on((chatData, chatId) => {
@@ -1222,7 +1238,7 @@ function subMsgsBg(chatId) {
     if (!chatMsgMaps[chatId]) chatMsgMaps[chatId] = new Map();
     const mm = chatMsgMaps[chatId];
     const isNew = !mm.has(key);
-    if (isNew) mm.set(key, msg);
+    if (isNew) { mm.set(key, msg); debounceSave(chatId, mm); }
     // Update last message & unread
     if (isNew) {
       if (!chat.lastMessage || msg.ts > chat.lastMessage.ts) {
@@ -1302,12 +1318,15 @@ function openChat(chatId) {
 }
 
 function loadChatMsgs(chatId) {
-  document.getElementById('messages-area').innerHTML = '<div class="loading-spinner">טוען הודעות...</div>';
   if (!chatMsgMaps[chatId]) chatMsgMaps[chatId] = new Map();
+  const mm = chatMsgMaps[chatId];
+
+  // Load from localStorage immediately — instant display even before MQTT arrives
+  const local = loadMsgsFromLocal(chatId);
+  local.forEach(m => { if (m&&m.id&&!mm.has(m.id)) mm.set(m.id, m); });
 
   const doRender = () => {
     if (currentChatId !== chatId) return;
-    const mm = chatMsgMaps[chatId] || new Map();
     const buf = [...mm.values()].filter(m => m&&m.ts&&m.senderId);
     buf.sort((a,b) => a.ts - b.ts);
     const chat = chatsMap[chatId]; if (chat) chat.messages = [...buf];
@@ -1324,11 +1343,19 @@ function loadChatMsgs(chatId) {
     });
   };
 
-  // Wait for MQTT to connect then 1.5s for retained messages to arrive via subMsgsBg
-  if (_mqttClient.connected) {
-    setTimeout(doRender, 1500);
+  // Render local messages immediately if available, otherwise show spinner
+  if (local.length > 0) {
+    doRender();
   } else {
-    _mqttClient.once('connect', () => setTimeout(doRender, 1500));
+    document.getElementById('messages-area').innerHTML = '<div class="loading-spinner">טוען הודעות...</div>';
+  }
+
+  // After MQTT delivers any new/missing messages, re-render to merge them in
+  const reRender = () => { if (currentChatId === chatId) doRender(); };
+  if (_mqttClient.connected) {
+    setTimeout(reRender, 2000);
+  } else {
+    _mqttClient.once('connect', () => setTimeout(reRender, 2000));
   }
 }
 
@@ -1395,7 +1422,7 @@ function sendMessage() {
     chat.lastMessage=msg; chat.lastTs=Date.now();
     chat.messages=chat.messages||[]; chat.messages.push(msg);
   }
-  if(chatMsgMaps[currentChatId]) chatMsgMaps[currentChatId].set(msgId,msg);
+  if(chatMsgMaps[currentChatId]){ chatMsgMaps[currentChatId].set(msgId,msg); debounceSave(currentChatId, chatMsgMaps[currentChatId]); }
   inp.value=''; inp.placeholder='הקלד הודעה'; replyToMsg=null; clearImagePreview(); onInputChange();
   renderMessage(msg,true); scrollToBottom(); renderChatList();
   chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
@@ -1707,7 +1734,7 @@ function finalizeRecording() {
     const msgId=`${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
     const msg={id:msgId,text:'',voiceData:ev.target.result,duration:dur,senderId:currentUser.phone,senderName:currentUser.name,ts:Date.now()};
     gun.get(NS).get('messages').get(currentChatId).get(msgId).put(msg);
-    if(chatMsgMaps[currentChatId]) chatMsgMaps[currentChatId].set(msgId,msg);
+    if(chatMsgMaps[currentChatId]){ chatMsgMaps[currentChatId].set(msgId,msg); debounceSave(currentChatId, chatMsgMaps[currentChatId]); }
     const chat=chatsMap[currentChatId]; if(chat){chat.messages=chat.messages||[];chat.messages.push(msg);chat.lastMessage=msg;renderMessage(msg,true);scrollToBottom();renderChatList();}
   };
   r.readAsDataURL(blob); mediaRecorder=null; audioChunks=[];
