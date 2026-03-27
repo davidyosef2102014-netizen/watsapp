@@ -562,7 +562,8 @@ body{overflow:hidden;height:100dvh}
 <div class="app-footer">Watspp · פועל בכל המכשירים</div>
 
 <!-- GUN.JS -->
-<script src="https://cdn.jsdelivr.net/npm/gun/gun.js">
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script>
 // ===== NOTIFICATION SOUND =====
 let audioCtxUnlocked = false;
 document.addEventListener('click', () => { audioCtxUnlocked = true; }, {once: true});
@@ -849,17 +850,6 @@ function joinCustomChannel(chId) {
   });
 }
 
-// Also allow channel members (not just admin) to post
-// Override openChannel to show input bar for all
-const _origOpenChannel = openChannel;
-openChannel = function(channelId) {
-  _origOpenChannel(channelId);
-  setTimeout(function() {
-    const adminBar = document.getElementById('channel-admin-bar');
-    if (adminBar) adminBar.style.display = 'flex'; // allow everyone to post
-  }, 200);
-};
-
 // ===== STATUS WITH IMAGE =====
 let statusImgData = null;
 
@@ -879,14 +869,25 @@ function clearStatusImg() {
   document.getElementById('status-img-thumb').src = '';
 }
 
-// Override postStatus to handle images
-document.addEventListener('DOMContentLoaded', function() {
+// Override openChannel and status after all scripts load
+window.addEventListener('load', function() {
+  // Allow all channel members (not just admin) to post
+  var _origOpenChannel = openChannel;
+  openChannel = function(channelId) {
+    _origOpenChannel(channelId);
+    setTimeout(function() {
+      var adminBar = document.getElementById('channel-admin-bar');
+      if (adminBar) adminBar.style.display = 'flex';
+    }, 200);
+  };
+
+  // Override status button to support images
   document.getElementById('send-status-btn').onclick = function() {
-    const text = document.getElementById('status-text-input').value.trim();
+    var text = document.getElementById('status-text-input').value.trim();
     if (!text && !statusImgData) { showToast('כתוב משהו או הוסף תמונה'); return; }
-    const colors = ['#25D366','#7c4dff','#f44336','#4caf50','#ff9800','#e91e63'];
-    const bg = statusImgData ? '#000' : colors[Math.floor(Math.random() * colors.length)];
-    const sid = Date.now() + '_' + currentUser.phone;
+    var colors = ['#25D366','#7c4dff','#f44336','#4caf50','#ff9800','#e91e63'];
+    var bg = statusImgData ? '#000' : colors[Math.floor(Math.random() * colors.length)];
+    var sid = Date.now() + '_' + currentUser.phone;
     gun.get(NS).get('statuses').get(sid).put({
       id: sid, userId: currentUser.phone, userName: currentUser.name,
       content: text, bgColor: bg, imageData: statusImgData || null, ts: Date.now()
@@ -898,8 +899,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(loadStatuses, 500);
   };
 
-  // Override discover channels to include custom
-  const findBtn = document.getElementById('find-channels-btn');
+  // Override discover channels to include custom ones
+  var findBtn = document.getElementById('find-channels-btn');
   if (findBtn) findBtn.onclick = openDiscoverChannelsWithCustom;
 });
 
