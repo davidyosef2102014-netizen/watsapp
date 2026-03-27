@@ -913,6 +913,23 @@ function clearStatusImg() {
 }
 
 // Override openChannel and status after all scripts load
+// Generate proper PNG favicon via canvas
+(function(){
+  try {
+    const c=document.createElement('canvas'); c.width=c.height=64;
+    const x=c.getContext('2d');
+    x.fillStyle='#25D366';
+    if(x.roundRect) x.roundRect(0,0,64,64,14); else { x.beginPath(); x.moveTo(14,0); x.lineTo(50,0); x.arcTo(64,0,64,14,14); x.lineTo(64,50); x.arcTo(64,64,50,64,14); x.lineTo(14,64); x.arcTo(0,64,0,50,14); x.lineTo(0,14); x.arcTo(0,0,14,0,14); x.closePath(); }
+    x.fill();
+    x.fillStyle='white'; x.font='bold 42px Arial'; x.textAlign='center'; x.textBaseline='middle';
+    x.fillText('W',32,35);
+    const url=c.toDataURL('image/png');
+    document.querySelector('link[rel="icon"]').href=url;
+    const apple=document.createElement('link'); apple.rel='apple-touch-icon'; apple.href=url;
+    document.head.appendChild(apple);
+  } catch(e){}
+})();
+
 window.addEventListener('load', function() {
   // Allow all channel members (not just admin) to post
   var _origOpenChannel = openChannel;
@@ -1533,25 +1550,33 @@ function createGroup() {
 }
 
 // ===== STATUS =====
-function loadStatuses() {
-  const now=Date.now();
-  const list=document.getElementById('contacts-status-list'); list.innerHTML='';
-  const smap=new Map(); let sdone=false;
-  gun.get(NS).get('statuses').map().on((s,key) => {
-    if(sdone||!s||!s.ts||now-s.ts>86400000) return;
-    smap.set(key,s);
+const _statusCache = new Map();
+let _statusSubscribed = false;
+
+function renderStatusList() {
+  const now=Date.now(); const list=document.getElementById('contacts-status-list'); list.innerHTML='';
+  const all=[..._statusCache.values()].filter(s=>now-s.ts<=86400000).sort((a,b)=>b.ts-a.ts);
+  all.forEach(s=>{
+    if(s.userId===currentUser.phone){document.getElementById('my-status-time').textContent='היום, '+formatTime(s.ts);return;}
+    const div=document.createElement('div'); div.className='status-contact-item'; div.onclick=()=>viewStatusData(s);
+    div.innerHTML=`<div class="status-avatar-wrap">${avatarHTML(null,s.userName||s.userId,49,'status-ring')}</div>
+      <div class="status-info"><div class="status-name">${escHtml(s.userName||s.userId)}</div><div class="status-time">${formatTime(s.ts)}</div></div>`;
+    list.appendChild(div);
   });
-  setTimeout(()=>{
-    sdone=true; list.innerHTML='';
-    const all=[...smap.values()].sort((a,b)=>b.ts-a.ts);
-    all.forEach(s=>{
-      if(s.userId===currentUser.phone){document.getElementById('my-status-time').textContent='היום, '+formatTime(s.ts);return;}
-      const div=document.createElement('div'); div.className='status-contact-item'; div.onclick=()=>viewStatusData(s);
-      div.innerHTML=`<div class="status-avatar-wrap">${avatarHTML(null,s.userName||s.userId,49,'status-ring')}</div>
-        <div class="status-info"><div class="status-name">${escHtml(s.userName||s.userId)}</div><div class="status-time">${formatTime(s.ts)}</div></div>`;
-      list.appendChild(div);
+}
+
+function loadStatuses() {
+  if(!_statusSubscribed){
+    _statusSubscribed=true;
+    gun.get(NS).get('statuses').map().on((s,key)=>{
+      if(!s||!s.ts) return;
+      if(Date.now()-s.ts>86400000){_statusCache.delete(key);return;}
+      _statusCache.set(key,s);
     });
-  },2000);
+    setTimeout(renderStatusList,2000);
+  } else {
+    setTimeout(renderStatusList,200);
+  }
 }
 
 function viewStatusData(s) {
@@ -1618,24 +1643,29 @@ function openChannel(channelId) {
   document.getElementById('channel-header-avatar').outerHTML=`<div id="channel-header-avatar" style="width:40px;height:40px;border-radius:50%;overflow:hidden">${avatarHTML(null,ch.name,40)}</div>`;
   document.getElementById('channel-header-subs').textContent=`${ch.subscribers?.length||0} subscribers`;
   document.getElementById('channel-admin-bar').style.display='flex';
-  channelMsgMaps[channelId]=null;
-  document.getElementById('channel-messages-area').innerHTML='<div class="loading-spinner">טוען...</div>';
-  const cbuf=[]; const cseen=new Set(); let cdone=false;
+  if(!channelMsgMaps[channelId]) channelMsgMaps[channelId]=new Map();
+  const cmm=channelMsgMaps[channelId];
+  // Load from localStorage immediately
+  try{ const lc=localStorage.getItem('wt_ch_'+channelId); if(lc) JSON.parse(lc).forEach(m=>{if(m&&m.id&&!cmm.has(m.id))cmm.set(m.id,m);}); }catch(e){}
+  const localBuf=[...cmm.values()].filter(m=>m&&m.ts).sort((a,b)=>a.ts-b.ts);
+  if(localBuf.length>0) renderChannelMessages(localBuf);
+  else document.getElementById('channel-messages-area').innerHTML='<div class="loading-spinner">טוען...</div>';
+  // Subscribe for new/missing messages
+  const cseen=new Set([...cmm.keys()]); let cdone=false;
   gun.get(NS).get('channel_msgs').get(channelId).map().on((msg,key)=>{
-    if(cdone||!msg||!msg.ts||cseen.has(key)) return;
-    cseen.add(key); cbuf.push(msg);
+    if(!msg||!msg.ts||cseen.has(key)) return;
+    cseen.add(key); cmm.set(key,msg);
+    if(!cdone){return;} // During initial load window, just collect
+    if(currentChannelId===channelId){renderChannelMessage(msg);document.getElementById('channel-messages-area').scrollTop=99999;}
+    const ch2=userChannels.find(c=>c.id===channelId); if(ch2){ch2.messages=ch2.messages||[];ch2.messages.push(msg);renderChannelList();}
+    try{const all=[...cmm.values()].filter(m=>m&&m.ts).sort((a,b)=>a.ts-b.ts).slice(-300);localStorage.setItem('wt_ch_'+channelId,JSON.stringify(all));}catch(e){}
   });
   setTimeout(()=>{
     if(currentChannelId!==channelId) return;
-    cdone=true; cbuf.sort((a,b)=>a.ts-b.ts);
-    channelMsgMaps[channelId]=new Map(cbuf.map(m=>[m.id,m]));
-    renderChannelMessages(cbuf);
-    gun.get(NS).get('channel_msgs').get(channelId).map().on((msg,key)=>{
-      if(!msg||!msg.ts||!channelMsgMaps[channelId]||channelMsgMaps[channelId].has(key)) return;
-      channelMsgMaps[channelId].set(key,msg);
-      if(currentChannelId===channelId){renderChannelMessage(msg);document.getElementById('channel-messages-area').scrollTop=99999;}
-      const ch=userChannels.find(c=>c.id===channelId); if(ch){ch.messages=ch.messages||[];ch.messages.push(msg);renderChannelList();}
-    });
+    cdone=true;
+    const allMsgs=[...cmm.values()].filter(m=>m&&m.ts).sort((a,b)=>a.ts-b.ts);
+    renderChannelMessages(allMsgs);
+    try{localStorage.setItem('wt_ch_'+channelId,JSON.stringify(allMsgs.slice(-300)));}catch(e){}
   },2000);
   document.getElementById('app').classList.add('chat-open');
   renderChannelList();
