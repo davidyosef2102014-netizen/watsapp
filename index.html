@@ -749,7 +749,29 @@ function ctxReact(msgId, x, y) {
 function addReaction(msgId, emoji) {
   closeContextMenu();
   gun.get(NS).get('reactions').get(currentChatId + '_' + msgId).get(currentUser.phone).put({emoji, ts: Date.now()});
+  // Update DOM immediately
+  const bubble = document.querySelector(`[data-msgid="${msgId}"]`);
+  if (bubble) {
+    let rxDiv = bubble.querySelector('.msg-reactions');
+    if (!rxDiv) { rxDiv = document.createElement('div'); rxDiv.className = 'msg-reactions'; bubble.appendChild(rxDiv); }
+    let chip = rxDiv.querySelector(`[data-ruser="${currentUser.phone}"]`);
+    if (!chip) { chip = document.createElement('span'); chip.className = 'reaction-chip'; chip.style.cssText='background:rgba(0,0,0,.08);border-radius:12px;padding:2px 6px;font-size:16px;cursor:default'; chip.dataset.ruser = currentUser.phone; rxDiv.appendChild(chip); }
+    chip.textContent = emoji;
+  }
   showToast(emoji + ' נוסף!');
+}
+
+function loadMsgReactions(chatId, msgId) {
+  gun.get(NS).get('reactions').get(chatId + '_' + msgId).map().on((data, phone) => {
+    if (!data||!data.emoji) return;
+    const bubble = document.querySelector(`[data-msgid="${msgId}"]`);
+    if (!bubble) return;
+    let rxDiv = bubble.querySelector('.msg-reactions');
+    if (!rxDiv) { rxDiv = document.createElement('div'); rxDiv.className = 'msg-reactions'; bubble.appendChild(rxDiv); }
+    let chip = rxDiv.querySelector(`[data-ruser="${phone}"]`);
+    if (!chip) { chip = document.createElement('span'); chip.className = 'reaction-chip'; chip.style.cssText='background:rgba(0,0,0,.08);border-radius:12px;padding:2px 6px;font-size:16px;cursor:default'; chip.dataset.ruser = phone; rxDiv.appendChild(chip); }
+    chip.textContent = data.emoji;
+  });
 }
 
 // ===== SWIPE TO REPLY =====
@@ -1041,7 +1063,7 @@ function setupListeners() {
   document.getElementById('create-group-btn').addEventListener('click', createGroup);
   document.getElementById('new-status-btn').addEventListener('click', () => showModal('status-modal'));
   document.getElementById('close-status-modal').addEventListener('click', () => closeModal('status-modal'));
-  document.getElementById('send-status-btn').addEventListener('click', postStatus);
+  // send-status-btn handled by window load override (supports images)
   document.getElementById('my-status-item').addEventListener('click', () => showModal('status-modal'));
   document.getElementById('close-status-btn').addEventListener('click', closeStatusView);
   document.getElementById('send-btn').addEventListener('click', sendMessage);
@@ -1084,10 +1106,23 @@ function doLogin() {
   currentUser = { phone, name, avatar: loginAvatarData||null, id: phone };
   localStorage.setItem('wt_user', JSON.stringify(currentUser));
   gun.get(NS).get('users').get(phone).put({ phone, name, avatar: loginAvatarData||null, lastSeen: Date.now() });
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   showApp();
   startHeartbeat();
   loadUserChats();
   loadChannels();
+}
+
+function showBrowserNotif(senderName, text) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    new Notification('Watspp – ' + senderName, {
+      body: text || 'הודעה חדשה',
+      icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2325D366'/%3E%3Cpath d='M50 15C30.7 15 15 30.7 15 50c0 6.3 1.7 12.2 4.7 17.3L15 85l18.1-4.6C38.2 83.4 44 85 50 85c19.3 0 35-15.7 35-35S69.3 15 50 15z' fill='white'/%3E%3C/svg%3E",
+      tag: 'watspp-msg',
+      renotify: true
+    });
+  } catch(e) {}
 }
 
 function showApp() {
@@ -1189,6 +1224,8 @@ function subMsgsBg(chatId) {
         if (!chatMsgMaps[chatId] || !chatMsgMaps[chatId].has(key)) {
           chat.unreadCount = (chat.unreadCount||0)+1;
           playNotifSound();
+          const senderName = allContacts[msg.senderId]?.name || msg.senderName || msg.senderId;
+          if (document.hidden) showBrowserNotif(senderName, msg.text || 'הודעה חדשה');
         }
       }
       chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
@@ -1256,24 +1293,24 @@ function openChat(chatId) {
 }
 
 function loadChatMsgs(chatId) {
-  if (!chatMsgMaps[chatId]) chatMsgMaps[chatId] = new Map();
-  const mm = chatMsgMaps[chatId];
+  // Set to null to block subMsgsBg from rendering during initial bulk load
+  chatMsgMaps[chatId] = null;
   document.getElementById('messages-area').innerHTML = '<div class="loading-spinner">טוען הודעות...</div>';
-  const buf = [];
-  gun.get(NS).get('messages').get(chatId).map().once((msg,key) => {
-    if (msg&&msg.ts&&msg.senderId&&!mm.has(key)) { mm.set(key,msg); buf.push(msg); }
+  const buf = []; const seen = new Set(); let done = false;
+  // Use on() instead of once() — catches retained (history) AND future messages during load window
+  gun.get(NS).get('messages').get(chatId).map().on((msg, key) => {
+    if (done || !msg||!msg.ts||!msg.senderId||seen.has(key)) return;
+    seen.add(key); buf.push(msg);
   });
   setTimeout(() => {
     if (currentChatId !== chatId) return;
-    buf.sort((a,b)=>a.ts-b.ts);
-    const chat = chatsMap[chatId]; if (chat) chat.messages = buf;
+    done = true;
+    buf.sort((a,b) => a.ts - b.ts);
+    // Populate map so subMsgsBg can handle real-time messages going forward
+    chatMsgMaps[chatId] = new Map(buf.map(m => [m.id, m]));
+    const chat = chatsMap[chatId]; if (chat) chat.messages = [...buf];
     renderMessages(buf);
-    gun.get(NS).get('messages').get(chatId).map().on((msg,key) => {
-      if (!msg||!msg.ts||!msg.senderId||mm.has(key)) return;
-      mm.set(key,msg);
-      if (currentChatId===chatId) { renderMessage(msg,true); scrollToBottom(); if(msg.senderId!==currentUser.phone) playNotifSound(); }
-      const c=chatsMap[chatId]; if(c){c.lastMessage=msg;c.lastTs=msg.ts;chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));renderChatList();}
-    });
+    buf.forEach(m => loadMsgReactions(chatId, m.id));
     gun.get(NS).get('typing').get(chatId).map().on((data,phone) => {
       if (phone===currentUser.phone||currentChatId!==chatId) return;
       const ind=document.getElementById('typing-indicator');
@@ -1283,7 +1320,7 @@ function loadChatMsgs(chatId) {
         setTimeout(()=>ind.classList.add('hidden'),3000);
       } else ind.classList.add('hidden');
     });
-  }, 900);
+  }, 2500);
 }
 
 // ===== RENDER MESSAGES =====
@@ -1463,14 +1500,22 @@ function createGroup() {
 function loadStatuses() {
   const now=Date.now();
   const list=document.getElementById('contacts-status-list'); list.innerHTML='';
-  gun.get(NS).get('statuses').map().once((s,key) => {
-    if(!s||!s.ts||now-s.ts>86400000) return;
-    if(s.userId===currentUser.phone){document.getElementById('my-status-time').textContent='היום, '+formatTime(s.ts);return;}
-    const div=document.createElement('div'); div.className='status-contact-item'; div.onclick=()=>viewStatusData(s);
-    div.innerHTML=`<div class="status-avatar-wrap">${avatarHTML(null,s.userName||s.userId,49,'status-ring')}</div>
-      <div class="status-info"><div class="status-name">${escHtml(s.userName||s.userId)}</div><div class="status-time">${formatTime(s.ts)}</div></div>`;
-    list.appendChild(div);
+  const smap=new Map(); let sdone=false;
+  gun.get(NS).get('statuses').map().on((s,key) => {
+    if(sdone||!s||!s.ts||now-s.ts>86400000) return;
+    smap.set(key,s);
   });
+  setTimeout(()=>{
+    sdone=true; list.innerHTML='';
+    const all=[...smap.values()].sort((a,b)=>b.ts-a.ts);
+    all.forEach(s=>{
+      if(s.userId===currentUser.phone){document.getElementById('my-status-time').textContent='היום, '+formatTime(s.ts);return;}
+      const div=document.createElement('div'); div.className='status-contact-item'; div.onclick=()=>viewStatusData(s);
+      div.innerHTML=`<div class="status-avatar-wrap">${avatarHTML(null,s.userName||s.userId,49,'status-ring')}</div>
+        <div class="status-info"><div class="status-name">${escHtml(s.userName||s.userId)}</div><div class="status-time">${formatTime(s.ts)}</div></div>`;
+      list.appendChild(div);
+    });
+  },2000);
 }
 
 function viewStatusData(s) {
@@ -1537,21 +1582,25 @@ function openChannel(channelId) {
   document.getElementById('channel-header-avatar').outerHTML=`<div id="channel-header-avatar" style="width:40px;height:40px;border-radius:50%;overflow:hidden">${avatarHTML(null,ch.name,40)}</div>`;
   document.getElementById('channel-header-subs').textContent=`${ch.subscribers?.length||0} subscribers`;
   document.getElementById('channel-admin-bar').style.display='flex';
-  if(!channelMsgMaps[channelId]) channelMsgMaps[channelId]=new Map();
+  channelMsgMaps[channelId]=null;
   document.getElementById('channel-messages-area').innerHTML='<div class="loading-spinner">טוען...</div>';
-  const buf=[];
-  gun.get(NS).get('channel_msgs').get(channelId).map().once((msg,key) => {
-    if(msg&&msg.ts&&!channelMsgMaps[channelId].has(key)){channelMsgMaps[channelId].set(key,msg);buf.push(msg);}
+  const cbuf=[]; const cseen=new Set(); let cdone=false;
+  gun.get(NS).get('channel_msgs').get(channelId).map().on((msg,key)=>{
+    if(cdone||!msg||!msg.ts||cseen.has(key)) return;
+    cseen.add(key); cbuf.push(msg);
   });
   setTimeout(()=>{
     if(currentChannelId!==channelId) return;
-    buf.sort((a,b)=>a.ts-b.ts); renderChannelMessages(buf);
+    cdone=true; cbuf.sort((a,b)=>a.ts-b.ts);
+    channelMsgMaps[channelId]=new Map(cbuf.map(m=>[m.id,m]));
+    renderChannelMessages(cbuf);
     gun.get(NS).get('channel_msgs').get(channelId).map().on((msg,key)=>{
-      if(!msg||!msg.ts||channelMsgMaps[channelId].has(key)) return;
+      if(!msg||!msg.ts||!channelMsgMaps[channelId]||channelMsgMaps[channelId].has(key)) return;
       channelMsgMaps[channelId].set(key,msg);
       if(currentChannelId===channelId){renderChannelMessage(msg);document.getElementById('channel-messages-area').scrollTop=99999;}
+      const ch=userChannels.find(c=>c.id===channelId); if(ch){ch.messages=ch.messages||[];ch.messages.push(msg);renderChannelList();}
     });
-  },700);
+  },2000);
   document.getElementById('app').classList.add('chat-open');
   renderChannelList();
 }
