@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poni News - usto 2014</title>
+    <style>
+        :root { --blue:#002e5d; --red:#ff0000; --gray:#f8f9fa; }
+        body { font-family:'Segoe UI',sans-serif; margin:0; background:#e9ecef; }
+
+        header { background:var(--blue); color:white; padding:15px 5%; display:flex; justify-content:space-between; align-items:center; border-bottom:5px solid var(--red); position:sticky; top:0; z-index:1000; }
+        .logo { font-size:28px; font-weight:900; cursor:pointer; }
+        .logo span { color:var(--red); }
+
+        .container { max-width:800px; margin:20px auto; padding:0 15px; }
+
+        /* CONN STATUS */
+        #conn-bar { text-align:center; padding:6px; font-size:13px; font-weight:600; display:none; }
+        #conn-bar.connecting { background:#ff9800; color:white; display:block; }
+        #conn-bar.connected { background:#4caf50; color:white; display:block; }
+        #conn-bar.error { background:#f44336; color:white; display:block; }
+
+        /* ADMIN */
+        #admin-panel { display:none; background:white; padding:25px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.2); margin-bottom:20px; }
+        .input-field { width:100%; padding:12px; margin-top:10px; border:2px solid #ddd; border-radius:6px; box-sizing:border-box; font-size:15px; font-family:inherit; }
+        #paste-area { width:100%; min-height:150px; border:2px dashed var(--blue); margin-top:10px; display:flex; align-items:center; justify-content:center; background:var(--gray); overflow:hidden; position:relative; cursor:pointer; border-radius:6px; color:#888; font-size:14px; flex-direction:column; gap:8px; }
+        #paste-area img { max-width:100%; max-height:200px; object-fit:contain; }
+        .publish-btn { background:var(--blue); color:white; border:none; padding:15px; width:100%; border-radius:6px; margin-top:10px; font-weight:bold; cursor:pointer; font-size:16px; }
+        .publish-btn:hover { background:#003d7a; }
+
+        /* ARTICLE CARDS */
+        .article-card { background:white; margin-bottom:20px; border-radius:12px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,.1); cursor:pointer; transition:.2s; }
+        .article-card:hover { transform:scale(1.01); box-shadow:0 6px 20px rgba(0,0,0,.15); }
+        .article-card img { width:100%; height:220px; object-fit:cover; }
+        .card-no-img { height:160px; background:linear-gradient(135deg,#002e5d,#004080); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.3); font-size:60px; }
+        .card-body { padding:15px; }
+        .card-title { color:var(--blue); margin:5px 0; font-size:22px; font-weight:bold; border-right:5px solid var(--red); padding-right:10px; }
+        .card-time { color:#999; font-size:12px; margin-top:8px; }
+
+        /* FULL ARTICLE */
+        #article-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:2000; overflow-y:auto; padding:20px; box-sizing:border-box; }
+        .full-article-view { max-width:800px; margin:40px auto; }
+        .full-img { width:100%; max-height:500px; object-fit:cover; border-radius:10px; margin-bottom:20px; }
+        .close-btn { position:sticky; top:0; background:var(--red); color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold; font-size:15px; margin-bottom:20px; }
+
+        /* EMPTY STATE */
+        .empty-state { text-align:center; padding:60px 20px; color:#999; }
+        .empty-state div { font-size:60px; margin-bottom:16px; }
+
+        /* TOAST */
+        .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:white; padding:10px 22px; border-radius:20px; font-size:14px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; }
+        .toast.show { opacity:1; }
+    </style>
+</head>
+<body>
+
+<div id="conn-bar"></div>
+
+<header>
+    <div class="logo" onclick="location.reload()">PONI <span>NEWS</span></div>
+    <button style="background:var(--red);color:white;border:none;padding:8px 15px;border-radius:5px;cursor:pointer;font-size:14px;font-weight:bold" onclick="openEditor()">+ כתבה חדשה</button>
+</header>
+
+<div class="container">
+    <div id="admin-panel">
+        <h2 style="margin:0 0 4px;color:var(--blue)">✏️ עריכת כתבה</h2>
+        <p style="color:#888;font-size:13px;margin:0 0 10px">הכתבה תישמר 24 שעות ותופיע בכל המכשירים</p>
+        <input type="text" id="titleIn" class="input-field" placeholder="כותרת הכתבה...">
+        <div id="paste-area" contenteditable="true">
+            <span>📋 הדבק תמונה (Ctrl+V) או לחץ לבחירת קובץ</span>
+            <input type="file" id="img-file" accept="image/*" style="display:none" onchange="handleImgFile(this)">
+        </div>
+        <textarea id="contentIn" class="input-field" rows="6" placeholder="תוכן הכתבה המלא..."></textarea>
+        <button class="publish-btn" onclick="publish()">🚀 פרסם לכל המכשירים (24 שעות)</button>
+    </div>
+
+    <div id="feed"><div class="empty-state"><div>📰</div>טוען כתבות...</div></div>
+</div>
+
+<div id="article-overlay">
+    <button class="close-btn" onclick="closeArticle()">✕ סגור וחזור</button>
+    <div class="full-article-view" id="full-article-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script>
+// ===== MQTT =====
+const NS = 'poninews_usto2014_v1';
+const BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+let _client = null;
+const _subs = {};
+
+function initMQTT(cb) {
+    setConn('connecting');
+    _client = mqtt.connect(BROKER, {
+        clientId: 'poninews_' + Math.random().toString(16).slice(2,10),
+        keepalive: 60, reconnectPeriod: 3000, connectTimeout: 15000
+    });
+    _client.on('connect', () => {
+        setConn('connected');
+        Object.keys(_subs).forEach(t => _client.subscribe(t, {qos:1}));
+        if (cb) { cb(); cb = null; }
+    });
+    _client.on('error', () => setConn('error'));
+    _client.on('offline', () => setConn('connecting'));
+    _client.on('message', (topic, payload) => {
+        let data; try { data = JSON.parse(payload.toString()); } catch(e) { return; }
+        const parts = topic.split('/');
+        const key = parts[parts.length-1];
+        const wc = parts.slice(0,-1).join('/') + '/+';
+        if (_subs[topic]) _subs[topic].slice().forEach(h => h(data, key));
+        if (_subs[wc]) _subs[wc].slice().forEach(h => h(data, key));
+    });
+}
+
+function mqttSub(topic, handler) {
+    if (!_subs[topic]) { _subs[topic] = []; if (_client) _client.subscribe(topic, {qos:1}); }
+    if (!_subs[topic].includes(handler)) _subs[topic].push(handler);
+}
+function mqttPub(topic, data, retain=true) {
+    if (!_client || data === null || data === undefined) return;
+    _client.publish(topic, JSON.stringify(data), {retain, qos:1});
+}
+
+function setConn(state) {
+    const bar = document.getElementById('conn-bar');
+    bar.className = 'conn-bar ' + state;
+    if (state === 'connecting') bar.textContent = '🔄 מתחבר לשרת...';
+    else if (state === 'connected') { bar.textContent = '✅ מחובר!'; setTimeout(() => bar.style.display='none', 2000); }
+    else bar.textContent = '❌ שגיאת חיבור - מנסה שוב...';
+}
+
+// ===== GLOBALS =====
+let tempImgData = '';
+let articles = {};
+
+// ===== INIT =====
+window.onload = function() {
+    initMQTT(() => {
+        loadArticles();
+    });
+
+    // Paste image
+    document.getElementById('paste-area').addEventListener('paste', function(e) {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                readImgBlob(items[i].getAsFile());
+                break;
+            }
+        }
+    });
+    document.getElementById('paste-area').addEventListener('click', function() {
+        document.getElementById('img-file').click();
+    });
+};
+
+function handleImgFile(input) {
+    if (input.files[0]) readImgBlob(input.files[0]);
+}
+
+function readImgBlob(blob) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        // Resize to max 800px wide
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const max = 800;
+            let w = img.width, h = img.height;
+            if (w > max) { h = Math.round(h * max / w); w = max; }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            tempImgData = canvas.toDataURL('image/jpeg', 0.75);
+            document.getElementById('paste-area').innerHTML = `<img src="${tempImgData}">`;
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(blob);
+}
+
+// ===== ADMIN =====
+function openEditor() {
+    const pass = prompt('סיסמה:');
+    if (pass === 'usto2014') {
+        document.getElementById('admin-panel').style.display = 'block';
+        window.scrollTo(0, 0);
+    } else if (pass !== null) {
+        showToast('סיסמה שגויה');
+    }
+}
+
+function publish() {
+    const title = document.getElementById('titleIn').value.trim();
+    const content = document.getElementById('contentIn').value.trim();
+    if (!title || !content) { showToast('מלא כותרת ותוכן'); return; }
+
+    const id = 'art_' + Date.now();
+    const article = { id, title, content, img: tempImgData || null, time: Date.now() };
+    mqttPub(NS + '/articles/' + id, article);
+
+    showToast('✅ הכתבה פורסמה!');
+    document.getElementById('titleIn').value = '';
+    document.getElementById('contentIn').value = '';
+    document.getElementById('paste-area').innerHTML = '<span>📋 הדבק תמונה (Ctrl+V) או לחץ לבחירת קובץ</span><input type="file" id="img-file" accept="image/*" style="display:none" onchange="handleImgFile(this)">';
+    tempImgData = '';
+    document.getElementById('admin-panel').style.display = 'none';
+}
+
+// ===== LOAD =====
+function loadArticles() {
+    const now = Date.now();
+    mqttSub(NS + '/articles/+', (article, key) => {
+        if (!article || !article.id || !article.title) return;
+        // Auto-expire after 24h
+        if (now - article.time > 24 * 60 * 60 * 1000) return;
+        articles[key] = article;
+        renderFeed();
+    });
+
+    // Show empty state if no articles after 4s
+    setTimeout(() => {
+        if (Object.keys(articles).length === 0) {
+            document.getElementById('feed').innerHTML = `
+                <div class="empty-state">
+                    <div>📰</div>
+                    <strong>אין כתבות כרגע</strong><br>
+                    <small>לחץ "+ כתבה חדשה" כדי לפרסם</small>
+                </div>`;
+        }
+    }, 4000);
+}
+
+function renderFeed() {
+    const now = Date.now();
+    const sorted = Object.values(articles)
+        .filter(a => now - a.time < 24 * 60 * 60 * 1000)
+        .sort((a, b) => b.time - a.time);
+
+    if (!sorted.length) {
+        document.getElementById('feed').innerHTML = `<div class="empty-state"><div>📰</div>אין כתבות כרגע</div>`;
+        return;
+    }
+
+    document.getElementById('feed').innerHTML = sorted.map(a => `
+        <div class="article-card" onclick="viewFull('${a.id}')">
+            ${a.img
+                ? `<img src="${a.img}" alt="${esc(a.title)}">`
+                : `<div class="card-no-img">📰</div>`}
+            <div class="card-body">
+                <h2 class="card-title">${esc(a.title)}</h2>
+                <p style="color:#555;margin:6px 0 0">${esc(a.content.substring(0, 100))}${a.content.length > 100 ? '...' : ''}</p>
+                <div class="card-time">⏰ ${timeAgo(a.time)} | Poni News</div>
+            </div>
+        </div>`).join('');
+}
+
+function viewFull(id) {
+    const a = articles[id]; if (!a) return;
+    document.getElementById('full-article-content').innerHTML = `
+        <h1 style="font-size:34px;color:var(--blue);margin-bottom:8px;border-right:6px solid var(--red);padding-right:12px">${esc(a.title)}</h1>
+        <p style="color:#999;margin-bottom:16px">📅 ${new Date(a.time).toLocaleString('he-IL')} | Poni News · usto 2014</p>
+        <hr style="border:none;border-top:2px solid #eee;margin-bottom:20px">
+        ${a.img ? `<img src="${a.img}" class="full-img">` : ''}
+        <div style="font-size:19px;line-height:1.8;white-space:pre-wrap;color:#222">${esc(a.content)}</div>
+    `;
+    document.getElementById('article-overlay').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeArticle() {
+    document.getElementById('article-overlay').style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+// ===== UTILS =====
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function timeAgo(ts) {
+    const s = Math.floor((Date.now()-ts)/1000);
+    if (s < 60) return 'עכשיו';
+    if (s < 3600) return `לפני ${Math.floor(s/60)} דקות`;
+    if (s < 86400) return `לפני ${Math.floor(s/3600)} שעות`;
+    return `לפני ${Math.floor(s/86400)} ימים`;
+}
+
+let _toastT;
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(_toastT); _toastT = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
