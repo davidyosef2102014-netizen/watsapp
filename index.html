@@ -1005,6 +1005,10 @@ function clearStatusImg() { clearStatusMedia(); }
 })();
 
 window.addEventListener('load', function() {
+  // Move status-view to body so position:fixed works on mobile
+  // (parent .main-area has display:none on mobile which blocks children)
+  const sv = document.getElementById('status-view');
+  if (sv) document.body.appendChild(sv);
   // Allow all channel members (not just admin) to post
   var _origOpenChannel = openChannel;
   openChannel = function(channelId) {
