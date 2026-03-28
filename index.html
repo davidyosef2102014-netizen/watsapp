@@ -47,12 +47,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 .tabs{display:none}
 .tab-content{flex:1;overflow-y:auto}
 .tab-content.hidden{display:none}
-.mobile-bottom-nav{display:none;flex-shrink:0;background:#fff;border-top:1px solid var(--border);height:56px}
-.mobile-bottom-nav button{flex:1;background:none;border:none;cursor:pointer;font-size:11px;color:#667781;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:100%;padding:0}
-.mobile-bottom-nav button svg{transition:color .15s}
-.mobile-bottom-nav button.active{color:var(--teal)}
-.mobile-bottom-nav button span{font-size:11px}
-@media(max-width:768px){.mobile-bottom-nav{display:flex}}
 .filter-chips{display:flex;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
 .filter-chips::-webkit-scrollbar{display:none}
 .filter-chip{padding:6px 16px;border-radius:20px;font-size:13px;font-weight:500;border:none;cursor:pointer;background:var(--bg);color:var(--text-secondary);white-space:nowrap;transition:all .15s}
@@ -393,21 +387,6 @@ body{overflow:hidden;height:100dvh}
         <h3>קהילות - בקרוב!</h3>
         <p>קהילות מאפשרות לך לארגן קבוצות קשורות תחת מטריה אחת</p>
       </div>
-    </div>
-    <!-- Mobile Bottom Nav -->
-    <div class="mobile-bottom-nav" id="mobile-bottom-nav">
-      <button id="mnav-chats" class="active" onclick="switchTab('chats')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-        <span>צ'אטים</span>
-      </button>
-      <button id="mnav-status" onclick="switchTab('status')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="12" cy="12" r="3.2"/><path d="M9 2v2.06A7.94 7.94 0 0 0 4.06 9H2v6h2.06A7.94 7.94 0 0 0 9 19.94V22h6v-2.06A7.94 7.94 0 0 0 19.94 15H22V9h-2.06A7.94 7.94 0 0 0 15 4.06V2H9z"/></svg>
-        <span>סטטוס</span>
-      </button>
-      <button id="mnav-channels" onclick="switchTab('channels')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 12H6v-1c0-2 4-3.1 6-3.1s6 1.1 6 3.1v1z"/></svg>
-        <span>ערוצים</span>
-      </button>
     </div>
     <!-- FAB -->
     <div class="fab-wrap" id="fab-wrap">
@@ -1129,40 +1108,6 @@ let currentUser = JSON.parse(localStorage.getItem('wt_user') || 'null');
 let loginAvatarData = null;
 let chats = [];
 let chatsMap = {};
-
-function saveChatsToLocal() {
-  if (!currentUser) return;
-  try {
-    const data = chats.map(c => {
-      let lm = null;
-      if (c.lastMessage) {
-        // Strip large binary fields so we don't exceed localStorage quota
-        lm = { ts: c.lastMessage.ts, senderId: c.lastMessage.senderId, text: c.lastMessage.text||'' };
-        if (c.lastMessage.imageData) lm.imageData = true; // just a flag
-        if (c.lastMessage.voiceData) lm.voiceData = true;
-      }
-      return { id:c.id, type:c.type, members:c.members, displayName:c.displayName, name:c.name, lastTs:c.lastTs||0, lastMessage:lm };
-    });
-    localStorage.setItem('wt_chatlist_'+currentUser.phone, JSON.stringify(data));
-  } catch(e) {}
-}
-function loadChatsFromLocal() {
-  if (!currentUser) return;
-  try {
-    const raw = localStorage.getItem('wt_chatlist_'+currentUser.phone);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    data.forEach(c => {
-      if (!chatsMap[c.id]) {
-        const chat = Object.assign({}, c, { messages:[], unreadCount:0 });
-        chatsMap[c.id] = chat;
-        if (!chats.find(x => x.id === c.id)) chats.push(chat);
-      }
-    });
-    chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
-    renderChatList();
-  } catch(e) {}
-}
 let allContacts = {};
 let currentChatId = null;
 let currentChannelId = null;
@@ -1185,7 +1130,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupListeners();
   if (currentUser) {
     showApp();
-    loadChatsFromLocal();
     startHeartbeat();
     loadUserChats();
     loadChannels();
@@ -1347,7 +1291,7 @@ function debounceSave(chatId, mm) {
 function loadUserChats() {
   gun.get(NS).get('user_chats').get(currentUser.phone).map().on((chatData, chatId) => {
     if (!chatData || !chatId || chatId==='_' || chatId.startsWith('_')) return;
-    if (chatsMap[chatId]) { updateChatTs(chatId, chatData.lastTs); if (!chatMsgMaps[chatId]) subMsgsBg(chatId); return; }
+    if (chatsMap[chatId]) { updateChatTs(chatId, chatData.lastTs); return; }
     const members = (chatData.members||'').split(',').filter(Boolean);
     if (chatData.type === 'group') {
       const chat = { id:chatId, type:'group', members, displayName:chatData.name||'Group', name:chatData.name||'Group', displayAvatar:null, messages:[], unreadCount:0, lastMessage:null, lastTs:chatData.lastTs||0 };
@@ -1372,7 +1316,6 @@ function loadUserChats() {
           chatsMap[chatId].displayName = displayName;
           chatsMap[chatId].name = displayName;
           if (displayAvatar) chatsMap[chatId].displayAvatar = displayAvatar;
-          saveChatsToLocal();
         }
         renderChatList();
       });
@@ -1391,12 +1334,11 @@ function loadUserChats() {
 function updateChatTs(chatId, ts) {
   if (!ts) return;
   const chat = chatsMap[chatId];
-  if (chat && ts > (chat.lastTs||0)) { chat.lastTs = ts; chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)); renderChatList(); saveChatsToLocal(); }
+  if (chat && ts > (chat.lastTs||0)) { chat.lastTs = ts; chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)); renderChatList(); }
 }
 
 function insertChat(chat) {
   if (!chats.find(c => c.id === chat.id)) { chats.push(chat); chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)); }
-  saveChatsToLocal();
 }
 
 function subMsgsBg(chatId) {
@@ -1415,7 +1357,6 @@ function subMsgsBg(chatId) {
         chat.lastMessage = msg; chat.lastTs = msg.ts;
         chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
         renderChatList();
-        saveChatsToLocal();
       }
       if (chatId !== currentChatId && msg.senderId !== currentUser.phone) {
         const lastNotifyTs = parseInt(localStorage.getItem('lnt_'+chatId)||'0');
@@ -2002,8 +1943,6 @@ function requestNotifPermission() {
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
   document.querySelectorAll('.tab-content').forEach(c=>{const id=c.id.replace('tab-','');c.classList.toggle('hidden',id!==name);});
-  ['chats','status','channels'].forEach(n=>{const b=document.getElementById('mnav-'+n);if(b)b.classList.toggle('active',n===name);});
-  const fc=document.getElementById('filter-chips');if(fc)fc.style.display=name==='chats'?'flex':'none';
   if(name==='status') loadStatuses();
   if(name==='channels') loadChannels();
 }
