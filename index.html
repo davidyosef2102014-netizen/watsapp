@@ -605,7 +605,7 @@ body{overflow:hidden;height:100dvh}
       <button class="icon-btn" id="close-status-modal"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       <h3>הוסף סטטוס</h3>
     </div>
-    <div style="padding:0 16px 12px;display:flex;flex-direction:column;gap:10px"><textarea id="status-text-input" placeholder="מה קורה? 🙂" style="border:1px solid #e9edef;border-radius:8px;padding:12px;font-size:15px;outline:none;resize:none;height:100px;font-family:inherit;width:100%"></textarea><div id="status-img-preview" style="display:none"><img id="status-img-thumb" src="" style="max-width:100%;border-radius:8px;max-height:180px;object-fit:cover"/><button onclick="clearStatusImg()" style="margin-top:4px;background:#f44336;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">הסר תמונה</button></div><label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#25D366;font-size:14px;font-weight:500"><svg viewBox="0 0 24 24" width="20" height="20" fill="#25D366"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>הוסף תמונה לסטטוס<input type="file" id="status-img-input" accept="image/*" style="display:none" onchange="handleStatusImg(this)"/></label></div><button class="send-status-btn" id="send-status-btn">פרסם סטטוס</button>
+    <div style="padding:0 16px 12px;display:flex;flex-direction:column;gap:10px"><textarea id="status-text-input" placeholder="מה קורה? 🙂" style="border:1px solid #e9edef;border-radius:8px;padding:12px;font-size:15px;outline:none;resize:none;height:100px;font-family:inherit;width:100%"></textarea><div id="status-img-preview" style="display:none"><img id="status-img-thumb" src="" style="max-width:100%;border-radius:8px;max-height:180px;object-fit:cover"/><button onclick="clearStatusMedia()" style="margin-top:4px;background:#f44336;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">הסר תמונה</button></div><div id="status-vid-preview" style="display:none"><video id="status-vid-thumb" style="max-width:100%;border-radius:8px;max-height:180px" controls muted></video><button onclick="clearStatusMedia()" style="margin-top:4px;background:#f44336;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">הסר סרטון</button></div><div style="display:flex;gap:12px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#25D366;font-size:14px;font-weight:500"><svg viewBox="0 0 24 24" width="20" height="20" fill="#25D366"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>תמונה<input type="file" id="status-img-input" accept="image/*" style="display:none" onchange="handleStatusImg(this)"/></label><label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#7c4dff;font-size:14px;font-weight:500"><svg viewBox="0 0 24 24" width="20" height="20" fill="#7c4dff"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>סרטון<input type="file" id="status-vid-input" accept="video/*" style="display:none" onchange="handleStatusVid(this)"/></label></div></div><button class="send-status-btn" id="send-status-btn">פרסם סטטוס</button>
   </div>
 </div>
 
@@ -949,8 +949,11 @@ function joinCustomChannel(chId) {
 // ===== STATUS WITH IMAGE =====
 let statusImgData = null;
 
+let statusVideoData = null;
+
 function handleStatusImg(input) {
   const f = input.files[0]; if (!f) return;
+  clearStatusMedia();
   resizeImg(f, 1200, function(d) {
     statusImgData = d;
     document.getElementById('status-img-thumb').src = d;
@@ -959,11 +962,29 @@ function handleStatusImg(input) {
   input.value = '';
 }
 
-function clearStatusImg() {
-  statusImgData = null;
+function handleStatusVid(input) {
+  const f = input.files[0]; if (!f) return;
+  if (f.size > 15 * 1024 * 1024) { showToast('הסרטון גדול מדי (מקסימום 15MB)'); input.value=''; return; }
+  clearStatusMedia();
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    statusVideoData = e.target.result;
+    const vid = document.getElementById('status-vid-thumb');
+    vid.src = statusVideoData;
+    document.getElementById('status-vid-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(f);
+  input.value = '';
+}
+
+function clearStatusMedia() {
+  statusImgData = null; statusVideoData = null;
   document.getElementById('status-img-preview').style.display = 'none';
   document.getElementById('status-img-thumb').src = '';
+  document.getElementById('status-vid-preview').style.display = 'none';
+  document.getElementById('status-vid-thumb').src = '';
 }
+function clearStatusImg() { clearStatusMedia(); }
 
 // Override openChannel and status after all scripts load
 // Generate proper PNG favicon via canvas
@@ -997,16 +1018,16 @@ window.addEventListener('load', function() {
   // Override status button to support images
   document.getElementById('send-status-btn').onclick = function() {
     var text = document.getElementById('status-text-input').value.trim();
-    if (!text && !statusImgData) { showToast('כתוב משהו או הוסף תמונה'); return; }
+    if (!text && !statusImgData && !statusVideoData) { showToast('כתוב משהו, הוסף תמונה או סרטון'); return; }
     var colors = ['#25D366','#7c4dff','#f44336','#4caf50','#ff9800','#e91e63'];
-    var bg = statusImgData ? '#000' : colors[Math.floor(Math.random() * colors.length)];
+    var bg = (statusImgData||statusVideoData) ? '#000' : colors[Math.floor(Math.random() * colors.length)];
     var sid = Date.now() + '_' + currentUser.phone;
     gun.get(NS).get('statuses').get(sid).put({
       id: sid, userId: currentUser.phone, userName: currentUser.name,
-      content: text, bgColor: bg, imageData: statusImgData || null, ts: Date.now()
+      content: text, bgColor: bg, imageData: statusImgData || null, videoData: statusVideoData || null, ts: Date.now()
     });
     document.getElementById('status-text-input').value = '';
-    clearStatusImg();
+    clearStatusMedia();
     closeModal('status-modal');
     showToast('סטטוס פורסם! 🎉');
     setTimeout(loadStatuses, 500);
@@ -1676,7 +1697,15 @@ function viewStatusData(s) {
   document.getElementById('status-view-time').textContent=formatTime(s.ts);
   const av=allContacts[s.userId]?.avatar;
   const avEl=document.getElementById('status-view-avatar'); if(av) avEl.src=av; else avEl.src='';
-  document.getElementById('status-view-content').innerHTML = s.imageData ? ('<div style="display:flex;flex-direction:column;align-items:center;gap:16px">' + '<img src="' + s.imageData + '" style="max-width:90vw;max-height:60vh;border-radius:12px;object-fit:contain"/>' + (s.content ? '<div style="background:rgba(0,0,0,0.6);padding:12px 24px;border-radius:12px;color:white;font-size:18px">' + escHtml(s.content) + '</div>' : '') + '</div>') : '<div style="background:' + (s.bgColor||'#25D366') + ';padding:24px 32px;border-radius:12px;font-size:22px;font-weight:500;max-width:400px;text-align:center">' + escHtml(s.content) + '</div>';
+  let statusContent = '';
+  if (s.videoData) {
+    statusContent = '<div style="display:flex;flex-direction:column;align-items:center;gap:16px;width:100%"><video src="' + s.videoData + '" style="max-width:90vw;max-height:60vh;border-radius:12px" controls autoplay playsinline></video>' + (s.content ? '<div style="background:rgba(0,0,0,0.6);padding:12px 24px;border-radius:12px;color:white;font-size:18px">' + escHtml(s.content) + '</div>' : '') + '</div>';
+  } else if (s.imageData) {
+    statusContent = '<div style="display:flex;flex-direction:column;align-items:center;gap:16px"><img src="' + s.imageData + '" style="max-width:90vw;max-height:60vh;border-radius:12px;object-fit:contain"/>' + (s.content ? '<div style="background:rgba(0,0,0,0.6);padding:12px 24px;border-radius:12px;color:white;font-size:18px">' + escHtml(s.content) + '</div>' : '') + '</div>';
+  } else {
+    statusContent = '<div style="background:' + (s.bgColor||'#25D366') + ';padding:24px 32px;border-radius:12px;font-size:22px;font-weight:500;max-width:400px;text-align:center">' + escHtml(s.content||'') + '</div>';
+  }
+  document.getElementById('status-view-content').innerHTML = statusContent;
   const bar=document.getElementById('status-progress-bar'); bar.style.width='0%'; setTimeout(()=>bar.style.width='100%',100);
   document.getElementById('welcome-screen').classList.add('hidden');
   document.getElementById('chat-window').classList.add('hidden');
