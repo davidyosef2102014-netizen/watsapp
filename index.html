@@ -32,7 +32,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 .login-footer{color:var(--text-secondary);font-size:12px;margin-top:8px}
 .app{display:flex;height:100vh;overflow:hidden}
 .hidden{display:none!important}
-.sidebar{width:375px;min-width:300px;max-width:420px;background:var(--sidebar-bg);display:flex;flex-direction:column;border-right:1px solid var(--border);height:100vh;overflow:hidden}
+.sidebar{width:375px;min-width:300px;max-width:420px;background:var(--sidebar-bg);display:flex;flex-direction:column;border-right:1px solid var(--border);height:100vh;overflow:hidden;position:relative}
 .sidebar-header{display:flex;align-items:center;padding:10px 16px;background:var(--header-bg);gap:10px}
 .header-avatar{width:40px;height:40px;border-radius:50%;overflow:hidden;cursor:pointer;flex-shrink:0}
 .header-avatar img{width:100%;height:100%;object-fit:cover}
@@ -44,11 +44,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 .search-icon-wrap{flex-shrink:0;padding:0 8px}
 .search-bar input{border:none;outline:none;flex:1;font-size:15px;background:var(--bg);padding:8px 12px;border-radius:8px}
 .search-bar input::placeholder{color:var(--text-secondary)}
-.tabs{display:flex;background:var(--sidebar-bg);border-bottom:1px solid var(--border)}
-.tab{flex:1;padding:13px 4px;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-secondary);border-bottom:3px solid transparent;transition:color .2s,border-color .2s;white-space:nowrap}
-.tab.active{color:var(--teal);border-bottom-color:var(--teal)}
+.tabs{display:none}
 .tab-content{flex:1;overflow-y:auto}
 .tab-content.hidden{display:none}
+.filter-chips{display:flex;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
+.filter-chips::-webkit-scrollbar{display:none}
+.filter-chip{padding:6px 16px;border-radius:20px;font-size:13px;font-weight:500;border:none;cursor:pointer;background:var(--bg);color:var(--text-secondary);white-space:nowrap;transition:all .15s}
+.filter-chip.active{background:#d9fdd3;color:#025c4c}
+.date-sep{text-align:center;padding:6px 0;font-size:12px;color:var(--text-secondary);font-weight:500;background:transparent}
+.fab-wrap{position:absolute;bottom:20px;left:16px;z-index:200;display:flex;flex-direction:column;align-items:flex-end}
+.fab{width:56px;height:56px;border-radius:50%;background:var(--teal);border:none;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:transform .2s}
+.fab:hover{transform:scale(1.05)}
+.fab-menu{display:none;flex-direction:column;gap:12px;margin-bottom:12px;align-items:flex-end}
+.fab-menu.open{display:flex}
+.fab-menu-item{display:flex;align-items:center;gap:10px;cursor:pointer}
+.fab-mini{width:44px;height:44px;border-radius:50%;border:none;color:white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:18px}
+.fab-label{background:rgba(0,0,0,.7);color:white;padding:4px 10px;border-radius:6px;font-size:13px;white-space:nowrap}
+.notif-banner{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:white;padding:12px 20px;border-radius:12px;font-size:14px;z-index:9000;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.notif-banner button{background:var(--teal);color:white;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer}
+.notif-banner-close{background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:18px;padding:0 4px}
 .chat-item{display:flex;align-items:center;padding:10px 16px;cursor:pointer;gap:12px;border-bottom:1px solid var(--border);transition:background .15s}
 .chat-item:hover{background:var(--bg)}
 .chat-item.active{background:#f0f2f5}
@@ -167,7 +181,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 .add-reaction-btn{background:none;border:1px dashed var(--border);border-radius:12px;padding:2px 8px;font-size:13px;cursor:pointer;color:var(--text-secondary)}
 .channel-input-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--header-bg);border-top:1px solid var(--border)}
 .channel-input-bar input{flex:1;background:white;border:1px solid var(--border);border-radius:24px;padding:10px 16px;font-size:15px;outline:none}
-.status-view{flex:1;display:flex;flex-direction:column;background:#1a1a1a;position:relative}
+.status-view{position:fixed;inset:0;z-index:500;background:#1a1a1a;flex-direction:column;display:none}
+.status-view:not(.hidden){display:flex}
 .status-view-header{display:flex;align-items:center;gap:12px;padding:16px;background:linear-gradient(to bottom,rgba(0,0,0,.6),transparent);position:absolute;top:0;left:0;right:0;z-index:10;color:white}
 .status-view-header img{width:40px;height:40px;border-radius:50%;object-fit:cover}
 .status-view-header>div>:first-child{font-size:16px;font-weight:600}
@@ -231,7 +246,7 @@ body{overflow:hidden;height:100dvh}
 .login-container{padding:20px}
 .modal-box{width:100%;height:100dvh;max-width:100%;border-radius:0;margin:0}
 .modal{align-items:flex-start}
-.tab{font-size:11px;padding:12px 2px}
+.fab-wrap{bottom:16px;left:12px}
 .welcome-screen{display:none}
 }
 
@@ -299,14 +314,14 @@ body{overflow:hidden;height:100dvh}
 <div id="app" class="app hidden">
   <!-- SIDEBAR -->
   <div class="sidebar">
-    <div class="sidebar-header">
-      <div class="header-avatar" id="my-avatar-wrap">
-        <img id="my-avatar" src="" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover" />
-      </div>
-      <div class="header-title">Watspp</div>
-      <div class="header-icons">
+    <div class="sidebar-header" style="background:#fff;border-bottom:1px solid var(--border)">
+      <div class="header-title" style="font-size:22px;font-weight:700;color:#111b21">Watspp</div>
+      <div class="header-icons" style="margin-right:auto">
+        <button class="icon-btn" id="sidebar-more-btn" title="עוד">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="color:#54656f"><path d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 2a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 9zm0 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 15z"/></svg>
+        </button>
         <button class="icon-btn" id="new-chat-btn" title="צ'אט חדש">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V21.02l3.544-3.514h12.461c1.033 0 2.064-1.06 2.064-2.093V4.821c-.001-1.032-1.032-1.646-2.064-1.646zm-4.989 9.869H7.041V11.1h6.975v1.944zm3-4H7.041V7.1h9.975v1.944z"/></svg>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="color:#54656f"><path d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V21.02l3.544-3.514h12.461c1.033 0 2.064-1.06 2.064-2.093V4.821c-.001-1.032-1.032-1.646-2.064-1.646zm-4.989 9.869H7.041V11.1h6.975v1.944zm3-4H7.041V7.1h9.975v1.944z"/></svg>
         </button>
       </div>
     </div>
@@ -323,6 +338,11 @@ body{overflow:hidden;height:100dvh}
       <button class="tab" data-tab="status">סטטוס</button>
       <button class="tab" data-tab="channels">ערוצים</button>
       <button class="tab" data-tab="communities">קהילות</button>
+    </div>
+    <div class="filter-chips" id="filter-chips">
+      <button class="filter-chip active" data-filter="all">הכל</button>
+      <button class="filter-chip" data-filter="unread">לא נקראו</button>
+      <button class="filter-chip" data-filter="groups">קבוצות</button>
     </div>
 
     <div id="tab-chats" class="tab-content">
@@ -367,6 +387,26 @@ body{overflow:hidden;height:100dvh}
         <h3>קהילות - בקרוב!</h3>
         <p>קהילות מאפשרות לך לארגן קבוצות קשורות תחת מטריה אחת</p>
       </div>
+    </div>
+    <!-- FAB -->
+    <div class="fab-wrap" id="fab-wrap">
+      <div class="fab-menu" id="fab-menu">
+        <div class="fab-menu-item" onclick="switchTab('status');closeFab()">
+          <span class="fab-label">סטטוס</span>
+          <button class="fab-mini" style="background:#9c27b0">📸</button>
+        </div>
+        <div class="fab-menu-item" onclick="openNewGroupModal();closeFab()">
+          <span class="fab-label">קבוצה חדשה</span>
+          <button class="fab-mini" style="background:#00897b">👥</button>
+        </div>
+        <div class="fab-menu-item" onclick="openNewChatModal();closeFab()">
+          <span class="fab-label">צ'אט חדש</span>
+          <button class="fab-mini" style="background:var(--teal)">💬</button>
+        </div>
+      </div>
+      <button class="fab" id="fab-btn" onclick="toggleFab()">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="white"><path d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V21.02l3.544-3.514h12.461c1.033 0 2.064-1.06 2.064-2.093V4.821c-.001-1.032-1.032-1.646-2.064-1.646zm-4.989 9.869H7.041V11.1h6.975v1.944zm3-4H7.041V7.1h9.975v1.944z"/></svg>
+      </button>
     </div>
   </div>
 
@@ -579,6 +619,19 @@ body{overflow:hidden;height:100dvh}
   </div>
 </div>
 
+<!-- Sidebar More Menu -->
+<div id="sidebar-more-menu" style="display:none;position:fixed;background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:5000;min-width:180px;padding:4px 0">
+  <div style="padding:12px 16px;cursor:pointer;font-size:15px;border-radius:4px" onclick="switchTab('status');document.getElementById('sidebar-more-menu').style.display='none'">סטטוס</div>
+  <div style="padding:12px 16px;cursor:pointer;font-size:15px;border-radius:4px" onclick="switchTab('channels');document.getElementById('sidebar-more-menu').style.display='none'">ערוצים</div>
+  <div style="padding:12px 16px;cursor:pointer;font-size:15px;border-radius:4px" onclick="openSettings();document.getElementById('sidebar-more-menu').style.display='none'">הגדרות</div>
+  <div style="padding:12px 16px;cursor:pointer;font-size:15px;border-radius:4px" onclick="openAdminPanel();document.getElementById('sidebar-more-menu').style.display='none'">ניהול</div>
+</div>
+<!-- Notification Permission Banner -->
+<div id="notif-banner" class="notif-banner" style="display:none">
+  <span>🔔 אפשר התראות להודעות חדשות</span>
+  <button onclick="requestNotifPermission()">אפשר</button>
+  <button class="notif-banner-close" onclick="document.getElementById('notif-banner').style.display='none'">✕</button>
+</div>
 <div id="toast" class="toast hidden"></div>
 <div class="app-footer">Watspp · פועל בכל המכשירים</div>
 
@@ -1072,6 +1125,19 @@ function setupListeners() {
   });
 
   document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  document.querySelectorAll('.filter-chip').forEach(c => c.addEventListener('click', () => {
+    document.querySelectorAll('.filter-chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    setFilter(c.dataset.filter);
+  }));
+  document.getElementById('sidebar-more-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    const menu = document.getElementById('sidebar-more-menu');
+    const btn = e.currentTarget.getBoundingClientRect();
+    menu.style.top = (btn.bottom+4)+'px';
+    menu.style.right = (window.innerWidth - btn.right)+'px';
+    menu.style.display = menu.style.display==='none' ? 'block' : 'none';
+  });
   document.getElementById('new-chat-btn').addEventListener('click', openNewChatModal);
   document.getElementById('close-new-chat').addEventListener('click', () => closeModal('new-chat-modal'));
   document.getElementById('contact-search').addEventListener('input', handleContactSearch);
@@ -1144,6 +1210,10 @@ function showBrowserNotif(senderName, text) {
 
 function showApp() {
   document.getElementById('login-screen').classList.add('hidden');
+  // Show notification permission banner if not yet granted
+  if ('Notification' in window && Notification.permission === 'default') {
+    setTimeout(() => { document.getElementById('notif-banner').style.display='flex'; }, 3000);
+  }
   document.getElementById('app').classList.remove('hidden');
   // Add settings gear button now that the header is visible
   setTimeout(() => {
@@ -1264,10 +1334,15 @@ function subMsgsBg(chatId) {
         renderChatList();
       }
       if (chatId !== currentChatId && msg.senderId !== currentUser.phone) {
+        const lastNotifyTs = parseInt(localStorage.getItem('lnt_'+chatId)||'0');
+        const isReallyNew = msg.ts > lastNotifyTs && msg.ts > (Date.now() - 30000);
         chat.unreadCount = (chat.unreadCount||0)+1;
-        playNotifSound();
-        const senderName = allContacts[msg.senderId]?.name || msg.senderName || msg.senderId;
-        if (document.hidden) showBrowserNotif(senderName, msg.text || 'הודעה חדשה');
+        if (isReallyNew) {
+          playNotifSound();
+          const senderName = allContacts[msg.senderId]?.name || msg.senderName || msg.senderId;
+          showBrowserNotif(senderName, msg.text || 'הודעה חדשה');
+          localStorage.setItem('lnt_'+chatId, String(msg.ts));
+        }
       }
     }
     // Render to DOM only when chat is open AND initial load is done (no spinner)
@@ -1282,17 +1357,33 @@ function subMsgsBg(chatId) {
 }
 
 // ===== CHAT LIST =====
+let _activeFilter = 'all';
+function setFilter(f) { _activeFilter = f; renderChatList(); }
 function renderChatList() {
   const list = document.getElementById('chat-list');
   const q = (document.getElementById('search-input').value||'').toLowerCase();
-  const filtered = chats.filter(c => !q || (c.displayName||'').toLowerCase().includes(q) || (c.lastMessage?.text||'').toLowerCase().includes(q));
+  let filtered = chats.filter(c => !q || (c.displayName||'').toLowerCase().includes(q) || (c.lastMessage?.text||'').toLowerCase().includes(q));
+  if (_activeFilter === 'unread') filtered = filtered.filter(c => (c.unreadCount||0) > 0);
+  if (_activeFilter === 'groups') filtered = filtered.filter(c => c.type === 'group');
   if (!filtered.length) {
-    list.innerHTML = `<div style="padding:30px;text-align:center;color:#667781"><div style="font-size:40px;margin-bottom:12px">💬</div><div>אין צ'אטים עדיין</div><div style="font-size:13px;margin-top:6px">לחץ <b>צ'אט חדש</b> כדי להתחיל</div></div>`;
+    list.innerHTML = `<div style="padding:30px;text-align:center;color:#667781"><div style="font-size:40px;margin-bottom:12px">💬</div><div>אין צ'אטים עדיין</div><div style="font-size:13px;margin-top:6px">לחץ על ✏️ כדי להתחיל</div></div>`;
     return;
   }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate()-1);
+  let lastDateLabel = '';
   list.innerHTML = filtered.map(chat => {
     const name = chat.displayName||'Unknown';
     const last = chat.lastMessage;
+    let dateSep = '';
+    if (last && last.ts) {
+      const msgDate = new Date(last.ts); msgDate.setHours(0,0,0,0);
+      let label = '';
+      if (msgDate.getTime() === today.getTime()) label = 'היום';
+      else if (msgDate.getTime() === yesterday.getTime()) label = 'אתמול';
+      else label = msgDate.toLocaleDateString('he-IL',{day:'numeric',month:'numeric'});
+      if (label !== lastDateLabel) { lastDateLabel = label; dateSep = `<div class="date-sep">${label}</div>`; }
+    }
     let preview = '';
     if (last) {
       if (last.imageData) preview='📷 תמונה';
@@ -1302,7 +1393,7 @@ function renderChatList() {
     }
     const time = last ? formatTime(last.ts) : '';
     const unread = chat.unreadCount||0;
-    return `<div class="chat-item ${chat.id===currentChatId?'active':''}" onclick="openChat('${chat.id}')">
+    return dateSep + `<div class="chat-item ${chat.id===currentChatId?'active':''}" onclick="openChat('${chat.id}')">
       <div class="chat-avatar">${avatarHTML(chat.displayAvatar,name,49)}</div>
       <div class="chat-info">
         <div class="chat-top"><span class="chat-name">${chat.type==='group'?'👥 ':''}${escHtml(name)}</span><span class="chat-time" style="color:${unread>0?'#25D366':'#667781'}">${time}</span></div>
@@ -1317,6 +1408,7 @@ function openChat(chatId) {
   currentChatId = chatId; currentChannelId = null;
   const chat = chatsMap[chatId]; if (!chat) return;
   chat.unreadCount = 0;
+  localStorage.setItem('lnt_'+chatId, String(Date.now()));
   document.getElementById('welcome-screen').classList.add('hidden');
   document.getElementById('chat-window').classList.remove('hidden');
   document.getElementById('channel-window').classList.add('hidden');
@@ -1794,6 +1886,27 @@ function buildEmojiGrid() { document.getElementById('emoji-grid').innerHTML=EMOJ
 function insertEmoji(e) { const inp=document.getElementById('message-input');const pos=inp.selectionStart;inp.value=inp.value.slice(0,pos)+e+inp.value.slice(pos);inp.setSelectionRange(pos+e.length,pos+e.length);inp.focus();document.getElementById('emoji-picker').classList.add('hidden');onInputChange(); }
 
 // ===== TABS =====
+function toggleFab() {
+  const menu = document.getElementById('fab-menu');
+  menu.classList.toggle('open');
+}
+function closeFab() {
+  document.getElementById('fab-menu').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#fab-wrap')) closeFab();
+  if (!e.target.closest('#sidebar-more-btn') && !e.target.closest('#sidebar-more-menu')) {
+    document.getElementById('sidebar-more-menu').style.display='none';
+  }
+});
+function requestNotifPermission() {
+  document.getElementById('notif-banner').style.display='none';
+  if ('Notification' in window) {
+    Notification.requestPermission().then(p => {
+      if(p==='granted') showToast('✅ התראות אופשרו!');
+    });
+  }
+}
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
   document.querySelectorAll('.tab-content').forEach(c=>{const id=c.id.replace('tab-','');c.classList.toggle('hidden',id!==name);});
