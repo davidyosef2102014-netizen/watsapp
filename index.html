@@ -1133,7 +1133,16 @@ let chatsMap = {};
 function saveChatsToLocal() {
   if (!currentUser) return;
   try {
-    const data = chats.map(c => ({ id:c.id, type:c.type, members:c.members, displayName:c.displayName, displayAvatar:c.displayAvatar||null, name:c.name, lastTs:c.lastTs||0, lastMessage:c.lastMessage||null }));
+    const data = chats.map(c => {
+      let lm = null;
+      if (c.lastMessage) {
+        // Strip large binary fields so we don't exceed localStorage quota
+        lm = { ts: c.lastMessage.ts, senderId: c.lastMessage.senderId, text: c.lastMessage.text||'' };
+        if (c.lastMessage.imageData) lm.imageData = true; // just a flag
+        if (c.lastMessage.voiceData) lm.voiceData = true;
+      }
+      return { id:c.id, type:c.type, members:c.members, displayName:c.displayName, name:c.name, lastTs:c.lastTs||0, lastMessage:lm };
+    });
     localStorage.setItem('wt_chatlist_'+currentUser.phone, JSON.stringify(data));
   } catch(e) {}
 }
@@ -1338,7 +1347,7 @@ function debounceSave(chatId, mm) {
 function loadUserChats() {
   gun.get(NS).get('user_chats').get(currentUser.phone).map().on((chatData, chatId) => {
     if (!chatData || !chatId || chatId==='_' || chatId.startsWith('_')) return;
-    if (chatsMap[chatId]) { updateChatTs(chatId, chatData.lastTs); return; }
+    if (chatsMap[chatId]) { updateChatTs(chatId, chatData.lastTs); if (!chatMsgMaps[chatId]) subMsgsBg(chatId); return; }
     const members = (chatData.members||'').split(',').filter(Boolean);
     if (chatData.type === 'group') {
       const chat = { id:chatId, type:'group', members, displayName:chatData.name||'Group', name:chatData.name||'Group', displayAvatar:null, messages:[], unreadCount:0, lastMessage:null, lastTs:chatData.lastTs||0 };
