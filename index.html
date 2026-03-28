@@ -1108,6 +1108,31 @@ let currentUser = JSON.parse(localStorage.getItem('wt_user') || 'null');
 let loginAvatarData = null;
 let chats = [];
 let chatsMap = {};
+
+function saveChatsToLocal() {
+  if (!currentUser) return;
+  try {
+    const data = chats.map(c => ({ id:c.id, type:c.type, members:c.members, displayName:c.displayName, displayAvatar:c.displayAvatar||null, name:c.name, lastTs:c.lastTs||0, lastMessage:c.lastMessage||null }));
+    localStorage.setItem('wt_chatlist_'+currentUser.phone, JSON.stringify(data));
+  } catch(e) {}
+}
+function loadChatsFromLocal() {
+  if (!currentUser) return;
+  try {
+    const raw = localStorage.getItem('wt_chatlist_'+currentUser.phone);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    data.forEach(c => {
+      if (!chatsMap[c.id]) {
+        const chat = Object.assign({}, c, { messages:[], unreadCount:0 });
+        chatsMap[c.id] = chat;
+        if (!chats.find(x => x.id === c.id)) chats.push(chat);
+      }
+    });
+    chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
+    renderChatList();
+  } catch(e) {}
+}
 let allContacts = {};
 let currentChatId = null;
 let currentChannelId = null;
@@ -1130,6 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupListeners();
   if (currentUser) {
     showApp();
+    loadChatsFromLocal();
     startHeartbeat();
     loadUserChats();
     loadChannels();
@@ -1316,6 +1342,7 @@ function loadUserChats() {
           chatsMap[chatId].displayName = displayName;
           chatsMap[chatId].name = displayName;
           if (displayAvatar) chatsMap[chatId].displayAvatar = displayAvatar;
+          saveChatsToLocal();
         }
         renderChatList();
       });
@@ -1334,11 +1361,12 @@ function loadUserChats() {
 function updateChatTs(chatId, ts) {
   if (!ts) return;
   const chat = chatsMap[chatId];
-  if (chat && ts > (chat.lastTs||0)) { chat.lastTs = ts; chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)); renderChatList(); }
+  if (chat && ts > (chat.lastTs||0)) { chat.lastTs = ts; chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)); renderChatList(); saveChatsToLocal(); }
 }
 
 function insertChat(chat) {
   if (!chats.find(c => c.id === chat.id)) { chats.push(chat); chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)); }
+  saveChatsToLocal();
 }
 
 function subMsgsBg(chatId) {
@@ -1357,6 +1385,7 @@ function subMsgsBg(chatId) {
         chat.lastMessage = msg; chat.lastTs = msg.ts;
         chats.sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
         renderChatList();
+        saveChatsToLocal();
       }
       if (chatId !== currentChatId && msg.senderId !== currentUser.phone) {
         const lastNotifyTs = parseInt(localStorage.getItem('lnt_'+chatId)||'0');
