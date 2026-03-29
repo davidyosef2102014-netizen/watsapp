@@ -844,12 +844,17 @@ async function viewStatus(userId) {
   document.getElementById('chat-window').classList.add('hidden');
   document.getElementById('channel-window').classList.add('hidden');
   document.getElementById('status-view').classList.remove('hidden');
+  document.getElementById('app').classList.add('chat-open');
 }
 
 function closeStatusView() {
   document.getElementById('status-view').classList.add('hidden');
-  if (currentChatId) document.getElementById('chat-window').classList.remove('hidden');
-  else document.getElementById('welcome-screen').classList.remove('hidden');
+  if (currentChatId) {
+    document.getElementById('chat-window').classList.remove('hidden');
+  } else {
+    document.getElementById('welcome-screen').classList.remove('hidden');
+    document.getElementById('app').classList.remove('chat-open');
+  }
 }
 
 function postStatus() {
