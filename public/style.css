@@ -524,7 +524,7 @@ body {
 
 /* ===== STATUS VIEW ===== */
 .status-view {
-  position: fixed; inset: 0; z-index: 500;
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 500;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,0.88);
 }
