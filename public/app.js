@@ -888,7 +888,7 @@ async function findUser() {
   resultEl.textContent = 'מחפש...';
   try {
     const res = await apiFetch(`/api/users/find/${encodeURIComponent(phone)}`);
-    if (!res.ok) { resultEl.innerHTML = '<span style="color:#f44336">משתמש לא נמצא. בקש מהם להצטרף ל-WatsApp!</span>'; return; }
+    if (!res.ok) { resultEl.innerHTML = '<span style="color:#f44336">משתמש לא נמצא. בקש מהם להצטרף ל-watspp!</span>'; return; }
     const user = await res.json();
     if (!allContacts.find(c => c.id === user.id)) allContacts.push(user);
     resultEl.innerHTML = `
