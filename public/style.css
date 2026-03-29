@@ -523,7 +523,23 @@ body {
 }
 
 /* ===== STATUS VIEW ===== */
-.status-view { flex: 1; display: flex; flex-direction: column; background: #1a1a1a; position: relative; }
+.status-view {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.88);
+}
+.status-phone-frame {
+  width: 390px;
+  max-width: 96vw;
+  height: min(844px, 93vh);
+  background: #1a1a1a;
+  border-radius: 28px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+}
 .status-view-header {
   display: flex; align-items: center; gap: 12px; padding: 16px;
   background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
@@ -543,6 +559,14 @@ body {
 .status-progress-bar {
   height: 100%; background: white; border-radius: 2px;
   width: 0%; transition: width 5s linear;
+}
+@media (max-width: 480px) {
+  .status-phone-frame {
+    width: 100%; max-width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+  }
+  .status-view { background: #1a1a1a; }
 }
 
 /* ===== MODALS ===== */
@@ -757,13 +781,4 @@ body {
 
   /* Welcome screen hidden on mobile (only show chat list) */
   .welcome-screen { display: none; }
-
-  /* Status view full screen on mobile */
-  .status-view {
-    height: 100dvh;
-    width: 100%;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 310;
-  }
 }
