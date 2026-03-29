@@ -757,4 +757,13 @@ body {
 
   /* Welcome screen hidden on mobile (only show chat list) */
   .welcome-screen { display: none; }
+
+  /* Status view full screen on mobile */
+  .status-view {
+    height: 100dvh;
+    width: 100%;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 310;
+  }
 }
