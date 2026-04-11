@@ -1,727 +1,990 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Poninio Bank | Online</title>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <style>
-        *{box-sizing:border-box}
-        body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;margin:0;padding:20px 0 40px;direction:rtl;text-align:right}
-        .container{background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);width:95%;max-width:900px}
-        h2{color:#004c99;text-align:center;margin-bottom:30px;font-size:28px;font-weight:700}
-        h3{color:#333;border-bottom:2px solid #e0e0e0;padding-bottom:10px;margin-bottom:20px;font-size:20px;font-weight:600}
-        label{display:block;margin-bottom:6px;font-weight:600;color:#555;font-size:14px}
-        input[type=text],input[type=password],input[type=number],select{width:100%;padding:10px;margin-bottom:16px;border:1px solid #c9d3e0;border-radius:6px;background:#f9f9f9;transition:border-color .3s,box-shadow .3s;font-size:14px}
-        input:focus,select:focus{border-color:#007bff;box-shadow:0 0 0 3px rgba(0,123,255,.2);outline:none;background:#fff}
-        button{background:#007bff;color:#fff;padding:12px 15px;border:none;border-radius:6px;cursor:pointer;width:100%;font-size:15px;font-weight:700;transition:background .3s,transform .2s;margin-top:8px}
-        button:hover{background:#0056b3;transform:translateY(-1px)}
-        .message{margin-top:16px;padding:12px;border-radius:6px;text-align:center;font-weight:700;font-size:14px}
-        .error{background:#ffebeb;color:#cc0000;border:1px solid #ff9999}
-        .success{background:#e6ffe6;color:#008000;border:1px solid #99ff99}
-        .pending{background:#fff9e6;color:#ffaa00;border:1px solid #ffcc66}
-        .hidden{display:none!important}
-        #authScreen{max-width:450px;margin:0 auto}
-        .auth-switch{font-size:14px;text-align:center;margin-top:12px;color:#007bff;cursor:pointer;text-decoration:underline}
-        #dashboard,#adminPanel{display:none;grid-template-columns:1fr 2fr;gap:25px}
-        .card{background:#f9f9f9;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.05);margin-bottom:20px;border:1px solid #e0e0e0}
-        .balance-card{background:#004c99;color:#fff;padding:25px;border-radius:10px;margin-bottom:20px;box-shadow:0 6px 15px rgba(0,76,153,.3)}
-        #balanceDisplay{font-size:34px;font-weight:900;margin:5px 0 0;letter-spacing:.5px}
-        .credit-box{background:#daf5d5;padding:20px;border-radius:8px;margin-bottom:20px;border:1px solid #7cb342}
-        .credit-box button{background:#e54c3c}
-        .credit-box button:hover{background:#c0392b}
-        #creditAvailableDisplay{font-size:22px;font-weight:700;color:#e54c3c;margin-top:4px}
-        .credit-box h4{color:#388e3c}
-        .loan-box button{background:#008080;padding:10px;font-size:14px}
-        #historyList{list-style:none;padding:0;max-height:420px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px}
-        .history-item{display:flex;justify-content:space-between;padding:12px 15px;border-bottom:1px solid #f0f0f0;font-size:13px;align-items:center;gap:10px}
-        .history-amount.debit{color:#cc3300;font-weight:700}
-        .history-amount.credit{color:#008000;font-weight:700}
-        .history-amount.credit-used{color:#8e44ad;font-weight:700}
-        .history-item .receipt-btn{background:#6c757d;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;width:auto;margin-top:0}
-        .history-item .receipt-btn:hover{background:#5a6268}
-        .logout-btn{background:#6c757d!important;grid-column:1/3}
-        #resetData{background:#dc3545}
-        #adminTransferSection{background:#fff9f0;padding:25px;border-radius:8px;border:1px solid #ffcc99;margin-bottom:25px;grid-column:1/3}
-        #adminPanel h4{color:#004c99;margin-top:25px;font-size:16px}
-        #userTable,#loanTable{width:100%;border-collapse:collapse;text-align:right;font-size:13px;margin-bottom:30px}
-        #userTable th,#userTable td,#loanTable th,#loanTable td{border:1px solid #ddd;padding:9px}
-        #userTable th,#loanTable th{background:#f0f0f0}
-        .approve-btn{background:#28a745!important;padding:5px 10px!important;font-size:12px!important;width:auto!important;margin:0 4px 0 0!important;display:inline-block!important}
-        .reject-btn{background:#dc3545!important;padding:5px 10px!important;font-size:12px!important;width:auto!important;margin:0!important;display:inline-block!important}
-        .delete-btn{background:#dc3545!important;padding:5px 10px!important;font-size:12px!important;width:auto!important;margin:0!important}
-        .admin-transfer-button{background:#cc6600!important}
-        .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px}
-        .status-dot.online{background:#28a745}
-        .status-dot.offline{background:#dc3545}
-        .status-dot.connecting{background:#ffc107}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פוניניו בנק</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0d2252;
+  --navy2:#1a3a70;
+  --blue:#1557d0;
+  --blue-light:#e8f0fe;
+  --gold:#c9952a;
+  --gold2:#f0c040;
+  --green:#00875a;
+  --green-light:#e3f5ed;
+  --red:#c0392b;
+  --red-light:#fef0ef;
+  --bg:#f2f4f8;
+  --border:#dde3ef;
+  --text:#1a2340;
+  --muted:#6b7a99;
+  --white:#fff;
+}
+body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-height:100vh;direction:rtl;text-align:right;color:var(--text);font-size:14px}
 
-        /* Receipt Modal */
-        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
-        .receipt-modal{background:#fff;border-radius:12px;padding:0;width:100%;max-width:400px;box-shadow:0 10px 40px rgba(0,0,0,.3);overflow:hidden}
-        .receipt-header{background:#004c99;color:#fff;padding:20px;text-align:center}
-        .receipt-header h3{color:#fff;border:none;margin:0;font-size:18px}
-        .receipt-logo{font-size:32px;margin-bottom:4px}
-        .receipt-body{padding:20px}
-        .receipt-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #e0e0e0;font-size:14px}
-        .receipt-row:last-child{border-bottom:none}
-        .receipt-row .label{color:#666;font-weight:600}
-        .receipt-row .value{color:#111;font-weight:700;text-align:left}
-        .receipt-total{background:#e6ffe6;border-radius:8px;padding:14px;text-align:center;margin:16px 0;border:1px solid #99ff99}
-        .receipt-total .amount{font-size:28px;font-weight:900;color:#004c99}
-        .receipt-id{text-align:center;font-size:11px;color:#999;margin-bottom:12px}
-        .receipt-footer{padding:16px 20px 20px;display:flex;gap:10px}
-        .receipt-footer button{margin:0}
-        .btn-print{background:#004c99}
-        .btn-close-receipt{background:#6c757d}
+/* ============ TOP HEADER ============ */
+.top-header{background:var(--white);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200}
+.th-logo{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900;color:var(--navy);white-space:nowrap}
+.th-logo-star{background:var(--navy);color:var(--gold2);width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900}
+.th-account{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:12px;border-right:1px solid var(--border);padding-right:20px;margin-right:20px}
+.th-account strong{color:var(--text)}
+.th-search{flex:1;max-width:340px;margin:0 24px}
+.th-search input{width:100%;padding:7px 14px 7px 36px;border:1.5px solid var(--border);border-radius:20px;font-size:13px;background:#f7f8fb;outline:none;transition:border-color .2s;direction:rtl}
+.th-search input:focus{border-color:var(--blue);background:#fff}
+.th-icons{display:flex;align-items:center;gap:8px}
+.th-icon-btn{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);transition:all .2s}
+.th-icon-btn:hover{background:var(--bg);border-color:var(--blue);color:var(--blue)}
+.conn-pill{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);padding:4px 10px;border-radius:20px;border:1px solid var(--border)}
+.dot{width:7px;height:7px;border-radius:50%;background:#ccc;flex-shrink:0}
+.dot.on{background:#22c55e}
+.dot.off{background:#ef4444}
+.dot.wait{background:#f59e0b;animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-        /* Notification */
-        .notif{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#004c99;color:#fff;padding:12px 24px;border-radius:8px;font-weight:700;z-index:2000;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:14px;animation:slideUp .3s ease}
-        @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* ============ NAV BAR ============ */
+.main-nav{background:var(--navy);height:44px;display:flex;align-items:stretch;padding:0 24px;overflow-x:auto;scrollbar-width:none}
+.main-nav::-webkit-scrollbar{display:none}
+.main-nav ul{list-style:none;display:flex;gap:0;height:100%}
+.main-nav li{display:flex;align-items:center;padding:0 16px;font-size:13px;font-weight:500;color:rgba(255,255,255,.75);cursor:pointer;transition:color .2s;white-space:nowrap;border-bottom:3px solid transparent;position:relative}
+.main-nav li:hover{color:#fff;background:rgba(255,255,255,.06)}
+.main-nav li.active{color:#fff;border-bottom-color:var(--gold2);font-weight:700}
 
-        @media(max-width:600px){
-            body{padding:0}
-            .container{border-radius:0;padding:16px;min-height:100vh}
-            #dashboard,#adminPanel{grid-template-columns:1fr}
-            .logout-btn{grid-column:1}
-            #adminTransferSection{grid-column:1}
-            #balanceDisplay{font-size:26px}
-        }
-    </style>
+/* ============ AUTH PAGE ============ */
+.auth-page{min-height:calc(100vh - 100px);display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+.auth-card{width:100%;max-width:460px;background:var(--white);border-radius:4px;box-shadow:0 4px 24px rgba(13,34,82,.12);overflow:hidden}
+.auth-card-top{background:var(--navy);padding:36px 32px 28px;text-align:center}
+.auth-card-top .logo-big{width:62px;height:62px;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:30px}
+.auth-card-top h1{font-size:22px;font-weight:900;color:#fff;margin-bottom:4px}
+.auth-card-top p{font-size:12px;color:rgba(255,255,255,.6)}
+.auth-card-body{padding:32px}
+.auth-card-body label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+.auth-card-body label:not(:first-child){margin-top:16px}
+.auth-card-body input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:4px;font-size:14px;background:#fafbfd;outline:none;transition:border-color .2s,box-shadow .2s;color:var(--text);direction:ltr;text-align:right}
+.auth-card-body input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,87,208,.1);background:#fff}
+.auth-card-footer{padding:0 32px 28px}
+.btn-block{display:block;width:100%;padding:12px;border:none;border-radius:4px;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s;text-align:center}
+.btn-navy-block{background:var(--navy);color:#fff}
+.btn-navy-block:hover{background:#0a1a40}
+.btn-gold-block{background:var(--gold);color:#fff}
+.btn-gold-block:hover{background:#a87820}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:12px}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.auth-link{font-size:13px;color:var(--blue);cursor:pointer;text-decoration:underline;text-align:center;margin-top:14px;display:block}
+.form-msg{padding:10px 14px;border-radius:4px;font-size:13px;font-weight:600;margin-top:12px;text-align:center}
+.form-msg.error{background:var(--red-light);color:var(--red);border:1px solid #f5c6c3}
+.form-msg.success{background:var(--green-light);color:var(--green);border:1px solid #b7e4cc}
+.form-msg.pending{background:#fff8e7;color:#8a6000;border:1px solid #f0d08a}
+.hidden{display:none!important}
+
+/* ============ DASHBOARD LAYOUT ============ */
+.dash-wrap{max-width:1240px;margin:0 auto;padding:20px 16px}
+.dash-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.dash-topbar h2{font-size:22px;font-weight:900;color:var(--text)}
+.dash-topbar-meta{font-size:12px;color:var(--muted)}
+.dash-grid{display:grid;grid-template-columns:230px 1fr 280px;gap:20px;align-items:start}
+
+/* ============ QUICK ACTIONS SIDEBAR (right visually in RTL = first col) ============ */
+.qa-sidebar{background:var(--white);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.qa-sidebar-header{padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between}
+.qa-sidebar-header a{font-size:11px;color:var(--blue);text-decoration:none;cursor:pointer}
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.qa-item{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 8px;cursor:pointer;transition:background .15s;border-bottom:1px solid var(--border);border-left:1px solid var(--border);gap:8px}
+.qa-item:nth-child(odd){border-left:none}
+.qa-item:hover{background:#f5f7fd}
+.qa-circle{width:44px;height:44px;border-radius:50%;background:#f0f2f8;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;transition:all .2s}
+.qa-item:hover .qa-circle{background:var(--blue-light);border-color:var(--blue)}
+.qa-label{font-size:11px;font-weight:600;color:var(--text);text-align:center;line-height:1.3}
+
+/* ============ MAIN CENTER ============ */
+.account-center{}
+
+/* Balance section */
+.balance-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:24px 28px;margin-bottom:16px;display:flex;align-items:flex-start;justify-content:space-between}
+.balance-main{}
+.balance-label-small{font-size:11px;color:var(--muted);margin-bottom:2px}
+.balance-big{font-size:38px;font-weight:900;color:var(--text);letter-spacing:-1px;direction:ltr;text-align:right;line-height:1}
+.balance-big span{font-size:22px;font-weight:700;color:var(--muted);margin-right:2px}
+.balance-credit-line{font-size:12px;color:var(--blue);margin-top:8px;cursor:pointer}
+.balance-credit-line strong{color:var(--text)}
+.balance-actions{display:flex;gap:8px;margin-top:16px}
+.balance-action-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border:1.5px solid var(--border);border-radius:20px;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--text);transition:all .2s}
+.balance-action-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-light)}
+.balance-action-btn .icon{font-size:14px}
+.balance-right{text-align:left;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.balance-date{font-size:11px;color:var(--muted)}
+.balance-print-btns{display:flex;gap:6px}
+.balance-print-btn{width:28px;height:28px;border-radius:4px;border:1px solid var(--border);background:none;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .2s}
+.balance-print-btn:hover{background:var(--bg);color:var(--text)}
+
+/* Transactions panel */
+.panel{background:var(--white);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:16px}
+.panel-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-head h3{font-size:14px;font-weight:700;color:var(--text)}
+.panel-head a{font-size:12px;color:var(--blue);text-decoration:none;cursor:pointer}
+.trans-table{width:100%;border-collapse:collapse}
+.trans-table th{padding:9px 20px;text-align:right;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;background:#f9fafb;border-bottom:1px solid var(--border)}
+.trans-table td{padding:12px 20px;border-bottom:1px solid var(--border);font-size:13px}
+.trans-table tr:last-child td{border-bottom:none}
+.trans-table tr:hover td{background:#fafbff}
+.trans-desc{font-weight:600;color:var(--text)}
+.trans-date{color:var(--muted)}
+.trans-amt{font-weight:800;font-size:14px}
+.trans-amt.debit{color:var(--red)}
+.trans-amt.credit{color:var(--green)}
+.trans-amt.credit-used{color:#7c3aed}
+.trans-empty{text-align:center;color:var(--muted);padding:32px;font-size:13px}
+
+/* Credit card section */
+.cc-wrap{display:flex;justify-content:center;padding:20px 0 10px}
+.credit-card-svg{width:100%;max-width:300px;filter:drop-shadow(0 6px 20px rgba(0,0,0,.2))}
+.cc-info-row{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid var(--border);font-size:13px}
+.cc-info-row .lbl{color:var(--muted)}
+.cc-info-row .val{font-weight:700;color:var(--text)}
+
+/* Steps */
+.step-bar{display:flex;align-items:center;justify-content:center;gap:0;padding:16px 20px 0}
+.step-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;transition:all .3s;border:2px solid var(--border)}
+.step-dot.active{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,87,208,.15)}
+.step-dot.done{background:var(--green);color:#fff;border-color:var(--green)}
+.step-dot.todo{background:#fff;color:var(--muted)}
+.step-line{flex:1;height:2px;background:var(--border);max-width:40px}
+.step-line.done{background:var(--green)}
+
+/* ============ UPDATES SIDEBAR (left visually in RTL = last col) ============ */
+.updates-sidebar{}
+.updates-box{background:var(--white);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:16px}
+.updates-header{padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
+.updates-header .badge{background:#e8f0fe;color:var(--blue);border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700}
+.update-item{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.update-item:last-child{border-bottom:none}
+.update-item:hover{background:var(--bg)}
+.update-item-text{font-size:12px;font-weight:600;color:var(--text);flex:1}
+.update-item-arrow{color:var(--muted);font-size:14px}
+.promo-box{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:4px;padding:24px 20px;text-align:center;color:#fff;position:relative;overflow:hidden}
+.promo-box::before{content:'';position:absolute;top:-20px;left:-20px;width:100px;height:100px;background:rgba(255,255,255,.05);border-radius:50%}
+.promo-title{font-size:18px;font-weight:900;margin-bottom:6px;position:relative}
+.promo-sub{font-size:12px;color:rgba(255,255,255,.7);line-height:1.5;margin-bottom:16px;position:relative}
+.promo-btn{background:var(--gold);color:#fff;border:none;border-radius:4px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer;position:relative}
+
+/* Loan section */
+.loan-box{background:var(--blue-light);border:1.5px solid #c3d5fa;border-radius:4px;padding:16px;display:flex;align-items:center;justify-content:space-between}
+.loan-box .lamt{font-size:20px;font-weight:900;color:var(--navy)}
+.loan-box .lmeta{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Forms */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:4px;font-size:14px;background:#fafbfd;outline:none;transition:border-color .2s,box-shadow .2s;color:var(--text);direction:rtl}
+.form-group input:focus,.form-group select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,87,208,.1);background:#fff}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{display:block;width:100%;padding:11px;border:none;border-radius:4px;font-size:14px;font-weight:700;cursor:pointer;transition:background .2s,transform .1s;margin-top:14px;text-align:center}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:#1048b0}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-navy:hover{background:#0a1a40}
+.btn-gray{background:#e8ecf2;color:var(--text)}
+.btn-gray:hover{background:#d8def0}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:#006844}
+.btn-gold{background:var(--gold);color:#fff}
+.btn-gold:hover{background:#a87820}
+.btn-sm{padding:5px 12px;font-size:12px;width:auto;margin-top:0;display:inline-block;border-radius:4px;border:none;cursor:pointer;font-weight:700;transition:background .2s}
+.btn-sm.btn-green{background:var(--green);color:#fff}
+.btn-sm.btn-red{background:var(--red);color:#fff}
+.msg{padding:10px 14px;border-radius:4px;font-size:13px;font-weight:600;margin-top:12px;text-align:center}
+.msg.error{background:var(--red-light);color:var(--red);border:1px solid #f5c6c3}
+.msg.success{background:var(--green-light);color:var(--green);border:1px solid #b7e4cc}
+.msg.pending{background:#fff8e7;color:#8a6000;border:1px solid #f0d08a}
+
+/* ============ ADMIN ============ */
+.admin-wrap{max-width:1100px;margin:0 auto;padding:24px 16px}
+.admin-wrap h2{font-size:20px;font-weight:900;margin-bottom:20px;color:var(--navy)}
+.admin-table{width:100%;border-collapse:collapse;font-size:13px}
+.admin-table th{background:var(--navy);color:#fff;padding:10px 14px;text-align:right;font-weight:600}
+.admin-table td{padding:10px 14px;border-bottom:1px solid var(--border)}
+.admin-table tr:hover td{background:#fafbff}
+
+/* ============ RECEIPT MODAL ============ */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.receipt-box{background:#fff;border-radius:8px;width:100%;max-width:400px;overflow:hidden;box-shadow:0 16px 60px rgba(0,0,0,.3)}
+.r-header{background:var(--navy);color:#fff;padding:22px;text-align:center}
+.r-header-icon{font-size:34px;margin-bottom:6px}
+.r-header h3{font-size:16px;font-weight:800;color:#fff}
+.r-body{padding:20px}
+.r-id{text-align:center;font-size:11px;color:var(--muted);margin-bottom:12px}
+.r-amount-box{background:var(--green-light);border:1px solid #b7e4cc;border-radius:8px;text-align:center;padding:18px;margin-bottom:16px}
+.r-amount-box .label{font-size:12px;color:var(--muted);margin-bottom:4px}
+.r-amount-box .val{font-size:30px;font-weight:900;color:var(--navy)}
+.r-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border);font-size:13px}
+.r-row:last-child{border:none}
+.r-row .k{color:var(--muted);font-weight:600}
+.r-row .v{font-weight:700;color:var(--text)}
+.r-footer{padding:14px 20px 20px;display:flex;gap:10px}
+.r-footer button{margin:0;flex:1}
+
+/* Notif toast */
+.notif{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 24px;border-radius:30px;font-size:14px;font-weight:600;z-index:2000;box-shadow:0 4px 20px rgba(0,0,0,.25);animation:sui .3s ease}
+@keyframes sui{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* ============ RESPONSIVE ============ */
+@media(max-width:960px){
+  .dash-grid{grid-template-columns:1fr 280px;grid-template-rows:auto auto}
+  .qa-sidebar{grid-column:1;grid-row:2}
+  .account-center{grid-column:1;grid-row:1}
+  .updates-sidebar{grid-column:2;grid-row:1/3}
+}
+@media(max-width:680px){
+  .dash-grid{grid-template-columns:1fr}
+  .updates-sidebar,.qa-sidebar{display:none}
+  .top-header{padding:0 12px}
+  .th-account,.th-search{display:none}
+  .dash-wrap{padding:12px}
+  .balance-big{font-size:28px}
+  .trans-table th:nth-child(2),.trans-table td:nth-child(2){display:none}
+  .form-row{grid-template-columns:1fr}
+  .main-nav li{padding:0 12px;font-size:12px}
+}
+</style>
 </head>
 <body>
-<div class="container">
-    <h2>🏦 Poninio Bank <span id="connStatus"><span class="status-dot connecting" id="connDot"></span><span id="connText" style="font-size:13px;font-weight:400">מתחבר...</span></span></h2>
 
-    <div id="authScreen">
-        <div id="loginForm">
-            <h3>🔑 כניסה למערכת</h3>
-            <label for="adminPassword">סיסמת מנהל (אופציונלי):</label>
-            <input type="password" id="adminPassword" placeholder="הזן סיסמת מנהל">
-            <button onclick="adminLogin()">כניסת מנהל</button>
-            <div id="adminLoginMessage" class="message hidden"></div>
-            <hr style="margin:16px 0;border-top:1px dashed #ddd"/>
-            <label for="username">שם משתמש:</label>
-            <input type="text" id="username" placeholder="שם החשבון" required>
-            <label for="password">סיסמה:</label>
-            <input type="password" id="password" placeholder="סיסמה" required>
-            <button onclick="login()">התחברות לחשבון</button>
-            <div id="loginMessage" class="message hidden"></div>
-            <div class="auth-switch" onclick="toggleRegistration()">אין לך חשבון? פתח חשבון חדש</div>
-        </div>
-        <div id="registrationForm" class="hidden">
-            <h3>➕ פתיחת חשבון חדש</h3>
-            <label for="newUsername">שם משתמש חדש:</label>
-            <input type="text" id="newUsername" placeholder="שם החשבון" required>
-            <label for="newPassword">סיסמה:</label>
-            <input type="password" id="newPassword" placeholder="בחר סיסמה" required>
-            <button onclick="registerUser()">פתח חשבון</button>
-            <div id="registrationMessage" class="message hidden"></div>
-            <div class="auth-switch" onclick="toggleRegistration()">יש לך חשבון? חזור להתחברות</div>
-        </div>
+<!-- TOP HEADER -->
+<header class="top-header" id="mainHeader">
+  <div class="th-logo">
+    <div class="th-logo-star">★</div>
+    פוניניו בנק
+  </div>
+  <div class="th-account hidden" id="thAccount">
+    <span>חשבון <strong id="thAccountNum">000-000</strong></span>
+    <span>|</span>
+    <span>החשבון של <strong id="thAccountName"></strong></span>
+    <span style="color:var(--border)">|</span>
+    <span id="thLastLogin">כניסה: <span id="thDate"></span></span>
+  </div>
+  <div class="th-search hidden" id="thSearch">
+    <input type="text" placeholder="חיפוש פעולה או מידע בפרטים">
+  </div>
+  <div class="th-icons">
+    <div class="conn-pill">
+      <span class="dot wait" id="connDot"></span>
+      <span id="connText">מתחבר</span>
     </div>
+    <button class="th-icon-btn" title="הודעות">✉</button>
+    <button class="th-icon-btn" title="הגדרות">⚙</button>
+    <button class="th-icon-btn hidden" id="logoutBtn" onclick="logout()" title="יציאה" style="font-size:12px;width:auto;border-radius:4px;padding:0 12px;font-weight:700;color:var(--red)">יציאה</button>
+  </div>
+</header>
 
-    <div id="dashboard">
-        <div id="balanceInfo">
-            <p id="welcome">שלום, <span id="accountNameDisplay" style="font-weight:700"></span> 👋</p>
-            <div class="balance-card">
-                <p style="margin:0;opacity:.85;font-size:14px">יתרה זמינה (עו"ש)</p>
-                <p id="balanceDisplay">--</p>
-            </div>
-            <div class="credit-box">
-                <h4>💳 תשלום נייד</h4>
-                <p style="font-size:13px;margin-bottom:12px">חיוב דרך כרטיס האשראי המקושר</p>
-                <label>מסגרת חודשית: <span id="creditLimitTotal" style="font-weight:700;color:#004c99">--</span></label>
-                <label>יתרה פנויה:</label>
-                <p id="creditAvailableDisplay">--</p>
-                <label for="purchaseAmount">סכום לרכישה (₪):</label>
-                <input type="number" id="purchaseAmount" min="1" step="any" placeholder="הזן סכום">
-                <label for="purchaseDescription">תיאור הרכישה:</label>
-                <input type="text" id="purchaseDescription" placeholder="לדוגמה: קנייה בחנות">
-                <button onclick="makeCreditPurchase()">💸 ביצוע תשלום נייד</button>
-                <div id="creditMessage" class="message hidden"></div>
-            </div>
-            <div class="loan-box card">
-                <h4>💵 ניהול הלוואות</h4>
-                <p>יתרת הלוואה: <span id="loanBalanceDisplay" style="font-weight:700;color:#004c99">0.00 ₪</span></p>
-                <p style="font-size:13px;color:#555">החזר שבועי אוטומטי: 10% מהיתרה</p>
-                <div id="loanRequestStatus"></div>
-            </div>
-        </div>
-        <div>
-            <div id="transferSection" class="card">
-                <h3>💸 ביצוע העברה בנקאית</h3>
-                <label for="recipient">חשבון מקבל:</label>
-                <select id="recipient"></select>
-                <label for="amount">סכום להעברה (₪):</label>
-                <input type="number" id="amount" min="1" step="any" placeholder="הזן סכום">
-                <label for="reason">סיבת ההעברה:</label>
-                <input type="text" id="reason" placeholder="לדוגמה: שכר דירה">
-                <label for="transferPassword">סיסמתך לאישור:</label>
-                <input type="password" id="transferPassword" placeholder="הקלד סיסמה לאימות">
-                <button onclick="transfer()">אישור והעברה</button>
-                <div id="transferMessage" class="message hidden"></div>
-            </div>
-            <div id="historySection" class="card">
-                <h3>📑 היסטוריית פעולות</h3>
-                <ul id="historyList"><li style="text-align:center;color:#888;padding:15px">טוען היסטוריה...</li></ul>
-            </div>
-        </div>
-        <button onclick="logout()" class="logout-btn">יציאה בטוחה</button>
-    </div>
+<!-- NAV BAR -->
+<nav class="main-nav" id="mainNav" style="display:none">
+  <ul>
+    <li onclick="showDash('main')" id="nav-main" class="active">החשבון שלי</li>
+    <li onclick="showDash('transfer')" id="nav-transfer">העברת כסף</li>
+    <li onclick="showDash('pay')" id="nav-pay">כרטיס אשראי</li>
+    <li onclick="showDash('loan')" id="nav-loan">הלוואות</li>
+    <li>שירותים וכללי</li>
+  </ul>
+</nav>
 
-    <div id="adminPanel">
-        <div style="grid-column:1/3">
-            <h3>🛠️ לוח בקרה מנהל</h3>
-            <div id="adminTransferSection">
-                <h4>🔀 העברה בנקאית (מנהל)</h4>
-                <label for="adminSender">חשבון שולח:</label>
-                <select id="adminSender"></select>
-                <label for="adminRecipient">חשבון מקבל:</label>
-                <select id="adminRecipient"></select>
-                <label for="adminAmount">סכום (₪):</label>
-                <input type="number" id="adminAmount" min="1" step="any" placeholder="הזן סכום">
-                <label for="adminReason">סיבה:</label>
-                <input type="text" id="adminReason" placeholder="תיאור הפעולה">
-                <button onclick="adminTransfer()" class="admin-transfer-button">ביצוע העברה</button>
-                <div id="adminTransferMessage" class="message hidden"></div>
-            </div>
-            <h4>⬅️ בקשות הלוואה ממתינות</h4>
-            <div id="loanRequestsContainer"></div>
-            <h4>👥 כלל המשתמשים</h4>
-            <table id="userTable"></table>
-            <button onclick="adminLogout()" class="logout-btn" style="grid-column:unset">יציאה מניהול</button>
-        </div>
+<!-- ============ AUTH PAGE ============ -->
+<div class="auth-page" id="authPage">
+  <div class="auth-card">
+    <div class="auth-card-top">
+      <div class="logo-big">🏦</div>
+      <h1>פוניניו בנק</h1>
+      <p>בנק דיגיטלי — כניסה מאובטחת</p>
     </div>
+    <!-- Login form -->
+    <div id="loginForm">
+      <div class="auth-card-body">
+        <label>שם משתמש</label>
+        <input type="text" id="username" placeholder="הזן שם משתמש" autocomplete="username">
+        <label>סיסמה</label>
+        <input type="password" id="password" placeholder="הזן סיסמה" onkeydown="if(event.key==='Enter')login()">
+        <div id="loginMessage" class="form-msg hidden"></div>
+      </div>
+      <div class="auth-card-footer">
+        <button class="btn-block btn-navy-block" onclick="login()">כניסה לחשבון</button>
+        <div class="auth-divider">או</div>
+        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">כניסת מנהל</label>
+        <input type="password" id="adminPassword" placeholder="סיסמת מנהל" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:4px;font-size:14px;background:#fafbfd;outline:none;margin-bottom:10px;direction:ltr;text-align:right" onkeydown="if(event.key==='Enter')adminLogin()">
+        <button class="btn-block btn-gray" onclick="adminLogin()">כניסת מנהל</button>
+        <div id="adminLoginMessage" class="form-msg hidden"></div>
+        <span class="auth-link" onclick="toggleReg()">אין לך חשבון? פתח חשבון חדש</span>
+      </div>
+    </div>
+    <!-- Register form -->
+    <div id="registrationForm" class="hidden">
+      <div class="auth-card-body">
+        <label>שם משתמש חדש</label>
+        <input type="text" id="newUsername" placeholder="בחר שם חשבון">
+        <label>סיסמה</label>
+        <input type="password" id="newPassword" placeholder="בחר סיסמה" onkeydown="if(event.key==='Enter')registerUser()">
+        <div id="registrationMessage" class="form-msg hidden"></div>
+      </div>
+      <div class="auth-card-footer">
+        <button class="btn-block btn-navy-block" onclick="registerUser()">פתיחת חשבון</button>
+        <span class="auth-link" onclick="toggleReg()">יש לך חשבון? חזור לכניסה</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div id="dashboard" class="hidden">
+<div class="dash-wrap">
+
+  <!-- Top bar with date -->
+  <div class="dash-topbar">
+    <h2 id="dashTitle">החשבון שלי</h2>
+    <div class="dash-topbar-meta" id="dashDate"></div>
+  </div>
+
+  <div class="dash-grid">
+    <!-- COL 1 (visual right in RTL): Quick Actions Sidebar -->
+    <aside class="qa-sidebar">
+      <div class="qa-sidebar-header">
+        הקישורים המהירים שלי
+        <a>✎ עריכה</a>
+      </div>
+      <div class="qa-grid">
+        <div class="qa-item" onclick="showDash('transfer')">
+          <div class="qa-circle">↗</div>
+          <div class="qa-label">העברת כסף</div>
+        </div>
+        <div class="qa-item" onclick="showSection('history')">
+          <div class="qa-circle">📋</div>
+          <div class="qa-label">תנועות בחשבון</div>
+        </div>
+        <div class="qa-item" onclick="showDash('pay')">
+          <div class="qa-circle">💳</div>
+          <div class="qa-label">כרטיס אשראי</div>
+        </div>
+        <div class="qa-item" onclick="showDash('pay')">
+          <div class="qa-circle">💸</div>
+          <div class="qa-label">תשלום נייד</div>
+        </div>
+        <div class="qa-item" onclick="showDash('loan')">
+          <div class="qa-circle">🏦</div>
+          <div class="qa-label">הלוואה</div>
+        </div>
+        <div class="qa-item" onclick="showDash('loan')">
+          <div class="qa-circle">📊</div>
+          <div class="qa-label">יתרת הלוואה</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- COL 2: Main Account View -->
+    <div class="account-center">
+
+      <!-- Main dashboard view -->
+      <div id="view-main">
+        <!-- Balance card -->
+        <div class="balance-card">
+          <div class="balance-main">
+            <div class="balance-label-small">יתרת עו"ש עדכנית</div>
+            <div class="balance-big">
+              <span>₪</span><span id="balanceDisplay">--</span>
+            </div>
+            <div class="balance-credit-line">
+              מסגרת אשראי: <strong id="creditLimitDisplay">--</strong>
+              &nbsp;|&nbsp; יתרה פנויה: <strong style="color:var(--green)" id="creditAvailableDisplay">--</strong>
+            </div>
+            <div class="balance-actions">
+              <button class="balance-action-btn" onclick="showDash('transfer')"><span class="icon">↗</span> העברה</button>
+              <button class="balance-action-btn" onclick="showDash('pay')"><span class="icon">💳</span> תשלום</button>
+              <button class="balance-action-btn" onclick="showDash('loan')"><span class="icon">💵</span> הלוואה</button>
+            </div>
+          </div>
+          <div class="balance-right">
+            <div class="balance-date" id="balanceDate"></div>
+            <div class="balance-print-btns">
+              <button class="balance-print-btn" title="הדפסה">🖨</button>
+              <button class="balance-print-btn" title="שמירה">💾</button>
+              <button class="balance-print-btn" title="ייצוא">📤</button>
+              <button class="balance-print-btn" title="מועדפים">★</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent transactions -->
+        <div class="panel" id="view-history">
+          <div class="panel-head">
+            <h3>תנועות אחרונות בחשבון</h3>
+            <a>לכל התנועות בחשבון ›</a>
+          </div>
+          <table class="trans-table">
+            <thead>
+              <tr>
+                <th>תאריך</th>
+                <th>תיאור הפעולה</th>
+                <th>סכום</th>
+              </tr>
+            </thead>
+            <tbody id="transBody">
+              <tr><td colspan="3" class="trans-empty">אין פעולות עדיין</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Transfer view -->
+      <div id="view-transfer" class="hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>העברת כסף</h3>
+            <a onclick="showDash('main')">← חזרה</a>
+          </div>
+          <div style="padding:20px">
+            <div class="form-group">
+              <label>חשבון מקבל</label>
+              <select id="recipient"><option value="" disabled selected>בחר חשבון...</option></select>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>סכום (₪)</label>
+                <input type="number" id="amount" min="1" step="any" placeholder="0.00">
+              </div>
+              <div class="form-group">
+                <label>סיבה / תיאור</label>
+                <input type="text" id="reason" placeholder="שכר דירה, מתנה...">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>סיסמה לאישור העברה</label>
+              <input type="password" id="transferPassword" placeholder="הקלד סיסמה">
+            </div>
+            <button class="btn btn-navy" onclick="transfer()">אישור והעברה ←</button>
+            <div id="transferMessage" class="msg hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Credit card / payment view -->
+      <div id="view-pay" class="hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>כרטיס אשראי — תשלום נייד</h3>
+            <a onclick="showDash('main')">← חזרה</a>
+          </div>
+
+          <!-- Step indicator -->
+          <div class="step-bar">
+            <div class="step-dot active" id="sdot1">1</div>
+            <div class="step-line" id="sline1"></div>
+            <div class="step-dot todo" id="sdot2">2</div>
+          </div>
+
+          <!-- Step 1: Card -->
+          <div id="payStep1">
+            <div class="cc-wrap">
+              <svg class="credit-card-svg" viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#0d2252"/>
+                    <stop offset="100%" style="stop-color:#1a3a70"/>
+                  </linearGradient>
+                  <linearGradient id="cg2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#c9952a"/>
+                    <stop offset="100%" style="stop-color:#f0c060"/>
+                  </linearGradient>
+                </defs>
+                <rect width="340" height="200" rx="14" fill="url(#cg)"/>
+                <circle cx="290" cy="170" r="70" fill="rgba(255,255,255,.04)"/>
+                <circle cx="240" cy="150" r="90" fill="rgba(255,255,255,.03)"/>
+                <rect x="24" y="80" width="44" height="34" rx="5" fill="url(#cg2)"/>
+                <line x1="46" y1="80" x2="46" y2="114" stroke="rgba(0,0,0,.2)" stroke-width="1"/>
+                <line x1="24" y1="97" x2="68" y2="97" stroke="rgba(0,0,0,.2)" stroke-width="1"/>
+                <circle cx="270" cy="96" r="18" fill="#eb001b" opacity=".9"/>
+                <circle cx="290" cy="96" r="18" fill="#f79e1b" opacity=".9"/>
+                <ellipse cx="280" cy="96" rx="5" ry="12" fill="#ff5f00" opacity=".8"/>
+                <text x="24" y="155" font-family="'Courier New',monospace" font-size="15" fill="rgba(255,255,255,.9)" letter-spacing="2">•••• •••• •••• <tspan id="ccLast4">0000</tspan></text>
+                <text x="24" y="178" font-family="'Segoe UI',sans-serif" font-size="11" fill="rgba(255,255,255,.6)" id="ccName">PONINIO BANK</text>
+                <text x="280" y="178" font-family="'Courier New',monospace" font-size="11" fill="rgba(255,255,255,.6)">12/28</text>
+                <text x="24" y="42" font-family="'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,.8)">PONINIO BANK</text>
+              </svg>
+            </div>
+            <div class="cc-info-row"><span class="lbl">מסגרת חודשית</span><span class="val" id="creditLimitTotal">--</span></div>
+            <div class="cc-info-row"><span class="lbl">יתרה פנויה לשימוש</span><span class="val" style="color:var(--green)" id="creditAvailable2">--</span></div>
+            <div style="padding:16px 20px 20px">
+              <button class="btn btn-navy" onclick="goPayStep2()">המשך לתשלום ←</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Amount form -->
+          <div id="payStep2" class="hidden" style="padding:20px">
+            <button onclick="goPayStep1()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:13px;font-weight:700;padding:0;margin-bottom:18px">← חזרה לכרטיס</button>
+            <div class="form-group">
+              <label>סכום לתשלום (₪)</label>
+              <input type="number" id="purchaseAmount" min="1" step="any" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label>תיאור הרכישה</label>
+              <input type="text" id="purchaseDescription" placeholder="קנייה בחנות, שירות...">
+            </div>
+            <button class="btn btn-gold" onclick="makeCreditPurchase()">💸 אשר תשלום</button>
+            <div id="creditMessage" class="msg hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loan view -->
+      <div id="view-loan" class="hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>ניהול הלוואות</h3>
+            <a onclick="showDash('main')">← חזרה</a>
+          </div>
+          <div style="padding:20px">
+            <div class="loan-box" style="margin-bottom:16px">
+              <div>
+                <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:2px">יתרת הלוואה</div>
+                <div class="lamt" id="loanBalanceDisplay">0.00 ₪</div>
+                <div class="lmeta">החזר שבועי: 10%</div>
+              </div>
+              <span style="font-size:22px">🏦</span>
+            </div>
+            <div id="loanRequestStatus"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /account-center -->
+
+    <!-- COL 3 (visual left in RTL): Updates Sidebar -->
+    <aside class="updates-sidebar">
+      <div class="updates-box">
+        <div class="updates-header">
+          עדכונים
+          <span class="badge" id="updatesBadge">🔔</span>
+        </div>
+        <div id="updatesList">
+          <div class="update-item">
+            <span class="update-item-text">ממתינות 0 בקשות לתשלום</span>
+            <span class="update-item-arrow">‹</span>
+          </div>
+          <div class="update-item">
+            <span class="update-item-text">פוניניו בנק — שירות 24/7</span>
+            <span class="update-item-arrow">‹</span>
+          </div>
+        </div>
+      </div>
+      <div class="promo-box">
+        <div style="font-size:32px;margin-bottom:8px;position:relative">🎁</div>
+        <div class="promo-title">משהו חדש מתחיל...</div>
+        <div class="promo-sub">דף בית חדש, ניווט משודרג, קישורים מהירים</div>
+        <button class="promo-btn" onclick="showDash('transfer')">ספרו לי עוד</button>
+      </div>
+    </aside>
+
+  </div><!-- /dash-grid -->
+</div><!-- /dash-wrap -->
+</div><!-- /dashboard -->
+
+<!-- ============ ADMIN ============ -->
+<div id="adminPanel" class="hidden">
+<div class="admin-wrap">
+  <h2>🛠 לוח בקרה — מנהל פוניניו בנק</h2>
+  <div class="panel" style="margin-bottom:20px">
+    <div class="panel-head"><h3>העברה בנקאית (מנהל)</h3></div>
+    <div style="padding:20px">
+      <div class="form-row">
+        <div class="form-group"><label>חשבון שולח</label><select id="adminSender"></select></div>
+        <div class="form-group"><label>חשבון מקבל</label><select id="adminRecipient"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>סכום (₪)</label><input type="number" id="adminAmount" placeholder="0.00"></div>
+        <div class="form-group"><label>סיבה</label><input type="text" id="adminReason" placeholder="תיאור"></div>
+      </div>
+      <button class="btn btn-gold" style="max-width:200px" onclick="adminTransfer()">ביצוע העברה</button>
+      <div id="adminTransferMessage" class="msg hidden"></div>
+    </div>
+  </div>
+  <div class="panel" style="margin-bottom:20px">
+    <div class="panel-head"><h3>בקשות הלוואה ממתינות</h3></div>
+    <div style="padding:16px" id="loanRequestsContainer"></div>
+  </div>
+  <div class="panel" style="margin-bottom:20px">
+    <div class="panel-head"><h3>כלל חשבונות המשתמשים</h3></div>
+    <div style="overflow-x:auto"><table class="admin-table" id="userTable"></table></div>
+  </div>
+  <button class="btn btn-gray" style="max-width:200px" onclick="adminLogout()">יציאה מניהול</button>
+</div>
 </div>
 
 <!-- Receipt Modal -->
-<div class="modal-overlay hidden" id="receiptModal">
-    <div class="receipt-modal">
-        <div class="receipt-header">
-            <div class="receipt-logo">🏦</div>
-            <h3>קבלה רשמית - Poninio Bank</h3>
-        </div>
-        <div class="receipt-body">
-            <div class="receipt-id" id="receiptId"></div>
-            <div class="receipt-total">
-                <div style="font-size:13px;color:#555;margin-bottom:4px">סכום העסקה</div>
-                <div class="amount" id="receiptAmount"></div>
-            </div>
-            <div class="receipt-row"><span class="label">תאריך ושעה</span><span class="value" id="receiptDate"></span></div>
-            <div class="receipt-row"><span class="label">מחשבון</span><span class="value" id="receiptFrom"></span></div>
-            <div class="receipt-row"><span class="label">לחשבון</span><span class="value" id="receiptTo"></span></div>
-            <div class="receipt-row"><span class="label">סוג פעולה</span><span class="value" id="receiptType"></span></div>
-            <div class="receipt-row"><span class="label">תיאור</span><span class="value" id="receiptDesc"></span></div>
-            <div class="receipt-row"><span class="label">יתרה לאחר פעולה</span><span class="value" id="receiptBalance"></span></div>
-        </div>
-        <div class="receipt-footer">
-            <button class="btn-print" onclick="printReceipt()">🖨️ הדפסה</button>
-            <button class="btn-close-receipt" onclick="closeReceipt()">סגור</button>
-        </div>
+<div class="modal-bg hidden" id="receiptModal">
+  <div class="receipt-box">
+    <div class="r-header">
+      <div class="r-header-icon">🧾</div>
+      <h3>קבלה רשמית</h3>
+      <div style="font-size:11px;opacity:.6;margin-top:4px">פוניניו בנק</div>
     </div>
+    <div class="r-body">
+      <div class="r-id" id="receiptId"></div>
+      <div class="r-amount-box">
+        <div class="label">סכום העסקה</div>
+        <div class="val" id="receiptAmount"></div>
+      </div>
+      <div class="r-row"><span class="k">תאריך ושעה</span><span class="v" id="receiptDate"></span></div>
+      <div class="r-row"><span class="k">מחשבון</span><span class="v" id="receiptFrom"></span></div>
+      <div class="r-row"><span class="k">לחשבון</span><span class="v" id="receiptTo"></span></div>
+      <div class="r-row"><span class="k">סוג</span><span class="v" id="receiptType"></span></div>
+      <div class="r-row"><span class="k">תיאור</span><span class="v" id="receiptDesc"></span></div>
+      <div class="r-row"><span class="k">יתרה לאחר פעולה</span><span class="v" id="receiptBalance"></span></div>
+    </div>
+    <div class="r-footer">
+      <button class="btn btn-navy" onclick="printReceipt()">🖨️ הדפסה</button>
+      <button class="btn btn-gray" onclick="closeReceipt()">סגור</button>
+    </div>
+  </div>
 </div>
 
 <script>
-const NS = 'poninio_bank_birgsol_v1_2026';
-const ADMIN_PASSWORD = 'poni bank2025';
-const DEFAULT_LOAN_AMOUNT = 5000;
-const WEEKLY_PAYMENT_RATE = 0.10;
-const BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+const NS='poninio_bank_birgsol_v1_2026';
+const ADMIN_PASSWORD='poni bank2025';
+const DEFAULT_LOAN_AMOUNT=5000;
+const WEEKLY_PAYMENT_RATE=0.10;
+const BROKER='wss://broker.hivemq.com:8884/mqtt';
 
-const INITIAL_ACCOUNTS = {
-    "רות":        { password:"usto2015", balance:15000, creditLimit:12000 },
-    "דוד":        { password:"usto2014", balance:5000,  creditLimit:8000  },
-    "המדינה":     { password:"poni5324", balance:1000000, creditLimit:500000 },
-    "פוניניו":    { password:"poni2021", balance:2000000, creditLimit:50000 },
-    "בנימין הולאן":{ password:"7337",   balance:5000,  creditLimit:5000  }
+const INITIAL_ACCOUNTS={
+  "רות":        {password:"usto2015",balance:15000,  creditLimit:12000},
+  "דוד":        {password:"usto2014",balance:5000,   creditLimit:8000},
+  "המדינה":     {password:"poni5324",balance:1000000,creditLimit:500000},
+  "פוניניו":    {password:"poni2021",balance:2000000,creditLimit:50000},
+  "בנימין הולאן":{password:"7337",   balance:5000,   creditLimit:5000}
 };
 
-let accounts = {};
-let loggedInAccount = null;
-let mqttClient = null;
-let mqttReady = false;
-let pendingAccountLoad = {};
+let accounts={}, loggedInAccount=null, mqttClient=null, mqttReady=false;
 
-// ========== MQTT ==========
-
-function connectMQTT() {
-    const clientId = 'bank_' + Math.random().toString(36).substr(2,8);
-    mqttClient = mqtt.connect(BROKER, { clientId, clean:true, reconnectPeriod:3000 });
-
-    mqttClient.on('connect', () => {
-        mqttReady = true;
-        setConnStatus(true);
-        mqttClient.subscribe(NS + '/account/#');
-        mqttClient.subscribe(NS + '/reg/#');
-    });
-
-    mqttClient.on('reconnect', () => setConnStatus(null));
-    mqttClient.on('offline', () => setConnStatus(false));
-
-    mqttClient.on('message', (topic, payload) => {
-        try {
-            const data = JSON.parse(payload.toString());
-            const parts = topic.split('/');
-            if (parts[1] === 'account') {
-                const username = decodeURIComponent(parts[2]);
-                accounts[username] = data;
-                if (loggedInAccount === username) {
-                    updateDashboard();
-                    updateHistory();
-                }
-                if (loggedInAccount === null) {
-                    // pre-load for login check
-                }
-                updateAdminPanelIfOpen();
-            } else if (parts[1] === 'reg') {
-                const username = decodeURIComponent(parts[2]);
-                if (!accounts[username]) {
-                    accounts[username] = data;
-                }
-            }
-        } catch(e) {}
-    });
+// ===== MQTT =====
+function connectMQTT(){
+  const id='bank_'+Math.random().toString(36).substr(2,8);
+  mqttClient=mqtt.connect(BROKER,{clientId:id,clean:true,reconnectPeriod:3000});
+  mqttClient.on('connect',()=>{mqttReady=true;setConn(true);mqttClient.subscribe(NS+'/account/#');});
+  mqttClient.on('reconnect',()=>setConn(null));
+  mqttClient.on('offline',()=>setConn(false));
+  mqttClient.on('message',(topic,payload)=>{
+    try{
+      const data=JSON.parse(payload.toString());
+      const parts=topic.split('/');
+      if(parts[1]==='account'){
+        const u=decodeURIComponent(parts[2]);
+        accounts[u]=data;
+        if(loggedInAccount===u){updateDashboardData();}
+        if(!document.getElementById('adminPanel').classList.contains('hidden')) updateAdminPanel();
+      }
+    }catch(e){}
+  });
+}
+function setConn(on){
+  const d=document.getElementById('connDot'),t=document.getElementById('connText');
+  if(on===true){d.className='dot on';t.textContent='מחובר';}
+  else if(on===false){d.className='dot off';t.textContent='לא מחובר';}
+  else{d.className='dot wait';t.textContent='מתחבר';}
+}
+function publishAccount(u){
+  if(!mqttClient||!mqttReady)return;
+  mqttClient.publish(NS+'/account/'+encodeURIComponent(u),JSON.stringify(accounts[u]),{retain:true,qos:1});
 }
 
-function setConnStatus(online) {
-    const dot = document.getElementById('connDot');
-    const txt = document.getElementById('connText');
-    if (online === true)  { dot.className='status-dot online'; txt.textContent='מחובר'; }
-    else if (online === false) { dot.className='status-dot offline'; txt.textContent='לא מחובר'; }
-    else { dot.className='status-dot connecting'; txt.textContent='מתחבר...'; }
+// ===== NAV =====
+function showDash(view){
+  ['main','transfer','pay','loan'].forEach(v=>{
+    const el=document.getElementById('view-'+v);
+    if(el) el.classList.toggle('hidden',v!==view);
+    const nav=document.getElementById('nav-'+v);
+    if(nav) nav.classList.toggle('active',v===view);
+  });
+  const titles={main:'החשבון שלי',transfer:'העברת כסף',pay:'כרטיס אשראי',loan:'הלוואות'};
+  document.getElementById('dashTitle').textContent=titles[view]||'החשבון שלי';
+}
+function showSection(s){showDash(s);}
+
+// ===== STEPS =====
+function goPayStep2(){
+  document.getElementById('payStep1').classList.add('hidden');
+  document.getElementById('payStep2').classList.remove('hidden');
+  document.getElementById('sdot1').className='step-dot done';
+  document.getElementById('sdot2').className='step-dot active';
+  document.getElementById('sline1').className='step-line done';
+}
+function goPayStep1(){
+  document.getElementById('payStep2').classList.add('hidden');
+  document.getElementById('payStep1').classList.remove('hidden');
+  document.getElementById('sdot1').className='step-dot active';
+  document.getElementById('sdot2').className='step-dot todo';
+  document.getElementById('sline1').className='step-line';
+  document.getElementById('creditMessage').classList.add('hidden');
 }
 
-function publishAccount(username) {
-    if (!mqttClient || !mqttReady) return;
-    const topic = NS + '/account/' + encodeURIComponent(username);
-    mqttClient.publish(topic, JSON.stringify(accounts[username]), { retain:true, qos:1 });
+// ===== HELPERS =====
+function fc(n){if(n===Infinity)return'ללא הגבלה';return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')+' ₪';}
+function getWeek(){const n=new Date(),s=new Date(n.getFullYear(),0,1);return Math.floor((n-s)/(1000*60*60*24*7));}
+function genRec(){const d=new Date();return'REC-'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'-'+(Math.floor(Math.random()*9000)+1000);}
+function showNotif(m){const el=document.createElement('div');el.className='notif';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),3000);}
+function escH(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function showMsg(el,t,type){el.textContent=t;el.className='msg '+type;el.classList.remove('hidden');}
+function toggleReg(){document.getElementById('loginForm').classList.toggle('hidden');document.getElementById('registrationForm').classList.toggle('hidden');}
+
+// ===== RECEIPT =====
+function showReceipt({from,to,amount,type,desc,balance}){
+  const now=new Date();
+  document.getElementById('receiptId').textContent=genRec();
+  document.getElementById('receiptAmount').textContent=fc(amount);
+  document.getElementById('receiptDate').textContent=now.toLocaleDateString('he-IL')+' '+now.toLocaleTimeString('he-IL');
+  document.getElementById('receiptFrom').textContent=from;
+  document.getElementById('receiptTo').textContent=to;
+  document.getElementById('receiptType').textContent=type;
+  document.getElementById('receiptDesc').textContent=desc;
+  document.getElementById('receiptBalance').textContent=fc(balance);
+  document.getElementById('receiptModal').classList.remove('hidden');
+}
+function closeReceipt(){document.getElementById('receiptModal').classList.add('hidden');}
+function printReceipt(){
+  const h=document.querySelector('.receipt-box').innerHTML;
+  const w=window.open('','','width=440,height=640');
+  w.document.write('<html dir="rtl"><head><meta charset="UTF-8"><title>קבלה</title><style>body{font-family:Arial,sans-serif;padding:20px;direction:rtl;color:#1a2340}.r-header{background:#0d2252;color:#fff;padding:22px;text-align:center;border-radius:8px 8px 0 0}.r-header h3{font-size:16px;font-weight:800;color:#fff;margin:0}.r-header-icon{font-size:34px;margin-bottom:6px}.r-id{text-align:center;font-size:11px;color:#999;margin:12px 0}.r-amount-box{background:#e3f5ed;border:1px solid #b7e4cc;border-radius:8px;text-align:center;padding:18px;margin-bottom:16px}.r-amount-box .label{font-size:12px;color:#6b7a99;margin-bottom:4px}.r-amount-box .val{font-size:30px;font-weight:900;color:#0d2252}.r-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed #dde3ef;font-size:13px}.r-footer{display:none}.k{color:#6b7a99;font-weight:600}.v{font-weight:700}</style></head><body>'+h+'</body></html>');
+  w.document.close();w.print();
 }
 
-// ========== HELPERS ==========
-
-function formatCurrency(amount) {
-    if (amount === Infinity) return 'ללא הגבלה';
-    return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' ₪';
+// ===== CREDIT =====
+function checkAndResetCredit(){
+  if(!loggedInAccount)return;
+  const acc=accounts[loggedInAccount],m=new Date().getMonth();
+  if(acc.lastCreditResetMonth!==m){
+    const u=acc.creditUsed||0;
+    if(u>0&&acc.balance>=u){acc.balance-=u;acc.history.push({date:new Date().toLocaleDateString('he-IL'),description:'תשלום אוטומטי חוב אשראי חודשי',amount:u,type:'debit'});}
+    acc.creditUsed=0;acc.lastCreditResetMonth=m;publishAccount(loggedInAccount);
+  }
+}
+function makeCreditPurchase(){
+  if(!loggedInAccount)return;
+  const amount=parseFloat(document.getElementById('purchaseAmount').value);
+  const desc=document.getElementById('purchaseDescription').value.trim();
+  const msgDiv=document.getElementById('creditMessage');
+  const acc=accounts[loggedInAccount];
+  const available=acc.creditLimit-(acc.creditUsed||0);
+  if(isNaN(amount)||amount<=0)return showMsg(msgDiv,'הזן סכום חוקי','error');
+  if(!desc)return showMsg(msgDiv,'הזן תיאור רכישה','error');
+  if(amount>available)return showMsg(msgDiv,'מסגרת לא מספיקה (זמין: '+fc(available)+')','error');
+  acc.creditUsed=(acc.creditUsed||0)+amount;
+  acc.history.push({date:new Date().toLocaleDateString('he-IL'),description:'תשלום נייד — '+desc,amount,type:'credit-used'});
+  publishAccount(loggedInAccount);updateDashboardData();
+  document.getElementById('purchaseAmount').value='';document.getElementById('purchaseDescription').value='';
+  showMsg(msgDiv,'✅ תשלום '+fc(amount)+' בוצע!','success');
+  showReceipt({from:loggedInAccount,to:'חנות / שירות',amount,type:'תשלום נייד',desc,balance:acc.balance});
+  setTimeout(()=>goPayStep1(),2000);
 }
 
-function getCurrentWeekNumber() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 1);
-    return Math.floor((now - start) / (1000*60*60*24*7));
-}
-
-function genReceiptId() {
-    const d = new Date();
-    const rand = Math.floor(Math.random()*9000)+1000;
-    return 'REC-' + d.getFullYear() + ('0'+(d.getMonth()+1)).slice(-2) + ('0'+d.getDate()).slice(-2) + '-' + rand;
-}
-
-function showNotif(msg) {
-    const el = document.createElement('div');
-    el.className = 'notif';
-    el.textContent = msg;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
-}
-
-function toggleRegistration() {
-    document.getElementById('loginForm').classList.toggle('hidden');
-    document.getElementById('registrationForm').classList.toggle('hidden');
-}
-
-function updateAdminPanelIfOpen() {
-    if (document.getElementById('adminPanel').style.display === 'grid') {
-        updateAdminPanel();
-    }
-}
-
-// ========== RECEIPT ==========
-
-function showReceipt({ from, to, amount, type, desc, balance }) {
-    const now = new Date();
-    document.getElementById('receiptId').textContent = genReceiptId();
-    document.getElementById('receiptAmount').textContent = formatCurrency(amount);
-    document.getElementById('receiptDate').textContent = now.toLocaleDateString('he-IL') + ' ' + now.toLocaleTimeString('he-IL');
-    document.getElementById('receiptFrom').textContent = from;
-    document.getElementById('receiptTo').textContent = to;
-    document.getElementById('receiptType').textContent = type;
-    document.getElementById('receiptDesc').textContent = desc;
-    document.getElementById('receiptBalance').textContent = formatCurrency(balance);
-    document.getElementById('receiptModal').classList.remove('hidden');
-}
-
-function closeReceipt() {
-    document.getElementById('receiptModal').classList.add('hidden');
-}
-
-function printReceipt() {
-    const modal = document.querySelector('.receipt-modal').innerHTML;
-    const win = window.open('','','width=420,height=600');
-    win.document.write('<html dir="rtl"><head><meta charset="UTF-8"><title>קבלה</title><style>body{font-family:Arial,sans-serif;padding:20px;direction:rtl}.receipt-header{background:#004c99;color:#fff;padding:20px;text-align:center;border-radius:8px 8px 0 0}.receipt-body{padding:20px}.receipt-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #ddd;font-size:14px}.receipt-total{background:#e6ffe6;border-radius:8px;padding:14px;text-align:center;margin:16px 0;border:1px solid #99ff99}.amount{font-size:28px;font-weight:900;color:#004c99}.receipt-id{text-align:center;font-size:11px;color:#999;margin-bottom:12px}.receipt-footer{display:none}.label{color:#666;font-weight:600}.value{color:#111;font-weight:700}</style></head><body>' + modal + '</body></html>');
-    win.document.close();
-    win.print();
-}
-
-// ========== CREDIT ==========
-
-function checkAndResetCreditLimit() {
-    if (!loggedInAccount) return;
-    const account = accounts[loggedInAccount];
-    const currentMonth = new Date().getMonth();
-    if (account.lastCreditResetMonth !== currentMonth) {
-        const used = account.creditUsed || 0;
-        if (used > 0 && account.balance >= used) {
-            account.balance -= used;
-            account.history.push({ date: new Date().toLocaleDateString('he-IL'), description: 'תשלום אוטומטי חוב אשראי חודשי', amount: used, type:'debit' });
-        }
-        account.creditUsed = 0;
-        account.lastCreditResetMonth = currentMonth;
-        publishAccount(loggedInAccount);
-    }
-}
-
-function makeCreditPurchase() {
-    if (!loggedInAccount) return;
-    const amount = parseFloat(document.getElementById('purchaseAmount').value);
-    const desc = document.getElementById('purchaseDescription').value.trim();
-    const msgDiv = document.getElementById('creditMessage');
-    msgDiv.classList.add('hidden');
-    const account = accounts[loggedInAccount];
-    const available = account.creditLimit - (account.creditUsed||0);
-
-    if (isNaN(amount)||amount<=0) return showMsg(msgDiv,'אנא הזן סכום חוקי.','error');
-    if (!desc) return showMsg(msgDiv,'אנא הזן תיאור רכישה.','error');
-    if (amount > available) return showMsg(msgDiv,'מסגרת אשראי לא מספיקה (זמין: ' + formatCurrency(available) + ')','error');
-
-    account.creditUsed = (account.creditUsed||0) + amount;
-    const today = new Date().toLocaleDateString('he-IL');
-    account.history.push({ date:today, description:'תשלום נייד - ' + desc, amount, type:'credit-used' });
+// ===== LOANS =====
+function checkLoanPayments(){
+  if(!loggedInAccount)return;
+  const acc=accounts[loggedInAccount];
+  if(acc.loanStatus!=='Approved'||acc.loanBalance<=0){acc.loanBalance=0;acc.loanStatus='None';acc.lastLoanCheck=getWeek();return;}
+  const cur=getWeek(),last=acc.lastLoanCheck||cur;
+  let weeks=cur-last;if(weeks<0||weeks>52)weeks=0;
+  if(weeks>0){
+    let loan=acc.loanBalance,total=0;
+    for(let i=0;i<weeks;i++){if(loan<=0)break;const p=Math.min(loan*WEEKLY_PAYMENT_RATE,loan,acc.balance);if(p<=0)break;loan-=p;acc.balance-=p;total+=p;}
+    acc.loanBalance=loan<=0.01?0:loan;if(acc.loanBalance===0)acc.loanStatus='None';
+    acc.lastLoanCheck=cur;
+    if(total>0)acc.history.push({date:new Date().toLocaleDateString('he-IL'),description:'תשלומי הלוואה ('+weeks+' שבועות)',amount:total,type:'debit'});
     publishAccount(loggedInAccount);
-    updateDashboard(); updateHistory();
-    document.getElementById('purchaseAmount').value = '';
-    document.getElementById('purchaseDescription').value = '';
-    showMsg(msgDiv,'✅ תשלום בסך ' + formatCurrency(amount) + ' בוצע!','success');
-    showReceipt({ from:loggedInAccount, to:'חנות / שירות', amount, type:'תשלום נייד', desc, balance:account.balance });
+  }
+}
+function requestLoan(){
+  if(!loggedInAccount)return;
+  const acc=accounts[loggedInAccount];
+  if(acc.loanStatus!=='None'&&acc.loanBalance>0){alert('⛔ יש לך כבר הלוואה פעילה');return;}
+  if(confirm('בקשת הלוואה בסך '+fc(DEFAULT_LOAN_AMOUNT)+'?\nהבקשה תועבר לאישור מנהל')){
+    acc.loanStatus='Pending';acc.loanBalance=DEFAULT_LOAN_AMOUNT;acc.lastLoanCheck=getWeek();
+    publishAccount(loggedInAccount);updateDashboardData();showNotif('✅ בקשה נשלחה למנהל');
+  }
+}
+function handleLoanApproval(u,status){
+  const acc=accounts[u];
+  if(status==='Approve'){if(acc.loanStatus!=='Pending')return;acc.balance+=acc.loanBalance;acc.loanStatus='Approved';acc.lastLoanCheck=getWeek();acc.history.push({date:new Date().toLocaleDateString('he-IL'),description:'קבלת הלוואה מאושרת',amount:acc.loanBalance,type:'credit'});showNotif('✅ הלוואה ל'+u+' אושרה');}
+  else{acc.loanBalance=0;acc.loanStatus='None';showNotif('❌ הלוואה ל'+u+' נדחתה');}
+  publishAccount(u);updateAdminPanel();
 }
 
-// ========== LOANS ==========
-
-function checkAndApplyLoanPayments() {
-    if (!loggedInAccount) return;
-    const account = accounts[loggedInAccount];
-    if (account.loanStatus !== 'Approved' || account.loanBalance <= 0) {
-        account.loanBalance = 0; account.loanStatus = 'None';
-        account.lastLoanCheck = getCurrentWeekNumber();
-        return;
-    }
-    const currentWeek = getCurrentWeekNumber();
-    const lastCheck = account.lastLoanCheck || currentWeek;
-    let weeksPassed = currentWeek - lastCheck;
-    if (weeksPassed < 0 || weeksPassed > 52) weeksPassed = 0;
-    if (weeksPassed > 0) {
-        let tempLoan = account.loanBalance;
-        let totalPayment = 0;
-        for (let i=0; i<weeksPassed; i++) {
-            if (tempLoan<=0) break;
-            const pay = Math.min(tempLoan * WEEKLY_PAYMENT_RATE, tempLoan, account.balance);
-            if (pay<=0) break;
-            tempLoan -= pay; account.balance -= pay; totalPayment += pay;
-        }
-        account.loanBalance = tempLoan <= 0.01 ? 0 : tempLoan;
-        if (account.loanBalance === 0) account.loanStatus = 'None';
-        account.lastLoanCheck = currentWeek;
-        if (totalPayment>0) account.history.push({ date:new Date().toLocaleDateString('he-IL'), description:'תשלומי הלוואה אוטומטיים ('+weeksPassed+' שבועות)', amount:totalPayment, type:'debit' });
-        publishAccount(loggedInAccount);
-    }
+// ===== ADMIN =====
+function adminLogin(){
+  const pw=document.getElementById('adminPassword').value,m=document.getElementById('adminLoginMessage');
+  if(pw===ADMIN_PASSWORD){showMsg(m,'כניסת מנהל אושרה','success');setTimeout(()=>{document.getElementById('authPage').classList.add('hidden');document.getElementById('adminPanel').classList.remove('hidden');updateAdminPanel();},400);}
+  else if(pw) showMsg(m,'סיסמה שגויה','error');
+}
+function adminLogout(){document.getElementById('adminPanel').classList.add('hidden');document.getElementById('authPage').classList.remove('hidden');document.getElementById('adminPassword').value='';document.getElementById('adminLoginMessage').classList.add('hidden');}
+function deleteUser(u){if(INITIAL_ACCOUNTS[u]){alert('לא ניתן למחוק חשבון קבוע');return;}if(confirm('למחוק '+u+'?')){if(mqttClient&&mqttReady)mqttClient.publish(NS+'/account/'+encodeURIComponent(u),'',{retain:true,qos:1});delete accounts[u];updateAdminPanel();}}
+function adminTransfer(){
+  const sn=document.getElementById('adminSender').value,rn=document.getElementById('adminRecipient').value;
+  const amount=parseFloat(document.getElementById('adminAmount').value);
+  const reason=document.getElementById('adminReason').value.trim();
+  const m=document.getElementById('adminTransferMessage');
+  const s=accounts[sn],r=accounts[rn];
+  if(!sn||!rn||sn===rn)return showMsg(m,'בחר חשבונות שונים','error');
+  if(isNaN(amount)||amount<=0)return showMsg(m,'הזן סכום חוקי','error');
+  if(amount>s.balance)return showMsg(m,'יתרה לא מספיקה','error');
+  if(!reason)return showMsg(m,'הזן סיבה','error');
+  const d=new Date().toLocaleDateString('he-IL');
+  s.balance-=amount;r.balance+=amount;
+  s.history.push({date:d,description:'העברה מנהלית ל'+rn+' ('+reason+')',amount,type:'debit'});
+  r.history.push({date:d,description:'התקבל מנהלית מ'+sn+' ('+reason+')',amount,type:'credit'});
+  publishAccount(sn);publishAccount(rn);updateAdminPanel();
+  document.getElementById('adminAmount').value='';document.getElementById('adminReason').value='';
+  showMsg(m,'✅ '+fc(amount)+' הועבר!','success');
+  showReceipt({from:sn,to:rn,amount,type:'העברה מנהלית',desc:reason,balance:s.balance});
+}
+function updateAdminPanel(){
+  if(document.getElementById('adminPanel').classList.contains('hidden'))return;
+  ['adminSender','adminRecipient'].forEach(id=>{const s=document.getElementById(id);s.innerHTML='';for(const u in accounts)s.add(new Option(u,u));});
+  const tb=document.getElementById('userTable');
+  tb.innerHTML='<thead><tr><th>שם</th><th>יתרה</th><th>אשראי בשימוש</th><th>הלוואה</th><th>סטטוס</th><th>פעולה</th></tr></thead><tbody></tbody>';
+  const body=tb.querySelector('tbody');
+  const lc=document.getElementById('loanRequestsContainer');
+  let ph='';
+  for(const u in accounts){
+    const a=accounts[u];
+    const row=body.insertRow();
+    row.insertCell().textContent=u;row.insertCell().textContent=fc(a.balance);row.insertCell().textContent=fc(a.creditUsed||0);row.insertCell().textContent=fc(a.loanBalance||0);
+    row.insertCell().textContent=a.loanStatus==='Approved'?'פעיל':a.loanStatus==='Pending'?'ממתין':'ללא';
+    const c=row.insertCell();
+    if(!INITIAL_ACCOUNTS[u]){const b=document.createElement('button');b.textContent='מחק';b.className='btn-sm btn-red';b.onclick=()=>deleteUser(u);c.appendChild(b);}
+    else c.textContent='קבוע';
+    if(a.loanStatus==='Pending') ph+='<tr><td>'+u+'</td><td>'+fc(DEFAULT_LOAN_AMOUNT)+'</td><td><button class="btn-sm btn-green" onclick="handleLoanApproval(\''+u+'\',\'Approve\')">✅ אישור</button> <button class="btn-sm btn-red" onclick="handleLoanApproval(\''+u+'\',\'Reject\')">❌ דחייה</button></td></tr>';
+  }
+  lc.innerHTML=ph?'<table class="admin-table"><thead><tr><th>שם</th><th>סכום</th><th>פעולה</th></tr></thead><tbody>'+ph+'</tbody></table>':'<p style="color:var(--muted);text-align:center;padding:16px">אין בקשות ממתינות</p>';
 }
 
-function requestLoan() {
-    if (!loggedInAccount) return;
-    const account = accounts[loggedInAccount];
-    if ((account.loanStatus !== 'None') && account.loanBalance > 0) { alert('⛔ יש לך כבר הלוואה פעילה.'); return; }
-    if (confirm('האם לבקש הלוואה בסך ' + formatCurrency(DEFAULT_LOAN_AMOUNT) + '? הבקשה תועבר לאישור מנהל.')) {
-        account.loanStatus = 'Pending';
-        account.loanBalance = DEFAULT_LOAN_AMOUNT;
-        account.lastLoanCheck = getCurrentWeekNumber();
-        publishAccount(loggedInAccount);
-        updateDashboard();
-        showNotif('✅ בקשת הלוואה נשלחה למנהל');
-    }
+// ===== AUTH =====
+function registerUser(){
+  const u=document.getElementById('newUsername').value.trim(),p=document.getElementById('newPassword').value.trim();
+  const m=document.getElementById('registrationMessage');
+  if(!u||!p)return showMsg(m,'שם משתמש וסיסמה חובה','error');
+  if(accounts[u])return showMsg(m,'שם משתמש כבר קיים','error');
+  accounts[u]={password:p,balance:1000,creditLimit:5000,creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),history:[{date:new Date().toLocaleDateString('he-IL'),description:'יתרת פתיחה',amount:1000,type:'credit'}]};
+  publishAccount(u);
+  showMsg(m,'✅ חשבון נוצר! ניתן להתחבר','success');
+  document.getElementById('newUsername').value='';document.getElementById('newPassword').value='';
+  setTimeout(()=>{toggleReg();document.getElementById('username').value=u;},1500);
+}
+function login(){
+  const u=document.getElementById('username').value.trim(),p=document.getElementById('password').value.trim();
+  const m=document.getElementById('loginMessage');
+  const initPw=INITIAL_ACCOUNTS[u]?INITIAL_ACCOUNTS[u].password:null;
+  const acc=accounts[u];
+  const validPw=acc?acc.password:initPw;
+  if(!validPw)return showMsg(m,'שם משתמש לא קיים','error');
+  if(p!==validPw)return showMsg(m,'סיסמה שגויה','error');
+  if(!acc){accounts[u]={...INITIAL_ACCOUNTS[u],creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),history:[{date:new Date().toLocaleDateString('he-IL'),description:'יתרת פתיחה',amount:INITIAL_ACCOUNTS[u].balance,type:'credit'}]};publishAccount(u);}
+  loggedInAccount=u;checkLoanPayments();checkAndResetCredit();
+  showMsg(m,'✅ ברוך הבא '+u+'!','success');
+  const now=new Date();
+  setTimeout(()=>{
+    document.getElementById('authPage').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    document.getElementById('mainNav').style.display='flex';
+    document.getElementById('logoutBtn').classList.remove('hidden');
+    document.getElementById('thAccount').classList.remove('hidden');
+    document.getElementById('thSearch').classList.remove('hidden');
+    document.getElementById('thAccountName').textContent=u;
+    document.getElementById('thAccountNum').textContent=Math.floor(Math.random()*900000+100000).toString().replace(/(\d{3})(\d{3})/,'$1-$2');
+    document.getElementById('thDate').textContent=now.toLocaleDateString('he-IL')+' '+now.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('dashDate').textContent=now.toLocaleDateString('he-IL',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    document.getElementById('balanceDate').textContent=now.toLocaleDateString('he-IL')+' '+now.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('ccName').textContent=u.toUpperCase();
+    updateDashboardData();
+    showDash('main');
+  },400);
+}
+function logout(){
+  loggedInAccount=null;
+  document.getElementById('authPage').classList.remove('hidden');
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('adminPanel').classList.add('hidden');
+  document.getElementById('mainNav').style.display='none';
+  document.getElementById('logoutBtn').classList.add('hidden');
+  document.getElementById('thAccount').classList.add('hidden');
+  document.getElementById('thSearch').classList.add('hidden');
+  document.getElementById('loginMessage').classList.add('hidden');
+  goPayStep1();
 }
 
-function handleLoanApproval(username, status) {
-    const account = accounts[username];
-    if (status === 'Approve') {
-        if (account.loanStatus !== 'Pending') return;
-        account.balance += account.loanBalance;
-        account.loanStatus = 'Approved';
-        account.lastLoanCheck = getCurrentWeekNumber();
-        account.history.push({ date:new Date().toLocaleDateString('he-IL'), description:'קבלת הלוואה מאושרת', amount:account.loanBalance, type:'credit' });
-        showNotif('✅ הלוואה לחשבון ' + username + ' אושרה');
-    } else {
-        account.loanBalance = 0; account.loanStatus = 'None';
-        showNotif('❌ הלוואה לחשבון ' + username + ' נדחתה');
-    }
-    publishAccount(username);
-    updateAdminPanel();
+// ===== TRANSFER =====
+function transfer(){
+  const rn=document.getElementById('recipient').value;
+  const amount=parseFloat(document.getElementById('amount').value);
+  const reason=document.getElementById('reason').value.trim();
+  const pw=document.getElementById('transferPassword').value;
+  const m=document.getElementById('transferMessage');
+  const s=accounts[loggedInAccount],r=accounts[rn];
+  if(!rn)return showMsg(m,'בחר חשבון מקבל','error');
+  if(!reason)return showMsg(m,'הזן סיבה להעברה','error');
+  if(pw!==s.password)return showMsg(m,'סיסמה שגויה','error');
+  if(isNaN(amount)||amount<=0)return showMsg(m,'הזן סכום חוקי','error');
+  if(amount>s.balance)return showMsg(m,'יתרה לא מספיקה ('+fc(s.balance)+')','error');
+  if(!r)return showMsg(m,'חשבון מקבל לא נמצא','error');
+  const d=new Date().toLocaleDateString('he-IL');
+  s.balance-=amount;r.balance+=amount;
+  s.history.push({date:d,description:'העברה ל'+rn+' ('+reason+')',amount,type:'debit'});
+  r.history.push({date:d,description:'התקבל מ'+loggedInAccount+' ('+reason+')',amount,type:'credit'});
+  publishAccount(loggedInAccount);publishAccount(rn);
+  updateDashboardData();
+  document.getElementById('amount').value='';document.getElementById('reason').value='';document.getElementById('transferPassword').value='';document.getElementById('recipient').selectedIndex=0;
+  showMsg(m,'✅ '+fc(amount)+' הועבר ל'+rn+'!','success');
+  showReceipt({from:loggedInAccount,to:rn,amount,type:'העברה בנקאית',desc:reason,balance:s.balance});
 }
 
-// ========== ADMIN ==========
-
-function adminLogin() {
-    const pw = document.getElementById('adminPassword').value;
-    const msgDiv = document.getElementById('adminLoginMessage');
-    if (pw === ADMIN_PASSWORD) {
-        showMsg(msgDiv, 'כניסת מנהל אושרה', 'success');
-        document.getElementById('authScreen').style.display = 'none';
-        document.getElementById('adminPanel').style.display = 'grid';
-        updateAdminPanel();
-    } else if (pw) {
-        showMsg(msgDiv, 'סיסמת מנהל שגויה', 'error');
-    }
+// ===== DASHBOARD DATA =====
+function updateDashboardData(){
+  if(!loggedInAccount)return;
+  const acc=accounts[loggedInAccount];
+  const avail=acc.creditLimit-(acc.creditUsed||0);
+  // Balance
+  document.getElementById('balanceDisplay').textContent=fc(acc.balance).replace(' ₪','');
+  document.getElementById('creditLimitDisplay').textContent=fc(acc.creditLimit);
+  document.getElementById('creditAvailableDisplay').textContent=fc(avail);
+  document.getElementById('creditLimitTotal').textContent=fc(acc.creditLimit);
+  document.getElementById('creditAvailable2').textContent=fc(avail);
+  document.getElementById('loanBalanceDisplay').textContent=fc(acc.loanBalance||0);
+  // Loan status
+  const ld=document.getElementById('loanRequestStatus');
+  if(acc.loanStatus==='Pending') ld.innerHTML='<div class="msg pending">⏳ ממתין לאישור מנהל — '+fc(DEFAULT_LOAN_AMOUNT)+'</div>';
+  else if(acc.loanBalance>0&&acc.loanStatus==='Approved') ld.innerHTML='<div class="msg success">✅ הלוואה פעילה — חוב: '+fc(acc.loanBalance)+'</div>';
+  else ld.innerHTML='<button class="btn btn-primary" onclick="requestLoan()">בקשת הלוואה ('+fc(DEFAULT_LOAN_AMOUNT)+')</button>';
+  // Recipients
+  const sel=document.getElementById('recipient');
+  sel.innerHTML='<option value="" disabled selected>בחר חשבון...</option>';
+  for(const u in accounts) if(u!==loggedInAccount) sel.add(new Option(u+' — פוניניו בנק',u));
+  // Transactions
+  const tbody=document.getElementById('transBody');
+  const history=acc.history||[];
+  if(!history.length){tbody.innerHTML='<tr><td colspan="3" class="trans-empty">אין פעולות עדיין</td></tr>';return;}
+  tbody.innerHTML='';
+  for(let i=history.length-1;i>=0&&i>=history.length-10;i--){
+    const it=history[i];
+    const sign=it.type==='credit'?'+':'-';
+    const cls=it.type==='credit-used'?'credit-used':it.type;
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td class="trans-date">'+it.date+'</td><td class="trans-desc">'+escH(it.description)+'</td><td class="trans-amt '+cls+'">'+sign+fc(it.amount)+'</td>';
+    tbody.appendChild(tr);
+  }
 }
 
-function adminLogout() {
-    document.getElementById('adminPanel').style.display = 'none';
-    document.getElementById('authScreen').style.display = 'block';
-    document.getElementById('adminPassword').value = '';
-    document.getElementById('adminLoginMessage').classList.add('hidden');
-}
-
-function deleteUser(username) {
-    if (INITIAL_ACCOUNTS[username]) { alert('לא ניתן למחוק חשבון קבוע'); return; }
-    if (confirm('למחוק את החשבון של ' + username + '?')) {
-        if (mqttClient && mqttReady) {
-            mqttClient.publish(NS + '/account/' + encodeURIComponent(username), '', { retain:true, qos:1 });
-        }
-        delete accounts[username];
-        updateAdminPanel();
-    }
-}
-
-function adminTransfer() {
-    const senderName = document.getElementById('adminSender').value;
-    const recipientName = document.getElementById('adminRecipient').value;
-    const amount = parseFloat(document.getElementById('adminAmount').value);
-    const reason = document.getElementById('adminReason').value.trim();
-    const msgDiv = document.getElementById('adminTransferMessage');
-    msgDiv.classList.add('hidden');
-    const sender = accounts[senderName];
-    const recipient = accounts[recipientName];
-    if (!senderName||!recipientName||senderName===recipientName) return showMsg(msgDiv,'בחר חשבון שולח ומקבל שונים','error');
-    if (isNaN(amount)||amount<=0) return showMsg(msgDiv,'הזן סכום חוקי','error');
-    if (amount>sender.balance) return showMsg(msgDiv,'אין יתרה מספקת בחשבון השולח','error');
-    if (!reason) return showMsg(msgDiv,'הזן סיבה להעברה','error');
-    const today = new Date().toLocaleDateString('he-IL');
-    sender.balance -= amount;
-    recipient.balance += amount;
-    sender.history.push({ date:today, description:'העברה מנהלית ל'+recipientName+' ('+reason+')', amount, type:'debit' });
-    recipient.history.push({ date:today, description:'התקבל בהעברה מנהלית מ'+senderName+' ('+reason+')', amount, type:'credit' });
-    publishAccount(senderName); publishAccount(recipientName);
-    updateAdminPanel();
-    document.getElementById('adminAmount').value = '';
-    document.getElementById('adminReason').value = '';
-    showMsg(msgDiv,'✅ העברה של '+formatCurrency(amount)+' בוצעה!','success');
-    showReceipt({ from:senderName, to:recipientName, amount, type:'העברה מנהלית', desc:reason, balance:sender.balance });
-}
-
-function updateAdminPanel() {
-    if (document.getElementById('adminPanel').style.display !== 'grid') return;
-    const adminSender = document.getElementById('adminSender');
-    const adminRecipient = document.getElementById('adminRecipient');
-    adminSender.innerHTML = ''; adminRecipient.innerHTML = '';
-    for (const u in accounts) {
-        adminSender.add(new Option(u,u));
-        adminRecipient.add(new Option(u,u));
-    }
-    const userTable = document.getElementById('userTable');
-    userTable.innerHTML = '<thead><tr><th>שם</th><th>יתרה</th><th>אשראי בשימוש</th><th>הלוואה</th><th>פעולה</th></tr></thead><tbody></tbody>';
-    const tbody = userTable.querySelector('tbody');
-    const loanContainer = document.getElementById('loanRequestsContainer');
-    let pendingHTML = '';
-    for (const u in accounts) {
-        const acc = accounts[u];
-        const row = tbody.insertRow();
-        row.insertCell().textContent = u;
-        row.insertCell().textContent = formatCurrency(acc.balance);
-        row.insertCell().textContent = formatCurrency(acc.creditUsed||0);
-        row.insertCell().textContent = formatCurrency(acc.loanBalance||0);
-        const cell = row.insertCell();
-        if (!INITIAL_ACCOUNTS[u]) {
-            const btn = document.createElement('button');
-            btn.textContent = 'מחק'; btn.className = 'delete-btn';
-            btn.onclick = () => deleteUser(u);
-            cell.appendChild(btn);
-        } else {
-            cell.textContent = 'קבוע';
-        }
-        if (acc.loanStatus === 'Pending') {
-            pendingHTML += '<tr><td>'+u+'</td><td>'+formatCurrency(DEFAULT_LOAN_AMOUNT)+'</td><td><button class="approve-btn" onclick="handleLoanApproval(\''+u+'\',\'Approve\')">✅ אישור</button><button class="reject-btn" onclick="handleLoanApproval(\''+u+'\',\'Reject\')">❌ דחייה</button></td></tr>';
-        }
-    }
-    loanContainer.innerHTML = pendingHTML
-        ? '<table><thead><tr><th>שם</th><th>סכום</th><th>פעולה</th></tr></thead><tbody>'+pendingHTML+'</tbody></table>'
-        : '<p style="color:#666;text-align:center">אין בקשות ממתינות</p>';
-}
-
-// ========== LOGIN / REGISTER ==========
-
-function registerUser() {
-    const username = document.getElementById('newUsername').value.trim();
-    const password = document.getElementById('newPassword').value.trim();
-    const msgDiv = document.getElementById('registrationMessage');
-    msgDiv.classList.add('hidden');
-    if (!username||!password) return showMsg(msgDiv,'שם משתמש וסיסמה חובה','error');
-    if (accounts[username]) return showMsg(msgDiv,'שם המשתמש כבר קיים','error');
-    accounts[username] = {
-        password, balance:1000, creditLimit:5000, creditUsed:0,
-        lastCreditResetMonth:new Date().getMonth(),
-        loanBalance:0, loanStatus:'None', lastLoanCheck:getCurrentWeekNumber(),
-        history:[{ date:new Date().toLocaleDateString('he-IL'), description:'יתרת פתיחה לחשבון חדש', amount:1000, type:'credit' }]
-    };
-    publishAccount(username);
-    showMsg(msgDiv,'✅ חשבון "'+username+'" נוצר! ניתן להתחבר','success');
-    document.getElementById('newUsername').value = '';
-    document.getElementById('newPassword').value = '';
-    setTimeout(() => { toggleRegistration(); document.getElementById('username').value = username; }, 1500);
-}
-
-function login() {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value.trim();
-    const msgDiv = document.getElementById('loginMessage');
-    msgDiv.classList.add('hidden');
-
-    const acc = accounts[username];
-    // Check initial accounts first (hardcoded passwords)
-    const initialPw = INITIAL_ACCOUNTS[username] ? INITIAL_ACCOUNTS[username].password : null;
-    const validPw = acc ? acc.password : initialPw;
-
-    if (!acc && !initialPw) return showMsg(msgDiv,'שם משתמש לא קיים. המתן לטעינה או רשום חשבון חדש.','error');
-    if (password !== validPw) return showMsg(msgDiv,'סיסמה שגויה','error');
-
-    if (!acc) {
-        // First login - initialize from INITIAL_ACCOUNTS
-        accounts[username] = JSON.parse(JSON.stringify({ ...INITIAL_ACCOUNTS[username], creditUsed:0, lastCreditResetMonth:new Date().getMonth(), loanBalance:0, loanStatus:'None', lastLoanCheck:getCurrentWeekNumber(), history:[{ date:new Date().toLocaleDateString('he-IL'), description:'יתרת פתיחה', amount:INITIAL_ACCOUNTS[username].balance, type:'credit' }] }));
-        publishAccount(username);
-    }
-
-    loggedInAccount = username;
-    checkAndApplyLoanPayments();
-    checkAndResetCreditLimit();
-    showMsg(msgDiv,'✅ ברוך הבא!','success');
-    setTimeout(() => {
-        document.getElementById('authScreen').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'grid';
-        updateDashboard(); updateHistory();
-    }, 500);
-}
-
-function logout() {
-    loggedInAccount = null;
-    document.getElementById('authScreen').style.display = 'block';
-    document.getElementById('dashboard').style.display = 'none';
-    document.getElementById('adminPanel').style.display = 'none';
-    ['loginMessage','transferMessage','registrationMessage','adminLoginMessage','creditMessage'].forEach(id => document.getElementById(id).classList.add('hidden'));
-}
-
-// ========== TRANSFER ==========
-
-function transfer() {
-    const recipientName = document.getElementById('recipient').value;
-    const amount = parseFloat(document.getElementById('amount').value);
-    const reason = document.getElementById('reason').value.trim();
-    const pw = document.getElementById('transferPassword').value;
-    const msgDiv = document.getElementById('transferMessage');
-    msgDiv.classList.add('hidden');
-    const sender = accounts[loggedInAccount];
-    const recipient = accounts[recipientName];
-    if (!recipientName) return showMsg(msgDiv,'בחר חשבון מקבל','error');
-    if (!reason) return showMsg(msgDiv,'הזן סיבה להעברה','error');
-    if (pw !== sender.password) return showMsg(msgDiv,'סיסמה שגויה לאימות','error');
-    if (isNaN(amount)||amount<=0) return showMsg(msgDiv,'הזן סכום חוקי','error');
-    if (amount > sender.balance) return showMsg(msgDiv,'יתרה לא מספיקה ('+formatCurrency(sender.balance)+')','error');
-    if (!recipient) return showMsg(msgDiv,'חשבון מקבל לא נמצא','error');
-    const today = new Date().toLocaleDateString('he-IL');
-    sender.balance -= amount;
-    recipient.balance += amount;
-    sender.history.push({ date:today, description:'העברה ל'+recipientName+' ('+reason+')', amount, type:'debit' });
-    recipient.history.push({ date:today, description:'התקבל מ'+loggedInAccount+' ('+reason+')', amount, type:'credit' });
-    publishAccount(loggedInAccount); publishAccount(recipientName);
-    updateDashboard(); updateHistory();
-    document.getElementById('amount').value = '';
-    document.getElementById('reason').value = '';
-    document.getElementById('transferPassword').value = '';
-    document.getElementById('recipient').selectedIndex = 0;
-    showMsg(msgDiv,'✅ העברה של '+formatCurrency(amount)+' בוצעה!','success');
-    showReceipt({ from:loggedInAccount, to:recipientName, amount, type:'העברה בנקאית', desc:reason, balance:sender.balance });
-}
-
-// ========== DASHBOARD ==========
-
-function updateDashboard() {
-    if (!loggedInAccount) return;
-    const acc = accounts[loggedInAccount];
-    const available = acc.creditLimit - (acc.creditUsed||0);
-    document.getElementById('accountNameDisplay').textContent = loggedInAccount;
-    document.getElementById('balanceDisplay').textContent = formatCurrency(acc.balance);
-    document.getElementById('creditLimitTotal').textContent = formatCurrency(acc.creditLimit);
-    document.getElementById('creditAvailableDisplay').textContent = formatCurrency(available);
-    document.getElementById('loanBalanceDisplay').textContent = formatCurrency(acc.loanBalance||0);
-    const loanDiv = document.getElementById('loanRequestStatus');
-    if (acc.loanStatus === 'Pending') {
-        loanDiv.innerHTML = '<div class="message pending">⏳ ממתין לאישור מנהל. סכום: '+formatCurrency(DEFAULT_LOAN_AMOUNT)+'</div>';
-    } else if (acc.loanBalance > 0 && acc.loanStatus === 'Approved') {
-        loanDiv.innerHTML = '<div class="message success">✅ הלוואה פעילה. חוב: '+formatCurrency(acc.loanBalance)+'</div>';
-    } else {
-        loanDiv.innerHTML = '<button onclick="requestLoan()">בקשת הלוואה ('+formatCurrency(DEFAULT_LOAN_AMOUNT)+')</button>';
-    }
-    const select = document.getElementById('recipient');
-    select.innerHTML = '<option value="" disabled selected>בחר חשבון...</option>';
-    for (const u in accounts) {
-        if (u !== loggedInAccount) select.add(new Option(u + ' (Poninio Bank)', u));
-    }
-}
-
-function updateHistory() {
-    if (!loggedInAccount) return;
-    const list = document.getElementById('historyList');
-    const history = accounts[loggedInAccount].history || [];
-    if (!history.length) { list.innerHTML = '<li style="text-align:center;color:#888;padding:15px">אין פעולות עדיין</li>'; return; }
-    list.innerHTML = '';
-    for (let i = history.length-1; i>=0; i--) {
-        const item = history[i];
-        const li = document.createElement('li');
-        li.className = 'history-item';
-        const sign = item.type==='credit' ? '+' : '-';
-        const cls = item.type==='credit-used' ? 'credit-used' : item.type;
-        li.innerHTML = '<div><strong>'+escH(item.description)+'</strong><br><small style="color:#999">'+item.date+'</small></div><span class="history-amount '+cls+'">'+sign+formatCurrency(item.amount)+'</span>';
-        list.appendChild(li);
-    }
-}
-
-function escH(s){ const d=document.createElement('div');d.textContent=s;return d.innerHTML; }
-
-function showMsg(el, text, type) {
-    el.textContent = text;
-    el.className = 'message ' + type;
-    el.classList.remove('hidden');
-}
-
-// ========== INIT ==========
-
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('authScreen').style.display = 'block';
-    document.getElementById('dashboard').style.display = 'none';
-    document.getElementById('adminPanel').style.display = 'none';
-    connectMQTT();
-    // Pre-load initial accounts into memory for login
-    for (const u in INITIAL_ACCOUNTS) {
-        if (!accounts[u]) {
-            accounts[u] = { ...INITIAL_ACCOUNTS[u], creditUsed:0, lastCreditResetMonth:new Date().getMonth(), loanBalance:0, loanStatus:'None', lastLoanCheck:getCurrentWeekNumber(), history:[] };
-        }
-    }
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded',()=>{
+  for(const u in INITIAL_ACCOUNTS){
+    if(!accounts[u]) accounts[u]={...INITIAL_ACCOUNTS[u],creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),history:[]};
+  }
+  connectMQTT();
+  document.getElementById('mainNav').style.display='none';
 });
 </script>
 </body>
