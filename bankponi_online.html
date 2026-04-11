@@ -144,6 +144,16 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
 .cc-info-row{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid var(--border);font-size:13px}
 .cc-info-row .lbl{color:var(--muted)}
 .cc-info-row .val{font-weight:700;color:var(--text)}
+/* Card details box */
+.cc-details-box{margin:16px 20px;background:#f9fafb;border:1.5px solid var(--border);border-radius:8px;overflow:hidden}
+.cc-detail-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:8px}
+.cc-detail-row:last-child{border-bottom:none}
+.cc-detail-lbl{font-size:12px;color:var(--muted);font-weight:600;flex-shrink:0}
+.cc-detail-val{font-family:'Courier New',monospace;font-size:14px;font-weight:700;color:var(--text);letter-spacing:1px;flex:1;text-align:center}
+.cc-copy-btn{background:var(--blue-light);border:none;color:var(--blue);border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
+.cc-copy-btn:hover{background:var(--blue);color:#fff}
+.cvv-blur{filter:blur(5px);cursor:pointer;transition:filter .2s}
+.cvv-blur.revealed{filter:none}
 
 /* Steps */
 .step-bar{display:flex;align-items:center;justify-content:center;gap:0;padding:16px 20px 0}
@@ -615,9 +625,25 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
             <a onclick="showDash('main')">← חזרה</a>
           </div>
           <div style="padding:20px">
-            <div class="form-group">
-              <label>חשבון מקבל</label>
-              <select id="recipient"><option value="" disabled selected>בחר חשבון...</option></select>
+            <!-- טוגל שם / מספר כרטיס -->
+            <div style="display:flex;gap:0;border:1.5px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:18px">
+              <button id="tab-byname" onclick="setTransferMode('name')" style="flex:1;padding:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:var(--navy);color:#fff">לפי שם</button>
+              <button id="tab-bycard" onclick="setTransferMode('card')" style="flex:1;padding:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f3f8;color:var(--muted)">לפי מספר כרטיס</button>
+            </div>
+            <!-- בחירת חשבון לפי שם -->
+            <div id="transfer-byname">
+              <div class="form-group">
+                <label>חשבון מקבל</label>
+                <select id="recipient"><option value="" disabled selected>בחר חשבון...</option></select>
+              </div>
+            </div>
+            <!-- בחירת חשבון לפי מספר כרטיס -->
+            <div id="transfer-bycard" class="hidden">
+              <div class="form-group">
+                <label>מספר כרטיס (16 ספרות)</label>
+                <input type="text" id="cardRecipient" placeholder="XXXX XXXX XXXX XXXX" maxlength="19" oninput="fmtCard(this)">
+              </div>
+              <div id="cardLookupResult" style="font-size:13px;margin-bottom:8px"></div>
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -677,11 +703,30 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
                 <circle cx="270" cy="96" r="18" fill="#eb001b" opacity=".9"/>
                 <circle cx="290" cy="96" r="18" fill="#f79e1b" opacity=".9"/>
                 <ellipse cx="280" cy="96" rx="5" ry="12" fill="#ff5f00" opacity=".8"/>
-                <text x="24" y="155" font-family="'Courier New',monospace" font-size="15" fill="rgba(255,255,255,.9)" letter-spacing="2">•••• •••• •••• <tspan id="ccLast4">0000</tspan></text>
-                <text x="24" y="178" font-family="'Segoe UI',sans-serif" font-size="11" fill="rgba(255,255,255,.6)" id="ccName">PONINIO BANK</text>
-                <text x="280" y="178" font-family="'Courier New',monospace" font-size="11" fill="rgba(255,255,255,.6)">12/28</text>
+                <text x="24" y="155" font-family="'Courier New',monospace" font-size="14" fill="rgba(255,255,255,.95)" letter-spacing="2.5" id="ccSvgNumber">5274 0000 0000 0000</text>
+                <text x="24" y="175" font-family="'Segoe UI',sans-serif" font-size="10" fill="rgba(255,255,255,.5)">VALID THRU</text>
+                <text x="24" y="188" font-family="'Courier New',monospace" font-size="11" fill="rgba(255,255,255,.6)" id="ccName">PONINIO BANK</text>
+                <text x="270" y="188" font-family="'Courier New',monospace" font-size="12" fill="rgba(255,255,255,.85)" id="ccSvgExpiry">12/28</text>
                 <text x="24" y="42" font-family="'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,.8)">PONINIO BANK</text>
               </svg>
+            </div>
+            <!-- פרטי כרטיס -->
+            <div class="cc-details-box">
+              <div class="cc-detail-row">
+                <span class="cc-detail-lbl">מספר כרטיס</span>
+                <span class="cc-detail-val" id="ccNumberDisplay">---- ---- ---- ----</span>
+                <button class="cc-copy-btn" onclick="copyCardField('ccNumberDisplay')">העתק</button>
+              </div>
+              <div class="cc-detail-row">
+                <span class="cc-detail-lbl">תוקף</span>
+                <span class="cc-detail-val" id="ccExpiryDisplay">--/--</span>
+                <button class="cc-copy-btn" onclick="copyCardField('ccExpiryDisplay')">העתק</button>
+              </div>
+              <div class="cc-detail-row">
+                <span class="cc-detail-lbl">CVV</span>
+                <span class="cc-detail-val cvv-blur" id="ccCvvDisplay" onclick="this.classList.toggle('revealed')" title="לחץ לצפייה">•••</span>
+                <span style="font-size:11px;color:var(--muted);cursor:pointer" onclick="document.getElementById('ccCvvDisplay').classList.toggle('revealed')">לחץ לצפייה</span>
+              </div>
             </div>
             <div class="cc-info-row"><span class="lbl">מסגרת חודשית</span><span class="val" id="creditLimitTotal">--</span></div>
             <div class="cc-info-row"><span class="lbl">יתרה פנויה לשימוש</span><span class="val" style="color:var(--green)" id="creditAvailable2">--</span></div>
@@ -906,6 +951,67 @@ function mnavActive(v){
   });
 }
 
+// ===== CARD GENERATION =====
+function generateCardData(){
+  // מספר 16 ספרות מתחיל ב-5274 (Mastercard style)
+  let num='5274';
+  for(let i=0;i<12;i++) num+=Math.floor(Math.random()*10);
+  const formatted=num.match(/.{4}/g).join(' ');
+  // תוקף: 3-5 שנים קדימה
+  const now=new Date();
+  const yr=(now.getFullYear()+3+Math.floor(Math.random()*3))%100;
+  const mo=Math.floor(Math.random()*12)+1;
+  const expiry=('0'+mo).slice(-2)+'/'+('0'+yr).slice(-2);
+  // CVV
+  const cvv=String(Math.floor(Math.random()*900)+100);
+  return {cardNumber:formatted, cardExpiry:expiry, cardCvv:cvv};
+}
+function findAccountByCard(cardNum){
+  const clean=cardNum.replace(/\s/g,'');
+  for(const u in accounts){
+    const c=(accounts[u].cardNumber||'').replace(/\s/g,'');
+    if(c===clean) return u;
+  }
+  return null;
+}
+function fmtCard(el){
+  let v=el.value.replace(/\D/g,'').substring(0,16);
+  el.value=v.match(/.{1,4}/g)?.join(' ')||v;
+  // חיפוש חי
+  const res=document.getElementById('cardLookupResult');
+  if(v.length===16){
+    const u=findAccountByCard(el.value);
+    if(u) res.innerHTML='<span style="color:var(--green);font-weight:700">✅ נמצא: '+escH(u)+'</span>';
+    else res.innerHTML='<span style="color:var(--red);font-weight:700">❌ כרטיס לא נמצא</span>';
+  } else {
+    res.textContent='';
+  }
+}
+function copyCardField(id){
+  const txt=document.getElementById(id).textContent;
+  navigator.clipboard.writeText(txt).then(()=>showNotif('✅ הועתק: '+txt)).catch(()=>{
+    const el=document.createElement('textarea');
+    el.value=txt;document.body.appendChild(el);el.select();document.execCommand('copy');el.remove();
+    showNotif('✅ הועתק');
+  });
+}
+function setTransferMode(mode){
+  const byName=document.getElementById('transfer-byname');
+  const byCard=document.getElementById('transfer-bycard');
+  const tabName=document.getElementById('tab-byname');
+  const tabCard=document.getElementById('tab-bycard');
+  if(mode==='name'){
+    byName.classList.remove('hidden');byCard.classList.add('hidden');
+    tabName.style.background='var(--navy)';tabName.style.color='#fff';
+    tabCard.style.background='#f0f3f8';tabCard.style.color='var(--muted)';
+  } else {
+    byName.classList.add('hidden');byCard.classList.remove('hidden');
+    tabCard.style.background='var(--navy)';tabCard.style.color='#fff';
+    tabName.style.background='#f0f3f8';tabName.style.color='var(--muted)';
+  }
+  document.getElementById('transferMessage').classList.add('hidden');
+}
+
 // ===== STEPS =====
 function goPayStep2(){
   document.getElementById('payStep1').classList.add('hidden');
@@ -1068,7 +1174,8 @@ function registerUser(){
   const m=document.getElementById('registrationMessage');
   if(!u||!p)return showMsg(m,'שם משתמש וסיסמה חובה','error');
   if(accounts[u])return showMsg(m,'שם משתמש כבר קיים','error');
-  accounts[u]={password:p,balance:1000,creditLimit:5000,creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),history:[{date:new Date().toLocaleDateString('he-IL'),description:'יתרת פתיחה',amount:1000,type:'credit'}]};
+  const cd=generateCardData();
+  accounts[u]={password:p,balance:1000,creditLimit:5000,creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),...cd,history:[{date:new Date().toLocaleDateString('he-IL'),description:'יתרת פתיחה',amount:1000,type:'credit'}]};
   publishAccount(u);
   showMsg(m,'✅ חשבון נוצר! ניתן להתחבר','success');
   document.getElementById('newUsername').value='';document.getElementById('newPassword').value='';
@@ -1082,7 +1189,9 @@ function login(){
   const validPw=acc?acc.password:initPw;
   if(!validPw)return showMsg(m,'שם משתמש לא קיים','error');
   if(p!==validPw)return showMsg(m,'סיסמה שגויה','error');
-  if(!acc){accounts[u]={...INITIAL_ACCOUNTS[u],creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),history:[{date:new Date().toLocaleDateString('he-IL'),description:'יתרת פתיחה',amount:INITIAL_ACCOUNTS[u].balance,type:'credit'}]};publishAccount(u);}
+  if(!acc){const cd=generateCardData();accounts[u]={...INITIAL_ACCOUNTS[u],creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),...cd,history:[{date:new Date().toLocaleDateString('he-IL'),description:'יתרת פתיחה',amount:INITIAL_ACCOUNTS[u].balance,type:'credit'}]};publishAccount(u);}
+  // generate card if account exists but has no card yet
+  else if(!acc.cardNumber){const cd=generateCardData();Object.assign(acc,cd);publishAccount(u);}
   loggedInAccount=u;checkLoanPayments();checkAndResetCredit();
   showMsg(m,'✅ ברוך הבא '+u+'!','success');
   const now=new Date();
@@ -1118,7 +1227,15 @@ function logout(){
 
 // ===== TRANSFER =====
 function transfer(){
-  const rn=document.getElementById('recipient').value;
+  const byCard=!document.getElementById('transfer-bycard').classList.contains('hidden');
+  let rn;
+  if(byCard){
+    const cardVal=document.getElementById('cardRecipient').value;
+    rn=findAccountByCard(cardVal);
+    if(!rn){const m=document.getElementById('transferMessage');return showMsg(m,'מספר כרטיס לא נמצא','error');}
+  } else {
+    rn=document.getElementById('recipient').value;
+  }
   const amount=parseFloat(document.getElementById('amount').value);
   const reason=document.getElementById('reason').value.trim();
   const pw=document.getElementById('transferPassword').value;
@@ -1152,6 +1269,17 @@ function updateDashboardData(){
   document.getElementById('creditAvailableDisplay').textContent=fc(avail);
   document.getElementById('creditLimitTotal').textContent=fc(acc.creditLimit);
   document.getElementById('creditAvailable2').textContent=fc(avail);
+  // כרטיס אשראי
+  const cn=acc.cardNumber||'5274 0000 0000 0000';
+  const exp=acc.cardExpiry||'--/--';
+  const cvv=acc.cardCvv||'•••';
+  document.getElementById('ccSvgNumber').textContent=cn;
+  document.getElementById('ccSvgExpiry').textContent=exp;
+  document.getElementById('ccName').textContent=(loggedInAccount||'').toUpperCase();
+  document.getElementById('ccNumberDisplay').textContent=cn;
+  document.getElementById('ccExpiryDisplay').textContent=exp;
+  const cvvEl=document.getElementById('ccCvvDisplay');
+  cvvEl.textContent=cvv;cvvEl.classList.remove('revealed');
   document.getElementById('loanBalanceDisplay').textContent=fc(acc.loanBalance||0);
   // Loan status
   const ld=document.getElementById('loanRequestStatus');
