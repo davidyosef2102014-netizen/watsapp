@@ -767,6 +767,11 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
           <div id="payStep2" class="hidden" style="padding:20px">
             <button onclick="goPayStep1()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:13px;font-weight:700;padding:0;margin-bottom:18px">← חזרה לכרטיס</button>
             <div class="form-group">
+              <label>למי לשלוח? (אופציונלי)</label>
+              <input type="text" id="creditRecipient" list="creditRecipientList" placeholder="שם חשבון, מספר כרטיס, או השאר ריק">
+              <datalist id="creditRecipientList"></datalist>
+            </div>
+            <div class="form-group">
               <label>סכום לתשלום ()()</label>
               <input type="number" id="purchaseAmount" min="1" step="any" placeholder="0.00">
             </div>
@@ -1110,18 +1115,33 @@ function makeCreditPurchase(){
   if(!loggedInAccount)return;
   const amount=parseFloat(document.getElementById('purchaseAmount').value);
   const desc=document.getElementById('purchaseDescription').value.trim();
+  const recipientRaw=(document.getElementById('creditRecipient').value||'').trim();
   const msgDiv=document.getElementById('creditMessage');
   const acc=accounts[loggedInAccount];
   const available=acc.creditLimit-(acc.creditUsed||0);
   if(isNaN(amount)||amount<=0)return showMsg(msgDiv,'הזן סכום חוקי','error');
   if(!desc)return showMsg(msgDiv,'הזן תיאור רכישה','error');
   if(amount>available)return showMsg(msgDiv,'מסגרת לא מספיקה (זמין: '+fc(available)+')','error');
+  // מציאת מקבל — לפי שם או מספר כרטיס
+  let toName='חנות / שירות';
+  if(recipientRaw){
+    let rn=accounts[recipientRaw]?recipientRaw:findAccountByCard(recipientRaw);
+    if(!rn)return showMsg(msgDiv,'חשבון מקבל לא נמצא','error');
+    if(rn===loggedInAccount)return showMsg(msgDiv,'לא ניתן לשלוח לעצמך','error');
+    // הוסף לחשבון המקבל
+    accounts[rn].balance+=amount;
+    accounts[rn].history.push({date:new Date().toLocaleDateString('he-IL'),description:'תשלום אשראי התקבל מ'+loggedInAccount+' — '+desc,amount,type:'credit'});
+    publishAccount(rn);
+    toName=rn;
+  }
   acc.creditUsed=(acc.creditUsed||0)+amount;
-  acc.history.push({date:new Date().toLocaleDateString('he-IL'),description:'תשלום נייד — '+desc,amount,type:'credit-used'});
+  acc.history.push({date:new Date().toLocaleDateString('he-IL'),description:'תשלום נייד ל'+toName+' — '+desc,amount,type:'credit-used'});
   publishAccount(loggedInAccount);updateDashboardData();
-  document.getElementById('purchaseAmount').value='';document.getElementById('purchaseDescription').value='';
+  document.getElementById('purchaseAmount').value='';
+  document.getElementById('purchaseDescription').value='';
+  document.getElementById('creditRecipient').value='';
   showMsg(msgDiv,'✅ תשלום '+fc(amount)+' בוצע!','success');
-  showReceipt({from:loggedInAccount,to:'חנות / שירות',amount,type:'תשלום נייד',desc,balance:acc.balance});
+  showReceipt({from:loggedInAccount,to:toName,amount,type:'תשלום נייד',desc,balance:acc.balance});
   setTimeout(()=>goPayStep1(),2000);
 }
 
@@ -1325,9 +1345,11 @@ function updateDashboardData(){
   else if(acc.loanBalance>0&&acc.loanStatus==='Approved') ld.innerHTML='<div class="msg success">✅ הלוואה פעילה — חוב: '+fc(acc.loanBalance)+'</div>';
   else ld.innerHTML='<button class="btn btn-primary" onclick="requestLoan()">בקשת הלוואה ('+fc(DEFAULT_LOAN_AMOUNT)+')</button>';
   // Recipients
-  // עדכון datalist להשלמה אוטומטית
-  const dl=document.getElementById('recipientList');
-  if(dl){dl.innerHTML='';for(const u in accounts) if(u!==loggedInAccount){const o=document.createElement('option');o.value=u;dl.appendChild(o);}}
+  // עדכון datalist להשלמה אוטומטית (העברה + אשראי)
+  ['recipientList','creditRecipientList'].forEach(id=>{
+    const dl=document.getElementById(id);
+    if(dl){dl.innerHTML='';for(const u in accounts) if(u!==loggedInAccount){const o=document.createElement('option');o.value=u;dl.appendChild(o);}}
+  });
   // Transactions
   const tbody=document.getElementById('transBody');
   const history=acc.history||[];
