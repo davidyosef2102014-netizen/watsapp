@@ -573,7 +573,7 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
           <div class="balance-main">
             <div class="balance-label-small">יתרת עו"ש עדכנית</div>
             <div class="balance-big">
-              <span>₪</span><span id="balanceDisplay">--</span>
+              <span>)(</span><span id="balanceDisplay">--</span>
             </div>
             <div class="balance-credit-line">
               מסגרת אשראי: <strong id="creditLimitDisplay">--</strong>
@@ -633,8 +633,9 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
             <!-- בחירת חשבון לפי שם -->
             <div id="transfer-byname">
               <div class="form-group">
-                <label>חשבון מקבל</label>
-                <select id="recipient"><option value="" disabled selected>בחר חשבון...</option></select>
+                <label>שם החשבון המקבל</label>
+                <input type="text" id="recipient" list="recipientList" placeholder="הקלד שם חשבון..." autocomplete="off">
+                <datalist id="recipientList"></datalist>
               </div>
             </div>
             <!-- בחירת חשבון לפי מספר כרטיס -->
@@ -647,7 +648,7 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>סכום (₪)</label>
+                <label>סכום ()()</label>
                 <input type="number" id="amount" min="1" step="any" placeholder="0.00">
               </div>
               <div class="form-group">
@@ -685,29 +686,56 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
             <div class="cc-wrap">
               <svg class="credit-card-svg" viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                  <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#0d2252"/>
-                    <stop offset="100%" style="stop-color:#1a3a70"/>
+                  <linearGradient id="bgG" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2c3c52"/>
+                    <stop offset="100%" stop-color="#1a2a3c"/>
                   </linearGradient>
-                  <linearGradient id="cg2" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#c9952a"/>
-                    <stop offset="100%" style="stop-color:#f0c060"/>
+                  <linearGradient id="chipG" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#c8c8c8"/>
+                    <stop offset="45%" stop-color="#efefed"/>
+                    <stop offset="100%" stop-color="#a8a8a8"/>
                   </linearGradient>
+                  <linearGradient id="chipShine" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="rgba(255,255,255,.38)"/>
+                    <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+                  </linearGradient>
+                  <pattern id="dotPat" x="0" y="0" width="5" height="5" patternUnits="userSpaceOnUse">
+                    <circle cx="1.5" cy="1.5" r="0.72" fill="rgba(255,255,255,.13)"/>
+                  </pattern>
+                  <clipPath id="cardClip"><rect width="340" height="200" rx="14"/></clipPath>
                 </defs>
-                <rect width="340" height="200" rx="14" fill="url(#cg)"/>
-                <circle cx="290" cy="170" r="70" fill="rgba(255,255,255,.04)"/>
-                <circle cx="240" cy="150" r="90" fill="rgba(255,255,255,.03)"/>
-                <rect x="24" y="80" width="44" height="34" rx="5" fill="url(#cg2)"/>
-                <line x1="46" y1="80" x2="46" y2="114" stroke="rgba(0,0,0,.2)" stroke-width="1"/>
-                <line x1="24" y1="97" x2="68" y2="97" stroke="rgba(0,0,0,.2)" stroke-width="1"/>
-                <circle cx="270" cy="96" r="18" fill="#eb001b" opacity=".9"/>
-                <circle cx="290" cy="96" r="18" fill="#f79e1b" opacity=".9"/>
-                <ellipse cx="280" cy="96" rx="5" ry="12" fill="#ff5f00" opacity=".8"/>
-                <text x="24" y="155" font-family="'Courier New',monospace" font-size="14" fill="rgba(255,255,255,.95)" letter-spacing="2.5" id="ccSvgNumber">5274 0000 0000 0000</text>
-                <text x="24" y="175" font-family="'Segoe UI',sans-serif" font-size="10" fill="rgba(255,255,255,.5)">VALID THRU</text>
-                <text x="24" y="188" font-family="'Courier New',monospace" font-size="11" fill="rgba(255,255,255,.6)" id="ccName">PONINIO BANK</text>
-                <text x="270" y="188" font-family="'Courier New',monospace" font-size="12" fill="rgba(255,255,255,.85)" id="ccSvgExpiry">12/28</text>
-                <text x="24" y="42" font-family="'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,.8)">PONINIO BANK</text>
+                <!-- רקע -->
+                <rect width="340" height="200" rx="14" fill="url(#bgG)"/>
+                <!-- מרקם נקודות בעיגול ימני -->
+                <circle cx="290" cy="100" r="150" fill="url(#dotPat)" clip-path="url(#cardClip)"/>
+                <!-- קו קשת לבן -->
+                <circle cx="268" cy="100" r="116" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.3" clip-path="url(#cardClip)"/>
+                <!-- כיתוב world -->
+                <text x="26" y="46" font-family="Georgia,'Times New Roman',serif" font-size="23" font-weight="300" font-style="italic" fill="#fff" letter-spacing="1">world</text>
+                <!-- NFC (שלוש קשתות + נקודה) -->
+                <circle cx="295" cy="36" r="2.8" fill="#fff"/>
+                <path d="M 302 26 A 12 12 0 0 1 302 46" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".72"/>
+                <path d="M 309 20 A 19 19 0 0 1 309 52" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".86"/>
+                <path d="M 316 14 A 26 26 0 0 1 316 58" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+                <!-- צ'יפ EMV -->
+                <rect x="54" y="66" width="54" height="42" rx="5" fill="url(#chipG)"/>
+                <line x1="54" y1="77" x2="108" y2="77" stroke="rgba(90,90,90,.4)" stroke-width=".9"/>
+                <line x1="54" y1="87" x2="108" y2="87" stroke="rgba(90,90,90,.4)" stroke-width=".9"/>
+                <line x1="54" y1="97" x2="108" y2="97" stroke="rgba(90,90,90,.4)" stroke-width=".9"/>
+                <line x1="54" y1="107" x2="108" y2="107" stroke="rgba(90,90,90,.4)" stroke-width=".9"/>
+                <line x1="66" y1="66" x2="66" y2="108" stroke="rgba(90,90,90,.4)" stroke-width=".9"/>
+                <line x1="81" y1="66" x2="81" y2="108" stroke="rgba(90,90,90,.4)" stroke-width=".9"/>
+                <line x1="96" y1="66" x2="96" y2="108" stroke="rgba(90,90,90,.4)" stroke-width=".9"/>
+                <rect x="66" y="77" width="30" height="30" rx="2" fill="rgba(195,195,180,.5)"/>
+                <rect x="54" y="66" width="54" height="14" rx="5" fill="url(#chipShine)"/>
+                <!-- מספר כרטיס -->
+                <text x="26" y="140" font-family="'Courier New',monospace" font-size="17" font-weight="700" fill="#fff" letter-spacing="2.5" id="ccSvgNumber">5274 0000 0000 0000</text>
+                <!-- VALID THRU -->
+                <text x="26" y="155" font-family="'Segoe UI',Arial,sans-serif" font-size="7.5" fill="rgba(255,255,255,.55)" letter-spacing="1.5">VALID THRU</text>
+                <!-- תוקף -->
+                <text x="26" y="169" font-family="'Courier New',monospace" font-size="14" font-weight="700" fill="#fff" id="ccSvgExpiry">12/28</text>
+                <!-- שם -->
+                <text x="26" y="188" font-family="'Segoe UI',Arial,sans-serif" font-size="13" fill="rgba(255,255,255,.88)" id="ccName">PONINIO BANK</text>
               </svg>
             </div>
             <!-- פרטי כרטיס -->
@@ -739,7 +767,7 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
           <div id="payStep2" class="hidden" style="padding:20px">
             <button onclick="goPayStep1()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:13px;font-weight:700;padding:0;margin-bottom:18px">← חזרה לכרטיס</button>
             <div class="form-group">
-              <label>סכום לתשלום (₪)</label>
+              <label>סכום לתשלום ()()</label>
               <input type="number" id="purchaseAmount" min="1" step="any" placeholder="0.00">
             </div>
             <div class="form-group">
@@ -763,7 +791,7 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
             <div class="loan-box" style="margin-bottom:16px">
               <div>
                 <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:2px">יתרת הלוואה</div>
-                <div class="lamt" id="loanBalanceDisplay">0.00 ₪</div>
+                <div class="lamt" id="loanBalanceDisplay">0.00 )(</div>
                 <div class="lmeta">החזר שבועי: 10%</div>
               </div>
               <span style="font-size:22px">🏦</span>
@@ -837,7 +865,7 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);min-
         <div class="form-group"><label>חשבון מקבל</label><select id="adminRecipient"></select></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>סכום (₪)</label><input type="number" id="adminAmount" placeholder="0.00"></div>
+        <div class="form-group"><label>סכום ()()</label><input type="number" id="adminAmount" placeholder="0.00"></div>
         <div class="form-group"><label>סיבה</label><input type="text" id="adminReason" placeholder="תיאור"></div>
       </div>
       <button class="btn btn-gold" style="max-width:200px" onclick="adminTransfer()">ביצוע העברה</button>
@@ -952,19 +980,20 @@ function mnavActive(v){
 }
 
 // ===== CARD GENERATION =====
-function generateCardData(){
-  // מספר 16 ספרות מתחיל ב-5274 (Mastercard style)
+function generateCardData(username){
+  // דטרמיניסטי לפי שם משתמש — אותו כרטיס בכל מכשיר
+  function prng(s){s=Math.imul(s^(s>>>16),0x45d9f3b);s=Math.imul(s^(s>>>16),0x45d9f3b);return(s^(s>>>16))>>>0;}
+  let seed=0;
+  for(let i=0;i<(username||'').length;i++) seed=Math.imul(31,seed)+((username||'').charCodeAt(i))|0;
+  seed=(seed>>>0)||1;
   let num='5274';
-  for(let i=0;i<12;i++) num+=Math.floor(Math.random()*10);
+  for(let i=0;i<12;i++){seed=prng(seed);num+=seed%10;}
   const formatted=num.match(/.{4}/g).join(' ');
-  // תוקף: 3-5 שנים קדימה
-  const now=new Date();
-  const yr=(now.getFullYear()+3+Math.floor(Math.random()*3))%100;
-  const mo=Math.floor(Math.random()*12)+1;
-  const expiry=('0'+mo).slice(-2)+'/'+('0'+yr).slice(-2);
-  // CVV
-  const cvv=String(Math.floor(Math.random()*900)+100);
-  return {cardNumber:formatted, cardExpiry:expiry, cardCvv:cvv};
+  seed=prng(seed);const mo=(seed%12)+1;
+  seed=prng(seed);const yr=26+(seed%7);
+  const expiry=('0'+mo).slice(-2)+'/'+yr.toString().slice(-2);
+  seed=prng(seed);const cvv=String(100+(seed%900));
+  return {cardNumber:formatted,cardExpiry:expiry,cardCvv:cvv};
 }
 function findAccountByCard(cardNum){
   const clean=cardNum.replace(/\s/g,'');
@@ -975,16 +1004,24 @@ function findAccountByCard(cardNum){
   return null;
 }
 function fmtCard(el){
-  let v=el.value.replace(/\D/g,'').substring(0,16);
-  el.value=v.match(/.{1,4}/g)?.join(' ')||v;
-  // חיפוש חי
+  const raw=el.value;
   const res=document.getElementById('cardLookupResult');
-  if(v.length===16){
-    const u=findAccountByCard(el.value);
-    if(u) res.innerHTML='<span style="color:var(--green);font-weight:700">✅ נמצא: '+escH(u)+'</span>';
-    else res.innerHTML='<span style="color:var(--red);font-weight:700">❌ כרטיס לא נמצא</span>';
+  // אם זה נראה כמו מספר — פורמט ספרות
+  if(/^\d[\d\s]*$/.test(raw)){
+    let v=raw.replace(/\D/g,'').substring(0,16);
+    el.value=v.match(/.{1,4}/g)?.join(' ')||v;
+    if(v.length===16){
+      const u=findAccountByCard(el.value);
+      if(u) res.innerHTML='<span style="color:var(--green);font-weight:700">✅ נמצא: '+escH(u)+'</span>';
+      else res.innerHTML='<span style="color:var(--red);font-weight:700">❌ לא נמצא לפי מספר כרטיס</span>';
+    } else { res.textContent=''; }
   } else {
-    res.textContent='';
+    // חיפוש לפי שם חשבון
+    const name=raw.trim();
+    if(name.length>=2){
+      if(accounts[name]) res.innerHTML='<span style="color:var(--green);font-weight:700">✅ נמצא חשבון: '+escH(name)+'</span>';
+      else res.innerHTML='<span style="color:var(--red);font-weight:700">❌ שם חשבון לא נמצא</span>';
+    } else { res.textContent=''; }
   }
 }
 function copyCardField(id){
@@ -1030,7 +1067,7 @@ function goPayStep1(){
 }
 
 // ===== HELPERS =====
-function fc(n){if(n===Infinity)return'ללא הגבלה';return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')+' ₪';}
+function fc(n){if(n===Infinity)return'ללא הגבלה';return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')+' )(';}
 function getWeek(){const n=new Date(),s=new Date(n.getFullYear(),0,1);return Math.floor((n-s)/(1000*60*60*24*7));}
 function genRec(){const d=new Date();return'REC-'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'-'+(Math.floor(Math.random()*9000)+1000);}
 function showNotif(m){const el=document.createElement('div');el.className='notif';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),3000);}
@@ -1174,7 +1211,7 @@ function registerUser(){
   const m=document.getElementById('registrationMessage');
   if(!u||!p)return showMsg(m,'שם משתמש וסיסמה חובה','error');
   if(accounts[u])return showMsg(m,'שם משתמש כבר קיים','error');
-  const cd=generateCardData();
+  const cd=generateCardData(u);
   accounts[u]={password:p,balance:1000,creditLimit:5000,creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),...cd,history:[{date:new Date().toLocaleDateString('he-IL'),description:'יתרת פתיחה',amount:1000,type:'credit'}]};
   publishAccount(u);
   showMsg(m,'✅ חשבון נוצר! ניתן להתחבר','success');
@@ -1189,9 +1226,9 @@ function login(){
   const validPw=acc?acc.password:initPw;
   if(!validPw)return showMsg(m,'שם משתמש לא קיים','error');
   if(p!==validPw)return showMsg(m,'סיסמה שגויה','error');
-  if(!acc){const cd=generateCardData();accounts[u]={...INITIAL_ACCOUNTS[u],creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),...cd,history:[{date:new Date().toLocaleDateString('he-IL'),description:'יתרת פתיחה',amount:INITIAL_ACCOUNTS[u].balance,type:'credit'}]};publishAccount(u);}
-  // generate card if account exists but has no card yet
-  else if(!acc.cardNumber){const cd=generateCardData();Object.assign(acc,cd);publishAccount(u);}
+  const cd=generateCardData(u); // דטרמיניסטי — תמיד אותו כרטיס
+  if(!acc){accounts[u]={...INITIAL_ACCOUNTS[u],creditUsed:0,lastCreditResetMonth:new Date().getMonth(),loanBalance:0,loanStatus:'None',lastLoanCheck:getWeek(),...cd,history:[{date:new Date().toLocaleDateString('he-IL'),description:'יתרת פתיחה',amount:INITIAL_ACCOUNTS[u].balance,type:'credit'}]};publishAccount(u);}
+  else if(!acc.cardNumber){Object.assign(acc,cd);publishAccount(u);}
   loggedInAccount=u;checkLoanPayments();checkAndResetCredit();
   showMsg(m,'✅ ברוך הבא '+u+'!','success');
   const now=new Date();
@@ -1230,11 +1267,12 @@ function transfer(){
   const byCard=!document.getElementById('transfer-bycard').classList.contains('hidden');
   let rn;
   if(byCard){
-    const cardVal=document.getElementById('cardRecipient').value;
+    const cardVal=document.getElementById('cardRecipient').value.trim();
     rn=findAccountByCard(cardVal);
-    if(!rn){const m=document.getElementById('transferMessage');return showMsg(m,'מספר כרטיס לא נמצא','error');}
+    if(!rn) rn=accounts[cardVal]?cardVal:null; // fallback לפי שם
+    if(!rn){const m=document.getElementById('transferMessage');return showMsg(m,'מספר כרטיס / שם חשבון לא נמצא','error');}
   } else {
-    rn=document.getElementById('recipient').value;
+    rn=document.getElementById('recipient').value.trim();
   }
   const amount=parseFloat(document.getElementById('amount').value);
   const reason=document.getElementById('reason').value.trim();
@@ -1253,7 +1291,7 @@ function transfer(){
   r.history.push({date:d,description:'התקבל מ'+loggedInAccount+' ('+reason+')',amount,type:'credit'});
   publishAccount(loggedInAccount);publishAccount(rn);
   updateDashboardData();
-  document.getElementById('amount').value='';document.getElementById('reason').value='';document.getElementById('transferPassword').value='';document.getElementById('recipient').selectedIndex=0;
+  document.getElementById('amount').value='';document.getElementById('reason').value='';document.getElementById('transferPassword').value='';document.getElementById('recipient').value='';
   showMsg(m,'✅ '+fc(amount)+' הועבר ל'+rn+'!','success');
   showReceipt({from:loggedInAccount,to:rn,amount,type:'העברה בנקאית',desc:reason,balance:s.balance});
 }
@@ -1264,7 +1302,7 @@ function updateDashboardData(){
   const acc=accounts[loggedInAccount];
   const avail=acc.creditLimit-(acc.creditUsed||0);
   // Balance
-  document.getElementById('balanceDisplay').textContent=fc(acc.balance).replace(' ₪','');
+  document.getElementById('balanceDisplay').textContent=fc(acc.balance).replace(' )(','')
   document.getElementById('creditLimitDisplay').textContent=fc(acc.creditLimit);
   document.getElementById('creditAvailableDisplay').textContent=fc(avail);
   document.getElementById('creditLimitTotal').textContent=fc(acc.creditLimit);
@@ -1287,9 +1325,9 @@ function updateDashboardData(){
   else if(acc.loanBalance>0&&acc.loanStatus==='Approved') ld.innerHTML='<div class="msg success">✅ הלוואה פעילה — חוב: '+fc(acc.loanBalance)+'</div>';
   else ld.innerHTML='<button class="btn btn-primary" onclick="requestLoan()">בקשת הלוואה ('+fc(DEFAULT_LOAN_AMOUNT)+')</button>';
   // Recipients
-  const sel=document.getElementById('recipient');
-  sel.innerHTML='<option value="" disabled selected>בחר חשבון...</option>';
-  for(const u in accounts) if(u!==loggedInAccount) sel.add(new Option(u+' — פוניניו בנק',u));
+  // עדכון datalist להשלמה אוטומטית
+  const dl=document.getElementById('recipientList');
+  if(dl){dl.innerHTML='';for(const u in accounts) if(u!==loggedInAccount){const o=document.createElement('option');o.value=u;dl.appendChild(o);}}
   // Transactions
   const tbody=document.getElementById('transBody');
   const history=acc.history||[];
