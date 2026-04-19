@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>שוק פוניניו</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --red: #e63946;
+    --blue: #1a56db;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1a202c;
+    --muted: #718096;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    direction: rtl;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  #app-header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    box-shadow: var(--shadow);
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .logo {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--red);
+    white-space: nowrap;
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--blue); }
+  .search-wrap {
+    flex: 1;
+    display: flex;
+    gap: 0;
+  }
+  #search-input {
+    flex: 1;
+    padding: 9px 14px;
+    border: 2px solid var(--border);
+    border-left: none;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #search-input:focus { border-color: var(--blue); }
+  .search-btn {
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    padding: 9px 18px;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s;
+  }
+  .search-btn:hover { background: #1447c0; }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.3rem;
+    position: relative;
+    padding: 6px;
+    border-radius: 50%;
+    transition: background 0.2s;
+    color: var(--text);
+  }
+  .icon-btn:hover { background: var(--bg); }
+  .cart-badge {
+    position: absolute;
+    top: 0; left: 0;
+    background: var(--red);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: 50%;
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    display: none;
+  }
+  .conn-pill {
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .conn-pill.connected { background: #d1fae5; color: #065f46; }
+  .conn-pill.connecting { background: #fef3c7; color: #92400e; }
+  .conn-pill.disconnected { background: #fee2e2; color: #991b1b; }
+  .user-pill {
+    font-size: 0.8rem;
+    padding: 4px 12px;
+    background: var(--blue);
+    color: #fff;
+    border-radius: 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    border: none;
+  }
+  .user-pill.logout { background: #ef4444; }
+
+  /* ── NAV TABS ── */
+  .nav-tabs {
+    display: flex;
+    gap: 0;
+    max-width: 1200px;
+    margin: 0 auto;
+    border-top: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .nav-tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--muted);
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+  .nav-tab:hover { color: var(--blue); }
+  .nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+  /* ── CATEGORY PILLS ── */
+  .category-bar {
+    padding: 12px 16px;
+    overflow-x: auto;
+    display: flex;
+    gap: 8px;
+    max-width: 1200px;
+    margin: 0 auto;
+    scrollbar-width: none;
+  }
+  .category-bar::-webkit-scrollbar { display: none; }
+  .cat-pill {
+    padding: 6px 18px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.2s;
+    color: var(--text);
+  }
+  .cat-pill:hover { border-color: var(--blue); color: var(--blue); }
+  .cat-pill.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  /* ── MAIN CONTENT ── */
+  #main-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+
+  /* ── PRODUCT GRID ── */
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  @media (min-width: 600px) {
+    .product-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (min-width: 900px) {
+    .product-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  .product-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+  }
+  .product-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+
+  .product-img {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.5rem;
+    background: #f8f9ff;
+    overflow: hidden;
+  }
+  .product-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .product-info {
+    padding: 10px 12px 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .product-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .product-seller {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .product-price {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--red);
+    margin-top: 4px;
+  }
+  .product-price .currency { font-size: 0.8rem; }
+  .add-cart-btn {
+    margin-top: 8px;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 7px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    width: 100%;
+  }
+  .add-cart-btn:hover { background: #c62835; }
+  .add-cart-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── AUTH SCREEN ── */
+  #auth-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #auth-screen.active { display: flex; }
+  .auth-box {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 32px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: var(--shadow-lg);
+  }
+  .auth-box h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 24px;
+    color: var(--text);
+    text-align: center;
+  }
+  .auth-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .auth-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--muted);
+    border: none;
+    background: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+  }
+  .auth-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+    direction: rtl;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--blue);
+  }
+  .btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover { background: #1447c0; }
+  .btn-danger {
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+  .btn-danger:hover { background: #c62835; }
+  .btn-secondary {
+    background: var(--bg);
+    color: var(--text);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 400;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 28px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    color: var(--muted);
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  /* ── PRODUCT DETAIL ── */
+  .product-detail-img {
+    width: 100%;
+    aspect-ratio: 16/9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 5rem;
+    background: #f8f9ff;
+    border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .product-detail-img img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .product-detail-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .product-detail-price {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--red);
+    margin-bottom: 12px;
+  }
+  .product-detail-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .product-detail-desc {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+  .qty-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .qty-btn {
+    width: 32px; height: 32px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+  .qty-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .qty-display {
+    font-size: 1rem;
+    font-weight: 700;
+    min-width: 30px;
+    text-align: center;
+  }
+
+  /* ── CART DRAWER ── */
+  #cart-drawer {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 360px;
+    max-width: 100vw;
+    height: 100vh;
+    background: var(--card);
+    z-index: 450;
+    box-shadow: var(--shadow-lg);
+    transition: left 0.3s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  #cart-drawer.open { left: 0; }
+  .cart-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 440;
+    display: none;
+  }
+  .cart-overlay.active { display: block; }
+  .cart-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .cart-header h3 { font-size: 1.2rem; font-weight: 800; }
+  .cart-items { flex: 1; overflow-y: auto; padding: 16px; }
+  .cart-item {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .cart-item-img {
+    width: 50px; height: 50px;
+    background: #f8f9ff;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .cart-item-img img { width: 100%; height: 100%; object-fit: cover; }
+  .cart-item-info { flex: 1; min-width: 0; }
+  .cart-item-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cart-item-price { font-size: 0.85rem; color: var(--red); font-weight: 700; }
+  .cart-item-qty {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .cart-qty-btn {
+    width: 24px; height: 24px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cart-qty-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .cart-remove { background: none; border: none; color: var(--red); cursor: pointer; font-size: 1rem; }
+  .cart-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .cart-total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 16px;
+  }
+  .empty-cart {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .empty-cart .icon { font-size: 3rem; margin-bottom: 12px; }
+
+  /* ── CHECKOUT MODAL ── */
+  .checkout-total {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .checkout-total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: var(--muted);
+  }
+  .checkout-total-row.total {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text);
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+
+  /* ── RECEIPT MODAL ── */
+  .receipt-box {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    margin: 20px 0;
+  }
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .receipt-row:last-child { border-bottom: none; }
+  .receipt-success {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .receipt-success .icon { font-size: 3rem; }
+  .receipt-success h3 { color: #065f46; font-size: 1.2rem; margin-top: 8px; }
+
+  /* ── SELLER DASHBOARD ── */
+  .section-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .product-form {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 500px) { .form-row { grid-template-columns: 1fr; } }
+
+  .listings-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    font-size: 0.85rem;
+  }
+  .listings-table th {
+    background: var(--bg);
+    padding: 12px;
+    text-align: right;
+    font-weight: 700;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .listings-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .listings-table tr:last-child td { border-bottom: none; }
+  .listings-table tr:hover td { background: var(--bg); }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+
+  /* ── ORDERS ── */
+  .order-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+  }
+  .order-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .order-id { font-size: 0.8rem; color: var(--muted); }
+  .order-items-list { font-size: 0.88rem; }
+  .order-item-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--bg);
+  }
+
+  /* ── TOAST ── */
+  #toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    background: #1a202c;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    font-weight: 500;
+    box-shadow: var(--shadow-lg);
+    animation: slideUp 0.3s ease;
+    max-width: 300px;
+  }
+  .toast.success { background: #065f46; }
+  .toast.error { background: #991b1b; }
+  .toast.info { background: var(--blue); }
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* ── LOADING ── */
+  .spinner {
+    width: 36px; height: 36px;
+    border: 4px solid var(--border);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 40px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 3.5rem; margin-bottom: 12px; }
+  .empty-state h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+
+  /* ── MISC ── */
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .text-muted { color: var(--muted); font-size: 0.85rem; }
+  .fw-bold { font-weight: 700; }
+  .mb-8 { margin-bottom: 8px; }
+  .mt-16 { margin-top: 16px; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+  #loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0.8);
+    z-index: 600;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #loading-overlay.active { display: flex; }
+  #loading-overlay p { color: var(--muted); font-weight: 600; }
+
+  .edit-form-inline {
+    background: #f0f7ff;
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    margin-top: 8px;
+  }
+  .no-products-msg {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  /* stock tag */
+  .stock-tag {
+    font-size: 0.72rem;
+    padding: 1px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .stock-tag.in { background: #d1fae5; color: #065f46; }
+  .stock-tag.low { background: #fef3c7; color: #92400e; }
+  .stock-tag.out { background: #fee2e2; color: #991b1b; }
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p id="loading-msg">מתחבר...</p>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- CART OVERLAY -->
+<div class="cart-overlay" id="cart-overlay" onclick="closeCart()"></div>
+
+<!-- CART DRAWER -->
+<div id="cart-drawer">
+  <div class="cart-header">
+    <h3>🛒 העגלה שלי</h3>
+    <button class="icon-btn" onclick="closeCart()" style="font-size:1.5rem">✕</button>
+  </div>
+  <div class="cart-items" id="cart-items-list"></div>
+  <div class="cart-footer" id="cart-footer"></div>
+</div>
+
+<!-- APP HEADER -->
+<header id="app-header">
+  <div class="header-top">
+    <div class="logo">שוק <span>פוניניו</span></div>
+    <div class="search-wrap">
+      <input type="text" id="search-input" placeholder="חפש מוצרים..." oninput="onSearch()">
+      <button class="search-btn" onclick="onSearch()">🔍</button>
+    </div>
+    <div class="header-actions">
+      <span id="conn-pill" class="conn-pill connecting">מתחבר...</span>
+      <button class="icon-btn" onclick="openCart()" title="עגלה">
+        🛒
+        <span class="cart-badge" id="cart-badge">0</span>
+      </button>
+      <button id="auth-btn" class="user-pill" onclick="showAuthModal()">התחברות</button>
+    </div>
+  </div>
+  <nav class="nav-tabs" id="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('browse')" data-tab="browse">🏪 עיון</button>
+    <button class="nav-tab" onclick="switchTab('seller')" data-tab="seller">📦 מכירות</button>
+    <button class="nav-tab" onclick="switchTab('orders')" data-tab="orders">🧾 הזמנות</button>
+  </nav>
+</header>
+
+<!-- CATEGORY BAR -->
+<div class="category-bar" id="category-bar">
+  <button class="cat-pill active" onclick="setCategory('הכל')" data-cat="הכל">הכל</button>
+  <button class="cat-pill" onclick="setCategory('אלקטרוניקה')" data-cat="אלקטרוניקה">📱 אלקטרוניקה</button>
+  <button class="cat-pill" onclick="setCategory('ביגוד')" data-cat="ביגוד">👕 ביגוד</button>
+  <button class="cat-pill" onclick="setCategory('ריהוט')" data-cat="ריהוט">🪑 ריהוט</button>
+  <button class="cat-pill" onclick="setCategory('מזון')" data-cat="מזון">🍎 מזון</button>
+  <button class="cat-pill" onclick="setCategory('אחר')" data-cat="אחר">📦 אחר</button>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="main-content">
+  <!-- BROWSE TAB -->
+  <div id="tab-browse" class="screen active">
+    <div class="product-grid" id="product-grid">
+      <div class="no-products-msg">
+        <div class="spinner"></div>
+        <p style="margin-top:12px;color:var(--muted)">טוען מוצרים...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELLER TAB -->
+  <div id="tab-seller" class="screen">
+    <div id="seller-content"></div>
+  </div>
+
+  <!-- ORDERS TAB -->
+  <div id="tab-orders" class="screen">
+    <div id="orders-content"></div>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div id="auth-screen" class="active">
+  <div class="auth-box">
+    <h2>🛍️ שוק פוניניו</h2>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')" id="auth-tab-login">התחברות</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')" id="auth-tab-register">הרשמה</button>
+    </div>
+    <!-- LOGIN -->
+    <div id="login-form">
+      <div class="form-group">
+        <label>שם משתמש</label>
+        <input type="text" id="login-username" placeholder="הזן שם משתמש">
+      </div>
+      <div class="form-group">
+        <label>סיסמה</label>
+        <input type="password" id="login-password" placeholder="הזן סיסמה">
+      </div>
+      <button class="btn-primary" onclick="doLogin()">התחבר</button>
+    </div>
+    <!-- REGISTER -->
+    <div id="register-form" style="display:none">
+      <div class="form-group">
+        <label>שם משתמש</label>
+        <input type="text" id="reg-username" placeholder="בחר שם משתמש">
+      </div>
+      <div class="form-group">
+        <label>סיסמה</label>
+        <input type="password" id="reg-password" placeholder="בחר סיסמה">
+      </div>
+      <div class="form-group">
+        <label>שם משתמש בנק פוניניו</label>
+        <input type="text" id="reg-bankuser" placeholder="שם משתמש בבנק פוניניו">
+      </div>
+      <div class="form-group">
+        <label>תפקיד ראשי</label>
+        <select id="reg-role">
+          <option value="קונה">קונה</option>
+          <option value="מוכר">מוכר</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="doRegister()">הרשמה</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCT DETAIL MODAL -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal-box" id="product-modal-content"></div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div class="modal-overlay" id="checkout-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('checkout-modal')">✕</button>
+    <h2 style="margin-bottom:20px;font-size:1.3rem">💳 תשלום דרך בנק פוניניו</h2>
+    <div id="checkout-summary"></div>
+    <div class="form-group">
+      <label>שם משתמש בנק</label>
+      <input type="text" id="checkout-bank-user" placeholder="שם משתמש בבנק פוניניו">
+    </div>
+    <div class="form-group">
+      <label>סיסמת בנק</label>
+      <input type="password" id="checkout-bank-pass" placeholder="סיסמת הבנק">
+    </div>
+    <button class="btn-primary" onclick="processPayment()">שלם עכשיו</button>
+  </div>
+</div>
+
+<!-- RECEIPT MODAL -->
+<div class="modal-overlay" id="receipt-modal">
+  <div class="modal-box" id="receipt-content"></div>
+</div>
+
+<!-- EDIT PRODUCT MODAL -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('edit-modal')">✕</button>
+    <h2 style="margin-bottom:20px;font-size:1.3rem">✏️ עריכת מוצר</h2>
+    <div id="edit-form-content"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════
+const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+const MARKET_NS   = 'poninio_market_v1_2026';
+const BANK_NS     = 'poninio_bank_birgsol_v1_2026';
+
+let mqttClient = null;
+let currentUser = null;       // {username, password, bankUsername, orders, listings}
+let products    = {};         // productId → product
+let cart        = [];         // [{product, qty}]
+let activeCategory = 'הכל';
+let searchQuery    = '';
+let activeTab      = 'browse';
+let pendingBankResolve = null;
+let pendingBankReject  = null;
+let bankAccountCache   = {};  // username → accountData
+
+const CATEGORIES = ['הכל','אלקטרוניקה','ביגוד','ריהוט','מזון','אחר'];
+const CAT_EMOJI  = {'אלקטרוניקה':'📱','ביגוד':'👕','ריהוט':'🪑','מזון':'🍎','אחר':'📦','הכל':'🏷️'};
+
+// ═══════════════════════════════════════════════════════════
+//  MQTT
+// ═══════════════════════════════════════════════════════════
+function initMQTT() {
+  const clientId = 'market_' + Math.random().toString(36).substr(2, 9);
+  mqttClient = mqtt.connect(MQTT_BROKER, {
+    clientId,
+    clean: true,
+    reconnectPeriod: 3000,
+    connectTimeout: 10000,
+    keepalive: 60,
+  });
+
+  mqttClient.on('connect', () => {
+    setConnPill('connected', '🟢 מחובר');
+    hideLoading();
+    mqttClient.subscribe(MARKET_NS + '/#', { qos: 1 }, (err) => {
+      if (err) toast('שגיאה בהרשמה לנושאים', 'error');
+    });
+    mqttClient.subscribe(BANK_NS + '/account/#', { qos: 1 });
+  });
+
+  mqttClient.on('reconnect', () => setConnPill('connecting', '🟡 מתחבר מחדש...'));
+  mqttClient.on('offline',   () => setConnPill('disconnected', '🔴 מנותק'));
+  mqttClient.on('error',     (e) => { setConnPill('disconnected', '🔴 שגיאה'); console.error(e); });
+
+  mqttClient.on('message', (topic, payload) => {
+    try {
+      const data = JSON.parse(payload.toString());
+      if (topic.startsWith(MARKET_NS + '/product/')) {
+        const id = decodeURIComponent(topic.replace(MARKET_NS + '/product/', ''));
+        if (data && data.id) {
+          products[id] = data;
+        } else {
+          delete products[id];
+        }
+        if (activeTab === 'browse') renderProducts();
+        if (activeTab === 'seller' && currentUser) renderSellerDash();
+      } else if (topic.startsWith(MARKET_NS + '/user/')) {
+        const uname = decodeURIComponent(topic.replace(MARKET_NS + '/user/', ''));
+        if (currentUser && uname === currentUser.username) {
+          // Update local user data from broker (orders, listings)
+          if (data) {
+            currentUser.orders   = data.orders   || currentUser.orders;
+            currentUser.listings = data.listings || currentUser.listings;
+          }
+        }
+      } else if (topic.startsWith(BANK_NS + '/account/')) {
+        const uname = decodeURIComponent(topic.replace(BANK_NS + '/account/', ''));
+        bankAccountCache[uname] = data;
+        if (pendingBankResolve && pendingBankResolve.username === uname) {
+          const resolve = pendingBankResolve.resolve;
+          pendingBankResolve = null;
+          resolve(data);
+        }
+      }
+    } catch(e) { /* non-JSON retained clear messages */ }
+  });
+}
+
+function publishRetained(topic, data) {
+  return new Promise((resolve, reject) => {
+    if (!mqttClient || !mqttClient.connected) {
+      reject(new Error('לא מחובר ל-MQTT'));
+      return;
+    }
+    const payload = JSON.stringify(data);
+    mqttClient.publish(topic, payload, { qos: 1, retain: true }, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+function getBankAccount(username) {
+  return new Promise((resolve, reject) => {
+    if (bankAccountCache[username]) {
+      resolve(bankAccountCache[username]);
+      return;
+    }
+    const topic = BANK_NS + '/account/' + encodeURIComponent(username);
+    mqttClient.subscribe(topic, { qos: 1 });
+    const timeout = setTimeout(() => {
+      pendingBankResolve = null;
+      // No cached data found, return null
+      resolve(null);
+    }, 6000);
+    pendingBankResolve = {
+      username,
+      resolve: (data) => {
+        clearTimeout(timeout);
+        resolve(data);
+      }
+    };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════════════
+function showAuthModal() {
+  if (currentUser) {
+    if (confirm('התנתק מהחשבון?')) doLogout();
+    return;
+  }
+  document.getElementById('auth-screen').classList.add('active');
+}
+
+function hideAuthModal() {
+  document.getElementById('auth-screen').classList.remove('active');
+}
+
+function switchAuthTab(tab) {
+  document.getElementById('login-form').style.display    = tab === 'login'    ? '' : 'none';
+  document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('auth-tab-login').classList.toggle('active',    tab === 'login');
+  document.getElementById('auth-tab-register').classList.toggle('active', tab === 'register');
+}
+
+function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+  if (!username || !password) { toast('מלא את כל השדות', 'error'); return; }
+
+  // Look for user in MQTT retained messages (we store users there)
+  // We subscribe on connect so check if we have it cached, otherwise try to load
+  const topic = MARKET_NS + '/user/' + encodeURIComponent(username);
+  showLoading('מאמת...');
+
+  // Subscribe explicitly to make sure we get the retained
+  mqttClient.subscribe(topic, { qos: 1 });
+
+  const timeout = setTimeout(() => {
+    hideLoading();
+    // No user found — offer registration
+    toast('משתמש לא נמצא. הירשם תחילה.', 'error');
+  }, 5000);
+
+  const handler = (t, payload) => {
+    if (t === topic) {
+      clearTimeout(timeout);
+      mqttClient.removeListener('message_once_' + topic, handler);
+      try {
+        const data = JSON.parse(payload.toString());
+        if (!data || !data.username) { hideLoading(); toast('משתמש לא נמצא', 'error'); return; }
+        if (data.password !== password) { hideLoading(); toast('סיסמה שגויה', 'error'); return; }
+        currentUser = data;
+        onLoginSuccess();
+      } catch(e) { hideLoading(); toast('שגיאה בטעינת משתמש', 'error'); }
+    }
+  };
+
+  // Use one-time check via the global message listener
+  const origMsg = mqttClient.listeners('message');
+  const checkLogin = (t, payload) => {
+    if (t !== topic) return;
+    clearTimeout(timeout);
+    mqttClient.removeListener('message', checkLogin);
+    hideLoading();
+    try {
+      const data = JSON.parse(payload.toString());
+      if (!data || !data.username) { toast('משתמש לא נמצא', 'error'); return; }
+      if (data.password !== password) { toast('סיסמה שגויה', 'error'); return; }
+      currentUser = data;
+      onLoginSuccess();
+    } catch(e) { toast('שגיאה בטעינת משתמש', 'error'); }
+  };
+  mqttClient.on('message', checkLogin);
+}
+
+function doRegister() {
+  const username    = document.getElementById('reg-username').value.trim();
+  const password    = document.getElementById('reg-password').value.trim();
+  const bankUsername = document.getElementById('reg-bankuser').value.trim();
+  const role        = document.getElementById('reg-role').value;
+
+  if (!username || !password || !bankUsername) { toast('מלא את כל השדות', 'error'); return; }
+  if (!/^[a-zA-Z0-9_\u0590-\u05FF]+$/.test(username)) { toast('שם משתמש: אותיות, ספרות וקו תחתי בלבד', 'error'); return; }
+
+  const userData = { username, password, bankUsername, role, orders: [], listings: [], timestamp: new Date().toISOString() };
+  showLoading('רושם...');
+  const topic = MARKET_NS + '/user/' + encodeURIComponent(username);
+  publishRetained(topic, userData)
+    .then(() => {
+      currentUser = userData;
+      hideLoading();
+      onLoginSuccess();
+      toast('ברוך הבא ' + username + '! 🎉', 'success');
+    })
+    .catch((e) => { hideLoading(); toast('שגיאה ברישום: ' + e.message, 'error'); });
+}
+
+function onLoginSuccess() {
+  hideAuthModal();
+  document.getElementById('auth-btn').textContent = currentUser.username + ' 👤';
+  document.getElementById('auth-btn').classList.add('logout');
+  renderProducts();
+  renderSellerDash();
+  renderOrders();
+  toast('ברוך הבא, ' + currentUser.username + '!', 'success');
+}
+
+function doLogout() {
+  currentUser = null;
+  cart = [];
+  updateCartBadge();
+  document.getElementById('auth-btn').textContent = 'התחברות';
+  document.getElementById('auth-btn').classList.remove('logout');
+  toast('התנתקת בהצלחה');
+  switchTab('browse');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  const catBar = document.getElementById('category-bar');
+  catBar.style.display = tab === 'browse' ? '' : 'none';
+
+  if (tab === 'seller') {
+    if (!currentUser) { toast('יש להתחבר תחילה', 'error'); switchTab('browse'); return; }
+    renderSellerDash();
+  }
+  if (tab === 'orders') {
+    if (!currentUser) { toast('יש להתחבר תחילה', 'error'); switchTab('browse'); return; }
+    renderOrders();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CATEGORIES & SEARCH
+// ═══════════════════════════════════════════════════════════
+function setCategory(cat) {
+  activeCategory = cat;
+  document.querySelectorAll('.cat-pill').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+  renderProducts();
+}
+
+function onSearch() {
+  searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
+  renderProducts();
+}
+
+function getFilteredProducts() {
+  return Object.values(products).filter(p => {
+    if (!p || !p.id) return false;
+    const matchCat  = activeCategory === 'הכל' || p.category === activeCategory;
+    const matchSearch = !searchQuery || p.name.toLowerCase().includes(searchQuery) ||
+                        (p.description && p.description.toLowerCase().includes(searchQuery));
+    return matchCat && matchSearch;
+  }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PRODUCT GRID
+// ═══════════════════════════════════════════════════════════
+function renderProducts() {
+  const grid = document.getElementById('product-grid');
+  const list = getFilteredProducts();
+
+  if (list.length === 0) {
+    grid.innerHTML = `<div class="no-products-msg" style="grid-column:1/-1;padding:60px 20px;text-align:center;color:var(--muted)">
+      <div style="font-size:3rem;margin-bottom:12px">🛍️</div>
+      <h3 style="font-weight:700;margin-bottom:6px">אין מוצרים להצגה</h3>
+      <p style="font-size:0.9rem">נסה קטגוריה אחרת או חזור מאוחר יותר</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(p => productCardHTML(p)).join('');
+}
+
+function productCardHTML(p) {
+  const imgHTML = p.imageUrl
+    ? `<img src="${escapeHTML(p.imageUrl)}" alt="${escapeHTML(p.name)}" onerror="this.parentElement.innerHTML='${getCatEmoji(p.category)}';">`
+    : getCatEmoji(p.category);
+  const stockTag = stockTagHTML(p.stock);
+  const inStock = p.stock > 0;
+  return `
+  <div class="product-card" onclick="openProductModal('${escapeHTML(p.id)}')">
+    <div class="product-img">${imgHTML}</div>
+    <div class="product-info">
+      <div class="product-name">${escapeHTML(p.name)}</div>
+      <div class="product-seller">מאת: ${escapeHTML(p.seller)} • ${stockTag}</div>
+      <div class="product-price"><span class="currency">)(</span>${formatPrice(p.price)}</div>
+      <button class="add-cart-btn" onclick="event.stopPropagation(); addToCart('${escapeHTML(p.id)}')"
+        ${!inStock ? 'disabled' : ''}>
+        ${inStock ? '🛒 הוסף לסל' : '❌ אזל המלאי'}
+      </button>
+    </div>
+  </div>`;
+}
+
+function stockTagHTML(stock) {
+  if (stock <= 0) return '<span class="stock-tag out">אזל</span>';
+  if (stock <= 3) return '<span class="stock-tag low">נותרו ' + stock + '</span>';
+  return '<span class="stock-tag in">במלאי</span>';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PRODUCT DETAIL MODAL
+// ═══════════════════════════════════════════════════════════
+function openProductModal(productId) {
+  const p = products[productId];
+  if (!p) return;
+
+  const imgHTML = p.imageUrl
+    ? `<img src="${escapeHTML(p.imageUrl)}" alt="${escapeHTML(p.name)}" onerror="this.parentElement.innerHTML='${getCatEmoji(p.category)}';">`
+    : getCatEmoji(p.category);
+
+  const modalContent = document.getElementById('product-modal-content');
+  modalContent.innerHTML = `
+    <button class="modal-close" onclick="closeModal('product-modal')">✕</button>
+    <div class="product-detail-img">${imgHTML}</div>
+    <h2 class="product-detail-title">${escapeHTML(p.name)}</h2>
+    <div class="product-detail-price"><span style="font-size:1rem">)(</span>${formatPrice(p.price)}</div>
+    <div class="product-detail-meta">
+      <span>📦 ${escapeHTML(p.category)}</span>
+      <span>👤 ${escapeHTML(p.seller)}</span>
+      <span>${stockTagHTML(p.stock)}</span>
+      <span>🏷️ נמכרו: ${p.sold || 0}</span>
+    </div>
+    <p class="product-detail-desc">${escapeHTML(p.description || 'אין תיאור')}</p>
+    <div class="qty-row">
+      <span style="font-weight:600;margin-left:8px">כמות:</span>
+      <button class="qty-btn" onclick="changeModalQty(-1)">−</button>
+      <span class="qty-display" id="modal-qty">1</span>
+      <button class="qty-btn" onclick="changeModalQty(1)">+</button>
+      <span class="text-muted">(במלאי: ${p.stock})</span>
+    </div>
+    <button class="btn-primary" onclick="addToCartFromModal('${escapeHTML(p.id)}')" ${p.stock <= 0 ? 'disabled style="background:#ccc"' : ''}>
+      ${p.stock > 0 ? '🛒 הוסף לסל' : '❌ אזל המלאי'}
+    </button>`;
+
+  document.getElementById('product-modal').classList.add('active');
+  document.getElementById('product-modal')._productId = productId;
+}
+
+function changeModalQty(delta) {
+  const el = document.getElementById('modal-qty');
+  if (!el) return;
+  const productId = document.getElementById('product-modal')._productId;
+  const p = products[productId];
+  let qty = parseInt(el.textContent) + delta;
+  qty = Math.max(1, Math.min(qty, p ? p.stock : 99));
+  el.textContent = qty;
+}
+
+function addToCartFromModal(productId) {
+  const qty = parseInt(document.getElementById('modal-qty').textContent) || 1;
+  addToCart(productId, qty);
+  closeModal('product-modal');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CART
+// ═══════════════════════════════════════════════════════════
+function addToCart(productId, qty = 1) {
+  if (!currentUser) { toast('יש להתחבר תחילה', 'error'); return; }
+  const p = products[productId];
+  if (!p) return;
+  if (p.stock <= 0) { toast('המוצר אינו במלאי', 'error'); return; }
+
+  const existing = cart.find(i => i.product.id === productId);
+  if (existing) {
+    existing.qty = Math.min(existing.qty + qty, p.stock);
+  } else {
+    cart.push({ product: p, qty: Math.min(qty, p.stock) });
+  }
+  updateCartBadge();
+  toast('נוסף לסל: ' + p.name, 'success');
+}
+
+function updateCartBadge() {
+  const total = cart.reduce((s, i) => s + i.qty, 0);
+  const badge = document.getElementById('cart-badge');
+  badge.textContent = total;
+  badge.style.display = total > 0 ? 'flex' : 'none';
+}
+
+function openCart() {
+  renderCartDrawer();
+  document.getElementById('cart-drawer').classList.add('open');
+  document.getElementById('cart-overlay').classList.add('active');
+}
+
+function closeCart() {
+  document.getElementById('cart-drawer').classList.remove('open');
+  document.getElementById('cart-overlay').classList.remove('active');
+}
+
+function renderCartDrawer() {
+  const listEl   = document.getElementById('cart-items-list');
+  const footerEl = document.getElementById('cart-footer');
+
+  if (cart.length === 0) {
+    listEl.innerHTML = `<div class="empty-cart"><div class="icon">🛒</div><p>הסל ריק</p></div>`;
+    footerEl.innerHTML = '';
+    return;
+  }
+
+  listEl.innerHTML = cart.map((item, idx) => {
+    const p = item.product;
+    const imgHTML = p.imageUrl
+      ? `<img src="${escapeHTML(p.imageUrl)}" alt="" onerror="this.parentElement.innerHTML='${getCatEmoji(p.category)}';">`
+      : getCatEmoji(p.category);
+    return `
+    <div class="cart-item">
+      <div class="cart-item-img">${imgHTML}</div>
+      <div class="cart-item-info">
+        <div class="cart-item-name">${escapeHTML(p.name)}</div>
+        <div class="cart-item-price">)( ${formatPrice(p.price)} × ${item.qty} = )( ${formatPrice(p.price * item.qty)}</div>
+        <div class="cart-item-qty">
+          <button class="cart-qty-btn" onclick="changeCartQty(${idx}, -1)">−</button>
+          <span style="font-size:0.9rem;font-weight:700">${item.qty}</span>
+          <button class="cart-qty-btn" onclick="changeCartQty(${idx}, 1)">+</button>
+        </div>
+      </div>
+      <button class="cart-remove" onclick="removeFromCart(${idx})" title="הסר">🗑️</button>
+    </div>`;
+  }).join('');
+
+  const total = cartTotal();
+  footerEl.innerHTML = `
+    <div class="cart-total">
+      <span>סה"כ:</span>
+      <span style="color:var(--red)">)( ${formatPrice(total)}</span>
+    </div>
+    <button class="btn-primary" onclick="openCheckout()">לתשלום →</button>`;
+}
+
+function changeCartQty(idx, delta) {
+  const item = cart[idx];
+  if (!item) return;
+  item.qty = Math.max(1, Math.min(item.qty + delta, item.product.stock));
+  renderCartDrawer();
+  updateCartBadge();
+}
+
+function removeFromCart(idx) {
+  cart.splice(idx, 1);
+  renderCartDrawer();
+  updateCartBadge();
+}
+
+function cartTotal() {
+  return cart.reduce((s, i) => s + i.product.price * i.qty, 0);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHECKOUT
+// ═══════════════════════════════════════════════════════════
+function openCheckout() {
+  if (cart.length === 0) { toast('הסל ריק', 'error'); return; }
+  if (!currentUser) { toast('יש להתחבר תחילה', 'error'); return; }
+
+  const summaryEl = document.getElementById('checkout-summary');
+  const rows = cart.map(i => `
+    <div class="checkout-total-row">
+      <span>${escapeHTML(i.product.name)} × ${i.qty}</span>
+      <span>)( ${formatPrice(i.product.price * i.qty)}</span>
+    </div>`).join('');
+  summaryEl.innerHTML = `
+    <div class="checkout-total">
+      ${rows}
+      <div class="checkout-total-row total">
+        <span>סה"כ לתשלום</span>
+        <span style="color:var(--red)">)( ${formatPrice(cartTotal())}</span>
+      </div>
+    </div>`;
+
+  document.getElementById('checkout-bank-user').value = currentUser.bankUsername || '';
+  document.getElementById('checkout-bank-pass').value = '';
+  document.getElementById('checkout-modal').classList.add('active');
+  closeCart();
+}
+
+async function processPayment() {
+  const bankUser = document.getElementById('checkout-bank-user').value.trim();
+  const bankPass = document.getElementById('checkout-bank-pass').value.trim();
+  if (!bankUser || !bankPass) { toast('מלא פרטי בנק', 'error'); return; }
+
+  showLoading('בודק חשבון בנק...');
+
+  try {
+    // Get buyer bank account
+    const buyerAccount = await getBankAccount(bankUser);
+    if (!buyerAccount) {
+      hideLoading();
+      toast('חשבון בנק לא נמצא: ' + bankUser, 'error');
+      return;
+    }
+    if (buyerAccount.password !== bankPass) {
+      hideLoading();
+      toast('סיסמת בנק שגויה', 'error');
+      return;
+    }
+
+    const total = cartTotal();
+    const balance = parseFloat(buyerAccount.balance) || 0;
+    if (balance < total) {
+      hideLoading();
+      toast('יתרה לא מספיקה. יתרה: )( ' + formatPrice(balance) + ', נדרש: )( ' + formatPrice(total), 'error');
+      return;
+    }
+
+    // Group cart items by seller
+    const bySeller = {};
+    cart.forEach(item => {
+      const seller = item.product.seller;
+      if (!bySeller[seller]) bySeller[seller] = [];
+      bySeller[seller].push(item);
+    });
+
+    // Create order
+    const orderId = 'order_' + Date.now();
+    const orderItems = cart.map(i => ({
+      productId: i.product.id,
+      name: i.product.name,
+      price: i.product.price,
+      qty: i.qty,
+      seller: i.product.seller,
+      subtotal: i.product.price * i.qty
+    }));
+
+    // Deduct from buyer
+    const updatedBuyer = {
+      ...buyerAccount,
+      balance: (balance - total).toFixed(2),
+      history: [
+        ...(buyerAccount.history || []),
+        {
+          type: 'payment',
+          amount: total,
+          description: 'רכישה בשוק פוניניו #' + orderId,
+          timestamp: new Date().toISOString()
+        }
+      ]
+    };
+
+    showLoading('מעביר תשלום...');
+    await publishRetained(
+      BANK_NS + '/account/' + encodeURIComponent(bankUser),
+      updatedBuyer
+    );
+    bankAccountCache[bankUser] = updatedBuyer;
+
+    // Pay each seller
+    for (const [seller, items] of Object.entries(bySeller)) {
+      const sellerTotal = items.reduce((s, i) => s + i.product.price * i.qty, 0);
+      // Get seller's bank account — try to find from user profile
+      const sellerUserTopic = MARKET_NS + '/user/' + encodeURIComponent(seller);
+      // We'll look up seller bankUsername from products or user data
+      // For simplicity, use seller's username as bankUsername (fallback)
+      let sellerBankUser = seller;
+      // Check if we have seller's profile cached
+      const sellerProfile = await fetchSellerProfile(seller);
+      if (sellerProfile && sellerProfile.bankUsername) {
+        sellerBankUser = sellerProfile.bankUsername;
+      }
+
+      const sellerAccount = await getBankAccount(sellerBankUser);
+      if (sellerAccount) {
+        const updatedSeller = {
+          ...sellerAccount,
+          balance: (parseFloat(sellerAccount.balance || 0) + sellerTotal).toFixed(2),
+          history: [
+            ...(sellerAccount.history || []),
+            {
+              type: 'income',
+              amount: sellerTotal,
+              description: 'מכירה בשוק פוניניו #' + orderId + ' מ-' + currentUser.username,
+              timestamp: new Date().toISOString()
+            }
+          ]
+        };
+        await publishRetained(
+          BANK_NS + '/account/' + encodeURIComponent(sellerBankUser),
+          updatedSeller
+        );
+        bankAccountCache[sellerBankUser] = updatedSeller;
+      }
+
+      // Update product stock & sold count
+      for (const item of items) {
+        const p = products[item.productId];
+        if (p) {
+          const updated = {
+            ...p,
+            stock: Math.max(0, p.stock - item.qty),
+            sold: (p.sold || 0) + item.qty
+          };
+          await publishRetained(
+            MARKET_NS + '/product/' + encodeURIComponent(p.id),
+            updated
+          );
+          products[p.id] = updated;
+        }
+      }
+    }
+
+    // Save order to user profile
+    const order = {
+      id: orderId,
+      items: orderItems,
+      total,
+      timestamp: new Date().toISOString(),
+      status: 'הושלם'
+    };
+    currentUser.orders = [...(currentUser.orders || []), order];
+    await publishRetained(
+      MARKET_NS + '/user/' + encodeURIComponent(currentUser.username),
+      currentUser
+    );
+
+    hideLoading();
+    closeModal('checkout-modal');
+
+    // Clear cart
+    const receiptCart = [...cart];
+    cart = [];
+    updateCartBadge();
+    renderProducts();
+
+    showReceipt(order, receiptCart, updatedBuyer);
+
+  } catch(e) {
+    hideLoading();
+    toast('שגיאה בתשלום: ' + e.message, 'error');
+    console.error(e);
+  }
+}
+
+const sellerProfileCache = {};
+function fetchSellerProfile(seller) {
+  return new Promise((resolve) => {
+    if (sellerProfileCache[seller]) { resolve(sellerProfileCache[seller]); return; }
+    const topic = MARKET_NS + '/user/' + encodeURIComponent(seller);
+    mqttClient.subscribe(topic, { qos: 1 });
+    const timeout = setTimeout(() => resolve(null), 3000);
+    const handler = (t, payload) => {
+      if (t === topic) {
+        clearTimeout(timeout);
+        mqttClient.removeListener('message', handler);
+        try {
+          const data = JSON.parse(payload.toString());
+          sellerProfileCache[seller] = data;
+          resolve(data);
+        } catch(e) { resolve(null); }
+      }
+    };
+    mqttClient.on('message', handler);
+  });
+}
+
+function showReceipt(order, cartSnapshot, updatedAccount) {
+  const itemsHTML = cartSnapshot.map(i => `
+    <div class="receipt-row">
+      <span>${escapeHTML(i.product.name)} × ${i.qty}</span>
+      <span>)( ${formatPrice(i.product.price * i.qty)}</span>
+    </div>`).join('');
+
+  const receiptEl = document.getElementById('receipt-content');
+  receiptEl.innerHTML = `
+    <button class="modal-close" onclick="closeModal('receipt-modal')">✕</button>
+    <div class="receipt-success">
+      <div class="icon">✅</div>
+      <h3>התשלום בוצע בהצלחה!</h3>
+    </div>
+    <div class="receipt-box">
+      <div class="receipt-row"><span>מספר הזמנה</span><span style="font-family:monospace;font-size:0.8rem">${escapeHTML(order.id)}</span></div>
+      <div class="receipt-row"><span>תאריך</span><span>${new Date(order.timestamp).toLocaleString('he-IL')}</span></div>
+      ${itemsHTML}
+      <div class="receipt-row" style="font-weight:800">
+        <span>סה"כ שולם</span>
+        <span style="color:var(--red)">)( ${formatPrice(order.total)}</span>
+      </div>
+      ${updatedAccount ? `<div class="receipt-row"><span>יתרה חדשה</span><span style="color:#065f46;font-weight:700">)( ${formatPrice(parseFloat(updatedAccount.balance))}</span></div>` : ''}
+    </div>
+    <button class="btn-primary" onclick="closeModal('receipt-modal')">סגור</button>`;
+
+  document.getElementById('receipt-modal').classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SELLER DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function renderSellerDash() {
+  if (!currentUser) return;
+  const el = document.getElementById('seller-content');
+
+  const myProducts = Object.values(products).filter(p => p.seller === currentUser.username);
+
+  el.innerHTML = `
+    <div class="product-form">
+      <div class="section-title">➕ הוסף מוצר חדש</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>שם המוצר *</label>
+          <input type="text" id="prod-name" placeholder="שם המוצר">
+        </div>
+        <div class="form-group">
+          <label>מחיר ()( ) *</label>
+          <input type="number" id="prod-price" placeholder="0.00" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>קטגוריה *</label>
+          <select id="prod-cat">
+            <option value="אלקטרוניקה">📱 אלקטרוניקה</option>
+            <option value="ביגוד">👕 ביגוד</option>
+            <option value="ריהוט">🪑 ריהוט</option>
+            <option value="מזון">🍎 מזון</option>
+            <option value="אחר">📦 אחר</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>מלאי *</label>
+          <input type="number" id="prod-stock" placeholder="כמות" min="0" value="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>תיאור</label>
+        <textarea id="prod-desc" rows="3" placeholder="תיאור המוצר..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>כתובת תמונה (URL, אופציונלי)</label>
+        <input type="text" id="prod-img" placeholder="https://...">
+      </div>
+      <button class="btn-primary" onclick="publishProduct()">📤 פרסם מוצר</button>
+    </div>
+
+    <div class="section-title" style="margin-bottom:12px">📦 המוצרים שלי (${myProducts.length})</div>
+    ${myProducts.length === 0 ? '<p class="text-muted" style="margin-bottom:24px">עדיין לא פרסמת מוצרים</p>' : ''}
+    <div style="overflow-x:auto;margin-bottom:32px">
+      ${myProducts.length > 0 ? `
+      <table class="listings-table">
+        <thead>
+          <tr>
+            <th>מוצר</th>
+            <th>מחיר</th>
+            <th>מלאי</th>
+            <th>נמכרו</th>
+            <th>קטגוריה</th>
+            <th>פעולות</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${myProducts.map(p => `
+          <tr>
+            <td style="max-width:180px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:1.4rem">${p.imageUrl ? '' : getCatEmoji(p.category)}</span>
+                <span style="font-weight:600">${escapeHTML(p.name)}</span>
+              </div>
+            </td>
+            <td style="font-weight:700;color:var(--red)">)( ${formatPrice(p.price)}</td>
+            <td>${stockTagHTML(p.stock)}</td>
+            <td><span class="badge badge-blue">${p.sold || 0}</span></td>
+            <td>${escapeHTML(p.category)}</td>
+            <td>
+              <div style="display:flex;gap:6px">
+                <button class="btn-secondary" onclick="openEditModal('${escapeHTML(p.id)}')" style="padding:5px 10px;font-size:0.8rem">✏️</button>
+                <button class="btn-danger" onclick="deleteProduct('${escapeHTML(p.id)}')" style="padding:5px 10px;font-size:0.8rem">🗑️</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : ''}
+    </div>
+
+    <div class="section-title">📊 היסטוריית מכירות</div>
+    ${renderSalesHistory()}
+  `;
+}
+
+function renderSalesHistory() {
+  if (!currentUser) return '';
+  // Gather all orders where this user is the seller
+  const allOrders = [];
+  Object.values(products);
+
+  // Look through buyer orders for items sold by this user
+  // We only have access to currentUser's own order history on the client side.
+  // For seller history, we track it via product sold counts. Show a summary.
+  const myProducts = Object.values(products).filter(p => p.seller === currentUser.username);
+  const totalRevenue = myProducts.reduce((s, p) => s + (p.sold || 0) * p.price, 0);
+  const totalSold = myProducts.reduce((s, p) => s + (p.sold || 0), 0);
+
+  if (myProducts.length === 0) return '<p class="text-muted">אין היסטוריית מכירות</p>';
+
+  return `
+  <div class="order-card">
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+      <div style="text-align:center;padding:16px 24px;background:var(--bg);border-radius:var(--radius-sm);flex:1;min-width:120px">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--red)">)( ${formatPrice(totalRevenue)}</div>
+        <div class="text-muted" style="margin-top:4px">הכנסות כוללות (מוערך)</div>
+      </div>
+      <div style="text-align:center;padding:16px 24px;background:var(--bg);border-radius:var(--radius-sm);flex:1;min-width:120px">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--blue)">${totalSold}</div>
+        <div class="text-muted" style="margin-top:4px">פריטים שנמכרו</div>
+      </div>
+      <div style="text-align:center;padding:16px 24px;background:var(--bg);border-radius:var(--radius-sm);flex:1;min-width:120px">
+        <div style="font-size:1.8rem;font-weight:800;color:#065f46">${myProducts.length}</div>
+        <div class="text-muted" style="margin-top:4px">מוצרים פעילים</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <table class="listings-table">
+      <thead><tr><th>מוצר</th><th>מחיר</th><th>נמכרו</th><th>הכנסה</th></tr></thead>
+      <tbody>
+        ${myProducts.map(p => `
+        <tr>
+          <td style="font-weight:600">${escapeHTML(p.name)}</td>
+          <td>)( ${formatPrice(p.price)}</td>
+          <td><span class="badge badge-blue">${p.sold || 0}</span></td>
+          <td style="font-weight:700;color:#065f46">)( ${formatPrice((p.sold || 0) * p.price)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function publishProduct() {
+  if (!currentUser) { toast('יש להתחבר תחילה', 'error'); return; }
+  const name  = document.getElementById('prod-name').value.trim();
+  const price = parseFloat(document.getElementById('prod-price').value);
+  const cat   = document.getElementById('prod-cat').value;
+  const stock = parseInt(document.getElementById('prod-stock').value) || 0;
+  const desc  = document.getElementById('prod-desc').value.trim();
+  const img   = document.getElementById('prod-img').value.trim();
+
+  if (!name || isNaN(price) || price < 0) { toast('מלא שם ומחיר תקין', 'error'); return; }
+
+  const productId = 'prod_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+  const product = {
+    id: productId,
+    seller: currentUser.username,
+    name, price, description: desc, category: cat,
+    imageUrl: img, stock, sold: 0,
+    timestamp: new Date().toISOString()
+  };
+
+  showLoading('מפרסם מוצר...');
+  publishRetained(MARKET_NS + '/product/' + encodeURIComponent(productId), product)
+    .then(() => {
+      products[productId] = product;
+      hideLoading();
+      renderSellerDash();
+      renderProducts();
+      toast('המוצר פורסם בהצלחה! 🎉', 'success');
+      // Reset form
+      ['prod-name','prod-price','prod-desc','prod-img'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('prod-stock').value = '1';
+    })
+    .catch(e => { hideLoading(); toast('שגיאה: ' + e.message, 'error'); });
+}
+
+function deleteProduct(productId) {
+  if (!confirm('למחוק את המוצר?')) return;
+  showLoading('מוחק...');
+  // Publish empty/null to effectively remove (retain with empty)
+  const topic = MARKET_NS + '/product/' + encodeURIComponent(productId);
+  mqttClient.publish(topic, '', { qos: 1, retain: true }, (err) => {
+    hideLoading();
+    if (err) { toast('שגיאה במחיקה', 'error'); return; }
+    delete products[productId];
+    renderSellerDash();
+    renderProducts();
+    toast('המוצר נמחק', 'success');
+  });
+}
+
+function openEditModal(productId) {
+  const p = products[productId];
+  if (!p) return;
+
+  const el = document.getElementById('edit-form-content');
+  el.innerHTML = `
+    <div class="form-group"><label>שם המוצר</label><input type="text" id="edit-name" value="${escapeHTML(p.name)}"></div>
+    <div class="form-row">
+      <div class="form-group"><label>מחיר</label><input type="number" id="edit-price" value="${p.price}" min="0" step="0.01"></div>
+      <div class="form-group"><label>מלאי</label><input type="number" id="edit-stock" value="${p.stock}" min="0"></div>
+    </div>
+    <div class="form-group">
+      <label>קטגוריה</label>
+      <select id="edit-cat">
+        ${['אלקטרוניקה','ביגוד','ריהוט','מזון','אחר'].map(c =>
+          `<option value="${c}" ${p.category === c ? 'selected' : ''}>${getCatEmoji(c)} ${c}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label>תיאור</label><textarea id="edit-desc" rows="3">${escapeHTML(p.description || '')}</textarea></div>
+    <div class="form-group"><label>תמונה (URL)</label><input type="text" id="edit-img" value="${escapeHTML(p.imageUrl || '')}"></div>
+    <button class="btn-primary" onclick="saveEditProduct('${escapeHTML(productId)}')">💾 שמור שינויים</button>
+  `;
+  document.getElementById('edit-modal').classList.add('active');
+}
+
+function saveEditProduct(productId) {
+  const p = products[productId];
+  if (!p) return;
+  const name  = document.getElementById('edit-name').value.trim();
+  const price = parseFloat(document.getElementById('edit-price').value);
+  const stock = parseInt(document.getElementById('edit-stock').value) || 0;
+  const cat   = document.getElementById('edit-cat').value;
+  const desc  = document.getElementById('edit-desc').value.trim();
+  const img   = document.getElementById('edit-img').value.trim();
+
+  if (!name || isNaN(price)) { toast('מלא שם ומחיר תקין', 'error'); return; }
+
+  const updated = { ...p, name, price, stock, category: cat, description: desc, imageUrl: img };
+  showLoading('שומר...');
+  publishRetained(MARKET_NS + '/product/' + encodeURIComponent(productId), updated)
+    .then(() => {
+      products[productId] = updated;
+      hideLoading();
+      closeModal('edit-modal');
+      renderSellerDash();
+      renderProducts();
+      toast('המוצר עודכן בהצלחה', 'success');
+    })
+    .catch(e => { hideLoading(); toast('שגיאה: ' + e.message, 'error'); });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ORDERS
+// ═══════════════════════════════════════════════════════════
+function renderOrders() {
+  if (!currentUser) return;
+  const el = document.getElementById('orders-content');
+  const orders = currentUser.orders || [];
+
+  if (orders.length === 0) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🧾</div>
+        <h3>אין הזמנות עדיין</h3>
+        <p class="text-muted">הזמנות שתבצע יופיעו כאן</p>
+      </div>`;
+    return;
+  }
+
+  const sorted = [...orders].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  el.innerHTML = `<div class="section-title">🧾 ההזמנות שלי (${orders.length})</div>` +
+    sorted.map(order => `
+    <div class="order-card">
+      <div class="order-card-header">
+        <div>
+          <div class="fw-bold" style="font-size:1rem">הזמנה #${escapeHTML(order.id.replace('order_',''))}</div>
+          <div class="order-id">${new Date(order.timestamp).toLocaleString('he-IL')}</div>
+        </div>
+        <div style="text-align:left">
+          <span class="badge badge-green">${escapeHTML(order.status || 'הושלם')}</span>
+          <div style="font-size:1.1rem;font-weight:800;color:var(--red);margin-top:4px">)( ${formatPrice(order.total)}</div>
+        </div>
+      </div>
+      <div class="order-items-list">
+        ${order.items.map(item => `
+        <div class="order-item-row">
+          <span>${escapeHTML(item.name)} × ${item.qty}</span>
+          <span style="color:var(--muted)">)( ${formatPrice(item.subtotal)}</span>
+        </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════════
+function closeModal(id) {
+  document.getElementById(id).classList.remove('active');
+}
+
+function setConnPill(state, text) {
+  const el = document.getElementById('conn-pill');
+  el.className = 'conn-pill ' + state;
+  el.textContent = text;
+}
+
+function showLoading(msg = 'טוען...') {
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading-overlay').classList.add('active');
+}
+
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.remove('active');
+}
+
+function toast(msg, type = '') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity 0.3s';
+    setTimeout(() => el.remove(), 300);
+  }, 3500);
+}
+
+function escapeHTML(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatPrice(n) {
+  return parseFloat(n || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function getCatEmoji(cat) {
+  return CAT_EMOJI[cat] || '📦';
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+(function init() {
+  showLoading('מתחבר לשרת...');
+  setConnPill('connecting', '🟡 מתחבר...');
+
+  // Defer product render until we have some data
+  setTimeout(() => {
+    renderProducts();
+  }, 4000);
+
+  initMQTT();
+})();
+</script>
+</body>
+</html>

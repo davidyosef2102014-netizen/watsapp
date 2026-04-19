@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poninio — מוניות וחנות</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ===== TOP NAV ===== */
+.top-nav{
+  background:#1a1d27;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:52px;
+  flex-shrink:0;
+  gap:6px;
+  padding:0 16px;
+  position:relative;
+}
+.top-nav-logo{
+  position:absolute;
+  right:16px;
+  font-size:15px;
+  font-weight:900;
+  color:#22c55e;
+  letter-spacing:-.5px;
+}
+.tab-btn{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:8px 24px;
+  border-radius:24px;
+  border:none;
+  background:transparent;
+  color:rgba(255,255,255,.5);
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .2s;
+  font-family:inherit;
+}
+.tab-btn.active{
+  background:#22c55e;
+  color:#0f1117;
+}
+.tab-btn:not(.active):hover{
+  background:rgba(255,255,255,.08);
+  color:#fff;
+}
+.tab-icon{font-size:18px}
+
+/* ===== IFRAME ===== */
+.tab-frame{
+  flex:1;
+  border:none;
+  width:100%;
+  display:none;
+  background:#0f1117;
+}
+.tab-frame.active{display:block}
+
+/* ===== LOADING ===== */
+.loading{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:14px;
+  color:rgba(255,255,255,.4);
+  font-size:14px;
+}
+.spinner{
+  width:36px;height:36px;
+  border:3px solid rgba(255,255,255,.1);
+  border-top-color:#22c55e;
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ניווט עליון -->
+<nav class="top-nav">
+  <div class="top-nav-logo">Poninio</div>
+  <button class="tab-btn active" id="tab-taxi" onclick="switchTab('taxi')">
+    <span class="tab-icon">🚕</span>
+    מוניות
+  </button>
+  <button class="tab-btn" id="tab-market" onclick="switchTab('market')">
+    <span class="tab-icon">🛒</span>
+    חנות
+  </button>
+</nav>
+
+<!-- iframes -->
+<iframe class="tab-frame active" id="frame-taxi"  src="taxi_poninio.html"   title="מוניות"></iframe>
+<iframe class="tab-frame"        id="frame-market" src="market_poninio.html" title="חנות"></iframe>
+
+<script>
+function switchTab(name){
+  ['taxi','market'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active', t===name);
+    document.getElementById('frame-'+t).classList.toggle('active', t===name);
+  });
+}
+</script>
+</body>
+</html>
