@@ -645,6 +645,7 @@ let searchQuery    = '';
 let activeTab      = 'browse';
 let pendingBankResolve = null;
 let bankAccountCache   = {};
+let sellerInbox        = {};  // { sellerUsername: [ orderObj, ... ] }
 
 const CATEGORIES = ['הכל','אלקטרוניקה','ביגוד','ריהוט','מזון','אחר'];
 const CAT_EMOJI  = {'אלקטרוניקה':'📱','ביגוד':'👕','ריהוט':'🪑','מזון':'🍎','אחר':'📦','הכל':'🏷️'};
@@ -659,6 +660,7 @@ function initMQTT() {
     hideLoading();
     mqttClient.subscribe(MARKET_NS + '/#', { qos:1 });
     mqttClient.subscribe(BANK_NS + '/account/#', { qos:1 });
+    mqttClient.subscribe(MARKET_NS + '/seller_inbox/#', { qos:1 });
   });
   mqttClient.on('reconnect', () => setConnPill('connecting', '🟡 מתחבר...'));
   mqttClient.on('offline',   () => setConnPill('disconnected', '🔴 מנותק'));
@@ -686,6 +688,10 @@ function initMQTT() {
           pendingBankResolve = null;
           resolve(data);
         }
+      } else if (topic.startsWith(MARKET_NS + '/seller_inbox/')) {
+        const sellerName = decodeURIComponent(topic.replace(MARKET_NS + '/seller_inbox/', ''));
+        sellerInbox[sellerName] = Array.isArray(data) ? data : [];
+        if (activeTab === 'seller' && currentUser && currentUser.username === sellerName) renderSellerDash();
       }
     } catch(e) {}
   });
@@ -705,6 +711,25 @@ function getBankAccount(username) {
     mqttClient.subscribe(topic, { qos:1 });
     const timeout = setTimeout(() => { pendingBankResolve = null; resolve(null); }, 6000);
     pendingBankResolve = { username, resolve: (d) => { clearTimeout(timeout); resolve(d); } };
+  });
+}
+
+// freshAccount: fetch from cache or wait for MQTT retained (used in atomic payment)
+function freshAccount(username) {
+  return new Promise((resolve) => {
+    if (bankAccountCache[username]) { resolve(bankAccountCache[username]); return; }
+    const topic = BANK_NS + '/account/' + encodeURIComponent(username);
+    let done = false;
+    const t = setTimeout(() => {
+      if (!done) { done = true; mqttClient.removeListener('message', h); resolve(null); }
+    }, 8000);
+    const h = (top, payload) => {
+      if (top !== topic || done) return;
+      done = true; clearTimeout(t); mqttClient.removeListener('message', h);
+      try { resolve(JSON.parse(payload.toString())); } catch(e) { resolve(null); }
+    };
+    mqttClient.on('message', h);
+    mqttClient.subscribe(topic, { qos: 1 });
   });
 }
 
@@ -985,45 +1010,87 @@ async function processPayment() {
   const bankUser = document.getElementById('checkout-bank-user').value.trim();
   const bankPass = document.getElementById('checkout-bank-pass').value.trim();
   if (!bankUser || !bankPass) { toast('מלא פרטי בנק','error'); return; }
+
   showLoading('בודק חשבון בנק...');
   try {
-    const buyerAccount = await getBankAccount(bankUser);
-    if (!buyerAccount)              { hideLoading(); toast('חשבון בנק לא נמצא: '+bankUser,'error'); return; }
-    if (buyerAccount.password!==bankPass) { hideLoading(); toast('סיסמת בנק שגויה','error'); return; }
+    // ── STEP 1: Pre-fetch ALL accounts before making any changes ──
+    const buyerAccount = await freshAccount(bankUser);
+    if (!buyerAccount)                     { hideLoading(); toast('חשבון בנק לא נמצא: '+bankUser,'error'); return; }
+    if (buyerAccount.password !== bankPass) { hideLoading(); toast('סיסמת בנק שגויה','error'); return; }
+
     const total   = cartTotal();
-    const balance = parseFloat(buyerAccount.balance)||0;
-    if (balance<total) { hideLoading(); toast('יתרה לא מספיקה. יתרה: )( '+formatPrice(balance),'error'); return; }
+    const balance = parseFloat(buyerAccount.balance) || 0;
+    if (balance < total) { hideLoading(); toast('יתרה לא מספיקה. יתרה: )( '+formatPrice(balance),'error'); return; }
 
+    // Group cart by seller
     const bySeller = {};
-    cart.forEach(item => { const s=item.product.seller; if (!bySeller[s]) bySeller[s]=[]; bySeller[s].push(item); });
+    cart.forEach(item => {
+      const s = item.product.seller;
+      if (!bySeller[s]) bySeller[s] = [];
+      bySeller[s].push(item);
+    });
 
-    const orderId  = 'order_' + Date.now();
-    const orderItems = cart.map(i => ({ productId:i.product.id, name:i.product.name, price:i.product.price, qty:i.qty, seller:i.product.seller, subtotal:i.product.price*i.qty }));
-
-    const updatedBuyer = {
-      ...buyerAccount,
-      balance: (balance-total).toFixed(2),
-      history: [...(buyerAccount.history||[]), { type:'payment', amount:total, description:'רכישה ב-BSHOP #'+orderId, timestamp:new Date().toISOString() }]
-    };
-    showLoading('מעביר תשלום...');
-    await publishRetained(BANK_NS+'/account/'+encodeURIComponent(bankUser), updatedBuyer);
-    bankAccountCache[bankUser] = updatedBuyer;
-
-    for (const [seller, items] of Object.entries(bySeller)) {
-      const sellerTotal = items.reduce((s,i) => s+i.product.price*i.qty, 0);
-      let sellerBankUser = seller;
-      const sellerProfile = await fetchSellerProfile(seller);
-      if (sellerProfile && sellerProfile.bankUsername) sellerBankUser = sellerProfile.bankUsername;
-      const sellerAccount = await getBankAccount(sellerBankUser);
-      if (sellerAccount) {
-        const updatedSeller = {
-          ...sellerAccount,
-          balance: (parseFloat(sellerAccount.balance||0)+sellerTotal).toFixed(2),
-          history: [...(sellerAccount.history||[]), { type:'income', amount:sellerTotal, description:'מכירה ב-BSHOP #'+orderId+' מ-'+currentUser.username, timestamp:new Date().toISOString() }]
-        };
-        await publishRetained(BANK_NS+'/account/'+encodeURIComponent(sellerBankUser), updatedSeller);
-        bankAccountCache[sellerBankUser] = updatedSeller;
+    // Fetch each seller's profile + bank account
+    const sellerBankUserMap = {};   // { marketUsername: bankUsername }
+    const sellerAccountMap  = {};   // { bankUsername: accountObj }
+    for (const seller of Object.keys(bySeller)) {
+      const profile = await fetchSellerProfile(seller);
+      const sellerBankUser = (profile && profile.bankUsername) ? profile.bankUsername : seller;
+      sellerBankUserMap[seller] = sellerBankUser;
+      if (!sellerAccountMap[sellerBankUser]) {
+        const acct = await freshAccount(sellerBankUser);
+        if (acct) sellerAccountMap[sellerBankUser] = acct;
       }
+    }
+
+    const orderId    = 'order_' + Date.now();
+    const orderItems = cart.map(i => ({ productId:i.product.id, name:i.product.name, price:i.product.price, qty:i.qty, seller:i.product.seller, subtotal:i.product.price*i.qty }));
+    const now        = new Date().toISOString();
+
+    // ── STEP 2: Calculate all balance changes IN MEMORY ──
+    const allChanges = {};  // { bankUsername: updatedAccountObj }
+
+    // Deduct buyer
+    const newBuyerBalance = (balance - total).toFixed(2);
+    allChanges[bankUser] = {
+      ...buyerAccount,
+      balance: newBuyerBalance,
+      history: [...(buyerAccount.history||[]), { type:'payment', amount:total, description:'רכישה ב-BSHOP #'+orderId, timestamp:now }]
+    };
+
+    // Credit each seller
+    for (const [seller, items] of Object.entries(bySeller)) {
+      const sellerBankUser = sellerBankUserMap[seller];
+      const sellerTotal    = items.reduce((s,i) => s+i.product.price*i.qty, 0);
+      const isSame         = (sellerBankUser === bankUser);
+
+      // Base: already-changed buyer account (if same) or fetched seller account
+      const baseAcct = isSame ? allChanges[bankUser] : (sellerAccountMap[sellerBankUser] || null);
+      if (!baseAcct) continue;
+
+      // If we already have a pending change for this seller bank user (multiple sellers → same bank), accumulate
+      const existing = allChanges[sellerBankUser];
+      const workAcct = existing || baseAcct;
+      const prevBal  = parseFloat(workAcct.balance) || 0;
+      const newBal   = (prevBal + sellerTotal).toFixed(2);
+
+      allChanges[sellerBankUser] = {
+        ...workAcct,
+        balance: newBal,
+        history: [...(workAcct.history||[]), { type:'income', amount:sellerTotal, description:'מכירה ב-BSHOP #'+orderId+' מ-'+currentUser.username, timestamp:now }]
+      };
+    }
+
+    // ── STEP 3: Publish all bank changes ──
+    showLoading('מעביר תשלום...');
+    for (const [user, data] of Object.entries(allChanges)) {
+      await publishRetained(BANK_NS+'/account/'+encodeURIComponent(user), data);
+      bankAccountCache[user] = data;
+    }
+
+    // ── STEP 4: Update product stocks + publish seller inboxes ──
+    for (const [seller, items] of Object.entries(bySeller)) {
+      // Update product stock
       for (const item of items) {
         const p = products[item.productId];
         if (p) {
@@ -1032,9 +1099,24 @@ async function processPayment() {
           products[p.id] = updated;
         }
       }
+
+      // Publish seller inbox
+      const sellerOrderNotif = {
+        orderId,
+        buyer:     currentUser.username,
+        items:     items.map(i => ({ name:i.product.name, qty:i.qty, price:i.product.price, subtotal:i.product.price*i.qty })),
+        total:     items.reduce((s,i) => s+i.product.price*i.qty, 0),
+        timestamp: now
+      };
+      const inboxTopic = MARKET_NS + '/seller_inbox/' + encodeURIComponent(seller);
+      const existingInbox = Array.isArray(sellerInbox[seller]) ? sellerInbox[seller] : [];
+      const updatedInbox  = [sellerOrderNotif, ...existingInbox];
+      await publishRetained(inboxTopic, updatedInbox);
+      sellerInbox[seller] = updatedInbox;
     }
 
-    const order = { id:orderId, items:orderItems, total, timestamp:new Date().toISOString(), status:'הושלם' };
+    // Save order to buyer profile
+    const order = { id:orderId, items:orderItems, total, timestamp:now, status:'הושלם' };
     currentUser.orders = [...(currentUser.orders||[]), order];
     await publishRetained(MARKET_NS+'/user/'+encodeURIComponent(currentUser.username), currentUser);
 
@@ -1042,7 +1124,7 @@ async function processPayment() {
     closeModal('checkout-modal');
     const receiptCart = [...cart];
     cart = []; updateCartBadge(); renderProducts();
-    showReceipt(order, receiptCart, updatedBuyer);
+    showReceipt(order, receiptCart, allChanges[bankUser]);
   } catch(e) { hideLoading(); toast('שגיאה בתשלום: '+e.message,'error'); console.error(e); }
 }
 
@@ -1131,7 +1213,33 @@ function renderSellerDash() {
           </tr>`).join('')}
         </tbody>
       </table>
-    </div>`}`;
+    </div>`}
+    ${renderSellerInboxHTML(currentUser.username)}`;
+}
+
+function renderSellerInboxHTML(username) {
+  const orders = Array.isArray(sellerInbox[username]) ? sellerInbox[username] : [];
+  const count  = orders.length;
+  if (count === 0) {
+    return `<div class="dash-section-title" style="margin-top:8px">📬 הזמנות שקיבלת (0)</div>
+            <p class="text-muted" style="margin-bottom:20px">עדיין לא קיבלת הזמנות</p>`;
+  }
+  const cardsHTML = orders.map(o => `
+    <div class="order-card" style="border-right-color:var(--pri2)">
+      <div class="order-card-header">
+        <div>
+          <div class="fw-bold">הזמנה #${escapeHTML(String(o.orderId||'').replace('order_',''))}</div>
+          <div class="order-id">קונה: ${escapeHTML(o.buyer||'—')} · ${o.timestamp ? new Date(o.timestamp).toLocaleString('he-IL') : ''}</div>
+        </div>
+        <div style="text-align:left">
+          <div style="font-size:1.05rem;font-weight:900;color:var(--pri)">)( ${formatPrice(o.total||0)}</div>
+        </div>
+      </div>
+      <div class="order-items-list">
+        ${(o.items||[]).map(item => `<div class="order-item-row"><span>${escapeHTML(item.name)} × ${item.qty}</span><span style="color:var(--muted)">)( ${formatPrice(item.subtotal)}</span></div>`).join('')}
+      </div>
+    </div>`).join('');
+  return `<div class="dash-section-title" style="margin-top:8px">📬 הזמנות שקיבלת (${count})</div>${cardsHTML}`;
 }
 
 function publishProduct() {

@@ -3,951 +3,396 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Poninio Taxi</title>
+<title>BIRGSOL TAXI</title>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --bg: #0f1117;
-    --card: #1a1d27;
-    --card2: #22263a;
-    --accent: #22c55e;
-    --accent-dim: #16a34a;
-    --red: #ef4444;
-    --yellow: #f59e0b;
-    --text: #f1f5f9;
-    --muted: #94a3b8;
-    --border: #2d3148;
-    --radius: 14px;
-    --shadow: 0 4px 24px rgba(0,0,0,0.4);
-  }
+:root {
+  --bg:      #0a0a0a;
+  --card:    #1c1c1e;
+  --card2:   #2c2c2e;
+  --accent:  #22c55e;
+  --accent2: #16a34a;
+  --red:     #ef4444;
+  --yellow:  #f59e0b;
+  --text:    #fff;
+  --muted:   #8e8e93;
+  --border:  #3a3a3c;
+  --r:       14px;
+  --sh:      0 4px 24px rgba(0,0,0,.5);
+}
 
-  html, body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Segoe UI', Arial, sans-serif;
-    min-height: 100vh;
-    direction: rtl;
-    font-size: 15px;
-  }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  direction: rtl;
+  font-size: 15px;
+}
 
-  /* ---- SCROLLBAR ---- */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  /* ---- HEADER ---- */
-  #header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: var(--card);
-    border-bottom: 1px solid var(--border);
-    padding: 0 16px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-  }
-  #header .logo {
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--accent);
-    letter-spacing: -0.5px;
-  }
-  #header .logo span { color: var(--text); }
-  #conn-pill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--muted);
-    background: var(--card2);
-    padding: 4px 10px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    transition: all 0.3s;
-  }
-  #conn-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--red);
-    transition: background 0.3s;
-  }
-  #conn-dot.connected { background: var(--accent); }
-  #conn-dot.connecting { background: var(--yellow); animation: pulse 1s infinite; }
+/* ── HEADER ── */
+#app-header {
+  position: sticky; top: 0; z-index: 200;
+  background: #000;
+  height: 56px;
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 16px rgba(0,0,0,.6);
+}
+.header-logo {
+  font-size: 19px; font-weight: 900; letter-spacing: -0.5px;
+}
+.header-logo .green { color: var(--accent); }
 
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+#conn-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700;
+  padding: 4px 10px; border-radius: 20px;
+  background: var(--card2); border: 1px solid var(--border);
+}
+.conn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red); transition: background .3s;
+}
+.conn-dot.connected   { background: var(--accent); }
+.conn-dot.connecting  { background: var(--yellow); animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-  /* ---- SCREENS ---- */
-  .screen { display: none; padding: 16px 16px 80px; max-width: 480px; margin: 0 auto; }
-  .screen.active { display: block; }
+/* ── SCREENS ── */
+.screen { display: none; padding: 14px 14px 80px; max-width: 480px; margin: 0 auto; }
+.screen.active { display: block; }
+#screen-auth { min-height: calc(100vh - 56px); display: none; flex-direction: column; justify-content: center; padding-bottom: 32px; }
+#screen-auth.active { display: flex; }
 
-  /* ---- BOTTOM NAV ---- */
-  #bottom-nav {
-    display: none;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: var(--card);
-    border-top: 1px solid var(--border);
-    z-index: 100;
-    height: 60px;
-  }
-  #bottom-nav.visible { display: flex; }
-  .nav-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    font-size: 11px;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 8px 0;
-    transition: color 0.2s;
-    border: none;
-    background: none;
-  }
-  .nav-item.active { color: var(--accent); }
-  .nav-item .icon { font-size: 22px; line-height: 1; }
+/* ── BOTTOM NAV ── */
+#bottom-nav {
+  display: none; position: fixed; bottom: 0; left: 0; right: 0;
+  background: #000; border-top: 1px solid var(--border);
+  height: 60px; z-index: 150;
+}
+#bottom-nav.visible { display: flex; }
+.bnav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 2px; font-size: 10px; color: var(--muted);
+  cursor: pointer; background: none; border: none; font-family: inherit;
+  transition: color .2s;
+}
+.bnav-item.active { color: var(--accent); }
+.bnav-item .bi { font-size: 21px; line-height: 1; }
 
-  /* ---- CARDS ---- */
-  .card {
-    background: var(--card);
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    padding: 16px;
-    margin-bottom: 12px;
-    box-shadow: var(--shadow);
-  }
-  .card-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 12px;
-  }
+/* ── CARDS ── */
+.card {
+  background: var(--card); border-radius: var(--r);
+  border: 1px solid var(--border); padding: 16px;
+  margin-bottom: 12px; box-shadow: var(--sh);
+}
+.card-label {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
+}
 
-  /* ---- FORMS ---- */
-  .form-group { margin-bottom: 14px; }
-  label {
-    display: block;
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 6px;
-    font-weight: 600;
-  }
-  input, select, textarea {
-    width: 100%;
-    background: var(--card2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--text);
-    padding: 12px 14px;
-    font-size: 15px;
-    font-family: inherit;
-    direction: rtl;
-    transition: border-color 0.2s;
-    outline: none;
-  }
-  input:focus, select:focus, textarea:focus {
-    border-color: var(--accent);
-  }
-  select option { background: var(--card2); }
-  textarea { resize: vertical; min-height: 80px; }
+/* ── FORMS ── */
+.fg { margin-bottom: 14px; }
+.fg label { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 5px; }
+.fg input, .fg select, .fg textarea {
+  width: 100%; background: var(--card2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); padding: 11px 13px;
+  font-size: 15px; font-family: inherit; direction: rtl; outline: none;
+  transition: border-color .2s;
+}
+.fg input:focus, .fg select:focus { border-color: var(--accent); }
+.fg select option { background: var(--card2); }
 
-  /* ---- BUTTONS ---- */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 13px 20px;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
-    font-family: inherit;
-    width: 100%;
-  }
-  .btn-primary {
-    background: var(--accent);
-    color: #0f1117;
-  }
-  .btn-primary:hover { background: #16a34a; }
-  .btn-primary:active { transform: scale(0.97); }
-  .btn-danger {
-    background: var(--red);
-    color: #fff;
-  }
-  .btn-danger:hover { background: #dc2626; }
-  .btn-outline {
-    background: transparent;
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-sm {
-    padding: 8px 14px;
-    font-size: 13px;
-    border-radius: 8px;
-    width: auto;
-  }
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 13px 20px; border-radius: 12px; font-size: 15px; font-weight: 700;
+  cursor: pointer; border: none; transition: all .2s; font-family: inherit; width: 100%;
+}
+.btn-green  { background: var(--accent); color: #000; }
+.btn-green:hover { background: var(--accent2); }
+.btn-red    { background: var(--red); color: #fff; }
+.btn-red:hover { background: #dc2626; }
+.btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-sm { padding: 8px 13px; font-size: 13px; border-radius: 8px; width: auto; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-yellow { background: var(--yellow); color: #000; }
+.btn-yellow:hover { background: #d97706; }
 
-  /* ---- BIG TOGGLE ---- */
-  .big-toggle {
-    width: 100%;
-    height: 72px;
-    border-radius: 16px;
-    font-size: 22px;
-    font-weight: 800;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-  }
-  .big-toggle.on {
-    background: var(--accent);
-    color: #0f1117;
-    box-shadow: 0 6px 20px rgba(34,197,94,0.35);
-  }
-  .big-toggle.off {
-    background: var(--card2);
-    color: var(--muted);
-    border: 2px solid var(--border);
-  }
+/* ── BIG TOGGLE ── */
+.avail-toggle {
+  width: 100%; height: 74px; border-radius: 16px;
+  font-size: 22px; font-weight: 800; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  margin-bottom: 14px; transition: all .3s;
+}
+.avail-toggle.on  { background: var(--accent); color: #000; box-shadow: 0 6px 20px rgba(34,197,94,.35); }
+.avail-toggle.off { background: var(--card2); color: var(--muted); border: 2px solid var(--border); }
 
-  /* ---- VEHICLE TYPE SELECTOR ---- */
-  .type-selector {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  .type-btn {
-    flex: 1;
-    padding: 12px 8px;
-    border-radius: 10px;
-    border: 2px solid var(--border);
-    background: var(--card2);
-    color: var(--muted);
-    cursor: pointer;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 600;
-    transition: all 0.2s;
-    font-family: inherit;
-  }
-  .type-btn .emoji { display: block; font-size: 24px; margin-bottom: 4px; }
-  .type-btn.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(34,197,94,0.08);
-  }
+/* ── VEHICLE TYPE SELECTOR ── */
+.vtype-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.vtype-btn {
+  flex: 1; padding: 12px 6px; border-radius: 10px;
+  border: 2px solid var(--border); background: var(--card2);
+  color: var(--muted); cursor: pointer; text-align: center;
+  font-size: 12px; font-weight: 700; transition: all .2s; font-family: inherit;
+}
+.vtype-btn .ve { display: block; font-size: 24px; margin-bottom: 3px; }
+.vtype-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(34,197,94,.08); }
 
-  /* ---- DRIVER CARD ---- */
-  .driver-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    margin-bottom: 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    gap: 14px;
-    align-items: flex-start;
-    box-shadow: var(--shadow);
-  }
-  .driver-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  }
-  .driver-card .vehicle-icon {
-    font-size: 40px;
-    line-height: 1;
-    flex-shrink: 0;
-    width: 54px;
-    height: 54px;
-    background: var(--card2);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .driver-card .info { flex: 1; }
-  .driver-card .name-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
-  }
-  .driver-card .dname {
-    font-size: 16px;
-    font-weight: 700;
-  }
-  .avail-dot {
-    width: 9px; height: 9px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .avail-dot.on { background: var(--accent); box-shadow: 0 0 6px rgba(34,197,94,0.6); }
-  .avail-dot.off { background: var(--muted); }
-  .driver-card .loc {
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 6px;
-  }
-  .driver-card .price-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(34,197,94,0.12);
-    color: var(--accent);
-    font-size: 13px;
-    font-weight: 700;
-    padding: 3px 9px;
-    border-radius: 6px;
-  }
-  .driver-card .dest-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(245,158,11,0.12);
-    color: var(--yellow);
-    font-size: 12px;
-    font-weight: 600;
-    padding: 3px 9px;
-    border-radius: 6px;
-    margin-right: 6px;
-  }
+/* ── AUTH ── */
+.auth-wrap { max-width: 400px; width: 100%; margin: 0 auto; }
+.auth-hero { text-align: center; margin-bottom: 28px; }
+.auth-hero .big-emoji { font-size: 70px; display: block; }
+.auth-hero h1 { font-size: 28px; font-weight: 900; margin-top: 10px; }
+.auth-hero h1 .green { color: var(--accent); }
+.auth-hero p { color: var(--muted); font-size: 14px; margin-top: 5px; }
+.auth-tabs {
+  display: flex; background: var(--card2); border-radius: 12px;
+  padding: 4px; margin-bottom: 18px;
+}
+.auth-tab {
+  flex: 1; padding: 10px; border-radius: 9px; border: none;
+  background: transparent; color: var(--muted); font-size: 15px;
+  font-weight: 700; cursor: pointer; transition: all .2s; font-family: inherit;
+}
+.auth-tab.active { background: var(--accent); color: #000; }
+.role-row { display: flex; gap: 10px; }
+.role-btn {
+  flex: 1; padding: 14px 10px; border-radius: 12px;
+  border: 2px solid var(--border); background: var(--card2);
+  color: var(--muted); font-size: 14px; font-weight: 700;
+  cursor: pointer; text-align: center; transition: all .2s; font-family: inherit;
+}
+.role-btn .ri { display: block; font-size: 28px; margin-bottom: 6px; }
+.role-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(34,197,94,.08); }
 
-  /* ---- FILTER TABS ---- */
-  .filter-tabs {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 14px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-  .filter-tabs::-webkit-scrollbar { display: none; }
-  .filter-tab {
-    flex-shrink: 0;
-    padding: 7px 14px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--card2);
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-family: inherit;
-  }
-  .filter-tab.active {
-    background: var(--accent);
-    color: #0f1117;
-    border-color: var(--accent);
-  }
+/* ── USER HEADER BAR ── */
+.user-hdr {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 13px; margin-bottom: 14px;
+}
+.uavatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: rgba(34,197,94,.12); display: flex;
+  align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;
+}
+.uname { font-size: 16px; font-weight: 700; }
+.urole { font-size: 12px; color: var(--muted); background: var(--card2); padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 3px; }
+.logout-btn {
+  margin-right: auto; padding: 7px 13px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--muted); font-size: 13px; cursor: pointer; font-family: inherit; transition: all .2s;
+}
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
 
-  /* ---- RIDE REQUEST CARD ---- */
-  .ride-req-card {
-    background: var(--card2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px;
-    margin-bottom: 10px;
-  }
-  .ride-req-card .req-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 10px;
-  }
-  .ride-req-card .req-passenger {
-    font-size: 15px;
-    font-weight: 700;
-  }
-  .status-badge {
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .status-badge.pending { background: rgba(245,158,11,0.15); color: var(--yellow); }
-  .status-badge.accepted { background: rgba(34,197,94,0.15); color: var(--accent); }
-  .status-badge.declined { background: rgba(239,68,68,0.15); color: var(--red); }
-  .status-badge.completed { background: rgba(100,116,139,0.15); color: var(--muted); }
-  .ride-req-card .route {
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 8px;
-  }
-  .ride-req-card .route span { color: var(--text); font-weight: 600; }
-  .ride-req-card .req-actions { display: flex; gap: 8px; }
+/* ── SECTION TITLE ── */
+.section-title { font-size: 18px; font-weight: 800; margin-bottom: 12px; }
+.sub-title { font-size: 14px; font-weight: 700; color: var(--muted); margin-bottom: 10px; }
 
-  /* ---- BOTTOM SHEET MODAL ---- */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 200;
-    align-items: flex-end;
-    justify-content: center;
-  }
-  .modal-overlay.center { align-items: center; }
-  .modal-overlay.visible { display: flex; }
-  .bottom-sheet {
-    background: var(--card);
-    border-radius: 20px 20px 0 0;
-    padding: 20px 16px 32px;
-    width: 100%;
-    max-width: 480px;
-    max-height: 90vh;
-    overflow-y: auto;
-    animation: slideUp 0.3s ease;
-  }
-  .center-sheet {
-    background: var(--card);
-    border-radius: 20px;
-    padding: 24px 20px;
-    width: calc(100% - 32px);
-    max-width: 400px;
-    max-height: 90vh;
-    overflow-y: auto;
-    animation: fadeIn 0.2s ease;
-  }
-  @keyframes slideUp {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
-  }
-  .sheet-handle {
-    width: 40px; height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    margin: 0 auto 16px;
-  }
-  .sheet-title {
-    font-size: 18px;
-    font-weight: 800;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+/* ── DRIVER CARDS ── */
+.driver-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px; margin-bottom: 10px;
+  cursor: pointer; transition: all .2s; display: flex; gap: 12px;
+  align-items: flex-start;
+}
+.driver-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.driver-card .vic { font-size: 38px; width: 52px; height: 52px; background: var(--card2); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.driver-card .dinfo { flex: 1; }
+.driver-card .dname-row { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+.driver-card .dname { font-size: 16px; font-weight: 700; }
+.avail-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 5px rgba(34,197,94,.5); }
+.driver-card .dloc { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.price-chip { display: inline-flex; align-items: center; gap: 3px; background: rgba(34,197,94,.12); color: var(--accent); font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
+.vtype-chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: var(--card2); color: var(--muted); border: 1px solid var(--border); margin-right: 5px; }
+.dest-chip { display: inline-flex; align-items: center; gap: 3px; background: rgba(245,158,11,.12); color: var(--yellow); font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; margin-right: 5px; }
 
-  /* ---- TOAST ---- */
-  #toast-container {
-    position: fixed;
-    top: 70px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 999;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    pointer-events: none;
-    min-width: 260px;
-    max-width: calc(100vw - 32px);
-  }
-  .toast {
-    background: var(--card2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-size: 14px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    animation: toastIn 0.3s ease;
-    text-align: center;
-  }
-  .toast.success { border-color: var(--accent); background: rgba(34,197,94,0.12); }
-  .toast.error { border-color: var(--red); background: rgba(239,68,68,0.12); }
-  .toast.info { border-color: var(--yellow); background: rgba(245,158,11,0.12); }
-  @keyframes toastIn {
-    from { opacity: 0; transform: translateY(-12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+/* ── FILTER TABS ── */
+.filter-tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+.filter-tabs::-webkit-scrollbar { display: none; }
+.ftab {
+  flex-shrink: 0; padding: 7px 14px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--card2);
+  color: var(--muted); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all .2s; font-family: inherit;
+}
+.ftab.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
-  /* ---- AUTH SCREEN ---- */
-  #screen-auth {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: calc(100vh - 56px);
-    padding-bottom: 24px;
-  }
-  .auth-logo {
-    text-align: center;
-    margin-bottom: 32px;
-  }
-  .auth-logo .big-icon { font-size: 64px; display: block; margin-bottom: 8px; }
-  .auth-logo h1 { font-size: 28px; font-weight: 900; color: var(--accent); }
-  .auth-logo p { color: var(--muted); font-size: 14px; margin-top: 4px; }
-  .auth-tabs {
-    display: flex;
-    background: var(--card2);
-    border-radius: 12px;
-    padding: 4px;
-    margin-bottom: 20px;
-  }
-  .auth-tab {
-    flex: 1;
-    padding: 10px;
-    border-radius: 9px;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-family: inherit;
-  }
-  .auth-tab.active {
-    background: var(--accent);
-    color: #0f1117;
-  }
-  .role-selector {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 4px;
-  }
-  .role-btn {
-    flex: 1;
-    padding: 14px 10px;
-    border-radius: 12px;
-    border: 2px solid var(--border);
-    background: var(--card2);
-    color: var(--muted);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.2s;
-    font-family: inherit;
-  }
-  .role-btn .role-icon { display: block; font-size: 28px; margin-bottom: 6px; }
-  .role-btn.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(34,197,94,0.08);
-  }
+/* ── ACTIVE RIDE BAR ── */
+.ride-bar {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 12px;
+}
+.ride-bar .rb-icon { font-size: 30px; flex-shrink: 0; }
+.ride-bar .rb-info { flex: 1; }
+.ride-bar .rb-title { font-size: 15px; font-weight: 700; }
+.ride-bar .rb-sub { font-size: 13px; color: var(--muted); }
 
-  /* ---- SECTION TITLE ---- */
-  .section-title {
-    font-size: 18px;
-    font-weight: 800;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+/* ── RIDE REQUEST CARD ── */
+.req-card {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px; margin-bottom: 10px;
+}
+.req-card .req-hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 9px; }
+.req-card .rpassenger { font-size: 15px; font-weight: 700; }
+.req-card .route { font-size: 13px; color: var(--muted); margin-bottom: 5px; }
+.req-card .route b { color: var(--text); }
+.req-card .req-actions { display: flex; gap: 8px; margin-top: 10px; }
 
-  /* ---- EMPTY STATE ---- */
-  .empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--muted);
-  }
-  .empty-state .es-icon { font-size: 48px; display: block; margin-bottom: 12px; }
-  .empty-state p { font-size: 14px; }
+/* ── STATUS BADGE ── */
+.sbadge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.sbadge.pending  { background: rgba(245,158,11,.15); color: var(--yellow); }
+.sbadge.accepted { background: rgba(34,197,94,.15);  color: var(--accent); }
+.sbadge.arrived_at_pickup { background: rgba(34,197,94,.2); color: var(--accent); }
+.sbadge.in_progress { background: rgba(34,197,94,.1); color: var(--accent); }
+.sbadge.completed { background: rgba(100,116,139,.15); color: var(--muted); }
+.sbadge.cancelled { background: rgba(239,68,68,.15); color: var(--red); }
 
-  /* ---- RECEIPT ---- */
-  .receipt {
-    background: var(--card2);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-  }
-  .receipt-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 14px;
-  }
-  .receipt-row:last-child { border-bottom: none; }
-  .receipt-row .r-label { color: var(--muted); }
-  .receipt-row .r-val { font-weight: 700; }
-  .receipt-row.total .r-val { color: var(--accent); font-size: 18px; }
+/* ── BOTTOM SHEET ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.65); z-index: 300;
+  align-items: flex-end; justify-content: center;
+}
+.modal-overlay.center { align-items: center; }
+.modal-overlay.visible { display: flex; }
+.bottom-sheet {
+  background: var(--card); border-radius: 20px 20px 0 0;
+  padding: 20px 16px 34px; width: 100%; max-width: 480px;
+  max-height: 90vh; overflow-y: auto;
+  animation: slideUp .3s ease;
+}
+.center-sheet {
+  background: var(--card); border-radius: 20px;
+  padding: 24px 20px; width: calc(100% - 32px); max-width: 400px;
+  max-height: 90vh; overflow-y: auto; animation: fadeIn .2s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fadeIn  { from { opacity:0; transform:scale(.95); } to { opacity:1; transform:scale(1); } }
+.sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+.sheet-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
 
-  /* ---- RIDE STATUS BAR ---- */
-  .ride-status-bar {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .ride-status-bar .rsb-icon { font-size: 28px; }
-  .ride-status-bar .rsb-info { flex: 1; }
-  .ride-status-bar .rsb-title { font-size: 15px; font-weight: 700; }
-  .ride-status-bar .rsb-sub { font-size: 13px; color: var(--muted); }
+/* ── RECEIPT ── */
+.receipt { background: var(--card2); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+.rcpt-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.rcpt-row:last-child { border-bottom: none; }
+.rcpt-row .rl { color: var(--muted); }
+.rcpt-row .rv { font-weight: 700; }
+.rcpt-row.total .rv { color: var(--accent); font-size: 18px; }
 
-  /* ---- STATS ROW ---- */
-  .stats-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-  .stat-box {
-    background: var(--card2);
-    border-radius: 12px;
-    padding: 14px;
-    border: 1px solid var(--border);
-    text-align: center;
-  }
-  .stat-box .sv { font-size: 22px; font-weight: 800; color: var(--accent); }
-  .stat-box .sl { font-size: 12px; color: var(--muted); margin-top: 3px; }
+/* ── STATS ── */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.stat-box { background: var(--card2); border-radius: 12px; padding: 14px; border: 1px solid var(--border); text-align: center; }
+.stat-box .sv { font-size: 22px; font-weight: 800; color: var(--accent); }
+.stat-box .sl { font-size: 12px; color: var(--muted); margin-top: 3px; }
 
-  /* ---- DIVIDER ---- */
-  .divider {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 14px 0;
-  }
+/* ── TOAST ── */
+#toast-cont {
+  position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
+  z-index: 999; display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none; min-width: 250px; max-width: calc(100vw - 28px);
+}
+.toast {
+  background: var(--card2); border: 1px solid var(--border);
+  color: var(--text); padding: 11px 16px; border-radius: 12px;
+  font-size: 14px; text-align: center; animation: tin .3s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+}
+.toast.success { border-color: var(--accent); background: rgba(34,197,94,.12); }
+.toast.error   { border-color: var(--red);    background: rgba(239,68,68,.12); }
+.toast.info    { border-color: var(--yellow);  background: rgba(245,158,11,.12); }
+@keyframes tin { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
 
-  /* ---- USER HEADER ---- */
-  .user-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-    padding: 14px;
-    background: var(--card);
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-  }
-  .user-avatar {
-    width: 48px; height: 48px;
-    border-radius: 50%;
-    background: rgba(34,197,94,0.15);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    flex-shrink: 0;
-  }
-  .user-header .uname { font-size: 16px; font-weight: 700; }
-  .user-header .urole {
-    font-size: 12px;
-    color: var(--muted);
-    background: var(--card2);
-    padding: 2px 8px;
-    border-radius: 20px;
-    display: inline-block;
-    margin-top: 3px;
-  }
-  .user-header .logout-btn {
-    margin-right: auto;
-    padding: 7px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--muted);
-    font-size: 13px;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.2s;
-  }
-  .user-header .logout-btn:hover { border-color: var(--red); color: var(--red); }
+/* ── EMPTY STATE ── */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+.empty-state .es-icon { font-size: 48px; display: block; margin-bottom: 10px; }
 
-  /* Inline flex row */
-  .flex-row { display: flex; gap: 10px; }
-  .flex-row > * { flex: 1; }
+/* ── DIVIDER ── */
+hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 
-  /* ---- LOADING SPINNER ---- */
-  .spinner {
-    display: inline-block;
-    width: 20px; height: 20px;
-    border: 2px solid rgba(34,197,94,0.3);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ---- RESPONSIVE ---- */
-  @media (min-width: 481px) {
-    .screen { padding-bottom: 24px; }
-    #bottom-nav { display: none !important; }
-    .screen { padding-top: 24px; }
-  }
+/* ── MISC ── */
+.flex-row { display: flex; gap: 10px; }
+.flex-row > * { flex: 1; }
+.remove-btn { background: none; border: 1px solid var(--red); color: var(--red); border-radius: 10px; padding: 11px; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 8px; transition: all .2s; font-family: inherit; }
+.remove-btn:hover { background: rgba(239,68,68,.1); }
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(34,197,94,.3); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
 <!-- HEADER -->
-<div id="header">
-  <div class="logo">Poninio<span>Taxi</span></div>
+<div id="app-header">
+  <div class="header-logo">BIRGSOL <span class="green">TAXI</span></div>
   <div id="conn-pill">
-    <div id="conn-dot"></div>
+    <div class="conn-dot" id="conn-dot"></div>
     <span id="conn-text">מתחבר...</span>
   </div>
 </div>
 
-<!-- TOAST CONTAINER -->
-<div id="toast-container"></div>
+<!-- TOASTS -->
+<div id="toast-cont"></div>
 
-<!-- SCREENS -->
+<!-- MODALS -->
 
-<!-- AUTH SCREEN -->
-<div id="screen-auth" class="screen active">
-  <div style="max-width:400px;margin:0 auto;width:100%">
-    <div class="auth-logo">
-      <span class="big-icon">🚖</span>
-      <h1>Poninio Taxi</h1>
-      <p>נסיעות מהירות ואמינות</p>
-    </div>
-    <div class="auth-tabs">
-      <button class="auth-tab active" onclick="switchAuthTab('login')">כניסה</button>
-      <button class="auth-tab" onclick="switchAuthTab('register')">הרשמה</button>
-    </div>
-
-    <!-- LOGIN FORM -->
-    <div id="login-form">
-      <div class="card">
-        <div class="form-group">
-          <label>שם משתמש</label>
-          <input id="login-username" type="text" placeholder="הכנס שם משתמש" autocomplete="username">
-        </div>
-        <div class="form-group">
-          <label>סיסמה</label>
-          <input id="login-password" type="password" placeholder="הכנס סיסמה" autocomplete="current-password">
-        </div>
-        <button class="btn btn-primary" onclick="doLogin()">כניסה לחשבון</button>
-      </div>
-    </div>
-
-    <!-- REGISTER FORM -->
-    <div id="register-form" style="display:none">
-      <div class="card">
-        <div class="form-group">
-          <label>שם משתמש</label>
-          <input id="reg-username" type="text" placeholder="בחר שם משתמש" autocomplete="username">
-        </div>
-        <div class="form-group">
-          <label>סיסמה</label>
-          <input id="reg-password" type="password" placeholder="בחר סיסמה" autocomplete="new-password">
-        </div>
-        <div class="form-group">
-          <label>שם משתמש בנק Poninio</label>
-          <input id="reg-bank-username" type="text" placeholder="שם משתמש בבנק (לתשלומים)">
-        </div>
-        <div class="form-group">
-          <label>תפקיד</label>
-          <div class="role-selector">
-            <button class="role-btn active" id="role-btn-passenger" onclick="selectRole('נוסע')">
-              <span class="role-icon">🧑</span>
-              נוסע
-            </button>
-            <button class="role-btn" id="role-btn-driver" onclick="selectRole('נהג')">
-              <span class="role-icon">🚗</span>
-              נהג
-            </button>
-          </div>
-        </div>
-        <button class="btn btn-primary" onclick="doRegister()">הרשמה</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- DRIVER DASHBOARD -->
-<div id="screen-driver" class="screen">
-  <!-- user header -->
-  <div class="user-header">
-    <div class="user-avatar">🚗</div>
-    <div>
-      <div class="uname" id="driver-display-name">נהג</div>
-      <span class="urole">נהג</span>
-    </div>
-    <button class="logout-btn" onclick="doLogout()">התנתק</button>
-  </div>
-
-  <!-- big toggle -->
-  <button id="avail-toggle" class="big-toggle off" onclick="toggleAvailability()">
-    <span id="avail-icon">⏸</span>
-    <span id="avail-label">לא זמין</span>
-  </button>
-
-  <!-- vehicle type -->
-  <div class="card">
-    <div class="card-title">סוג רכב</div>
-    <div class="type-selector">
-      <button class="type-btn active" id="type-btn-מונית" onclick="selectVehicleType('מונית')">
-        <span class="emoji">🚕</span>מונית
-      </button>
-      <button class="type-btn" id="type-btn-אוטובוס" onclick="selectVehicleType('אוטובוס')">
-        <span class="emoji">🚌</span>אוטובוס
-      </button>
-      <button class="type-btn" id="type-btn-טיסה" onclick="selectVehicleType('טיסה')">
-        <span class="emoji">✈️</span>טיסה
-      </button>
-    </div>
-
-    <div class="form-group">
-      <label>מיקום נוכחי</label>
-      <input id="driver-location" type="text" placeholder="לדוגמה: ירושלים, רחוב יפו 10" oninput="debounceSaveDriver()">
-    </div>
-
-    <div class="flex-row">
-      <div class="form-group">
-        <label id="price-label">מחיר לנסיעה )(</label>
-        <input id="driver-price" type="number" placeholder="0" min="0" oninput="debounceSaveDriver()">
-      </div>
-    </div>
-
-    <!-- Flight extras -->
-    <div id="flight-extras" style="display:none">
-      <div class="form-group">
-        <label>יעד (קבוע לטיסה זו)</label>
-        <input id="flight-dest" type="text" placeholder="לדוגמה: אילת" oninput="debounceSaveDriver()">
-      </div>
-      <div class="form-group">
-        <label>מקומות פנויים</label>
-        <input id="flight-seats" type="number" placeholder="0" min="0" oninput="debounceSaveDriver()">
-      </div>
-    </div>
-
-    <button class="btn btn-primary" onclick="saveDriverProfile()" style="margin-top:4px">שמור פרופיל</button>
-  </div>
-
-  <!-- Incoming rides -->
-  <div class="section-title">📥 בקשות נסיעה</div>
-  <div id="incoming-rides-list">
-    <div class="empty-state">
-      <span class="es-icon">📭</span>
-      <p>אין בקשות כרגע</p>
-    </div>
-  </div>
-
-  <!-- Active ride status -->
-  <div id="active-ride-section" style="display:none">
-    <div class="section-title">🚦 נסיעה פעילה</div>
-    <div id="active-ride-bar" class="ride-status-bar"></div>
-    <button class="btn btn-primary" onclick="completeRide()">סיים נסיעה ✓</button>
-  </div>
-</div>
-
-<!-- PASSENGER DASHBOARD -->
-<div id="screen-passenger" class="screen">
-  <!-- user header -->
-  <div class="user-header">
-    <div class="user-avatar">🧑</div>
-    <div>
-      <div class="uname" id="passenger-display-name">נוסע</div>
-      <span class="urole">נוסע</span>
-    </div>
-    <button class="logout-btn" onclick="doLogout()">התנתק</button>
-  </div>
-
-  <!-- Active ride status for passenger -->
-  <div id="pax-active-ride" style="display:none">
-    <div class="section-title">🚦 הנסיעה שלך</div>
-    <div id="pax-ride-bar" class="ride-status-bar" style="margin-bottom:14px"></div>
-  </div>
-
-  <!-- Filter -->
-  <div class="section-title">🗺️ נהגים זמינים</div>
-  <div class="filter-tabs">
-    <button class="filter-tab active" onclick="filterDrivers('הכל')">הכל</button>
-    <button class="filter-tab" onclick="filterDrivers('מונית')">🚕 מונית</button>
-    <button class="filter-tab" onclick="filterDrivers('אוטובוס')">🚌 אוטובוס</button>
-    <button class="filter-tab" onclick="filterDrivers('טיסה')">✈️ טיסה</button>
-  </div>
-
-  <div id="drivers-list">
-    <div class="empty-state">
-      <span class="es-icon">🔍</span>
-      <p>מחפש נהגים...</p>
-    </div>
-  </div>
-</div>
-
-<!-- BOOKING MODAL (bottom sheet) -->
-<div id="booking-modal" class="modal-overlay" onclick="closeBookingModal(event)">
+<!-- BOOKING BOTTOM SHEET -->
+<div id="booking-modal" class="modal-overlay" onclick="closeBooking(event)">
   <div class="bottom-sheet" onclick="event.stopPropagation()">
     <div class="sheet-handle"></div>
     <div class="sheet-title">
-      <span id="booking-driver-icon">🚕</span>
-      <span id="booking-driver-name">הזמנת נסיעה</span>
+      <span id="bm-icon">🚕</span>
+      <span id="bm-title">הזמנת נסיעה</span>
     </div>
-
     <div class="card" style="margin-bottom:12px">
-      <div class="receipt-row">
-        <span class="r-label">נהג</span>
-        <span class="r-val" id="b-driver"></span>
-      </div>
-      <div class="receipt-row">
-        <span class="r-label">מיקום נהג</span>
-        <span class="r-val" id="b-location"></span>
-      </div>
-      <div class="receipt-row">
-        <span class="r-label">מחיר</span>
-        <span class="r-val" id="b-price"></span>
-      </div>
-      <div id="b-dest-row" class="receipt-row" style="display:none">
-        <span class="r-label">יעד (קבוע)</span>
-        <span class="r-val" id="b-dest"></span>
-      </div>
-      <div id="b-seats-row" class="receipt-row" style="display:none">
-        <span class="r-label">מקומות פנויים</span>
-        <span class="r-val" id="b-seats"></span>
-      </div>
+      <div class="rcpt-row"><span class="rl">נהג</span><span class="rv" id="bm-driver"></span></div>
+      <div class="rcpt-row"><span class="rl">מיקום</span><span class="rv" id="bm-loc"></span></div>
+      <div class="rcpt-row"><span class="rl">מחיר</span><span class="rv" id="bm-price"></span></div>
+      <div id="bm-dest-row" class="rcpt-row" style="display:none"><span class="rl">יעד טיסה</span><span class="rv" id="bm-dest"></span></div>
+      <div id="bm-seats-row" class="rcpt-row" style="display:none"><span class="rl">מקומות פנויים</span><span class="rv" id="bm-seats"></span></div>
     </div>
-
-    <div id="booking-form-fields">
-      <div class="form-group">
-        <label>נקודת איסוף</label>
-        <input id="book-from" type="text" placeholder="כתובת איסוף">
-      </div>
-      <div id="book-to-group" class="form-group">
-        <label>יעד</label>
-        <input id="book-to" type="text" placeholder="כתובת יעד">
-      </div>
+    <div class="fg">
+      <label>נקודת איסוף</label>
+      <input id="bm-from" type="text" placeholder="כתובת איסוף">
     </div>
+    <div id="bm-to-wrap" class="fg">
+      <label>יעד</label>
+      <input id="bm-to" type="text" placeholder="כתובת יעד">
+    </div>
+    <button class="btn btn-green" onclick="sendRideRequest()">שלח בקשת נסיעה</button>
+    <button class="btn btn-outline" style="margin-top:8px" onclick="closeBooking()">ביטול</button>
+  </div>
+</div>
 
-    <hr class="divider">
-    <div class="section-title" style="font-size:15px;margin-bottom:12px">💳 תשלום דרך בנק Poninio</div>
-    <div class="form-group">
+<!-- PAYMENT MODAL -->
+<div id="payment-modal" class="modal-overlay center" onclick="closePaymentModal(event)">
+  <div class="center-sheet" onclick="event.stopPropagation()">
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:44px">💳</div>
+      <div style="font-size:18px;font-weight:800;margin-top:8px">אשר הגעה ושלם</div>
+      <div id="pay-driver-info" style="font-size:13px;color:var(--muted);margin-top:4px"></div>
+    </div>
+    <div class="fg">
       <label>שם משתמש בנק</label>
-      <input id="pay-bank-user" type="text" placeholder="שם המשתמש שלך בבנק">
+      <input id="pay-bank-user" type="text" placeholder="שם משתמש בבנק פוניניו">
     </div>
-    <div class="form-group">
+    <div class="fg">
       <label>סיסמת בנק</label>
-      <input id="pay-bank-pass" type="password" placeholder="סיסמת הבנק שלך">
+      <input id="pay-bank-pass" type="password" placeholder="סיסמה">
     </div>
-
-    <button class="btn btn-primary" id="book-confirm-btn" onclick="confirmBooking()">
-      אשר הזמנה ושלם
-    </button>
-    <button class="btn btn-outline" style="margin-top:8px" onclick="closeBookingModal()">ביטול</button>
+    <button class="btn btn-green" id="pay-submit-btn" onclick="submitPayment()">שלם</button>
+    <button class="btn btn-outline" style="margin-top:8px" onclick="closePaymentModal()">ביטול</button>
   </div>
 </div>
 
@@ -955,29 +400,126 @@
 <div id="receipt-modal" class="modal-overlay center">
   <div class="center-sheet" onclick="event.stopPropagation()">
     <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:56px">✅</div>
-      <div style="font-size:20px;font-weight:800;margin-top:8px">תשלום בוצע בהצלחה!</div>
-      <div style="font-size:13px;color:var(--muted);margin-top:4px">הנסיעה הוזמנה</div>
+      <div style="font-size:54px">✅</div>
+      <div style="font-size:20px;font-weight:800;margin-top:8px">תשלום בוצע!</div>
     </div>
     <div class="receipt" id="receipt-content"></div>
-    <button class="btn btn-primary" onclick="closeReceiptModal()">סגור</button>
+    <button class="btn btn-green" onclick="closeReceiptModal()">סגור</button>
   </div>
 </div>
 
-<!-- BOTTOM NAV -->
-<div id="bottom-nav">
-  <button class="nav-item active" id="nav-home" onclick="navTo('home')">
-    <span class="icon">🏠</span>
-    ראשי
+<!-- SCREENS -->
+
+<!-- AUTH -->
+<div id="screen-auth" class="screen active">
+  <div class="auth-wrap">
+    <div class="auth-hero">
+      <span class="big-emoji">🚖</span>
+      <h1>BIRGSOL <span class="green">TAXI</span></h1>
+      <p>נסיעות מהירות ואמינות</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="atab-login" onclick="switchAuthTab('login')">כניסה</button>
+      <button class="auth-tab" id="atab-register" onclick="switchAuthTab('register')">הרשמה</button>
+    </div>
+    <div id="login-form">
+      <div class="card">
+        <div class="fg"><label>שם משתמש</label><input id="l-username" type="text" placeholder="הכנס שם משתמש" autocomplete="username"></div>
+        <div class="fg" style="margin-bottom:0"><label>סיסמה</label><input id="l-password" type="password" placeholder="הכנס סיסמה" autocomplete="current-password"></div>
+      </div>
+      <button class="btn btn-green" onclick="doLogin()">כניסה</button>
+    </div>
+    <div id="register-form" style="display:none">
+      <div class="card">
+        <div class="fg"><label>שם משתמש</label><input id="r-username" type="text" placeholder="בחר שם משתמש" autocomplete="username"></div>
+        <div class="fg"><label>סיסמה</label><input id="r-password" type="password" placeholder="בחר סיסמה" autocomplete="new-password"></div>
+        <div class="fg"><label>שם משתמש בנק פוניניו</label><input id="r-bank" type="text" placeholder="לתשלומים"></div>
+        <div class="fg" style="margin-bottom:0">
+          <label>תפקיד</label>
+          <div class="role-row">
+            <button class="role-btn active" id="rbtn-passenger" onclick="selRole('נוסע')"><span class="ri">🧑</span>נוסע</button>
+            <button class="role-btn" id="rbtn-driver" onclick="selRole('נהג')"><span class="ri">🚗</span>נהג</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-green" onclick="doRegister()">הרשמה</button>
+    </div>
+  </div>
+</div>
+
+<!-- DRIVER HOME -->
+<div id="screen-driver" class="screen">
+  <div class="user-hdr">
+    <div class="uavatar">🚗</div>
+    <div>
+      <div class="uname" id="d-username"></div>
+      <span class="urole">נהג</span>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">התנתק</button>
+  </div>
+
+  <!-- Availability toggle -->
+  <button id="avail-toggle" class="avail-toggle off" onclick="toggleAvail()">
+    <span id="avail-icon">⏸</span>
+    <span id="avail-label">לא זמין</span>
   </button>
-  <button class="nav-item" id="nav-history" onclick="navTo('history')">
-    <span class="icon">📋</span>
-    היסטוריה
-  </button>
-  <button class="nav-item" id="nav-profile" onclick="navTo('profile')">
-    <span class="icon">👤</span>
-    פרופיל
-  </button>
+
+  <!-- Vehicle type + fields -->
+  <div class="card">
+    <div class="card-label">סוג רכב</div>
+    <div class="vtype-row">
+      <button class="vtype-btn active" id="vt-מונית" onclick="selVType('מונית')"><span class="ve">🚕</span>מונית</button>
+      <button class="vtype-btn" id="vt-אוטובוס" onclick="selVType('אוטובוס')"><span class="ve">🚌</span>אוטובוס</button>
+      <button class="vtype-btn" id="vt-טיסה" onclick="selVType('טיסה')"><span class="ve">✈️</span>טיסה</button>
+    </div>
+    <div class="fg"><label>מיקום נוכחי</label><input id="d-location" type="text" placeholder='לדוגמה: ירושלים, יפו 10' oninput="debSave()"></div>
+    <div class="fg"><label id="d-price-label">מחיר לנסיעה )(</label><input id="d-price" type="number" placeholder="0" min="0" oninput="debSave()"></div>
+    <div id="flight-extras" style="display:none">
+      <div class="fg"><label>יעד קבוע (לטיסה)</label><input id="d-dest" type="text" placeholder="לדוגמה: אילת" oninput="debSave()"></div>
+      <div class="fg"><label>מקומות פנויים</label><input id="d-seats" type="number" placeholder="0" min="0" oninput="debSave()"></div>
+    </div>
+    <button class="btn btn-green" onclick="saveDriver()" style="margin-top:4px">שמור פרופיל</button>
+    <button class="remove-btn" onclick="removeDriverListing()">הסר פרופיל מהמפה 🗑️</button>
+  </div>
+
+  <!-- Incoming requests -->
+  <div class="section-title">📥 בקשות נסיעה</div>
+  <div id="driver-rides-list">
+    <div class="empty-state"><span class="es-icon">📭</span><p>אין בקשות כרגע</p></div>
+  </div>
+</div>
+
+<!-- PASSENGER HOME -->
+<div id="screen-passenger" class="screen">
+  <div class="user-hdr">
+    <div class="uavatar">🧑</div>
+    <div>
+      <div class="uname" id="p-username"></div>
+      <span class="urole">נוסע</span>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">התנתק</button>
+  </div>
+
+  <!-- Active ride bar -->
+  <div id="pax-active-section" style="display:none">
+    <div id="pax-ride-bar" class="ride-bar"></div>
+    <div id="pax-pay-btn-wrap" style="display:none;margin-bottom:12px">
+      <button class="btn btn-yellow" onclick="openPaymentModal()">אשר הגעה ושלם 💳</button>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-tabs">
+    <button class="ftab active" onclick="setFilter('הכל')">הכל</button>
+    <button class="ftab" onclick="setFilter('מונית')">🚕 מונית</button>
+    <button class="ftab" onclick="setFilter('אוטובוס')">🚌 אוטובוס</button>
+    <button class="ftab" onclick="setFilter('טיסה')">✈️ טיסה</button>
+  </div>
+
+  <div class="section-title">🗺️ נהגים זמינים</div>
+  <div id="drivers-list">
+    <div class="empty-state"><span class="es-icon">🔍</span><p>מחפש נהגים...</p></div>
+  </div>
 </div>
 
 <!-- HISTORY SCREEN -->
@@ -990,120 +532,120 @@
 <div id="screen-profile" class="screen">
   <div class="section-title">👤 פרופיל</div>
   <div class="card">
-    <div class="receipt-row">
-      <span class="r-label">שם משתמש</span>
-      <span class="r-val" id="profile-username"></span>
-    </div>
-    <div class="receipt-row">
-      <span class="r-label">תפקיד</span>
-      <span class="r-val" id="profile-role"></span>
-    </div>
-    <div class="receipt-row">
-      <span class="r-label">בנק Poninio</span>
-      <span class="r-val" id="profile-bank"></span>
-    </div>
+    <div class="rcpt-row"><span class="rl">שם משתמש</span><span class="rv" id="prof-username"></span></div>
+    <div class="rcpt-row"><span class="rl">תפקיד</span><span class="rv" id="prof-role"></span></div>
+    <div class="rcpt-row"><span class="rl">שם בנק</span><span class="rv" id="prof-bank"></span></div>
   </div>
-  <div class="stats-row">
-    <div class="stat-box">
-      <div class="sv" id="stat-rides">0</div>
-      <div class="sl">נסיעות</div>
-    </div>
-    <div class="stat-box">
-      <div class="sv" id="stat-total">)( 0</div>
-      <div class="sl">סה"כ הוצאה</div>
-    </div>
+  <div class="stats-grid">
+    <div class="stat-box"><div class="sv" id="stat-rides">0</div><div class="sl">נסיעות</div></div>
+    <div class="stat-box"><div class="sv" id="stat-spent">)( 0</div><div class="sl">סה"כ</div></div>
   </div>
   <button class="btn btn-outline" onclick="doLogout()">התנתק</button>
 </div>
 
-<script>
-// ============================================================
-//  STATE
-// ============================================================
-const TAXI_NS   = 'poninio_taxi_v1_2026';
-const BANK_NS   = 'poninio_bank_birgsol_v1_2026';
-const BROKER    = 'wss://broker.hivemq.com:8884/mqtt';
+<!-- BOTTOM NAV -->
+<div id="bottom-nav">
+  <button class="bnav-item active" id="bnav-home" onclick="navTo('home')"><span class="bi">🏠</span>ראשי</button>
+  <button class="bnav-item" id="bnav-history" onclick="navTo('history')"><span class="bi">📋</span>היסטוריה</button>
+  <button class="bnav-item" id="bnav-profile" onclick="navTo('profile')"><span class="bi">👤</span>פרופיל</button>
+</div>
 
-let mqttClient   = null;
-let currentUser  = null;   // { username, password, role, bankUsername }
-let driverState  = null;   // my driver profile (if driver)
-let allDrivers   = {};     // { username: driverObj }
-let allRides     = {};     // { rideId: rideObj }
+<script>
+// ════════════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════════════
+const TAXI_NS  = 'poninio_taxi_v1_2026';
+const BANK_NS  = 'poninio_bank_birgsol_v1_2026';
+const BROKER   = 'wss://broker.hivemq.com:8884/mqtt';
+
+// ════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════
+let mqttClient    = null;
+let currentUser   = null;   // { username, password, role, bankUsername }
+let driverState   = null;   // driver's published profile
+let allDrivers    = {};     // { username: driverObj }
+let allRides      = {};     // { rideId: rideObj }
+let activeRide    = null;   // passenger's current ride
+let myActiveRide  = null;   // driver's active ride
 let currentFilter = 'הכל';
 let selectedDriver = null;
-let activeRide   = null;   // ride the passenger is in
-let myActiveRide = null;   // ride the driver accepted
-let debounceTimer = null;
-let bankAccounts = {};     // cache { bankUser: accountObj }
+let bankCache     = {};     // { bankUser: accountObj }
+let debTimer      = null;
+let selectedRole  = 'נוסע';
 
-// ============================================================
+// ════════════════════════════════════════════════════════
 //  STORAGE
-// ============================================================
-function saveUsers(users) { localStorage.setItem('ptaxi_users', JSON.stringify(users)); }
-function loadUsers()      { return JSON.parse(localStorage.getItem('ptaxi_users') || '{}'); }
-function saveSession(u)   { localStorage.setItem('ptaxi_session', JSON.stringify(u)); }
-function loadSession()    { return JSON.parse(localStorage.getItem('ptaxi_session') || 'null'); }
-function clearSession()   { localStorage.removeItem('ptaxi_session'); }
-function saveRideHistory(h) { localStorage.setItem('ptaxi_history_' + currentUser.username, JSON.stringify(h)); }
-function loadRideHistory()  { return JSON.parse(localStorage.getItem('ptaxi_history_' + (currentUser ? currentUser.username : '')) || '[]'); }
+// ════════════════════════════════════════════════════════
+function saveUsers(u)   { localStorage.setItem('ptaxi_users', JSON.stringify(u)); }
+function loadUsers()    { try { return JSON.parse(localStorage.getItem('ptaxi_users') || '{}'); } catch(e){ return {}; } }
+function saveSession(u) { localStorage.setItem('ptaxi_session', JSON.stringify(u)); }
+function loadSession()  { try { return JSON.parse(localStorage.getItem('ptaxi_session') || 'null'); } catch(e){ return null; } }
+function clearSession() { localStorage.removeItem('ptaxi_session'); }
+function saveHistory(h) {
+  if (!currentUser) return;
+  localStorage.setItem('ptaxi_hist_' + currentUser.username, JSON.stringify(h));
+}
+function loadHistory() {
+  if (!currentUser) return [];
+  try { return JSON.parse(localStorage.getItem('ptaxi_hist_' + currentUser.username) || '[]'); } catch(e){ return []; }
+}
 
-// ============================================================
+// ════════════════════════════════════════════════════════
 //  TOAST
-// ============================================================
-function showToast(msg, type = 'info', duration = 3500) {
-  const c = document.getElementById('toast-container');
-  const t = document.createElement('div');
-  t.className = 'toast ' + type;
-  t.textContent = msg;
-  c.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.4s'; setTimeout(() => t.remove(), 400); }, duration);
+// ════════════════════════════════════════════════════════
+function toast(msg, type='', dur=3500) {
+  const c = document.getElementById('toast-cont');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' '+type : '');
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .35s'; setTimeout(()=>el.remove(),400); }, dur);
 }
 
-// ============================================================
+// ════════════════════════════════════════════════════════
 //  AUTH
-// ============================================================
-let selectedRole = 'נוסע';
-
+// ════════════════════════════════════════════════════════
 function switchAuthTab(tab) {
-  document.querySelectorAll('.auth-tab').forEach((el, i) => {
-    el.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'register'));
-  });
-  document.getElementById('login-form').style.display   = tab === 'login'    ? '' : 'none';
-  document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('atab-login').classList.toggle('active', tab==='login');
+  document.getElementById('atab-register').classList.toggle('active', tab==='register');
+  document.getElementById('login-form').style.display    = tab==='login' ? '' : 'none';
+  document.getElementById('register-form').style.display = tab==='register' ? '' : 'none';
 }
 
-function selectRole(role) {
+function selRole(role) {
   selectedRole = role;
-  document.getElementById('role-btn-passenger').classList.toggle('active', role === 'נוסע');
-  document.getElementById('role-btn-driver').classList.toggle('active',    role === 'נהג');
+  document.getElementById('rbtn-passenger').classList.toggle('active', role==='נוסע');
+  document.getElementById('rbtn-driver').classList.toggle('active', role==='נהג');
 }
 
 function doLogin() {
-  const username = document.getElementById('login-username').value.trim();
-  const password = document.getElementById('login-password').value;
-  if (!username || !password) { showToast('נא למלא שם משתמש וסיסמה', 'error'); return; }
+  const username = document.getElementById('l-username').value.trim();
+  const password = document.getElementById('l-password').value;
+  if (!username || !password) { toast('נא למלא שם משתמש וסיסמה', 'error'); return; }
   const users = loadUsers();
-  const user = users[username];
-  if (!user) { showToast('משתמש לא קיים', 'error'); return; }
-  if (user.password !== password) { showToast('סיסמה שגויה', 'error'); return; }
-  loginSuccess(user);
+  const user  = users[username];
+  if (!user) { toast('משתמש לא קיים', 'error'); return; }
+  if (user.password !== password) { toast('סיסמה שגויה', 'error'); return; }
+  loginOK(user);
 }
 
 function doRegister() {
-  const username    = document.getElementById('reg-username').value.trim();
-  const password    = document.getElementById('reg-password').value;
-  const bankUsername = document.getElementById('reg-bank-username').value.trim();
-  if (!username || !password) { showToast('נא למלא שם משתמש וסיסמה', 'error'); return; }
+  const username = document.getElementById('r-username').value.trim();
+  const password = document.getElementById('r-password').value;
+  const bank     = document.getElementById('r-bank').value.trim();
+  if (!username || !password) { toast('נא למלא שם משתמש וסיסמה', 'error'); return; }
+  if (!/^[a-zA-Z0-9_֐-׿]+$/.test(username)) { toast('שם משתמש: אותיות וספרות בלבד', 'error'); return; }
   const users = loadUsers();
-  if (users[username]) { showToast('שם משתמש תפוס', 'error'); return; }
-  const user = { username, password, role: selectedRole, bankUsername: bankUsername || username };
+  if (users[username]) { toast('שם משתמש תפוס', 'error'); return; }
+  const user = { username, password, role: selectedRole, bankUsername: bank || username };
   users[username] = user;
   saveUsers(users);
-  showToast('נרשמת בהצלחה!', 'success');
-  loginSuccess(user);
+  toast('ברוך הבא ' + username + '! 🎉', 'success');
+  loginOK(user);
 }
 
-function loginSuccess(user) {
+function loginOK(user) {
   currentUser = user;
   saveSession(user);
   initAfterLogin();
@@ -1111,377 +653,372 @@ function loginSuccess(user) {
 
 function doLogout() {
   if (mqttClient) {
-    if (currentUser && currentUser.role === 'נהג' && driverState) {
+    // mark driver offline
+    if (currentUser && currentUser.role==='נהג' && driverState) {
       driverState.available = false;
-      publishDriver(driverState);
+      publishDriver();
     }
     mqttClient.end(true);
     mqttClient = null;
   }
-  currentUser  = null;
-  driverState  = null;
-  allDrivers   = {};
-  allRides     = {};
-  activeRide   = null;
-  myActiveRide = null;
-  bankAccounts = {};
+  currentUser = null; driverState = null; allDrivers = {}; allRides = {};
+  activeRide = null; myActiveRide = null; bankCache = {};
   clearSession();
   document.getElementById('bottom-nav').classList.remove('visible');
+  setConnPill('disconnected');
   showScreen('auth');
-  updateConnPill('disconnected');
 }
 
-// ============================================================
+// ════════════════════════════════════════════════════════
 //  INIT AFTER LOGIN
-// ============================================================
+// ════════════════════════════════════════════════════════
 function initAfterLogin() {
   document.getElementById('bottom-nav').classList.add('visible');
-
   if (currentUser.role === 'נהג') {
-    document.getElementById('driver-display-name').textContent = currentUser.username;
-    // init driver state
+    document.getElementById('d-username').textContent = currentUser.username;
     driverState = {
-      username:   currentUser.username,
-      role:       'driver',
-      type:       'מונית',
-      available:  false,
-      location:   '',
-      price:      0,
+      username: currentUser.username,
+      bankUsername: currentUser.bankUsername || currentUser.username,
+      type: 'מונית',
+      available: false,
+      location: '',
+      price: 0,
       destination: '',
-      seats:      0,
-      lastSeen:   new Date().toISOString()
+      seats: 0,
     };
     showScreen('driver');
-    updateAvailToggle();
   } else {
-    document.getElementById('passenger-display-name').textContent = currentUser.username;
+    document.getElementById('p-username').textContent = currentUser.username;
     showScreen('passenger');
   }
-
   updateProfileScreen();
   connectMQTT();
 }
 
-// ============================================================
-//  SCREENS + NAV
-// ============================================================
+// ════════════════════════════════════════════════════════
+//  SCREEN MANAGEMENT
+// ════════════════════════════════════════════════════════
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const screenMap = {
-    auth:      'screen-auth',
-    driver:    'screen-driver',
-    passenger: 'screen-passenger',
-    history:   'screen-history',
-    profile:   'screen-profile'
-  };
-  const id = screenMap[name];
+  const map = { auth:'screen-auth', driver:'screen-driver', passenger:'screen-passenger', history:'screen-history', profile:'screen-profile' };
+  const id = map[name];
   if (id) document.getElementById(id).classList.add('active');
 }
 
 function navTo(tab) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('nav-' + tab)?.classList.add('active');
+  document.querySelectorAll('.bnav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('bnav-'+tab)?.classList.add('active');
   if (!currentUser) return;
-
-  if (tab === 'home') {
-    showScreen(currentUser.role === 'נהג' ? 'driver' : 'passenger');
-  } else if (tab === 'history') {
-    renderHistory();
-    showScreen('history');
-  } else if (tab === 'profile') {
-    updateProfileScreen();
-    showScreen('profile');
-  }
+  if (tab === 'home')    { showScreen(currentUser.role==='נהג' ? 'driver' : 'passenger'); }
+  if (tab === 'history') { renderHistory(); showScreen('history'); }
+  if (tab === 'profile') { updateProfileScreen(); showScreen('profile'); }
 }
 
-// ============================================================
+// ════════════════════════════════════════════════════════
 //  MQTT
-// ============================================================
+// ════════════════════════════════════════════════════════
 function connectMQTT() {
-  updateConnPill('connecting');
+  setConnPill('connecting');
   const clientId = 'ptaxi_' + Math.random().toString(36).slice(2, 9);
-  mqttClient = mqtt.connect(BROKER, {
-    clientId,
-    clean: true,
-    reconnectPeriod: 3000,
-    connectTimeout: 10000,
-    keepalive: 30
-  });
-
-  mqttClient.on('connect', onMQTTConnect);
-  mqttClient.on('reconnect', () => updateConnPill('connecting'));
-  mqttClient.on('offline', () => updateConnPill('disconnected'));
-  mqttClient.on('error', (err) => {
-    console.error('MQTT error', err);
-    updateConnPill('disconnected');
-  });
-  mqttClient.on('message', onMQTTMessage);
+  mqttClient = mqtt.connect(BROKER, { clientId, clean: true, reconnectPeriod: 3000, connectTimeout: 10000, keepalive: 30 });
+  mqttClient.on('connect',   onConnect);
+  mqttClient.on('reconnect', () => setConnPill('connecting'));
+  mqttClient.on('offline',   () => setConnPill('disconnected'));
+  mqttClient.on('error',     (e) => { console.error(e); setConnPill('disconnected'); });
+  mqttClient.on('message',   onMessage);
 }
 
-function onMQTTConnect() {
-  updateConnPill('connected');
-  showToast('מחובר לרשת', 'success', 2000);
-
-  // Subscribe to all taxi topics
-  mqttClient.subscribe(TAXI_NS + '/#', { qos: 1 }, (err) => {
-    if (err) console.error('Subscribe error', err);
-  });
-
-  // If driver, publish profile
-  if (currentUser.role === 'נהג' && driverState) {
-    publishDriver(driverState);
-  }
+function onConnect() {
+  setConnPill('connected');
+  toast('מחובר לרשת', 'success', 2000);
+  mqttClient.subscribe(TAXI_NS + '/#', { qos: 1 });
+  mqttClient.subscribe(BANK_NS + '/account/#', { qos: 1 });
+  if (currentUser && currentUser.role === 'נהג' && driverState) publishDriver();
 }
 
-function onMQTTMessage(topic, payload) {
-  let data;
-  try { data = JSON.parse(payload.toString()); } catch(e) { return; }
+function onMessage(topic, payload) {
+  const raw = payload.toString();
 
-  // Driver profile
-  const driverMatch = topic.match(new RegExp('^' + TAXI_NS + '/driver/(.+)$'));
-  if (driverMatch) {
-    const username = decodeURIComponent(driverMatch[1]);
-    if (username !== (currentUser ? currentUser.username : '')) {
-      allDrivers[username] = data;
-      if (currentUser && currentUser.role === 'נוסע') renderDriversList();
+  // Driver topic
+  const dm = topic.match(new RegExp('^' + TAXI_NS + '/driver/(.+)$'));
+  if (dm) {
+    const uname = decodeURIComponent(dm[1]);
+    if (raw === '') {
+      delete allDrivers[uname];
+    } else {
+      try { const d = JSON.parse(raw); if (d && d.username) allDrivers[uname] = d; } catch(e) {}
     }
+    if (currentUser && currentUser.role === 'נוסע') renderDriversList();
     return;
   }
 
   // Ride topic
-  const rideMatch = topic.match(new RegExp('^' + TAXI_NS + '/ride/(.+)$'));
-  if (rideMatch) {
-    const rideId = decodeURIComponent(rideMatch[1]);
-    allRides[rideId] = data;
-    handleRideUpdate(data);
+  const rm = topic.match(new RegExp('^' + TAXI_NS + '/ride/(.+)$'));
+  if (rm) {
+    const rideId = decodeURIComponent(rm[1]);
+    if (raw === '') { delete allRides[rideId]; return; }
+    try { const r = JSON.parse(raw); if (r && r.id) { allRides[rideId] = r; handleRideUpdate(r); } } catch(e) {}
     return;
   }
 
-  // Bank account topic (for payment processing)
-  const bankMatch = topic.match(new RegExp('^' + BANK_NS + '/account/(.+)$'));
-  if (bankMatch) {
-    const bankUser = decodeURIComponent(bankMatch[1]);
-    bankAccounts[bankUser] = data;
+  // Bank account topic
+  const bm = topic.match(new RegExp('^' + BANK_NS + '/account/(.+)$'));
+  if (bm) {
+    const bu = decodeURIComponent(bm[1]);
+    try { bankCache[bu] = JSON.parse(raw); } catch(e) {}
     return;
   }
 }
 
-function publishDriver(profile) {
-  if (!mqttClient || !mqttClient.connected) return;
-  profile.lastSeen = new Date().toISOString();
-  const topic = TAXI_NS + '/driver/' + encodeURIComponent(profile.username);
-  mqttClient.publish(topic, JSON.stringify(profile), { qos: 1, retain: true });
+// ════════════════════════════════════════════════════════
+//  MQTT HELPERS
+// ════════════════════════════════════════════════════════
+function publishDriver() {
+  if (!mqttClient || !mqttClient.connected || !driverState) return;
+  driverState.lastSeen = new Date().toISOString();
+  const topic = TAXI_NS + '/driver/' + encodeURIComponent(driverState.username);
+  mqttClient.publish(topic, JSON.stringify(driverState), { qos: 1, retain: true });
+}
+
+function removeDriverListing() {
+  if (!mqttClient || !mqttClient.connected || !driverState) return;
+  const topic = TAXI_NS + '/driver/' + encodeURIComponent(driverState.username);
+  mqttClient.publish(topic, '', { qos: 1, retain: true }, () => {
+    toast('הפרופיל הוסר מהמפה', 'info');
+  });
+  driverState.available = false;
+  updateAvailToggle();
 }
 
 function publishRide(ride) {
-  if (!mqttClient || !mqttClient.connected) { showToast('לא מחובר ל-MQTT', 'error'); return false; }
+  if (!mqttClient || !mqttClient.connected) { toast('לא מחובר ל-MQTT', 'error'); return false; }
   const topic = TAXI_NS + '/ride/' + encodeURIComponent(ride.id);
   mqttClient.publish(topic, JSON.stringify(ride), { qos: 1, retain: true });
   return true;
 }
 
-// ============================================================
-//  CONNECTION PILL
-// ============================================================
-function updateConnPill(state) {
-  const dot  = document.getElementById('conn-dot');
-  const text = document.getElementById('conn-text');
-  dot.className = '';
-  if (state === 'connected')    { dot.classList.add('connected');   text.textContent = 'מחובר'; }
-  else if (state === 'connecting') { dot.classList.add('connecting'); text.textContent = 'מתחבר...'; }
-  else { text.textContent = 'מנותק'; }
+function publishBankAccount(bankUser, accountObj) {
+  return new Promise((resolve, reject) => {
+    if (!mqttClient || !mqttClient.connected) { reject(new Error('לא מחובר')); return; }
+    const topic = BANK_NS + '/account/' + encodeURIComponent(bankUser);
+    mqttClient.publish(topic, JSON.stringify(accountObj), { qos: 1, retain: true }, (err) => {
+      if (err) reject(err); else resolve();
+    });
+  });
 }
 
-// ============================================================
+// Wait for a bank account (from cache or MQTT retained)
+function waitForAccount(username) {
+  return new Promise((resolve) => {
+    if (bankCache[username]) { resolve(bankCache[username]); return; }
+    const topic = BANK_NS + '/account/' + encodeURIComponent(username);
+    let done = false;
+    const timeout = setTimeout(() => {
+      if (!done) { done = true; mqttClient.removeListener('message', h); resolve(null); }
+    }, 8000);
+    const h = (t, payload) => {
+      if (t !== topic || done) return;
+      done = true; clearTimeout(timeout); mqttClient.removeListener('message', h);
+      try { const d = JSON.parse(payload.toString()); bankCache[username] = d; resolve(d); } catch(e) { resolve(null); }
+    };
+    mqttClient.on('message', h);
+    mqttClient.subscribe(topic, { qos: 1 });
+  });
+}
+
+// ════════════════════════════════════════════════════════
+//  CONN PILL
+// ════════════════════════════════════════════════════════
+function setConnPill(state) {
+  const dot  = document.getElementById('conn-dot');
+  const text = document.getElementById('conn-text');
+  dot.className = 'conn-dot' + (state==='connected' ? ' connected' : state==='connecting' ? ' connecting' : '');
+  text.textContent = state==='connected' ? 'מחובר' : state==='connecting' ? 'מתחבר...' : 'מנותק';
+}
+
+// ════════════════════════════════════════════════════════
 //  DRIVER FUNCTIONS
-// ============================================================
-function toggleAvailability() {
+// ════════════════════════════════════════════════════════
+function toggleAvail() {
   if (!driverState) return;
   driverState.available = !driverState.available;
   updateAvailToggle();
-  saveDriverProfile();
-  showToast(driverState.available ? 'אתה זמין לנסיעות ✓' : 'הפסקת לקבל נסיעות', driverState.available ? 'success' : 'info', 2500);
+  saveDriver();
+  toast(driverState.available ? 'אתה זמין לנסיעות ✓' : 'הפסקת לקבל נסיעות', driverState.available ? 'success' : 'info', 2500);
 }
 
 function updateAvailToggle() {
-  const btn = document.getElementById('avail-toggle');
-  const icon = document.getElementById('avail-icon');
+  const btn   = document.getElementById('avail-toggle');
+  const icon  = document.getElementById('avail-icon');
   const label = document.getElementById('avail-label');
   if (driverState && driverState.available) {
-    btn.className = 'big-toggle on';
-    icon.textContent = '✅';
-    label.textContent = 'זמין לנסיעות';
+    btn.className = 'avail-toggle on'; icon.textContent = '✅'; label.textContent = 'זמין לנסיעות';
   } else {
-    btn.className = 'big-toggle off';
-    icon.textContent = '⏸';
-    label.textContent = 'לא זמין';
+    btn.className = 'avail-toggle off'; icon.textContent = '⏸'; label.textContent = 'לא זמין';
   }
 }
 
-function selectVehicleType(type) {
+function selVType(type) {
   if (!driverState) return;
   driverState.type = type;
-  ['מונית', 'אוטובוס', 'טיסה'].forEach(t => {
-    document.getElementById('type-btn-' + t)?.classList.toggle('active', t === type);
-  });
-  const isFlying = type === 'טיסה';
-  document.getElementById('flight-extras').style.display = isFlying ? '' : 'none';
-  document.getElementById('price-label').textContent = isFlying ? 'מחיר למושב )(' : 'מחיר לנסיעה )(';
-  debounceSaveDriver();
+  ['מונית','אוטובוס','טיסה'].forEach(t => document.getElementById('vt-'+t)?.classList.toggle('active', t===type));
+  const isFlight = type === 'טיסה';
+  document.getElementById('flight-extras').style.display = isFlight ? '' : 'none';
+  document.getElementById('d-price-label').textContent = isFlight ? 'מחיר למושב )(' : 'מחיר לנסיעה )(';
+  debSave();
 }
 
-function debounceSaveDriver() {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(saveDriverProfile, 1200);
+function debSave() {
+  clearTimeout(debTimer);
+  debTimer = setTimeout(saveDriver, 1200);
 }
 
-function saveDriverProfile() {
+function saveDriver() {
   if (!driverState || !currentUser) return;
-  driverState.location    = document.getElementById('driver-location').value.trim();
-  driverState.price       = parseFloat(document.getElementById('driver-price').value) || 0;
-  driverState.destination = document.getElementById('flight-dest')?.value.trim() || '';
-  driverState.seats       = parseInt(document.getElementById('flight-seats')?.value) || 0;
-  publishDriver(driverState);
-  showToast('פרופיל עודכן', 'success', 1800);
+  driverState.location    = document.getElementById('d-location').value.trim();
+  driverState.price       = parseFloat(document.getElementById('d-price').value) || 0;
+  driverState.destination = document.getElementById('d-dest')?.value.trim() || '';
+  driverState.seats       = parseInt(document.getElementById('d-seats')?.value) || 0;
+  publishDriver();
+  toast('פרופיל עודכן', 'success', 1800);
 }
 
-// ============================================================
-//  INCOMING RIDES (DRIVER VIEW)
-// ============================================================
+// ════════════════════════════════════════════════════════
+//  RIDE UPDATES (shared)
+// ════════════════════════════════════════════════════════
 function handleRideUpdate(ride) {
   if (!currentUser) return;
 
   if (currentUser.role === 'נהג') {
-    if (ride.driver === currentUser.username) {
-      allRides[ride.id] = ride;
-      renderIncomingRides();
-      if (ride.status === 'accepted') {
-        myActiveRide = ride;
-        renderActiveRideDriver();
-      } else if (ride.status === 'completed' || ride.status === 'declined') {
-        if (myActiveRide && myActiveRide.id === ride.id) {
-          myActiveRide = null;
-          document.getElementById('active-ride-section').style.display = 'none';
-        }
-        renderIncomingRides();
-      }
+    if (ride.driver !== currentUser.username) return;
+    allRides[ride.id] = ride;
+
+    if (ride.status === 'pending' || ride.status === 'accepted' || ride.status === 'arrived_at_pickup' || ride.status === 'in_progress') {
+      myActiveRide = ride;
+    } else if (ride.status === 'completed' || ride.status === 'cancelled') {
+      if (myActiveRide && myActiveRide.id === ride.id) myActiveRide = null;
     }
+    renderDriverRides();
   } else {
     // Passenger
-    if (ride.passenger === currentUser.username) {
-      activeRide = ride;
-      renderPassengerActiveRide();
-      if (ride.status === 'accepted') {
-        showToast('הנסיעה שלך אושרה! 🎉', 'success');
-      } else if (ride.status === 'declined') {
-        showToast('הנסיעה נדחתה', 'error');
-        activeRide = null;
-        document.getElementById('pax-active-ride').style.display = 'none';
-      } else if (ride.status === 'completed') {
-        showToast('הגעת ליעד! תודה 🙏', 'success');
-        activeRide = null;
-        document.getElementById('pax-active-ride').style.display = 'none';
-      }
+    if (ride.passenger !== currentUser.username) return;
+    allRides[ride.id] = ride;
+    activeRide = ride;
+
+    if (ride.status === 'accepted') {
+      toast('הנסיעה שלך אושרה! הנהג בדרך 🚗', 'success');
+    } else if (ride.status === 'arrived_at_pickup') {
+      toast('הנהג הגיע! 📍', 'success', 5000);
+    } else if (ride.status === 'in_progress') {
+      toast('אתה בנסיעה 🚗', 'success', 2000);
+    } else if (ride.status === 'completed') {
+      toast('הגעת! תודה שנסעת עם BIRGSOL TAXI 🙏', 'success', 4000);
+      // save to history
+      const hist = loadHistory();
+      hist.unshift({ ...ride, savedAt: new Date().toISOString() });
+      saveHistory(hist);
+      // clear after 3s
+      setTimeout(() => { if (activeRide && activeRide.id === ride.id) { activeRide = null; renderPassengerRideBar(); } }, 3000);
+    } else if (ride.status === 'cancelled') {
+      toast('הנסיעה בוטלה ❌', 'error', 2000);
+      setTimeout(() => { if (activeRide && activeRide.id === ride.id) { activeRide = null; renderPassengerRideBar(); } }, 2000);
     }
+    renderPassengerRideBar();
   }
 }
 
-function renderIncomingRides() {
-  const container = document.getElementById('incoming-rides-list');
+// ════════════════════════════════════════════════════════
+//  DRIVER — RENDER RIDES LIST
+// ════════════════════════════════════════════════════════
+function renderDriverRides() {
+  const container = document.getElementById('driver-rides-list');
   if (!container) return;
 
-  const myRides = Object.values(allRides).filter(r =>
-    r.driver === currentUser.username && (r.status === 'pending' || r.status === 'accepted')
+  const mine = Object.values(allRides).filter(r =>
+    r.driver === currentUser.username &&
+    !['completed','cancelled'].includes(r.status)
   );
 
-  if (myRides.length === 0) {
+  if (mine.length === 0) {
     container.innerHTML = '<div class="empty-state"><span class="es-icon">📭</span><p>אין בקשות כרגע</p></div>';
     return;
   }
 
-  container.innerHTML = myRides.map(r => `
-    <div class="ride-req-card">
-      <div class="req-header">
-        <div class="req-passenger">👤 ${escHtml(r.passenger)}</div>
-        <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
+  container.innerHTML = mine.map(r => {
+    let actions = '';
+    if (r.status === 'pending') {
+      actions = `<div class="req-actions">
+        <button class="btn btn-green btn-sm" onclick="acceptRide('${esc(r.id)}')">✓ קבל</button>
+        <button class="btn btn-red   btn-sm" onclick="cancelRide('${esc(r.id)}')">✗ דחה</button>
+      </div>`;
+    } else if (r.status === 'accepted') {
+      actions = `<div class="req-actions">
+        <button class="btn btn-green btn-sm" onclick="markArrived('${esc(r.id)}')">📍 הגעתי</button>
+        <button class="btn btn-red   btn-sm" onclick="cancelRide('${esc(r.id)}')">בטל</button>
+      </div>`;
+    } else if (r.status === 'arrived_at_pickup') {
+      actions = `<div style="font-size:13px;color:var(--muted);padding:4px 0">ממתין לאישור תשלום מהנוסע...</div>`;
+    } else if (r.status === 'in_progress') {
+      actions = `<div class="req-actions">
+        <button class="btn btn-green btn-sm" onclick="completeRide('${esc(r.id)}')">סיים נסיעה ✓</button>
+      </div>`;
+    }
+
+    return `<div class="req-card">
+      <div class="req-hdr">
+        <div class="rpassenger">👤 ${esc(r.passenger)}</div>
+        <span class="sbadge ${r.status}">${statusLabel(r.status)}</span>
       </div>
-      <div class="route">
-        מ: <span>${escHtml(r.from)}</span>
-        &nbsp;→&nbsp;
-        אל: <span>${escHtml(r.to || '—')}</span>
-      </div>
-      <div class="route" style="margin-bottom:8px">
-        מחיר: <span>)( ${r.price}</span>
-      </div>
-      ${r.status === 'pending' ? `
-        <div class="req-actions">
-          <button class="btn btn-primary btn-sm" onclick="acceptRide('${escHtml(r.id)}')">✓ קבל</button>
-          <button class="btn btn-danger  btn-sm" onclick="declineRide('${escHtml(r.id)}')">✗ דחה</button>
-        </div>` : `
-        <div style="font-size:13px;color:var(--accent)">✅ נסיעה פעילה</div>`
-      }
-    </div>
-  `).join('');
+      <div class="route">מ: <b>${esc(r.from)}</b> → אל: <b>${esc(r.to||'—')}</b></div>
+      <div class="route">מחיר: <b style="color:var(--accent)">)( ${r.price}</b></div>
+      ${actions}
+    </div>`;
+  }).join('');
 }
 
 function acceptRide(rideId) {
-  const ride = allRides[rideId];
-  if (!ride) return;
+  const ride = allRides[rideId]; if (!ride) return;
   ride.status = 'accepted';
-  publishRide(ride);
-  myActiveRide = ride;
-  renderActiveRideDriver();
-  renderIncomingRides();
-  showToast('קיבלת את הנסיעה!', 'success');
+  publishRide(ride); myActiveRide = ride;
+  renderDriverRides(); toast('קיבלת את הנסיעה!', 'success');
 }
 
-function declineRide(rideId) {
-  const ride = allRides[rideId];
-  if (!ride) return;
-  ride.status = 'declined';
+function cancelRide(rideId) {
+  const ride = allRides[rideId]; if (!ride) return;
+  ride.status = 'cancelled';
   publishRide(ride);
   if (myActiveRide && myActiveRide.id === rideId) myActiveRide = null;
-  document.getElementById('active-ride-section').style.display = 'none';
-  renderIncomingRides();
-  showToast('הנסיעה נדחתה', 'info');
+  renderDriverRides(); toast('הנסיעה בוטלה', 'info');
 }
 
-function renderActiveRideDriver() {
-  if (!myActiveRide) return;
-  const sec = document.getElementById('active-ride-section');
-  const bar = document.getElementById('active-ride-bar');
-  sec.style.display = '';
-  bar.innerHTML = `
-    <div class="rsb-icon">🚦</div>
-    <div class="rsb-info">
-      <div class="rsb-title">נוסע: ${escHtml(myActiveRide.passenger)}</div>
-      <div class="rsb-sub">מ: ${escHtml(myActiveRide.from)} → אל: ${escHtml(myActiveRide.to || '—')}</div>
-    </div>
-    <div style="font-weight:800;color:var(--accent)">)( ${myActiveRide.price}</div>
-  `;
+function markArrived(rideId) {
+  const ride = allRides[rideId]; if (!ride) return;
+  ride.status = 'arrived_at_pickup';
+  publishRide(ride); myActiveRide = ride;
+  renderDriverRides(); toast('סומנת כהגעה לנוסע 📍', 'success');
 }
 
-function completeRide() {
-  if (!myActiveRide) return;
-  myActiveRide.status = 'completed';
-  publishRide(myActiveRide);
-  document.getElementById('active-ride-section').style.display = 'none';
-  renderIncomingRides();
-  showToast('נסיעה הושלמה! 🏁', 'success');
-  myActiveRide = null;
+function completeRide(rideId) {
+  const ride = allRides[rideId]; if (!ride) return;
+  if (ride.status !== 'in_progress') { toast('ממתין לתשלום מהנוסע תחילה', 'info'); return; }
+  ride.status = 'completed';
+  publishRide(ride);
+  if (myActiveRide && myActiveRide.id === rideId) myActiveRide = null;
+  // save to driver history
+  const hist = loadHistory();
+  hist.unshift({ ...ride, savedAt: new Date().toISOString() });
+  saveHistory(hist);
+  renderDriverRides(); toast('נסיעה הושלמה! 🏁', 'success');
 }
 
-// ============================================================
-//  PASSENGERS — DRIVERS LIST
-// ============================================================
+// ════════════════════════════════════════════════════════
+//  PASSENGER — DRIVER LIST
+// ════════════════════════════════════════════════════════
 function renderDriversList() {
   const container = document.getElementById('drivers-list');
   if (!container) return;
-
-  let drivers = Object.values(allDrivers).filter(d => d.available);
-  if (currentFilter !== 'הכל') {
-    drivers = drivers.filter(d => d.type === currentFilter);
-  }
+  let drivers = Object.values(allDrivers).filter(d => d.available && d.username !== currentUser.username);
+  if (currentFilter !== 'הכל') drivers = drivers.filter(d => d.type === currentFilter);
 
   if (drivers.length === 0) {
     container.innerHTML = '<div class="empty-state"><span class="es-icon">🔍</span><p>אין נהגים זמינים כרגע</p></div>';
@@ -1489,229 +1026,256 @@ function renderDriversList() {
   }
 
   container.innerHTML = drivers.map(d => {
-    const icon = vehicleIcon(d.type);
-    const destTag = d.type === 'טיסה' && d.destination
-      ? `<span class="dest-tag">✈️ ${escHtml(d.destination)}</span>` : '';
-    const seatsTag = d.type === 'טיסה' && d.seats > 0
-      ? `<span style="font-size:12px;color:var(--muted)">${d.seats} מקומות פנויים</span>` : '';
-    return `
-      <div class="driver-card" onclick="openBookingModal('${escHtml(d.username)}')">
-        <div class="vehicle-icon">${icon}</div>
-        <div class="info">
-          <div class="name-row">
-            <div class="dname">${escHtml(d.username)}</div>
-            <div class="avail-dot on"></div>
-          </div>
-          <div class="loc">📍 ${escHtml(d.location || 'מיקום לא צוין')}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-            <span class="price-tag">)( ${d.price}</span>
-            ${destTag}
-            ${seatsTag}
-          </div>
+    const icon = vIcon(d.type);
+    const destTag = d.type==='טיסה' && d.destination ? `<span class="dest-chip">✈️ ${esc(d.destination)}</span>` : '';
+    const seatsTag = d.type==='טיסה' && d.seats > 0 ? `<span style="font-size:12px;color:var(--muted)">${d.seats} מקומות פנויים</span>` : '';
+    return `<div class="driver-card" onclick="openBooking('${esc(d.username)}')">
+      <div class="vic">${icon}</div>
+      <div class="dinfo">
+        <div class="dname-row">
+          <div class="dname">${esc(d.username)}</div>
+          <div class="avail-dot"></div>
+          <span class="vtype-chip">${esc(d.type)}</span>
         </div>
-      </div>`;
+        <div class="dloc">📍 ${esc(d.location||'מיקום לא צוין')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+          <span class="price-chip">)( ${d.price}</span>
+          ${destTag}${seatsTag}
+        </div>
+      </div>
+    </div>`;
   }).join('');
 }
 
-function filterDrivers(type) {
+function setFilter(type) {
   currentFilter = type;
-  document.querySelectorAll('.filter-tab').forEach(el => {
-    const labels = { 'הכל':'הכל', 'מונית':'🚕 מונית', 'אוטובוס':'🚌 אוטובוס', 'טיסה':'✈️ טיסה' };
-    el.classList.toggle('active', el.textContent.includes(type === 'הכל' ? 'הכל' : type));
+  document.querySelectorAll('.ftab').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim().includes(type==='הכל'?'הכל':type));
   });
   renderDriversList();
 }
 
-// ============================================================
-//  BOOKING MODAL
-// ============================================================
-function openBookingModal(username) {
-  const driver = allDrivers[username];
-  if (!driver) { showToast('נהג לא נמצא', 'error'); return; }
-  if (activeRide && (activeRide.status === 'pending' || activeRide.status === 'accepted')) {
-    showToast('יש לך נסיעה פעילה', 'info'); return;
+// ════════════════════════════════════════════════════════
+//  BOOKING BOTTOM SHEET
+// ════════════════════════════════════════════════════════
+function openBooking(username) {
+  const d = allDrivers[username];
+  if (!d) { toast('נהג לא נמצא', 'error'); return; }
+  if (activeRide && !['completed','cancelled'].includes(activeRide.status)) {
+    toast('יש לך נסיעה פעילה', 'info'); return;
   }
-  selectedDriver = driver;
+  selectedDriver = d;
 
-  document.getElementById('booking-driver-icon').textContent = vehicleIcon(driver.type);
-  document.getElementById('booking-driver-name').textContent = driver.username;
-  document.getElementById('b-driver').textContent    = driver.username;
-  document.getElementById('b-location').textContent  = driver.location || '—';
-  document.getElementById('b-price').textContent     = ')( ' + driver.price;
+  document.getElementById('bm-icon').textContent  = vIcon(d.type);
+  document.getElementById('bm-title').textContent  = 'הזמנת נסיעה – ' + d.username;
+  document.getElementById('bm-driver').textContent = d.username;
+  document.getElementById('bm-loc').textContent    = d.location || '—';
+  document.getElementById('bm-price').textContent  = ')( ' + d.price;
 
-  const isFlight = driver.type === 'טיסה';
-  document.getElementById('b-dest-row').style.display  = isFlight ? '' : 'none';
-  document.getElementById('b-seats-row').style.display = isFlight ? '' : 'none';
-  document.getElementById('book-to-group').style.display = isFlight ? 'none' : '';
-  document.getElementById('b-dest').textContent   = driver.destination || '—';
-  document.getElementById('b-seats').textContent  = driver.seats || '0';
+  const isFlight = d.type === 'טיסה';
+  document.getElementById('bm-dest-row').style.display  = isFlight ? '' : 'none';
+  document.getElementById('bm-seats-row').style.display = isFlight ? '' : 'none';
+  document.getElementById('bm-to-wrap').style.display   = isFlight ? 'none' : '';
+  document.getElementById('bm-dest').textContent  = d.destination || '—';
+  document.getElementById('bm-seats').textContent = d.seats || '0';
 
-  // Pre-fill bank username from registration
-  document.getElementById('pay-bank-user').value = currentUser.bankUsername || '';
-  document.getElementById('pay-bank-pass').value = '';
-  document.getElementById('book-from').value = '';
-  document.getElementById('book-to').value   = '';
+  document.getElementById('bm-from').value = '';
+  document.getElementById('bm-to').value   = '';
 
   document.getElementById('booking-modal').classList.add('visible');
 }
 
-function closeBookingModal(e) {
+function closeBooking(e) {
   if (e && e.target !== document.getElementById('booking-modal')) return;
   document.getElementById('booking-modal').classList.remove('visible');
   selectedDriver = null;
 }
 
-// ============================================================
-//  CONFIRM BOOKING + PAYMENT
-// ============================================================
-function confirmBooking() {
+function sendRideRequest() {
   if (!selectedDriver) return;
-  const from         = document.getElementById('book-from').value.trim();
-  const isFlight     = selectedDriver.type === 'טיסה';
-  const to           = isFlight ? selectedDriver.destination : document.getElementById('book-to').value.trim();
-  const bankUser     = document.getElementById('pay-bank-user').value.trim();
-  const bankPass     = document.getElementById('pay-bank-pass').value;
+  const from     = document.getElementById('bm-from').value.trim();
+  const isFlight = selectedDriver.type === 'טיסה';
+  const to       = isFlight ? selectedDriver.destination : document.getElementById('bm-to').value.trim();
 
-  if (!from)     { showToast('נא להזין נקודת איסוף', 'error'); return; }
-  if (!isFlight && !to) { showToast('נא להזין יעד', 'error'); return; }
-  if (!bankUser) { showToast('נא להזין שם משתמש בנק', 'error'); return; }
-  if (!bankPass) { showToast('נא להזין סיסמת בנק', 'error'); return; }
+  if (!from) { toast('נא להזין נקודת איסוף', 'error'); return; }
+  if (!isFlight && !to) { toast('נא להזין יעד', 'error'); return; }
 
-  const btn = document.getElementById('book-confirm-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> מעבד תשלום...';
+  const rideId = 'ride_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  const ride = {
+    id: rideId,
+    passenger: currentUser.username,
+    driver: selectedDriver.username,
+    driverBankUsername: selectedDriver.bankUsername || selectedDriver.username,
+    from, to: to || '',
+    price: selectedDriver.price,
+    type: selectedDriver.type,
+    status: 'pending',
+    timestamp: new Date().toISOString()
+  };
 
-  // Subscribe to bank account topic, wait for retained message
-  processPayment(bankUser, bankPass, selectedDriver.price, () => {
-    // Payment success — create ride
-    const rideId = 'ride_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-    const ride = {
-      id: rideId,
-      passenger: currentUser.username,
-      driver: selectedDriver.username,
-      from,
-      to: to || '',
-      price: selectedDriver.price,
-      status: 'pending',
-      type: selectedDriver.type,
-      timestamp: new Date().toISOString()
-    };
-    if (publishRide(ride)) {
-      activeRide = ride;
-      allRides[rideId] = ride;
-
-      // Save to local history
-      const hist = loadRideHistory();
-      hist.unshift({ ...ride, paidAt: new Date().toISOString() });
-      saveRideHistory(hist);
-
-      document.getElementById('booking-modal').classList.remove('visible');
-      showReceipt(ride, bankUser);
-      renderPassengerActiveRide();
-    }
-    btn.disabled = false;
-    btn.innerHTML = 'אשר הזמנה ושלם';
-  }, (errMsg) => {
-    showToast(errMsg, 'error');
-    btn.disabled = false;
-    btn.innerHTML = 'אשר הזמנה ושלם';
-  });
+  if (publishRide(ride)) {
+    activeRide = ride;
+    allRides[rideId] = ride;
+    document.getElementById('booking-modal').classList.remove('visible');
+    selectedDriver = null;
+    renderPassengerRideBar();
+    toast('בקשת נסיעה נשלחה! ממתין לאישור נהג ⏳', 'info', 3500);
+  }
 }
 
-// ============================================================
-//  PAYMENT VIA BANK MQTT
-// ============================================================
-function processPayment(bankUser, bankPass, amount, onSuccess, onError) {
-  if (!mqttClient || !mqttClient.connected) {
-    onError('לא מחובר ל-MQTT'); return;
-  }
-
-  const accountTopic = BANK_NS + '/account/' + encodeURIComponent(bankUser);
-  let handled = false;
-  let timeout;
-
-  // Subscribe to bank account
-  mqttClient.subscribe(accountTopic, { qos: 1 }, (err) => {
-    if (err) { onError('שגיאה בחיבור לבנק'); return; }
-  });
-
-  function handleBankMsg(topic, payload) {
-    if (handled) return;
-    if (topic !== accountTopic) return;
-    handled = true;
-    clearTimeout(timeout);
-    mqttClient.removeListener('message', handleBankMsgWrapper);
-
-    let account;
-    try { account = JSON.parse(payload.toString()); } catch(e) {
-      onError('נתוני חשבון לא תקינים'); return;
-    }
-
-    // Validate password
-    if (account.password && account.password !== bankPass) {
-      onError('סיסמת בנק שגויה'); return;
-    }
-
-    const balance = parseFloat(account.balance) || 0;
-    if (balance < amount) {
-      onError('יתרה לא מספיקה: )( ' + balance.toFixed(2) + ' (נדרש: )( ' + amount + ')');
-      return;
-    }
-
-    // Deduct and write back
-    const newBalance = balance - amount;
-    if (!account.history) account.history = [];
-    account.history.unshift({
-      type:   'debit',
-      amount: amount,
-      desc:   'Poninio Taxi - נסיעה',
-      date:   new Date().toISOString(),
-      balance: newBalance
-    });
-    account.balance = newBalance;
-
-    mqttClient.publish(accountTopic, JSON.stringify(account), { qos: 1, retain: true }, (err) => {
-      if (err) { onError('שגיאה בעדכון חשבון'); return; }
-      onSuccess();
-    });
-  }
-
-  function handleBankMsgWrapper(topic, payload) {
-    handleBankMsg(topic, payload);
-  }
-
-  mqttClient.on('message', handleBankMsgWrapper);
-
-  // If we already have it cached
-  if (bankAccounts[bankUser]) {
-    const fakePayload = Buffer.from ? Buffer.from(JSON.stringify(bankAccounts[bankUser])) : new TextEncoder().encode(JSON.stringify(bankAccounts[bankUser]));
-    setTimeout(() => handleBankMsg(accountTopic, { toString: () => JSON.stringify(bankAccounts[bankUser]) }), 50);
+// ════════════════════════════════════════════════════════
+//  PASSENGER — ACTIVE RIDE BAR
+// ════════════════════════════════════════════════════════
+function renderPassengerRideBar() {
+  const sec   = document.getElementById('pax-active-section');
+  const bar   = document.getElementById('pax-ride-bar');
+  const payWrap = document.getElementById('pax-pay-btn-wrap');
+  if (!activeRide || ['completed','cancelled'].includes(activeRide.status)) {
+    sec.style.display = 'none';
+    payWrap.style.display = 'none';
     return;
   }
+  sec.style.display = '';
 
-  // Timeout if no retained message
-  timeout = setTimeout(() => {
-    if (!handled) {
-      handled = true;
-      mqttClient.removeListener('message', handleBankMsgWrapper);
-      onError('לא נמצא חשבון בנק עבור: ' + bankUser + ' (אין נתוני retain)');
-    }
-  }, 8000);
+  const isArrived = activeRide.status === 'arrived_at_pickup';
+  payWrap.style.display = isArrived ? '' : 'none';
+
+  const icons = { pending:'⏳', accepted:'🚗', arrived_at_pickup:'📍', in_progress:'🚗', completed:'✅', cancelled:'❌' };
+  const labels = { pending:'ממתין לאישור נהג', accepted:'הנהג בדרך אליך', arrived_at_pickup:'הנהג הגיע!', in_progress:'אתה בנסיעה', completed:'הנסיעה הסתיימה', cancelled:'הנסיעה בוטלה' };
+
+  bar.innerHTML = `
+    <div class="rb-icon">${icons[activeRide.status]||'⏳'}</div>
+    <div class="rb-info">
+      <div class="rb-title">${labels[activeRide.status]||activeRide.status}</div>
+      <div class="rb-sub">${esc(activeRide.driver)} · )( ${activeRide.price}</div>
+    </div>
+    <span class="sbadge ${activeRide.status}">${statusLabel(activeRide.status)}</span>
+  `;
 }
 
-// ============================================================
+// ════════════════════════════════════════════════════════
+//  PAYMENT MODAL
+// ════════════════════════════════════════════════════════
+function openPaymentModal() {
+  if (!activeRide) return;
+  document.getElementById('pay-driver-info').textContent = 'נהג: ' + activeRide.driver + ' · מחיר: )( ' + activeRide.price;
+  document.getElementById('pay-bank-user').value = currentUser.bankUsername || '';
+  document.getElementById('pay-bank-pass').value = '';
+  document.getElementById('payment-modal').classList.add('visible');
+}
+
+function closePaymentModal(e) {
+  if (e && e.target !== document.getElementById('payment-modal')) return;
+  document.getElementById('payment-modal').classList.remove('visible');
+}
+
+async function submitPayment() {
+  if (!activeRide) return;
+  const bankUser = document.getElementById('pay-bank-user').value.trim();
+  const bankPass = document.getElementById('pay-bank-pass').value;
+  if (!bankUser || !bankPass) { toast('נא למלא פרטי בנק', 'error'); return; }
+
+  const btn = document.getElementById('pay-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> מעבד...';
+
+  try {
+    const result = await processPayment(bankUser, bankPass, activeRide.price, activeRide.driverBankUsername || activeRide.driver);
+    if (!result.success) {
+      toast(result.message, 'error');
+    } else {
+      // Update ride to in_progress
+      activeRide.status = 'in_progress';
+      publishRide(activeRide);
+      renderPassengerRideBar();
+      document.getElementById('payment-modal').classList.remove('visible');
+      showReceipt(activeRide, bankUser, result.newBalance);
+      toast('תשלום בוצע! 🎉', 'success');
+    }
+  } catch(e) {
+    toast('שגיאה: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'שלם';
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//  PAYMENT FUNCTION
+// ════════════════════════════════════════════════════════
+async function processPayment(bankUser, bankPass, amount, driverUsername) {
+  if (!mqttClient || !mqttClient.connected) return { success: false, message: 'לא מחובר ל-MQTT' };
+
+  // 1. Fetch buyer account
+  const buyerAccount = await waitForAccount(bankUser);
+  if (!buyerAccount) return { success: false, message: 'חשבון בנק לא נמצא: ' + bankUser };
+  if (buyerAccount.password && buyerAccount.password !== bankPass) return { success: false, message: 'סיסמת בנק שגויה' };
+
+  const balance = parseFloat(buyerAccount.balance) || 0;
+  if (balance < amount) return { success: false, message: 'יתרה לא מספיקה. יתרה: )( ' + balance.toFixed(2) };
+
+  // Determine driver bank username
+  const driverBankUser = driverUsername;
+
+  // 2. Calculate all changes in memory
+  const allChanges = {};
+
+  const newBuyerBalance = balance - amount;
+  const updatedBuyer = {
+    ...buyerAccount,
+    balance: newBuyerBalance,
+    history: [
+      { type: 'debit', amount, desc: 'BIRGSOL TAXI – נסיעה', date: new Date().toISOString(), balance: newBuyerBalance },
+      ...(buyerAccount.history || [])
+    ]
+  };
+  allChanges[bankUser] = updatedBuyer;
+
+  // Fetch driver account
+  const isSameAccount = (bankUser === driverBankUser);
+  let driverAccount;
+  if (isSameAccount) {
+    driverAccount = { ...updatedBuyer }; // start from already-deducted
+  } else {
+    driverAccount = await waitForAccount(driverBankUser);
+  }
+
+  if (driverAccount) {
+    const driverBalance = isSameAccount ? newBuyerBalance : (parseFloat(driverAccount.balance) || 0);
+    const newDriverBalance = driverBalance + amount;
+    const updatedDriver = {
+      ...driverAccount,
+      balance: newDriverBalance,
+      history: [
+        { type: 'credit', amount, desc: 'BIRGSOL TAXI – תשלום נסיעה מ-' + bankUser, date: new Date().toISOString(), balance: newDriverBalance },
+        ...(driverAccount.history || [])
+      ]
+    };
+    allChanges[driverBankUser] = updatedDriver;
+  }
+
+  // 3. Publish all changes
+  for (const [user, data] of Object.entries(allChanges)) {
+    await publishBankAccount(user, data);
+    bankCache[user] = data;
+  }
+
+  return { success: true, message: 'תשלום בוצע', newBalance: newBuyerBalance };
+}
+
+// ════════════════════════════════════════════════════════
 //  RECEIPT
-// ============================================================
-function showReceipt(ride, bankUser) {
-  const content = document.getElementById('receipt-content');
-  content.innerHTML = `
-    <div class="receipt-row"><span class="r-label">מספר נסיעה</span><span class="r-val" style="font-size:11px">${escHtml(ride.id)}</span></div>
-    <div class="receipt-row"><span class="r-label">נהג</span><span class="r-val">${escHtml(ride.driver)}</span></div>
-    <div class="receipt-row"><span class="r-label">סוג</span><span class="r-val">${vehicleIcon(ride.type)} ${escHtml(ride.type)}</span></div>
-    <div class="receipt-row"><span class="r-label">מ</span><span class="r-val">${escHtml(ride.from)}</span></div>
-    <div class="receipt-row"><span class="r-label">אל</span><span class="r-val">${escHtml(ride.to || '—')}</span></div>
-    <div class="receipt-row"><span class="r-label">שולם מ</span><span class="r-val">${escHtml(bankUser)}</span></div>
-    <div class="receipt-row total"><span class="r-label">סכום ששולם</span><span class="r-val">)( ${ride.price}</span></div>
+// ════════════════════════════════════════════════════════
+function showReceipt(ride, bankUser, newBalance) {
+  document.getElementById('receipt-content').innerHTML = `
+    <div class="rcpt-row"><span class="rl">מספר נסיעה</span><span class="rv" style="font-size:11px">${esc(ride.id)}</span></div>
+    <div class="rcpt-row"><span class="rl">נהג</span><span class="rv">${esc(ride.driver)}</span></div>
+    <div class="rcpt-row"><span class="rl">סוג</span><span class="rv">${vIcon(ride.type)} ${esc(ride.type)}</span></div>
+    <div class="rcpt-row"><span class="rl">מ</span><span class="rv">${esc(ride.from)}</span></div>
+    <div class="rcpt-row"><span class="rl">אל</span><span class="rv">${esc(ride.to||'—')}</span></div>
+    <div class="rcpt-row"><span class="rl">שולם מ</span><span class="rv">${esc(bankUser)}</span></div>
+    ${newBalance != null ? `<div class="rcpt-row"><span class="rl">יתרה חדשה</span><span class="rv" style="color:var(--accent)">)( ${parseFloat(newBalance).toFixed(2)}</span></div>` : ''}
+    <div class="rcpt-row total"><span class="rl">סכום</span><span class="rv">)( ${ride.price}</span></div>
   `;
   document.getElementById('receipt-modal').classList.add('visible');
 }
@@ -1720,32 +1284,13 @@ function closeReceiptModal() {
   document.getElementById('receipt-modal').classList.remove('visible');
 }
 
-// ============================================================
-//  PASSENGER — ACTIVE RIDE STATUS
-// ============================================================
-function renderPassengerActiveRide() {
-  const sec = document.getElementById('pax-active-ride');
-  const bar = document.getElementById('pax-ride-bar');
-  if (!activeRide) { sec.style.display = 'none'; return; }
-  sec.style.display = '';
-  const statusIcons = { pending: '⏳', accepted: '🚗', completed: '✅', declined: '❌' };
-  bar.innerHTML = `
-    <div class="rsb-icon">${statusIcons[activeRide.status] || '⏳'}</div>
-    <div class="rsb-info">
-      <div class="rsb-title">נסיעה עם ${escHtml(activeRide.driver)}</div>
-      <div class="rsb-sub">סטטוס: ${statusLabel(activeRide.status)}</div>
-    </div>
-    <span class="status-badge ${activeRide.status}">${statusLabel(activeRide.status)}</span>
-  `;
-}
-
-// ============================================================
+// ════════════════════════════════════════════════════════
 //  HISTORY SCREEN
-// ============================================================
+// ════════════════════════════════════════════════════════
 function renderHistory() {
   const container = document.getElementById('history-list');
   if (!container) return;
-  const hist = loadRideHistory();
+  const hist = loadHistory();
   if (hist.length === 0) {
     container.innerHTML = '<div class="empty-state"><span class="es-icon">📭</span><p>אין נסיעות בהיסטוריה</p></div>';
     return;
@@ -1753,11 +1298,11 @@ function renderHistory() {
   container.innerHTML = hist.map(r => `
     <div class="card" style="margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-weight:700">${vehicleIcon(r.type)} ${escHtml(r.driver || r.passenger)}</div>
-        <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
+        <div style="font-weight:700">${vIcon(r.type)} ${esc(r.driver||r.passenger)}</div>
+        <span class="sbadge ${r.status}">${statusLabel(r.status)}</span>
       </div>
       <div style="font-size:13px;color:var(--muted)">
-        📍 ${escHtml(r.from)} → ${escHtml(r.to || '—')}<br>
+        📍 ${esc(r.from)} → ${esc(r.to||'—')}<br>
         🕐 ${new Date(r.timestamp).toLocaleString('he-IL')}
       </div>
       <div style="margin-top:8px;font-weight:700;color:var(--accent)">)( ${r.price}</div>
@@ -1765,50 +1310,46 @@ function renderHistory() {
   `).join('');
 }
 
-// ============================================================
+// ════════════════════════════════════════════════════════
 //  PROFILE SCREEN
-// ============================================================
+// ════════════════════════════════════════════════════════
 function updateProfileScreen() {
   if (!currentUser) return;
-  document.getElementById('profile-username').textContent = currentUser.username;
-  document.getElementById('profile-role').textContent     = currentUser.role;
-  document.getElementById('profile-bank').textContent     = currentUser.bankUsername || '—';
-
-  const hist = loadRideHistory();
+  document.getElementById('prof-username').textContent = currentUser.username;
+  document.getElementById('prof-role').textContent     = currentUser.role;
+  document.getElementById('prof-bank').textContent     = currentUser.bankUsername || '—';
+  const hist = loadHistory();
   document.getElementById('stat-rides').textContent = hist.length;
-  const total = hist.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0);
-  document.getElementById('stat-total').textContent = ')( ' + total.toFixed(2);
+  const total = hist.reduce((s, r) => s + (parseFloat(r.price)||0), 0);
+  document.getElementById('stat-spent').textContent = ')( ' + total.toFixed(2);
 }
 
-// ============================================================
+// ════════════════════════════════════════════════════════
 //  UTILITIES
-// ============================================================
-function vehicleIcon(type) {
-  if (type === 'מונית')   return '🚕';
-  if (type === 'אוטובוס') return '🚌';
-  if (type === 'טיסה')    return '✈️';
+// ════════════════════════════════════════════════════════
+function vIcon(type) {
+  if (type==='מונית')   return '🚕';
+  if (type==='אוטובוס') return '🚌';
+  if (type==='טיסה')    return '✈️';
   return '🚗';
 }
 
-function statusLabel(status) {
-  const m = { pending: 'ממתין', accepted: 'אושר', declined: 'נדחה', completed: 'הושלם' };
-  return m[status] || status;
+function statusLabel(s) {
+  const m = { pending:'ממתין', accepted:'אושר', arrived_at_pickup:'הנהג הגיע', in_progress:'בנסיעה', completed:'הושלם', cancelled:'בוטל' };
+  return m[s] || s;
 }
 
-function escHtml(str) {
+function esc(str) {
   if (str == null) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ============================================================
+// ════════════════════════════════════════════════════════
 //  BOOT
-// ============================================================
+// ════════════════════════════════════════════════════════
 (function init() {
   const session = loadSession();
-  if (session) {
-    currentUser = session;
-    initAfterLogin();
-  }
+  if (session) { currentUser = session; initAfterLogin(); }
 })();
 </script>
 </body>
