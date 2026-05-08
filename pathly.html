@@ -47,14 +47,8 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Segoe UI',system-u
 }
 #nav-instr{font-size:13px;color:rgba(255,255,255,.5);margin-top:2px}
 
-/* ETA column — right of main row */
-#nav-eta-col{
-  display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;
-  border-right:1px solid rgba(255,255,255,.12);padding-right:14px;margin-right:2px;
-}
-#eta-time{font-size:26px;font-weight:900;color:#fff;line-height:1;letter-spacing:-.5px}
-#eta-dur{font-size:12px;color:rgba(255,255,255,.55);margin-top:3px;font-weight:600}
-#eta-rem{font-size:12px;color:rgba(255,255,255,.55);margin-top:1px;font-weight:600}
+/* ETA col hidden from top bar */
+#nav-eta-col{display:none}
 
 /* "And then" strip */
 #nav-next{
@@ -131,30 +125,31 @@ body.nav-on #top-left{top:auto;bottom:calc(90px + 20px)}
 .ri-addr{font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ri-load{padding:16px;text-align:center;color:#aaa;font-size:13px;font-weight:600}
 
-/* Nav stats mode */
+/* Nav stats mode — only ETA + stop */
 #nav-stats{
   display:none;
-  padding:14px 20px 22px;
-  align-items:center;justify-content:space-between;
-  gap:0;
+  padding:12px 20px 22px;
+  align-items:center;justify-content:center;
+  position:relative;
 }
 body.nav-on #search-wrap{display:none}
 body.nav-on #nav-stats{display:flex}
 
-#ns-eta{text-align:center}
-#ns-big{font-size:38px;font-weight:900;color:#111;line-height:1;letter-spacing:-1px}
-#ns-sub{font-size:13px;color:#888;margin-top:4px;font-weight:600}
-#ns-remain{text-align:center;font-size:22px;font-weight:800;color:#111}
-#ns-rlbl{font-size:11px;color:#bbb;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:3px;text-align:center}
+#ns-big{
+  font-size:52px;font-weight:900;color:#111;
+  line-height:1;letter-spacing:-2px;text-align:center;
+}
+#ns-sub{font-size:13px;color:#bbb;margin-top:4px;font-weight:600;text-align:center;letter-spacing:.5px;text-transform:uppercase}
 #ns-stop{
-  width:52px;height:52px;border-radius:50%;
+  position:absolute;left:20px;top:50%;transform:translateY(-50%);
+  width:48px;height:48px;border-radius:50%;
   background:#111;color:#fff;border:none;
-  font-size:18px;cursor:pointer;
+  font-size:17px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   flex-shrink:0;transition:all .15s;
 }
-#ns-stop:active{transform:scale(.88);background:#333}
-.ns-div{width:1px;height:40px;background:#eee;flex-shrink:0;margin:0 8px}
+#ns-stop:active{transform:translateY(-50%) scale(.88);background:#333}
+.ns-div{display:none}
 
 /* ══ SPEED BADGE (Waze style dark circle) ══ */
 #speed-badge{
@@ -349,18 +344,12 @@ body.night #cam-wrap{background:#2c2c2e}
     </div>
     <div id="sb-results"></div>
   </div>
-  <!-- Nav stats mode -->
+  <!-- Nav stats mode — ETA only -->
   <div id="nav-stats">
     <button id="ns-stop" onclick="stopNav()">✕</button>
-    <div class="ns-div"></div>
-    <div style="flex:1;text-align:center">
+    <div>
       <div id="ns-big">—</div>
-      <div id="ns-sub" style="font-size:13px;color:#888;margin-top:4px;font-weight:600">—</div>
-    </div>
-    <div class="ns-div"></div>
-    <div style="flex:1;text-align:center">
-      <div id="ns-remain" style="font-size:22px;font-weight:800;color:#111">—</div>
-      <div style="font-size:11px;color:#bbb;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:3px">נותר</div>
+      <div id="ns-sub">זמן הגעה</div>
     </div>
   </div>
 </div>
@@ -660,7 +649,6 @@ function startNav(route) {
     document.getElementById('eta-dur').textContent=fmtDur(remSec);
     document.getElementById('eta-time').textContent=calcEta(remSec);
     document.getElementById('ns-big').textContent=calcEta(remSec);
-    document.getElementById('ns-sub').textContent=fmtDur(remSec);
   },1000);
 }
 function stopNav() {
@@ -689,10 +677,8 @@ function updHUD() {
   document.getElementById('eta-dur').textContent=fmtDur(remSec);
   document.getElementById('eta-rem').textContent=fmtDistRemain();
 
-  // Bottom stats
+  // Bottom — ETA only
   document.getElementById('ns-big').textContent=calcEta(remSec);
-  document.getElementById('ns-sub').textContent=fmtDur(remSec);
-  document.getElementById('ns-remain').textContent=fmtDistRemain();
 
   // "And then" next step
   if (sIdx+1 < steps.length) {
