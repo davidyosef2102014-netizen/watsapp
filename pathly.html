@@ -262,18 +262,27 @@ body.nav-on #toast{top:auto;bottom:calc(88px + 90px)}
 /* ══ ARRIVED ══ */
 #arrived{
   position:fixed;inset:0;z-index:600;
-  background:rgba(255,255,255,.96);backdrop-filter:blur(12px);
+  background:rgba(255,255,255,.97);backdrop-filter:blur(14px);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
   opacity:0;pointer-events:none;transition:opacity .4s;
+  overflow:hidden;
 }
 #arrived.vis{opacity:1;pointer-events:auto}
-.av-emoji{font-size:80px;animation:pop .5s cubic-bezier(.34,1.56,.64,1)}
+.av-emoji{font-size:80px;animation:pop .5s cubic-bezier(.34,1.56,.64,1);position:relative;z-index:2}
 @keyframes pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
-.av-title{font-size:32px;font-weight:900;color:#111}
-.av-sub{font-size:15px;color:#888;text-align:center;max-width:260px}
-.av-btn{margin-top:8px;padding:14px 44px;background:#111;color:#fff;border:none;border-radius:30px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s}
+.av-title{font-size:32px;font-weight:900;color:#111;position:relative;z-index:2}
+.av-sub{font-size:15px;color:#888;text-align:center;max-width:260px;position:relative;z-index:2}
+.av-btn{margin-top:8px;padding:14px 44px;background:#111;color:#fff;border:none;border-radius:30px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s;position:relative;z-index:2}
 .av-btn:active{transform:scale(.95)}
-.av-conf{display:none}
+
+/* ── Black confetti ── */
+#conf-wrap{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+.cp{position:absolute;top:-12px;opacity:0;border-radius:2px}
+@keyframes cfFall{
+  0%{opacity:1;transform:translateY(0) rotate(0deg) scaleX(1)}
+  50%{opacity:1;scaleX(-1)}
+  100%{opacity:0;transform:translateY(105vh) rotate(540deg) scaleX(-1)}
+}
 
 /* ══ 3D BUTTON (shows only during nav) ══ */
 #tilt-btn{display:none}
@@ -448,10 +457,11 @@ body.night #cam-wrap{background:#2c2c2e}
 
 <!-- Arrived -->
 <div id="arrived">
+  <div id="conf-wrap"></div>
   <div class="av-emoji">🏁</div>
   <div class="av-title">הגעת!</div>
   <div class="av-sub" id="av-dest"></div>
-  <button class="av-btn" onclick="closeArrived()">סיים ניווט 🎉</button>
+  <button class="av-btn" onclick="closeArrived()">סיים ניווט</button>
 </div>
 
 <script>
@@ -527,25 +537,42 @@ function updateArrowColors() {
 }
 
 /* ── Voice ── */
+let heVoice = null;
+function loadVoices() {
+  if (!window.speechSynthesis) return;
+  const vs = window.speechSynthesis.getVoices();
+  heVoice = vs.find(v => v.lang === 'he-IL') ||
+            vs.find(v => v.lang.startsWith('he')) ||
+            vs.find(v => /hebrew|ivrit/i.test(v.name)) ||
+            null;
+}
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  loadVoices();
+}
 function toggleVoice() {
   voiceOn = !voiceOn;
   document.getElementById('voice-btn').textContent = voiceOn ? '🔊' : '🔇';
+  if (voiceOn) speak('קול מופעל');
 }
 function speak(text) {
   if (!voiceOn || !window.speechSynthesis) return;
+  // iOS fix: cancel any stuck utterance
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'he-IL';
-  u.rate = 0.92;
-  u.pitch = 1.05;
-  // Try to pick Hebrew voice
-  const voices = window.speechSynthesis.getVoices();
-  const heVoice = voices.find(v => v.lang.startsWith('he'));
+  u.rate = 0.9;
+  u.pitch = 1.0;
+  u.volume = 1.0;
   if (heVoice) u.voice = heVoice;
-  window.speechSynthesis.speak(u);
+  else {
+    // Retry voice load
+    loadVoices();
+    if (heVoice) u.voice = heVoice;
+  }
+  // iOS workaround: delay slightly after cancel
+  setTimeout(() => window.speechSynthesis.speak(u), 50);
 }
-// Pre-load voices
-if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = () => {};
 
 /* ── GPS ── */
 function startGPS() {
@@ -887,6 +914,9 @@ function startNav(route) {
   speak(`מסלול נמצא. ${dur}, ${dist}${trafficFactor>1.2 ? ', שים לב לפקקים' : ''}`);
   // Auto-enable 3D view
   if (!tilt3d) toggle3D();
+  // Keep screen on + allow background notifications
+  requestWakeLock();
+  requestNotifPerm();
   updHUD();
   clearInterval(etaIv);
   etaIv=setInterval(()=>{
@@ -907,8 +937,9 @@ function stopNav() {
   document.getElementById('sb-input').value='';
   document.getElementById('sb-clear').className='';
   document.getElementById('street-pill').classList.remove('vis');
-  // Exit 3D mode
+  // Exit 3D mode + release wake lock
   if (tilt3d) toggle3D();
+  releaseWakeLock();
 }
 async function doRecalc(){if(dPos){toast('מחשב מחדש…');await getRoute();}}
 
@@ -960,7 +991,9 @@ function syncDist(lat,lng) {
   // 200m advance warning
   if (!alerted200 && d2<200 && d2>30) {
     alerted200=true;
-    speak('בעוד 200 מטר — ' + heInstr(steps[sIdx]));
+    const warn200 = 'בעוד 200 מטר — ' + heInstr(steps[sIdx]);
+    speak(warn200);
+    navNotif('📍 200 מטר', heInstr(steps[sIdx]));
   }
 }
 
@@ -992,6 +1025,7 @@ function advStep(lat,lng) {
     sIdx++; alerted200=false;
     const nextInstr=heInstr(steps[sIdx]);
     speak(nextInstr);
+    navNotif('🧭 ' + nextInstr, steps[sIdx].name || '');
     updHUD();
     if(autoC) map.panTo([lat,lng]);
   }
@@ -1007,15 +1041,74 @@ function beepCam(kmh) {
   clearTimeout(camTm); camTm=setTimeout(()=>document.getElementById('cam-wrap').classList.remove('vis'),5000);
 }
 
+/* ── Notifications (background alerts) ── */
+async function requestNotifPerm() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+}
+function navNotif(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (document.visibilityState === 'visible') return; // only when app is hidden
+  try {
+    new Notification(title, {
+      body, icon: '/watsapp/pathly-icon.svg',
+      tag: 'pathly-nav', renotify: true, silent: false,
+    });
+  } catch(e) {}
+}
+
+/* ── Wake lock (keep screen on during navigation) ── */
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch(e) {}
+}
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release(); wakeLock = null; }
+}
+// Re-acquire wake lock if screen was unlocked
+document.addEventListener('visibilitychange', () => {
+  if (isNav && document.visibilityState === 'visible') requestWakeLock();
+});
+
+/* ── Black confetti ── */
+function launchConfetti() {
+  const wrap = document.getElementById('conf-wrap');
+  wrap.innerHTML = '';
+  const colors = ['#000','#111','#222','#444','#777','#999','#bbb','#fff'];
+  for (let i = 0; i < 90; i++) {
+    const el = document.createElement('div');
+    el.className = 'cp';
+    const size = 5 + Math.random() * 8;
+    const dur  = 1.6 + Math.random() * 2;
+    const delay = Math.random() * 0.9;
+    el.style.cssText = [
+      `left:${Math.random()*100}%`,
+      `width:${size}px`,
+      `height:${size * (Math.random()>.5 ? 1 : 2.5)}px`,
+      `background:${colors[Math.floor(Math.random()*colors.length)]}`,
+      `border-radius:${Math.random()>.6 ? '50%' : '2px'}`,
+      `animation:cfFall ${dur}s ease-in ${delay}s forwards`,
+      `transform:rotate(${Math.random()*360}deg)`,
+    ].join(';');
+    wrap.appendChild(el);
+  }
+}
+
 /* ── Arrived ── */
 function showArrived(){
-  document.getElementById('av-dest').textContent=dName;
+  document.getElementById('av-dest').textContent = dName;
   document.getElementById('arrived').classList.add('vis');
+  launchConfetti();
   speak('הגעת ליעד!');
-  makeConf();
+  navNotif('🏁 הגעת!', dName);
 }
 function closeArrived(){document.getElementById('arrived').classList.remove('vis');stopNav();}
-function makeConf(){}
 
 /* ── History ── */
 function getHist(){try{return JSON.parse(localStorage.getItem('pathly_h')||'[]');}catch(e){return[];}}
