@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bgo & BSHOP</title>
+<title>Bgo, BSHOP & NAV</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -98,15 +98,20 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#fff;h
     <span class="tab-icon">🛒</span>
     BSHOP
   </button>
+  <button class="tab-btn" id="tab-nav" onclick="switchTab('nav')">
+    <span class="tab-icon">🗺️</span>
+    NAV
+  </button>
 </nav>
 
 <!-- iframes -->
 <iframe class="tab-frame active" id="frame-taxi"  src="taxi_poninio.html"   title="מוניות"></iframe>
 <iframe class="tab-frame"        id="frame-market" src="market_poninio.html" title="חנות"></iframe>
+<iframe class="tab-frame"        id="frame-nav"    src="nav_bgo.html"         title="ניווט"></iframe>
 
 <script>
 function switchTab(name){
-  ['taxi','market'].forEach(t=>{
+  ['taxi','market','nav'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('active', t===name);
     document.getElementById('frame-'+t).classList.toggle('active', t===name);
   });
