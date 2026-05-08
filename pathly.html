@@ -19,9 +19,16 @@
 html,body{height:100%;width:100%;overflow:hidden;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;direction:rtl;-webkit-tap-highlight-color:transparent}
 
 /* ══ MAP ══ */
-#map{position:fixed;inset:0;z-index:1}
+#map{
+  position:fixed;inset:0;z-index:1;
+  transform-origin:50% 72%;
+  transition:transform .6s cubic-bezier(.4,0,.2,1);
+}
+/* 3D tilt mode — Waze style perspective */
+#map.tilt3d{
+  transform:perspective(900px) rotateX(44deg) scale(1.65) translateY(-13%);
+}
 .leaflet-control-zoom{display:none!important}
-/* Light map tiles look like Waze */
 
 /* ══ TOP NAV HUD (Waze style) ══ */
 #nav-hud{
@@ -268,6 +275,23 @@ body.nav-on #toast{top:auto;bottom:calc(88px + 90px)}
 .av-btn:active{transform:scale(.95)}
 .av-conf{display:none}
 
+/* ══ 3D BUTTON (shows only during nav) ══ */
+#tilt-btn{display:none}
+body.nav-on #tilt-btn{display:flex}
+#tilt-btn.active{background:#111;color:#fff}
+
+/* ══ TRAFFIC BADGE ══ */
+#traffic-badge{
+  position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:150;
+  background:#ef4444;color:#fff;
+  padding:5px 14px;border-radius:20px;
+  font-size:12px;font-weight:800;white-space:nowrap;
+  box-shadow:0 2px 10px rgba(239,68,68,.35);
+  display:none;pointer-events:none;
+}
+#traffic-badge.vis{display:block}
+body.nav-on #traffic-badge{top:auto;bottom:calc(88px + 14px)}
+
 /* ══ NIGHT MODE ══ */
 body.night #bottom-bar{background:#1c1c1e}
 body.night #sb-row{background:#2c2c2e}
@@ -339,12 +363,16 @@ body.night #cam-wrap{background:#2c2c2e}
 <!-- GPS pill -->
 <div id="gps-pill"><div id="gps-dot"></div><span id="gps-txt">מחפש GPS…</span></div>
 
-<!-- Top-left controls -->
+<!-- Top-right controls -->
 <div id="top-left">
   <button class="ic" id="night-btn" onclick="toggleNight()">🌙</button>
   <button class="ic" id="voice-btn" onclick="toggleVoice()" title="קול">🔊</button>
   <button class="ic" id="comp-btn" title="מצפן">🧭</button>
+  <button class="ic" id="tilt-btn" onclick="toggle3D()" title="תלת מימד">3D</button>
 </div>
+
+<!-- Traffic badge -->
+<div id="traffic-badge">🚦 פקקים</div>
 
 <!-- Waze-style top HUD (hidden until navigating) -->
 <div id="nav-hud">
@@ -456,6 +484,7 @@ let camTm = null, lastCam = 0;
 let voiceOn = true;
 let alerted200 = false; // for 200m warning
 let tapMark = null, lastHeading = 0;
+let tilt3d = false, trafficFactor = 1.0;
 
 /* ── Init ── */
 document.addEventListener('DOMContentLoaded', () => {
@@ -486,8 +515,8 @@ function toggleNight() {
   updateArrowColors();
   if (tile) map.removeLayer(tile);
   tile = mkTile(); tile.bringToBack();
-  // Route line color
-  routeLines.forEach(l => l.setStyle({ color: night ? '#fff' : '#111' }));
+  // Route line color — Waze purple (lighter in night mode)
+  routeLines.forEach(l => l.setStyle({ color: night ? '#a78bfa' : '#7c3aed' }));
 }
 function updateArrowColors() {
   const c = night ? '#111' : '#fff';
@@ -804,24 +833,61 @@ async function getRoute() {
 }
 function applyRoute(route) {
   clearRoute();
-  remSec=route.duration; steps=route.legs[0].steps; sIdx=0; alerted200=false;
+  trafficFactor = getTrafficFactor();
+  remSec = route.duration * trafficFactor;
+  steps=route.legs[0].steps; sIdx=0; alerted200=false;
   const coords=route.geometry.coordinates.map(c=>[c[1],c[0]]);
-  const rc=night?'#fff':'#111';
-  const g=L.polyline(coords,{color:rc,weight:14,opacity:.1,lineCap:'round',lineJoin:'round'}).addTo(map);
-  const m=L.polyline(coords,{color:rc,weight:5.5,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(map);
+  // Waze-style purple route
+  const rc = night ? '#a78bfa' : '#7c3aed';
+  const g=L.polyline(coords,{color:rc,weight:18,opacity:.18,lineCap:'round',lineJoin:'round'}).addTo(map);
+  const m=L.polyline(coords,{color:rc,weight:6,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(map);
   routeLines=[g,m];
   map.fitBounds(L.featureGroup([g]).getBounds(),{padding:[80,80]});
   startNav(route);
 }
 function clearRoute(){routeLines.forEach(l=>map.removeLayer(l));routeLines=[];}
+/* ── Traffic ── */
+function getTrafficFactor() {
+  const h = new Date().getHours(), d = new Date().getDay();
+  const isWeekend = (d === 5 || d === 6); // Fri/Sat in Israel
+  if (isWeekend) return 1.0;
+  // Israeli rush hours: Sun-Thu 7-9am and 16:30-19:30
+  if ((h >= 7 && h < 9) || (h >= 16 && h < 20)) return 1.5;
+  if ((h >= 9 && h < 11) || (h >= 15 && h < 16) || (h >= 20 && h < 22)) return 1.2;
+  return 1.0;
+}
+function trafficLabel(tf) {
+  if (tf >= 1.45) return '🚦 פקק כבד';
+  if (tf >= 1.2)  return '🚦 עומס בינוני';
+  return '';
+}
+
+/* ── 3D tilt ── */
+function toggle3D() {
+  tilt3d = !tilt3d;
+  document.getElementById('map').classList.toggle('tilt3d', tilt3d);
+  const btn = document.getElementById('tilt-btn');
+  btn.textContent = tilt3d ? '2D' : '3D';
+  btn.classList.toggle('active', tilt3d);
+  // After tilt, resize map so tiles fill correctly
+  setTimeout(() => map.invalidateSize(), 650);
+}
+
 function startNav(route) {
   isNav=true; autoC=true;
   document.getElementById('nav-hud').classList.add('vis');
   document.getElementById('recalc-btn').classList.add('vis');
   document.body.classList.add('nav-on');
-  const dist=fmt(route.distance), dur=fmtDur(route.duration);
-  toast(`✓ ${dist} · ${dur}`);
-  speak(`מסלול נמצא. ${fmtDur(route.duration)}, ${fmt(route.distance)}`);
+  const dist=fmt(route.distance), dur=fmtDur(remSec);
+  const tLabel = trafficLabel(trafficFactor);
+  if (tLabel) {
+    document.getElementById('traffic-badge').textContent = tLabel;
+    document.getElementById('traffic-badge').classList.add('vis');
+  }
+  toast(`✓ ${dist} · ${dur}${tLabel ? ' '+tLabel : ''}`);
+  speak(`מסלול נמצא. ${dur}, ${dist}${trafficFactor>1.2 ? ', שים לב לפקקים' : ''}`);
+  // Auto-enable 3D view
+  if (!tilt3d) toggle3D();
   updHUD();
   clearInterval(etaIv);
   etaIv=setInterval(()=>{
@@ -837,10 +903,13 @@ function stopNav() {
   if(destMark){map.removeLayer(destMark);destMark=null;} dPos=null; steps=[]; sIdx=0;
   document.getElementById('nav-hud').classList.remove('vis');
   document.getElementById('recalc-btn').classList.remove('vis');
+  document.getElementById('traffic-badge').classList.remove('vis');
   document.body.classList.remove('nav-on');
   document.getElementById('sb-input').value='';
   document.getElementById('sb-clear').className='';
   document.getElementById('street-pill').classList.remove('vis');
+  // Exit 3D mode
+  if (tilt3d) toggle3D();
 }
 async function doRecalc(){if(dPos){toast('מחשב מחדש…');await getRoute();}}
 
