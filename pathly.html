@@ -515,8 +515,7 @@ function toggleNight() {
   updateArrowColors();
   if (tile) map.removeLayer(tile);
   tile = mkTile(); tile.bringToBack();
-  // Route line color — Waze purple (lighter in night mode)
-  routeLines.forEach(l => l.setStyle({ color: night ? '#a78bfa' : '#7c3aed' }));
+  routeLines.forEach(l => l.setStyle({ color: night ? '#fff' : '#111' }));
 }
 function updateArrowColors() {
   const c = night ? '#111' : '#fff';
@@ -837,8 +836,8 @@ function applyRoute(route) {
   remSec = route.duration * trafficFactor;
   steps=route.legs[0].steps; sIdx=0; alerted200=false;
   const coords=route.geometry.coordinates.map(c=>[c[1],c[0]]);
-  // Waze-style purple route
-  const rc = night ? '#a78bfa' : '#7c3aed';
+  // Black route line (brand style)
+  const rc = night ? '#fff' : '#111';
   const g=L.polyline(coords,{color:rc,weight:18,opacity:.18,lineCap:'round',lineJoin:'round'}).addTo(map);
   const m=L.polyline(coords,{color:rc,weight:6,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(map);
   routeLines=[g,m];
