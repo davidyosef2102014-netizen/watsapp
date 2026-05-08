@@ -1,0 +1,28 @@
+{
+  "name": "Pathly — ניווט חכם",
+  "short_name": "Pathly",
+  "description": "ניווט GPS בישראל עם הוראות קוליות בעברית",
+  "start_url": "/watsapp/pathly.html",
+  "scope": "/watsapp/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "lang": "he",
+  "dir": "rtl",
+  "categories": ["navigation", "travel"],
+  "icons": [
+    {
+      "src": "pathly-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "pathly-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
