@@ -3,339 +3,292 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BIRGSOL TAXI</title>
+<title>Bgo</title>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 :root {
-  --bg:      #0a0a0a;
-  --card:    #1c1c1e;
-  --card2:   #2c2c2e;
-  --accent:  #22c55e;
-  --accent2: #16a34a;
-  --red:     #ef4444;
-  --yellow:  #f59e0b;
-  --text:    #fff;
-  --muted:   #8e8e93;
-  --border:  #3a3a3c;
-  --r:       14px;
-  --sh:      0 4px 24px rgba(0,0,0,.5);
+  --bg:#0a0a0a; --card:#1c1c1e; --card2:#2c2c2e;
+  --accent:#22c55e; --accent2:#16a34a; --red:#ef4444;
+  --yellow:#f59e0b; --text:#fff; --muted:#8e8e93;
+  --border:#3a3a3c; --r:14px; --sh:0 4px 24px rgba(0,0,0,.5);
 }
-
-html, body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  min-height: 100vh;
-  direction: rtl;
-  font-size: 15px;
-}
-
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+html,body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; height:100vh; overflow:hidden; direction:rtl; font-size:15px; }
+::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:var(--bg)} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
 /* ── HEADER ── */
 #app-header {
-  position: sticky; top: 0; z-index: 200;
-  background: #000;
-  height: 56px;
-  display: flex; align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 16px rgba(0,0,0,.6);
+  position:fixed; top:0; left:0; right:0; z-index:400;
+  background:#000; height:52px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px; border-bottom:1px solid var(--border);
 }
-.header-logo {
-  font-size: 19px; font-weight: 900; letter-spacing: -0.5px;
-}
-.header-logo .green { color: var(--accent); }
-
+.header-logo { font-size:24px; font-weight:900; letter-spacing:-1px; }
+.header-logo span { color:var(--accent); }
 #conn-pill {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11px; font-weight: 700;
-  padding: 4px 10px; border-radius: 20px;
-  background: var(--card2); border: 1px solid var(--border);
+  display:flex; align-items:center; gap:6px;
+  font-size:11px; font-weight:700; padding:4px 10px;
+  border-radius:20px; background:var(--card2); border:1px solid var(--border);
 }
-.conn-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--red); transition: background .3s;
-}
-.conn-dot.connected   { background: var(--accent); }
-.conn-dot.connecting  { background: var(--yellow); animation: blink 1s infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
-
-/* ── SCREENS ── */
-.screen { display: none; padding: 14px 14px 80px; max-width: 480px; margin: 0 auto; }
-.screen.active { display: block; }
-#screen-auth { min-height: calc(100vh - 56px); display: none; flex-direction: column; justify-content: center; padding-bottom: 32px; }
-#screen-auth.active { display: flex; }
+.conn-dot { width:8px; height:8px; border-radius:50%; background:var(--red); transition:background .3s; }
+.conn-dot.connected  { background:var(--accent); }
+.conn-dot.connecting { background:var(--yellow); animation:blink 1s infinite; }
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* ── BOTTOM NAV ── */
 #bottom-nav {
-  display: none; position: fixed; bottom: 0; left: 0; right: 0;
-  background: #000; border-top: 1px solid var(--border);
-  height: 60px; z-index: 150;
+  display:none; position:fixed; bottom:0; left:0; right:0;
+  background:rgba(0,0,0,.95); border-top:1px solid var(--border);
+  height:60px; z-index:400; backdrop-filter:blur(10px);
 }
-#bottom-nav.visible { display: flex; }
+#bottom-nav.visible { display:flex; }
 .bnav-item {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 2px; font-size: 10px; color: var(--muted);
-  cursor: pointer; background: none; border: none; font-family: inherit;
-  transition: color .2s;
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:2px; font-size:10px; color:var(--muted);
+  cursor:pointer; background:none; border:none; font-family:inherit; transition:color .2s;
 }
-.bnav-item.active { color: var(--accent); }
-.bnav-item .bi { font-size: 21px; line-height: 1; }
+.bnav-item.active { color:var(--accent); }
+.bnav-item .bi { font-size:21px; line-height:1; }
 
-/* ── CARDS ── */
-.card {
-  background: var(--card); border-radius: var(--r);
-  border: 1px solid var(--border); padding: 16px;
-  margin-bottom: 12px; box-shadow: var(--sh);
+/* ── SCREENS ── */
+.screen { display:none; position:fixed; top:52px; left:0; right:0; bottom:60px; overflow-y:auto; }
+.screen.active { display:block; }
+#screen-auth { display:none; flex-direction:column; justify-content:center; align-items:center; padding:20px; overflow-y:auto; }
+#screen-auth.active { display:flex; }
+
+/* ══════════════════════════════════════════
+   PASSENGER — UBER FULL-SCREEN MAP LAYOUT
+   ══════════════════════════════════════════ */
+#screen-passenger {
+  display:none; overflow:hidden;
 }
-.card-label {
-  font-size: 11px; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
+#screen-passenger.active { display:block; }
+
+/* Map fills the entire passenger screen */
+#bgo-map {
+  position:absolute; inset:0; z-index:1;
+  width:100%; height:100%;
 }
 
-/* ── FORMS ── */
-.fg { margin-bottom: 14px; }
-.fg label { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 5px; }
-.fg input, .fg select, .fg textarea {
-  width: 100%; background: var(--card2); border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text); padding: 11px 13px;
-  font-size: 15px; font-family: inherit; direction: rtl; outline: none;
-  transition: border-color .2s;
+/* Leaflet overrides for dark popup */
+.leaflet-popup-content-wrapper {
+  background:#1c1c1e !important; color:#fff !important;
+  border:1px solid #3a3a3c !important; border-radius:14px !important;
+  box-shadow:0 6px 24px rgba(0,0,0,.7) !important;
+  font-family:'Segoe UI',system-ui,sans-serif !important;
+  min-width:160px;
 }
-.fg input:focus, .fg select:focus { border-color: var(--accent); }
-.fg select option { background: var(--card2); }
+.leaflet-popup-tip-container { display:none !important; }
+.leaflet-popup-close-button { color:#8e8e93 !important; font-size:18px !important; top:8px !important; right:8px !important; }
+.leaflet-control-attribution { background:rgba(0,0,0,.5) !important; color:rgba(255,255,255,.4) !important; font-size:9px !important; }
+.leaflet-control-attribution a { color:rgba(255,255,255,.5) !important; }
+.leaflet-control-zoom a { background:#1c1c1e !important; color:#fff !important; border-color:#3a3a3c !important; }
+.leaflet-control-zoom a:hover { background:#2c2c2e !important; }
 
-/* ── BUTTONS ── */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  padding: 13px 20px; border-radius: 12px; font-size: 15px; font-weight: 700;
-  cursor: pointer; border: none; transition: all .2s; font-family: inherit; width: 100%;
+/* Filter pills — float at top of map */
+#map-filter-bar {
+  position:absolute; top:10px; right:0; left:0; z-index:10;
+  display:flex; gap:6px; padding:0 14px;
+  overflow-x:auto; scrollbar-width:none;
 }
-.btn-green  { background: var(--accent); color: #000; }
-.btn-green:hover { background: var(--accent2); }
-.btn-red    { background: var(--red); color: #fff; }
-.btn-red:hover { background: #dc2626; }
-.btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
-.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-.btn-sm { padding: 8px 13px; font-size: 13px; border-radius: 8px; width: auto; }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn-yellow { background: var(--yellow); color: #000; }
-.btn-yellow:hover { background: #d97706; }
+#map-filter-bar::-webkit-scrollbar { display:none; }
+.mf-pill {
+  flex-shrink:0; padding:7px 14px; border-radius:20px; border:none;
+  background:rgba(28,28,30,.92); border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.7); font-size:13px; font-weight:700;
+  cursor:pointer; font-family:inherit; transition:all .2s;
+  backdrop-filter:blur(8px);
+}
+.mf-pill.active { background:var(--accent); color:#000; border-color:var(--accent); }
 
-/* ── BIG TOGGLE ── */
-.avail-toggle {
-  width: 100%; height: 74px; border-radius: 16px;
-  font-size: 22px; font-weight: 800; border: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-  margin-bottom: 14px; transition: all .3s;
+/* GPS / locate-me button */
+#locate-me-btn {
+  position:absolute; z-index:10;
+  right:14px;
+  width:46px; height:46px; border-radius:50%;
+  background:rgba(28,28,30,.95); border:1px solid rgba(255,255,255,.1);
+  font-size:22px; cursor:pointer;
+  box-shadow:0 3px 16px rgba(0,0,0,.5);
+  display:flex; align-items:center; justify-content:center;
+  transition:all .2s; backdrop-filter:blur(8px);
 }
-.avail-toggle.on  { background: var(--accent); color: #000; box-shadow: 0 6px 20px rgba(34,197,94,.35); }
-.avail-toggle.off { background: var(--card2); color: var(--muted); border: 2px solid var(--border); }
-
-/* ── VEHICLE TYPE SELECTOR ── */
-.vtype-row { display: flex; gap: 8px; margin-bottom: 14px; }
-.vtype-btn {
-  flex: 1; padding: 12px 6px; border-radius: 10px;
-  border: 2px solid var(--border); background: var(--card2);
-  color: var(--muted); cursor: pointer; text-align: center;
-  font-size: 12px; font-weight: 700; transition: all .2s; font-family: inherit;
-}
-.vtype-btn .ve { display: block; font-size: 24px; margin-bottom: 3px; }
-.vtype-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(34,197,94,.08); }
-
-/* ── AUTH ── */
-.auth-wrap { max-width: 400px; width: 100%; margin: 0 auto; }
-.auth-hero { text-align: center; margin-bottom: 28px; }
-.auth-hero .big-emoji { font-size: 70px; display: block; }
-.auth-hero h1 { font-size: 28px; font-weight: 900; margin-top: 10px; }
-.auth-hero h1 .green { color: var(--accent); }
-.auth-hero p { color: var(--muted); font-size: 14px; margin-top: 5px; }
-.auth-tabs {
-  display: flex; background: var(--card2); border-radius: 12px;
-  padding: 4px; margin-bottom: 18px;
-}
-.auth-tab {
-  flex: 1; padding: 10px; border-radius: 9px; border: none;
-  background: transparent; color: var(--muted); font-size: 15px;
-  font-weight: 700; cursor: pointer; transition: all .2s; font-family: inherit;
-}
-.auth-tab.active { background: var(--accent); color: #000; }
-.role-row { display: flex; gap: 10px; }
-.role-btn {
-  flex: 1; padding: 14px 10px; border-radius: 12px;
-  border: 2px solid var(--border); background: var(--card2);
-  color: var(--muted); font-size: 14px; font-weight: 700;
-  cursor: pointer; text-align: center; transition: all .2s; font-family: inherit;
-}
-.role-btn .ri { display: block; font-size: 28px; margin-bottom: 6px; }
-.role-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(34,197,94,.08); }
-
-/* ── USER HEADER BAR ── */
-.user-hdr {
-  display: flex; align-items: center; gap: 12px;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 13px; margin-bottom: 14px;
-}
-.uavatar {
-  width: 46px; height: 46px; border-radius: 50%;
-  background: rgba(34,197,94,.12); display: flex;
-  align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;
-}
-.uname { font-size: 16px; font-weight: 700; }
-.urole { font-size: 12px; color: var(--muted); background: var(--card2); padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 3px; }
-.logout-btn {
-  margin-right: auto; padding: 7px 13px; border-radius: 8px;
-  border: 1px solid var(--border); background: transparent;
-  color: var(--muted); font-size: 13px; cursor: pointer; font-family: inherit; transition: all .2s;
-}
-.logout-btn:hover { border-color: var(--red); color: var(--red); }
-
-/* ── SECTION TITLE ── */
-.section-title { font-size: 18px; font-weight: 800; margin-bottom: 12px; }
-.sub-title { font-size: 14px; font-weight: 700; color: var(--muted); margin-bottom: 10px; }
-
-/* ── DRIVER CARDS ── */
-.driver-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 14px; margin-bottom: 10px;
-  cursor: pointer; transition: all .2s; display: flex; gap: 12px;
-  align-items: flex-start;
-}
-.driver-card:hover { border-color: var(--accent); transform: translateY(-1px); }
-.driver-card .vic { font-size: 38px; width: 52px; height: 52px; background: var(--card2); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.driver-card .dinfo { flex: 1; }
-.driver-card .dname-row { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
-.driver-card .dname { font-size: 16px; font-weight: 700; }
-.avail-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 5px rgba(34,197,94,.5); }
-.driver-card .dloc { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.price-chip { display: inline-flex; align-items: center; gap: 3px; background: rgba(34,197,94,.12); color: var(--accent); font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
-.vtype-chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: var(--card2); color: var(--muted); border: 1px solid var(--border); margin-right: 5px; }
-.dest-chip { display: inline-flex; align-items: center; gap: 3px; background: rgba(245,158,11,.12); color: var(--yellow); font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; margin-right: 5px; }
-
-/* ── FILTER TABS ── */
-.filter-tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
-.filter-tabs::-webkit-scrollbar { display: none; }
-.ftab {
-  flex-shrink: 0; padding: 7px 14px; border-radius: 20px;
-  border: 1px solid var(--border); background: var(--card2);
-  color: var(--muted); font-size: 13px; font-weight: 700;
-  cursor: pointer; transition: all .2s; font-family: inherit;
-}
-.ftab.active { background: var(--accent); color: #000; border-color: var(--accent); }
-
-/* ── ACTIVE RIDE BAR ── */
-.ride-bar {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 14px; margin-bottom: 12px;
-  display: flex; align-items: center; gap: 12px;
-}
-.ride-bar .rb-icon { font-size: 30px; flex-shrink: 0; }
-.ride-bar .rb-info { flex: 1; }
-.ride-bar .rb-title { font-size: 15px; font-weight: 700; }
-.ride-bar .rb-sub { font-size: 13px; color: var(--muted); }
-
-/* ── RIDE REQUEST CARD ── */
-.req-card {
-  background: var(--card2); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 14px; margin-bottom: 10px;
-}
-.req-card .req-hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 9px; }
-.req-card .rpassenger { font-size: 15px; font-weight: 700; }
-.req-card .route { font-size: 13px; color: var(--muted); margin-bottom: 5px; }
-.req-card .route b { color: var(--text); }
-.req-card .req-actions { display: flex; gap: 8px; margin-top: 10px; }
-
-/* ── STATUS BADGE ── */
-.sbadge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-.sbadge.pending  { background: rgba(245,158,11,.15); color: var(--yellow); }
-.sbadge.accepted { background: rgba(34,197,94,.15);  color: var(--accent); }
-.sbadge.arrived_at_pickup { background: rgba(34,197,94,.2); color: var(--accent); }
-.sbadge.in_progress { background: rgba(34,197,94,.1); color: var(--accent); }
-.sbadge.completed { background: rgba(100,116,139,.15); color: var(--muted); }
-.sbadge.cancelled { background: rgba(239,68,68,.15); color: var(--red); }
+#locate-me-btn:hover { background:var(--accent); border-color:var(--accent); }
+#locate-me-btn.locating { animation:pulse-gps 1.2s infinite; }
+@keyframes pulse-gps{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 12px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
 
 /* ── BOTTOM SHEET ── */
-.modal-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.65); z-index: 300;
-  align-items: flex-end; justify-content: center;
+#pax-sheet {
+  position:absolute; bottom:0; left:0; right:0; z-index:10;
+  background:var(--card); border-radius:20px 20px 0 0;
+  height:42vh; overflow-y:auto;
+  box-shadow:0 -6px 30px rgba(0,0,0,.6);
+  transition:height .3s ease;
 }
-.modal-overlay.center { align-items: center; }
-.modal-overlay.visible { display: flex; }
-.bottom-sheet {
-  background: var(--card); border-radius: 20px 20px 0 0;
-  padding: 20px 16px 34px; width: 100%; max-width: 480px;
-  max-height: 90vh; overflow-y: auto;
-  animation: slideUp .3s ease;
+#pax-sheet.expanded { height:72vh; }
+.sheet-drag-handle {
+  width:40px; height:4px; background:var(--border); border-radius:2px;
+  margin:10px auto 12px; cursor:pointer; flex-shrink:0;
 }
-.center-sheet {
-  background: var(--card); border-radius: 20px;
-  padding: 24px 20px; width: calc(100% - 32px); max-width: 400px;
-  max-height: 90vh; overflow-y: auto; animation: fadeIn .2s ease;
-}
-@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-@keyframes fadeIn  { from { opacity:0; transform:scale(.95); } to { opacity:1; transform:scale(1); } }
-.sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
-.sheet-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+#pax-sheet-inner { padding:0 14px 20px; }
 
-/* ── RECEIPT ── */
-.receipt { background: var(--card2); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-.rcpt-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
-.rcpt-row:last-child { border-bottom: none; }
-.rcpt-row .rl { color: var(--muted); }
-.rcpt-row .rv { font-weight: 700; }
-.rcpt-row.total .rv { color: var(--accent); font-size: 18px; }
+/* Active ride bar inside sheet */
+.ride-bar {
+  background:var(--card2); border:1px solid var(--border);
+  border-radius:12px; padding:12px; margin-bottom:10px;
+  display:flex; align-items:center; gap:12px;
+}
+.ride-bar .rb-icon { font-size:26px; flex-shrink:0; }
+.ride-bar .rb-info { flex:1; }
+.ride-bar .rb-title { font-size:14px; font-weight:700; }
+.ride-bar .rb-sub { font-size:12px; color:var(--muted); }
+
+/* Driver cards */
+.driver-card {
+  background:var(--card2); border:1px solid var(--border);
+  border-radius:12px; padding:12px; margin-bottom:8px;
+  cursor:pointer; transition:all .2s; display:flex; gap:12px; align-items:center;
+}
+.driver-card:hover,.driver-card:active { border-color:var(--accent); background:rgba(34,197,94,.05); }
+.driver-card .vic { font-size:30px; width:48px; height:48px; background:var(--card); border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.driver-card .dinfo { flex:1; min-width:0; }
+.dname-row { display:flex; align-items:center; gap:6px; margin-bottom:2px; }
+.dname { font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.avail-dot { width:7px; height:7px; border-radius:50%; background:var(--accent); flex-shrink:0; }
+.dloc { font-size:12px; color:var(--muted); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.price-chip { display:inline-flex; align-items:center; background:rgba(34,197,94,.12); color:var(--accent); font-size:13px; font-weight:800; padding:2px 8px; border-radius:6px; }
+.vtype-chip { display:inline-block; font-size:11px; font-weight:700; padding:2px 7px; border-radius:20px; background:var(--card); color:var(--muted); border:1px solid var(--border); }
+
+/* ── SECTION TITLE ── */
+.section-title { font-size:14px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; }
+
+/* ── DRIVER / HISTORY / PROFILE SCREENS ── */
+#screen-driver,#screen-history,#screen-profile { padding:14px 14px 10px; }
+
+/* ── CARDS ── */
+.card { background:var(--card); border-radius:var(--r); border:1px solid var(--border); padding:16px; margin-bottom:12px; box-shadow:var(--sh); }
+.card-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; }
+
+/* ── FORMS ── */
+.fg { margin-bottom:14px; }
+.fg label { display:block; font-size:13px; color:var(--muted); font-weight:600; margin-bottom:5px; }
+.fg input,.fg select { width:100%; background:var(--card2); border:1px solid var(--border); border-radius:10px; color:var(--text); padding:11px 13px; font-size:15px; font-family:inherit; direction:rtl; outline:none; transition:border-color .2s; }
+.fg input:focus,.fg select:focus { border-color:var(--accent); }
+
+/* ── BUTTONS ── */
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:13px 20px; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; border:none; transition:all .2s; font-family:inherit; width:100%; }
+.btn-green  { background:var(--accent); color:#000; }
+.btn-green:hover  { background:var(--accent2); }
+.btn-red    { background:var(--red); color:#fff; }
+.btn-red:hover    { background:#dc2626; }
+.btn-outline { background:transparent; color:var(--text); border:1px solid var(--border); }
+.btn-outline:hover { border-color:var(--accent); color:var(--accent); }
+.btn-teal   { background:#14b8a6; color:#fff; }
+.btn-teal:hover   { background:#0d9488; }
+.btn-sm { padding:8px 13px; font-size:13px; border-radius:8px; width:auto; }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+
+/* ── BIG TOGGLE ── */
+.avail-toggle { width:100%; height:70px; border-radius:16px; font-size:20px; font-weight:800; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:14px; transition:all .3s; }
+.avail-toggle.on  { background:var(--accent); color:#000; box-shadow:0 6px 20px rgba(34,197,94,.35); }
+.avail-toggle.off { background:var(--card2); color:var(--muted); border:2px solid var(--border); }
+
+/* ── VEHICLE SELECTOR ── */
+.vtype-row { display:flex; gap:8px; margin-bottom:14px; }
+.vtype-btn { flex:1; padding:10px 6px; border-radius:10px; border:2px solid var(--border); background:var(--card2); color:var(--muted); cursor:pointer; text-align:center; font-size:12px; font-weight:700; transition:all .2s; font-family:inherit; }
+.vtype-btn .ve { display:block; font-size:22px; margin-bottom:3px; }
+.vtype-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(34,197,94,.08); }
+
+/* ── AUTH ── */
+.auth-wrap { max-width:400px; width:100%; }
+.auth-hero { text-align:center; margin-bottom:24px; }
+.auth-hero .big-emoji { font-size:64px; display:block; }
+.auth-hero h1 { font-size:38px; font-weight:900; letter-spacing:-2px; margin-top:8px; }
+.auth-hero h1 span { color:var(--accent); }
+.auth-hero p { color:var(--muted); font-size:14px; margin-top:4px; }
+.auth-tabs { display:flex; background:var(--card2); border-radius:12px; padding:4px; margin-bottom:18px; }
+.auth-tab { flex:1; padding:10px; border-radius:9px; border:none; background:transparent; color:var(--muted); font-size:15px; font-weight:700; cursor:pointer; transition:all .2s; font-family:inherit; }
+.auth-tab.active { background:var(--accent); color:#000; }
+.role-row { display:flex; gap:10px; }
+.role-btn { flex:1; padding:13px 10px; border-radius:12px; border:2px solid var(--border); background:var(--card2); color:var(--muted); font-size:14px; font-weight:700; cursor:pointer; text-align:center; transition:all .2s; font-family:inherit; }
+.role-btn .ri { display:block; font-size:26px; margin-bottom:5px; }
+.role-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(34,197,94,.08); }
+
+/* ── USER HDR ── */
+.user-hdr { display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:13px; margin-bottom:14px; }
+.uavatar { width:44px; height:44px; border-radius:50%; background:rgba(34,197,94,.12); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+.uname { font-size:16px; font-weight:700; }
+.urole { font-size:12px; color:var(--muted); background:var(--card2); padding:2px 8px; border-radius:20px; display:inline-block; margin-top:3px; }
+.logout-btn { margin-right:auto; padding:7px 13px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:13px; cursor:pointer; font-family:inherit; transition:all .2s; }
+.logout-btn:hover { border-color:var(--red); color:var(--red); }
+
+/* ── REQ CARD ── */
+.req-card { background:var(--card2); border:1px solid var(--border); border-radius:var(--r); padding:14px; margin-bottom:10px; }
+.req-card .req-hdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+.req-card .rpassenger { font-size:15px; font-weight:700; }
+.req-card .route { font-size:13px; color:var(--muted); margin-bottom:4px; }
+.req-card .route b { color:var(--text); }
+.req-card .req-actions { display:flex; gap:8px; margin-top:10px; }
+
+/* ── STATUS BADGE ── */
+.sbadge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; }
+.sbadge.pending            { background:rgba(245,158,11,.15); color:var(--yellow); }
+.sbadge.accepted           { background:rgba(34,197,94,.15);  color:var(--accent); }
+.sbadge.arrived_at_pickup  { background:rgba(34,197,94,.2);   color:var(--accent); }
+.sbadge.in_progress        { background:rgba(34,197,94,.1);   color:var(--accent); }
+.sbadge.completed          { background:rgba(100,116,139,.15);color:var(--muted);  }
+.sbadge.cancelled          { background:rgba(239,68,68,.15);  color:var(--red);    }
+
+/* ── MODALS ── */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:500; align-items:flex-end; justify-content:center; }
+.modal-overlay.center { align-items:center; }
+.modal-overlay.visible { display:flex; }
+.bottom-sheet { background:var(--card); border-radius:20px 20px 0 0; padding:20px 16px 34px; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; animation:slideUp .3s ease; }
+.center-sheet { background:var(--card); border-radius:20px; padding:24px 20px; width:calc(100% - 32px); max-width:400px; max-height:90vh; overflow-y:auto; animation:fadeIn .2s ease; }
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes fadeIn {from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.sheet-handle { width:40px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 16px; }
+.sheet-title { font-size:18px; font-weight:800; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+.rcpt-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:14px; }
+.rcpt-row:last-child { border-bottom:none; }
+.rcpt-row .rl { color:var(--muted); }
+.rcpt-row .rv { font-weight:700; }
+.rcpt-row.total .rv { color:var(--accent); font-size:18px; }
+.receipt { background:var(--card2); border-radius:12px; padding:16px; margin-bottom:14px; }
 
 /* ── STATS ── */
-.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-.stat-box { background: var(--card2); border-radius: 12px; padding: 14px; border: 1px solid var(--border); text-align: center; }
-.stat-box .sv { font-size: 22px; font-weight: 800; color: var(--accent); }
-.stat-box .sl { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+.stat-box { background:var(--card2); border-radius:12px; padding:14px; border:1px solid var(--border); text-align:center; }
+.stat-box .sv { font-size:22px; font-weight:800; color:var(--accent); }
+.stat-box .sl { font-size:12px; color:var(--muted); margin-top:3px; }
 
 /* ── TOAST ── */
-#toast-cont {
-  position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
-  z-index: 999; display: flex; flex-direction: column; gap: 8px;
-  pointer-events: none; min-width: 250px; max-width: calc(100vw - 28px);
-}
-.toast {
-  background: var(--card2); border: 1px solid var(--border);
-  color: var(--text); padding: 11px 16px; border-radius: 12px;
-  font-size: 14px; text-align: center; animation: tin .3s ease;
-  box-shadow: 0 4px 20px rgba(0,0,0,.5);
-}
-.toast.success { border-color: var(--accent); background: rgba(34,197,94,.12); }
-.toast.error   { border-color: var(--red);    background: rgba(239,68,68,.12); }
-.toast.info    { border-color: var(--yellow);  background: rgba(245,158,11,.12); }
-@keyframes tin { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
-
-/* ── EMPTY STATE ── */
-.empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
-.empty-state .es-icon { font-size: 48px; display: block; margin-bottom: 10px; }
-
-/* ── DIVIDER ── */
-hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+#toast-cont { position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:999; display:flex; flex-direction:column; gap:8px; pointer-events:none; min-width:250px; max-width:calc(100vw - 28px); }
+.toast { background:var(--card2); border:1px solid var(--border); color:var(--text); padding:11px 16px; border-radius:12px; font-size:14px; text-align:center; animation:tin .3s ease; box-shadow:0 4px 20px rgba(0,0,0,.5); }
+.toast.success { border-color:var(--accent); background:rgba(34,197,94,.12); }
+.toast.error   { border-color:var(--red);    background:rgba(239,68,68,.12); }
+.toast.info    { border-color:var(--yellow);  background:rgba(245,158,11,.12); }
+@keyframes tin{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── MISC ── */
-.flex-row { display: flex; gap: 10px; }
-.flex-row > * { flex: 1; }
-.remove-btn { background: none; border: 1px solid var(--red); color: var(--red); border-radius: 10px; padding: 11px; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 8px; transition: all .2s; font-family: inherit; }
-.remove-btn:hover { background: rgba(239,68,68,.1); }
-.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(34,197,94,.3); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align:center; padding:28px 20px; color:var(--muted); }
+.empty-state .es-icon { font-size:40px; display:block; margin-bottom:8px; }
+.remove-btn { background:none; border:1px solid var(--red); color:var(--red); border-radius:10px; padding:11px; font-size:13px; font-weight:700; cursor:pointer; width:100%; margin-top:8px; transition:all .2s; font-family:inherit; }
+.remove-btn:hover { background:rgba(239,68,68,.1); }
+.spinner { display:inline-block; width:18px; height:18px; border:2px solid rgba(34,197,94,.3); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin{to{transform:rotate(360deg)}}
+.loc-row { display:flex; gap:8px; align-items:flex-end; }
+.loc-row .fg { flex:1; margin-bottom:0; }
+.gps-btn { flex-shrink:0; width:44px; height:44px; border-radius:10px; background:var(--card2); border:1px solid var(--border); color:var(--accent); font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+.gps-btn:hover { background:rgba(34,197,94,.1); border-color:var(--accent); }
 </style>
 </head>
 <body>
 
 <!-- HEADER -->
 <div id="app-header">
-  <div class="header-logo">BIRGSOL <span class="green">TAXI</span></div>
+  <div class="header-logo">B<span>go</span></div>
   <div id="conn-pill">
     <div class="conn-dot" id="conn-dot"></div>
     <span id="conn-text">מתחבר...</span>
@@ -345,37 +298,25 @@ hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 <!-- TOASTS -->
 <div id="toast-cont"></div>
 
-<!-- MODALS -->
-
-<!-- BOOKING BOTTOM SHEET -->
+<!-- ══════ MODALS ══════ -->
 <div id="booking-modal" class="modal-overlay" onclick="closeBooking(event)">
   <div class="bottom-sheet" onclick="event.stopPropagation()">
     <div class="sheet-handle"></div>
-    <div class="sheet-title">
-      <span id="bm-icon">🚕</span>
-      <span id="bm-title">הזמנת נסיעה</span>
-    </div>
+    <div class="sheet-title"><span id="bm-icon">🚕</span><span id="bm-title">הזמנת נסיעה</span></div>
     <div class="card" style="margin-bottom:12px">
       <div class="rcpt-row"><span class="rl">נהג</span><span class="rv" id="bm-driver"></span></div>
       <div class="rcpt-row"><span class="rl">מיקום</span><span class="rv" id="bm-loc"></span></div>
       <div class="rcpt-row"><span class="rl">מחיר</span><span class="rv" id="bm-price"></span></div>
-      <div id="bm-dest-row" class="rcpt-row" style="display:none"><span class="rl">יעד טיסה</span><span class="rv" id="bm-dest"></span></div>
-      <div id="bm-seats-row" class="rcpt-row" style="display:none"><span class="rl">מקומות פנויים</span><span class="rv" id="bm-seats"></span></div>
+      <div id="bm-dest-row" class="rcpt-row" style="display:none"><span class="rl">יעד</span><span class="rv" id="bm-dest"></span></div>
+      <div id="bm-seats-row" class="rcpt-row" style="display:none"><span class="rl">מקומות</span><span class="rv" id="bm-seats"></span></div>
     </div>
-    <div class="fg">
-      <label>נקודת איסוף</label>
-      <input id="bm-from" type="text" placeholder="כתובת איסוף">
-    </div>
-    <div id="bm-to-wrap" class="fg">
-      <label>יעד</label>
-      <input id="bm-to" type="text" placeholder="כתובת יעד">
-    </div>
-    <button class="btn btn-green" onclick="sendRideRequest()">שלח בקשת נסיעה</button>
+    <div class="fg"><label>נקודת איסוף</label><input id="bm-from" type="text" placeholder="כתובת איסוף"></div>
+    <div id="bm-to-wrap" class="fg"><label>יעד</label><input id="bm-to" type="text" placeholder="כתובת יעד"></div>
+    <button class="btn btn-green" onclick="sendRideRequest()">שלח בקשת נסיעה 🚀</button>
     <button class="btn btn-outline" style="margin-top:8px" onclick="closeBooking()">ביטול</button>
   </div>
 </div>
 
-<!-- PAYMENT MODAL -->
 <div id="payment-modal" class="modal-overlay center" onclick="closePaymentModal(event)">
   <div class="center-sheet" onclick="event.stopPropagation()">
     <div style="text-align:center;margin-bottom:18px">
@@ -383,20 +324,13 @@ hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
       <div style="font-size:18px;font-weight:800;margin-top:8px">אשר הגעה ושלם</div>
       <div id="pay-driver-info" style="font-size:13px;color:var(--muted);margin-top:4px"></div>
     </div>
-    <div class="fg">
-      <label>שם משתמש בנק</label>
-      <input id="pay-bank-user" type="text" placeholder="שם משתמש בבנק פוניניו">
-    </div>
-    <div class="fg">
-      <label>סיסמת בנק</label>
-      <input id="pay-bank-pass" type="password" placeholder="סיסמה">
-    </div>
+    <div class="fg"><label>שם משתמש בנק</label><input id="pay-bank-user" type="text" placeholder="שם משתמש בבנק פוניניו"></div>
+    <div class="fg"><label>סיסמת בנק</label><input id="pay-bank-pass" type="password" placeholder="סיסמה"></div>
     <button class="btn btn-green" id="pay-submit-btn" onclick="submitPayment()">שלם</button>
     <button class="btn btn-outline" style="margin-top:8px" onclick="closePaymentModal()">ביטול</button>
   </div>
 </div>
 
-<!-- RECEIPT MODAL -->
 <div id="receipt-modal" class="modal-overlay center">
   <div class="center-sheet" onclick="event.stopPropagation()">
     <div style="text-align:center;margin-bottom:16px">
@@ -408,14 +342,14 @@ hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
   </div>
 </div>
 
-<!-- SCREENS -->
+<!-- ══════ SCREENS ══════ -->
 
 <!-- AUTH -->
 <div id="screen-auth" class="screen active">
   <div class="auth-wrap">
     <div class="auth-hero">
       <span class="big-emoji">🚖</span>
-      <h1>BIRGSOL <span class="green">TAXI</span></h1>
+      <h1>B<span>go</span></h1>
       <p>נסיעות מהירות ואמינות</p>
     </div>
     <div class="auth-tabs">
@@ -433,7 +367,7 @@ hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
       <div class="card">
         <div class="fg"><label>שם משתמש</label><input id="r-username" type="text" placeholder="בחר שם משתמש" autocomplete="username"></div>
         <div class="fg"><label>סיסמה</label><input id="r-password" type="password" placeholder="בחר סיסמה" autocomplete="new-password"></div>
-        <div class="fg"><label>שם משתמש בנק פוניניו</label><input id="r-bank" type="text" placeholder="לתשלומים"></div>
+        <div class="fg"><label>שם משתמש בנק</label><input id="r-bank" type="text" placeholder="לתשלומים"></div>
         <div class="fg" style="margin-bottom:0">
           <label>תפקיד</label>
           <div class="role-row">
@@ -447,90 +381,89 @@ hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
   </div>
 </div>
 
-<!-- DRIVER HOME -->
+<!-- DRIVER -->
 <div id="screen-driver" class="screen">
   <div class="user-hdr">
     <div class="uavatar">🚗</div>
-    <div>
-      <div class="uname" id="d-username"></div>
-      <span class="urole">נהג</span>
-    </div>
+    <div><div class="uname" id="d-username"></div><span class="urole">נהג</span></div>
     <button class="logout-btn" onclick="doLogout()">התנתק</button>
   </div>
-
-  <!-- Availability toggle -->
   <button id="avail-toggle" class="avail-toggle off" onclick="toggleAvail()">
-    <span id="avail-icon">⏸</span>
-    <span id="avail-label">לא זמין</span>
+    <span id="avail-icon">⏸</span><span id="avail-label">לא זמין</span>
   </button>
-
-  <!-- Vehicle type + fields -->
   <div class="card">
     <div class="card-label">סוג רכב</div>
     <div class="vtype-row">
-      <button class="vtype-btn active" id="vt-מונית" onclick="selVType('מונית')"><span class="ve">🚕</span>מונית</button>
-      <button class="vtype-btn" id="vt-אוטובוס" onclick="selVType('אוטובוס')"><span class="ve">🚌</span>אוטובוס</button>
-      <button class="vtype-btn" id="vt-טיסה" onclick="selVType('טיסה')"><span class="ve">✈️</span>טיסה</button>
+      <button class="vtype-btn active" id="vt-מונית"   onclick="selVType('מונית')"><span class="ve">🚕</span>מונית</button>
+      <button class="vtype-btn"        id="vt-אוטובוס" onclick="selVType('אוטובוס')"><span class="ve">🚌</span>אוטובוס</button>
+      <button class="vtype-btn"        id="vt-טיסה"    onclick="selVType('טיסה')"><span class="ve">✈️</span>טיסה</button>
     </div>
-    <div class="fg"><label>מיקום נוכחי</label><input id="d-location" type="text" placeholder='לדוגמה: ירושלים, יפו 10' oninput="debSave()"></div>
-    <div class="fg"><label id="d-price-label">מחיר לנסיעה )(</label><input id="d-price" type="number" placeholder="0" min="0" oninput="debSave()"></div>
+    <div class="fg">
+      <label>מיקום נוכחי</label>
+      <div class="loc-row">
+        <div class="fg"><input id="d-location" type="text" placeholder="לדוגמה: תל אביב, רוטשילד 10" oninput="debSave()"></div>
+        <button class="gps-btn" onclick="driverLocateMe()" title="GPS">📍</button>
+      </div>
+    </div>
+    <div class="fg"><label id="d-price-label">מחיר לנסיעה (₪)</label><input id="d-price" type="number" placeholder="0" min="0" oninput="debSave()"></div>
     <div id="flight-extras" style="display:none">
-      <div class="fg"><label>יעד קבוע (לטיסה)</label><input id="d-dest" type="text" placeholder="לדוגמה: אילת" oninput="debSave()"></div>
+      <div class="fg"><label>יעד קבוע</label><input id="d-dest" type="text" placeholder="אילת" oninput="debSave()"></div>
       <div class="fg"><label>מקומות פנויים</label><input id="d-seats" type="number" placeholder="0" min="0" oninput="debSave()"></div>
     </div>
     <button class="btn btn-green" onclick="saveDriver()" style="margin-top:4px">שמור פרופיל</button>
     <button class="remove-btn" onclick="removeDriverListing()">הסר פרופיל מהמפה 🗑️</button>
   </div>
-
-  <!-- Incoming requests -->
-  <div class="section-title">📥 בקשות נסיעה</div>
-  <div id="driver-rides-list">
-    <div class="empty-state"><span class="es-icon">📭</span><p>אין בקשות כרגע</p></div>
-  </div>
+  <div style="font-size:16px;font-weight:800;margin-bottom:10px">📥 בקשות נסיעה</div>
+  <div id="driver-rides-list"><div class="empty-state"><span class="es-icon">📭</span><p>אין בקשות כרגע</p></div></div>
 </div>
 
-<!-- PASSENGER HOME -->
+<!-- PASSENGER — UBER STYLE: Full-screen map + bottom sheet -->
 <div id="screen-passenger" class="screen">
-  <div class="user-hdr">
-    <div class="uavatar">🧑</div>
-    <div>
-      <div class="uname" id="p-username"></div>
-      <span class="urole">נוסע</span>
+
+  <!-- 1. Google Maps-style map (CartoDB Voyager tiles) -->
+  <div id="bgo-map"></div>
+
+  <!-- 2. Filter pills floating at top -->
+  <div id="map-filter-bar">
+    <button class="mf-pill active" onclick="setFilter('הכל',this)">הכל 🗺️</button>
+    <button class="mf-pill" onclick="setFilter('מונית',this)">🚕 מונית</button>
+    <button class="mf-pill" onclick="setFilter('אוטובוס',this)">🚌 אוטובוס</button>
+    <button class="mf-pill" onclick="setFilter('טיסה',this)">✈️ טיסה</button>
+  </div>
+
+  <!-- 3. GPS button -->
+  <button id="locate-me-btn" onclick="locateMe()">📍</button>
+
+  <!-- 4. Bottom sheet: driver list + active ride -->
+  <div id="pax-sheet">
+    <div class="sheet-drag-handle" onclick="toggleSheet()"></div>
+    <div id="pax-sheet-inner">
+
+      <!-- Active ride bar -->
+      <div id="pax-active-section" style="display:none">
+        <div id="pax-ride-bar" class="ride-bar"></div>
+        <div id="pax-pay-btn-wrap" style="display:none;margin-bottom:10px">
+          <button class="btn btn-teal" onclick="openPaymentModal()">אשר הגעה ושלם 💳</button>
+        </div>
+      </div>
+
+      <div class="section-title">נהגים זמינים</div>
+      <div id="drivers-list">
+        <div class="empty-state"><span class="es-icon">🔍</span><p>מחפש נהגים...</p></div>
+      </div>
     </div>
-    <button class="logout-btn" onclick="doLogout()">התנתק</button>
-  </div>
-
-  <!-- Active ride bar -->
-  <div id="pax-active-section" style="display:none">
-    <div id="pax-ride-bar" class="ride-bar"></div>
-    <div id="pax-pay-btn-wrap" style="display:none;margin-bottom:12px">
-      <button class="btn btn-yellow" onclick="openPaymentModal()">אשר הגעה ושלם 💳</button>
-    </div>
-  </div>
-
-  <!-- Filter -->
-  <div class="filter-tabs">
-    <button class="ftab active" onclick="setFilter('הכל')">הכל</button>
-    <button class="ftab" onclick="setFilter('מונית')">🚕 מונית</button>
-    <button class="ftab" onclick="setFilter('אוטובוס')">🚌 אוטובוס</button>
-    <button class="ftab" onclick="setFilter('טיסה')">✈️ טיסה</button>
-  </div>
-
-  <div class="section-title">🗺️ נהגים זמינים</div>
-  <div id="drivers-list">
-    <div class="empty-state"><span class="es-icon">🔍</span><p>מחפש נהגים...</p></div>
   </div>
 </div>
 
-<!-- HISTORY SCREEN -->
+<!-- HISTORY -->
 <div id="screen-history" class="screen">
-  <div class="section-title">📋 היסטוריית נסיעות</div>
+  <div style="font-size:16px;font-weight:800;margin-bottom:12px">📋 היסטוריית נסיעות</div>
   <div id="history-list"></div>
 </div>
 
-<!-- PROFILE SCREEN -->
+<!-- PROFILE -->
 <div id="screen-profile" class="screen">
-  <div class="section-title">👤 פרופיל</div>
+  <div style="font-size:16px;font-weight:800;margin-bottom:12px">👤 פרופיל</div>
   <div class="card">
     <div class="rcpt-row"><span class="rl">שם משתמש</span><span class="rv" id="prof-username"></span></div>
     <div class="rcpt-row"><span class="rl">תפקיד</span><span class="rv" id="prof-role"></span></div>
@@ -538,818 +471,614 @@ hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
   </div>
   <div class="stats-grid">
     <div class="stat-box"><div class="sv" id="stat-rides">0</div><div class="sl">נסיעות</div></div>
-    <div class="stat-box"><div class="sv" id="stat-spent">)( 0</div><div class="sl">סה"כ</div></div>
+    <div class="stat-box"><div class="sv" id="stat-spent">₪0</div><div class="sl">סה"כ</div></div>
   </div>
   <button class="btn btn-outline" onclick="doLogout()">התנתק</button>
 </div>
 
 <!-- BOTTOM NAV -->
 <div id="bottom-nav">
-  <button class="bnav-item active" id="bnav-home" onclick="navTo('home')"><span class="bi">🏠</span>ראשי</button>
-  <button class="bnav-item" id="bnav-history" onclick="navTo('history')"><span class="bi">📋</span>היסטוריה</button>
-  <button class="bnav-item" id="bnav-profile" onclick="navTo('profile')"><span class="bi">👤</span>פרופיל</button>
+  <button class="bnav-item active" id="bnav-home"    onclick="navTo('home')"><span class="bi">🏠</span>ראשי</button>
+  <button class="bnav-item"        id="bnav-history" onclick="navTo('history')"><span class="bi">📋</span>היסטוריה</button>
+  <button class="bnav-item"        id="bnav-profile" onclick="navTo('profile')"><span class="bi">👤</span>פרופיל</button>
 </div>
 
 <script>
-// ════════════════════════════════════════════════════════
-//  CONSTANTS
-// ════════════════════════════════════════════════════════
-const TAXI_NS  = 'poninio_taxi_v1_2026';
-const BANK_NS  = 'poninio_bank_birgsol_v1_2026';
-const BROKER   = 'wss://broker.hivemq.com:8884/mqtt';
+// ═══════════════════════ CONSTANTS ═══════════════════════
+const TAXI_NS = 'poninio_taxi_v1_2026';
+const BANK_NS = 'poninio_bank_birgsol_v1_2026';
+const BROKER  = 'wss://broker.hivemq.com:8884/mqtt';
 
-// ════════════════════════════════════════════════════════
-//  STATE
-// ════════════════════════════════════════════════════════
-let mqttClient    = null;
-let currentUser   = null;   // { username, password, role, bankUsername }
-let driverState   = null;   // driver's published profile
-let allDrivers    = {};     // { username: driverObj }
-let allRides      = {};     // { rideId: rideObj }
-let activeRide    = null;   // passenger's current ride
-let myActiveRide  = null;   // driver's active ride
-let currentFilter = 'הכל';
-let selectedDriver = null;
-let bankCache     = {};     // { bankUser: accountObj }
-let debTimer      = null;
-let selectedRole  = 'נוסע';
+// ═══════════════════════ STATE ═══════════════════════
+let mqttClient=null, currentUser=null, driverState=null;
+let allDrivers={}, allRides={}, activeRide=null, myActiveRide=null;
+let currentFilter='הכל', selectedDriver=null, bankCache={};
+let debTimer=null, selectedRole='נוסע';
+let bgoMap=null, driverMarkers={}, myLocMarker=null;
+let sheetExpanded=false;
 
-// ════════════════════════════════════════════════════════
-//  STORAGE
-// ════════════════════════════════════════════════════════
-function saveUsers(u)   { localStorage.setItem('ptaxi_users', JSON.stringify(u)); }
-function loadUsers()    { try { return JSON.parse(localStorage.getItem('ptaxi_users') || '{}'); } catch(e){ return {}; } }
-function saveSession(u) { localStorage.setItem('ptaxi_session', JSON.stringify(u)); }
-function loadSession()  { try { return JSON.parse(localStorage.getItem('ptaxi_session') || 'null'); } catch(e){ return null; } }
-function clearSession() { localStorage.removeItem('ptaxi_session'); }
-function saveHistory(h) {
-  if (!currentUser) return;
-  localStorage.setItem('ptaxi_hist_' + currentUser.username, JSON.stringify(h));
-}
-function loadHistory() {
-  if (!currentUser) return [];
-  try { return JSON.parse(localStorage.getItem('ptaxi_hist_' + currentUser.username) || '[]'); } catch(e){ return []; }
+// ═══════════════════════ STORAGE ═══════════════════════
+const SS = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const SG = (k,d={})=>{ try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch(e){return d} };
+function saveSession(u){ SS('ptaxi_session',u); }
+function loadSession() { return SG('ptaxi_session',null); }
+function clearSession(){ localStorage.removeItem('ptaxi_session'); }
+function saveUsers(u)  { SS('ptaxi_users',u); }
+function loadUsers()   { return SG('ptaxi_users',{}); }
+function saveHistory(h){ if(currentUser) SS('ptaxi_hist_'+currentUser.username,h); }
+function loadHistory() { return currentUser ? SG('ptaxi_hist_'+currentUser.username,[]) : []; }
+
+// ═══════════════════════ TOAST ═══════════════════════
+function toast(msg,type='',dur=3500){
+  const c=document.getElementById('toast-cont');
+  const el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');
+  el.textContent=msg; c.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .35s';setTimeout(()=>el.remove(),400);},dur);
 }
 
-// ════════════════════════════════════════════════════════
-//  TOAST
-// ════════════════════════════════════════════════════════
-function toast(msg, type='', dur=3500) {
-  const c = document.getElementById('toast-cont');
-  const el = document.createElement('div');
-  el.className = 'toast' + (type ? ' '+type : '');
-  el.textContent = msg;
-  c.appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .35s'; setTimeout(()=>el.remove(),400); }, dur);
+// ═══════════════════════ AUTH ═══════════════════════
+function switchAuthTab(tab){
+  document.getElementById('atab-login').classList.toggle('active',tab==='login');
+  document.getElementById('atab-register').classList.toggle('active',tab==='register');
+  document.getElementById('login-form').style.display    = tab==='login'?'':'none';
+  document.getElementById('register-form').style.display = tab==='register'?'':'none';
 }
-
-// ════════════════════════════════════════════════════════
-//  AUTH
-// ════════════════════════════════════════════════════════
-function switchAuthTab(tab) {
-  document.getElementById('atab-login').classList.toggle('active', tab==='login');
-  document.getElementById('atab-register').classList.toggle('active', tab==='register');
-  document.getElementById('login-form').style.display    = tab==='login' ? '' : 'none';
-  document.getElementById('register-form').style.display = tab==='register' ? '' : 'none';
+function selRole(role){
+  selectedRole=role;
+  document.getElementById('rbtn-passenger').classList.toggle('active',role==='נוסע');
+  document.getElementById('rbtn-driver').classList.toggle('active',role==='נהג');
 }
-
-function selRole(role) {
-  selectedRole = role;
-  document.getElementById('rbtn-passenger').classList.toggle('active', role==='נוסע');
-  document.getElementById('rbtn-driver').classList.toggle('active', role==='נהג');
-}
-
-function doLogin() {
-  const username = document.getElementById('l-username').value.trim();
-  const password = document.getElementById('l-password').value;
-  if (!username || !password) { toast('נא למלא שם משתמש וסיסמה', 'error'); return; }
-  const users = loadUsers();
-  const user  = users[username];
-  if (!user) { toast('משתמש לא קיים', 'error'); return; }
-  if (user.password !== password) { toast('סיסמה שגויה', 'error'); return; }
+function doLogin(){
+  const u=document.getElementById('l-username').value.trim();
+  const p=document.getElementById('l-password').value;
+  if(!u||!p){toast('נא למלא פרטים','error');return;}
+  const users=loadUsers(); const user=users[u];
+  if(!user){toast('משתמש לא קיים','error');return;}
+  if(user.password!==p){toast('סיסמה שגויה','error');return;}
   loginOK(user);
 }
-
-function doRegister() {
-  const username = document.getElementById('r-username').value.trim();
-  const password = document.getElementById('r-password').value;
-  const bank     = document.getElementById('r-bank').value.trim();
-  if (!username || !password) { toast('נא למלא שם משתמש וסיסמה', 'error'); return; }
-  if (!/^[a-zA-Z0-9_֐-׿]+$/.test(username)) { toast('שם משתמש: אותיות וספרות בלבד', 'error'); return; }
-  const users = loadUsers();
-  if (users[username]) { toast('שם משתמש תפוס', 'error'); return; }
-  const user = { username, password, role: selectedRole, bankUsername: bank || username };
-  users[username] = user;
-  saveUsers(users);
-  toast('ברוך הבא ' + username + '! 🎉', 'success');
-  loginOK(user);
+function doRegister(){
+  const u=document.getElementById('r-username').value.trim();
+  const p=document.getElementById('r-password').value;
+  const b=document.getElementById('r-bank').value.trim();
+  if(!u||!p){toast('נא למלא פרטים','error');return;}
+  const users=loadUsers();
+  if(users[u]){toast('שם משתמש תפוס','error');return;}
+  const user={username:u,password:p,role:selectedRole,bankUsername:b||u};
+  users[u]=user; saveUsers(users);
+  toast('ברוך הבא '+u+'! 🎉','success'); loginOK(user);
 }
-
-function loginOK(user) {
-  currentUser = user;
-  saveSession(user);
-  initAfterLogin();
-}
-
-function doLogout() {
-  if (mqttClient) {
-    // mark driver offline
-    if (currentUser && currentUser.role==='נהג' && driverState) {
-      driverState.available = false;
-      publishDriver();
-    }
-    mqttClient.end(true);
-    mqttClient = null;
+function loginOK(user){ currentUser=user; saveSession(user); initAfterLogin(); }
+function doLogout(){
+  if(mqttClient){
+    if(currentUser?.role==='נהג'&&driverState){driverState.available=false;publishDriver();}
+    mqttClient.end(true); mqttClient=null;
   }
-  currentUser = null; driverState = null; allDrivers = {}; allRides = {};
-  activeRide = null; myActiveRide = null; bankCache = {};
+  currentUser=null;driverState=null;allDrivers={};allRides={};
+  activeRide=null;myActiveRide=null;bankCache={};
   clearSession();
   document.getElementById('bottom-nav').classList.remove('visible');
   setConnPill('disconnected');
+  if(bgoMap){bgoMap.remove();bgoMap=null;driverMarkers={};myLocMarker=null;}
   showScreen('auth');
 }
 
-// ════════════════════════════════════════════════════════
-//  INIT AFTER LOGIN
-// ════════════════════════════════════════════════════════
-function initAfterLogin() {
+// ═══════════════════════ INIT ═══════════════════════
+function initAfterLogin(){
   document.getElementById('bottom-nav').classList.add('visible');
-  if (currentUser.role === 'נהג') {
-    document.getElementById('d-username').textContent = currentUser.username;
-    driverState = {
-      username: currentUser.username,
-      bankUsername: currentUser.bankUsername || currentUser.username,
-      type: 'מונית',
-      available: false,
-      location: '',
-      price: 0,
-      destination: '',
-      seats: 0,
-    };
+  if(currentUser.role==='נהג'){
+    document.getElementById('d-username').textContent=currentUser.username;
+    driverState={username:currentUser.username,bankUsername:currentUser.bankUsername||currentUser.username,type:'מונית',available:false,location:'',lat:null,lng:null,price:0,destination:'',seats:0};
     showScreen('driver');
   } else {
-    document.getElementById('p-username').textContent = currentUser.username;
     showScreen('passenger');
   }
   updateProfileScreen();
   connectMQTT();
 }
 
-// ════════════════════════════════════════════════════════
-//  SCREEN MANAGEMENT
-// ════════════════════════════════════════════════════════
-function showScreen(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const map = { auth:'screen-auth', driver:'screen-driver', passenger:'screen-passenger', history:'screen-history', profile:'screen-profile' };
-  const id = map[name];
-  if (id) document.getElementById(id).classList.add('active');
+// ═══════════════════════ SCREENS ═══════════════════════
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const ids={auth:'screen-auth',driver:'screen-driver',passenger:'screen-passenger',history:'screen-history',profile:'screen-profile'};
+  if(ids[name]) document.getElementById(ids[name]).classList.add('active');
+  if(name==='passenger'){
+    setTimeout(()=>{
+      if(!bgoMap) initPassengerMap();
+      else { bgoMap.invalidateSize(); updateMapMarkers(); }
+      // Position GPS button above sheet
+      positionGpsBtn();
+    },120);
+  }
 }
-
-function navTo(tab) {
-  document.querySelectorAll('.bnav-item').forEach(el => el.classList.remove('active'));
+function navTo(tab){
+  document.querySelectorAll('.bnav-item').forEach(el=>el.classList.remove('active'));
   document.getElementById('bnav-'+tab)?.classList.add('active');
-  if (!currentUser) return;
-  if (tab === 'home')    { showScreen(currentUser.role==='נהג' ? 'driver' : 'passenger'); }
-  if (tab === 'history') { renderHistory(); showScreen('history'); }
-  if (tab === 'profile') { updateProfileScreen(); showScreen('profile'); }
+  if(!currentUser) return;
+  if(tab==='home')    showScreen(currentUser.role==='נהג'?'driver':'passenger');
+  if(tab==='history'){renderHistory();showScreen('history');}
+  if(tab==='profile'){updateProfileScreen();showScreen('profile');}
+}
+function toggleSheet(){
+  sheetExpanded=!sheetExpanded;
+  document.getElementById('pax-sheet').classList.toggle('expanded',sheetExpanded);
+  positionGpsBtn();
+}
+function positionGpsBtn(){
+  const sheet=document.getElementById('pax-sheet');
+  const btn=document.getElementById('locate-me-btn');
+  if(!sheet||!btn) return;
+  const h=sheet.offsetHeight||0;
+  btn.style.bottom=(h+14)+'px';
 }
 
-// ════════════════════════════════════════════════════════
-//  MQTT
-// ════════════════════════════════════════════════════════
-function connectMQTT() {
-  setConnPill('connecting');
-  const clientId = 'ptaxi_' + Math.random().toString(36).slice(2, 9);
-  mqttClient = mqtt.connect(BROKER, { clientId, clean: true, reconnectPeriod: 3000, connectTimeout: 10000, keepalive: 30 });
-  mqttClient.on('connect',   onConnect);
-  mqttClient.on('reconnect', () => setConnPill('connecting'));
-  mqttClient.on('offline',   () => setConnPill('disconnected'));
-  mqttClient.on('error',     (e) => { console.error(e); setConnPill('disconnected'); });
-  mqttClient.on('message',   onMessage);
-}
+// ═══════════════════════ MAP INIT ═══════════════════════
+function initPassengerMap(){
+  if(bgoMap) return;
 
-function onConnect() {
-  setConnPill('connected');
-  toast('מחובר לרשת', 'success', 2000);
-  mqttClient.subscribe(TAXI_NS + '/#', { qos: 1 });
-  mqttClient.subscribe(BANK_NS + '/account/#', { qos: 1 });
-  if (currentUser && currentUser.role === 'נהג' && driverState) publishDriver();
-}
-
-function onMessage(topic, payload) {
-  const raw = payload.toString();
-
-  // Driver topic
-  const dm = topic.match(new RegExp('^' + TAXI_NS + '/driver/(.+)$'));
-  if (dm) {
-    const uname = decodeURIComponent(dm[1]);
-    if (raw === '') {
-      delete allDrivers[uname];
-    } else {
-      try { const d = JSON.parse(raw); if (d && d.username) allDrivers[uname] = d; } catch(e) {}
-    }
-    if (currentUser && currentUser.role === 'נוסע') renderDriversList();
-    return;
-  }
-
-  // Ride topic
-  const rm = topic.match(new RegExp('^' + TAXI_NS + '/ride/(.+)$'));
-  if (rm) {
-    const rideId = decodeURIComponent(rm[1]);
-    if (raw === '') { delete allRides[rideId]; return; }
-    try { const r = JSON.parse(raw); if (r && r.id) { allRides[rideId] = r; handleRideUpdate(r); } } catch(e) {}
-    return;
-  }
-
-  // Bank account topic
-  const bm = topic.match(new RegExp('^' + BANK_NS + '/account/(.+)$'));
-  if (bm) {
-    const bu = decodeURIComponent(bm[1]);
-    try { bankCache[bu] = JSON.parse(raw); } catch(e) {}
-    return;
-  }
-}
-
-// ════════════════════════════════════════════════════════
-//  MQTT HELPERS
-// ════════════════════════════════════════════════════════
-function publishDriver() {
-  if (!mqttClient || !mqttClient.connected || !driverState) return;
-  driverState.lastSeen = new Date().toISOString();
-  const topic = TAXI_NS + '/driver/' + encodeURIComponent(driverState.username);
-  mqttClient.publish(topic, JSON.stringify(driverState), { qos: 1, retain: true });
-}
-
-function removeDriverListing() {
-  if (!mqttClient || !mqttClient.connected || !driverState) return;
-  const topic = TAXI_NS + '/driver/' + encodeURIComponent(driverState.username);
-  mqttClient.publish(topic, '', { qos: 1, retain: true }, () => {
-    toast('הפרופיל הוסר מהמפה', 'info');
+  // Start with world view — user can zoom/pan anywhere
+  bgoMap=L.map('bgo-map',{
+    center:[20,20], zoom:3,
+    zoomControl:true,
+    attributionControl:true
   });
-  driverState.available = false;
-  updateAvailToggle();
+
+  // CartoDB Voyager — identical look to Google Maps (same colors, roads, labels)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+    subdomains:'abcd', maxZoom:20
+  }).addTo(bgoMap);
+
+  bgoMap.zoomControl.setPosition('bottomright');
+
+  // Try to auto-locate user
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const{latitude:lat,longitude:lng}=pos.coords;
+      bgoMap.setView([lat,lng],13,{animate:true});
+      placeMyDot(lat,lng);
+    },()=>{/* no GPS, stay on world view */},{timeout:6000});
+  }
+
+  updateMapMarkers();
+  positionGpsBtn();
 }
 
-function publishRide(ride) {
-  if (!mqttClient || !mqttClient.connected) { toast('לא מחובר ל-MQTT', 'error'); return false; }
-  const topic = TAXI_NS + '/ride/' + encodeURIComponent(ride.id);
-  mqttClient.publish(topic, JSON.stringify(ride), { qos: 1, retain: true });
+// ═══════════════════════ LOCATE ME ═══════════════════════
+function locateMe(){
+  if(!navigator.geolocation){toast('GPS לא זמין','error');return;}
+  const btn=document.getElementById('locate-me-btn');
+  btn.classList.add('locating'); btn.textContent='⏳';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    btn.classList.remove('locating'); btn.textContent='📍';
+    const{latitude:lat,longitude:lng}=pos.coords;
+    if(bgoMap) bgoMap.setView([lat,lng],15,{animate:true});
+    placeMyDot(lat,lng);
+  },err=>{
+    btn.classList.remove('locating'); btn.textContent='📍';
+    toast('לא ניתן לקבל מיקום','error');
+  },{enableHighAccuracy:true,timeout:12000});
+}
+
+function placeMyDot(lat,lng){
+  if(!bgoMap) return;
+  const myIcon=L.divIcon({
+    html:'<div style="width:18px;height:18px;border-radius:50%;background:#4285f4;border:3px solid #fff;box-shadow:0 0 10px rgba(66,133,244,.8)"></div>',
+    className:'',iconSize:[18,18],iconAnchor:[9,9]
+  });
+  if(myLocMarker) myLocMarker.setLatLng([lat,lng]);
+  else{ myLocMarker=L.marker([lat,lng],{icon:myIcon,zIndexOffset:2000}).addTo(bgoMap).bindPopup('<b>📍 המיקום שלי</b>'); }
+}
+
+// ═══════════════════════ MAP MARKERS ═══════════════════════
+function updateMapMarkers(){
+  if(!bgoMap) return;
+  // Remove stale
+  Object.keys(driverMarkers).forEach(u=>{
+    const d=allDrivers[u];
+    const show=d&&d.available&&d.lat&&d.lng&&(currentFilter==='הכל'||d.type===currentFilter);
+    if(!show){bgoMap.removeLayer(driverMarkers[u]);delete driverMarkers[u];}
+  });
+  // Add/refresh
+  Object.values(allDrivers).filter(d=>
+    d.available&&d.lat&&d.lng&&d.username!==currentUser?.username&&
+    (currentFilter==='הכל'||d.type===currentFilter)
+  ).forEach(d=>{
+    if(driverMarkers[d.username]){ driverMarkers[d.username].setLatLng([d.lat,d.lng]); return; }
+    const icon=L.divIcon({
+      html:`<div style="font-size:28px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));line-height:1">${vIcon(d.type)}</div>`,
+      className:'',iconSize:[36,36],iconAnchor:[18,18]
+    });
+    const marker=L.marker([d.lat,d.lng],{icon}).addTo(bgoMap);
+    marker.bindPopup(makePopup(d),{maxWidth:200,closeButton:true});
+    driverMarkers[d.username]=marker;
+  });
+}
+
+function makePopup(d){
+  return `<div style="padding:4px">
+    <div style="font-weight:800;font-size:15px;margin-bottom:4px">${vIcon(d.type)} ${esc(d.username)}</div>
+    <div style="font-size:12px;color:#8e8e93;margin-bottom:2px">📍 ${esc(d.location||'לא צוין')}</div>
+    ${d.type==='טיסה'&&d.destination?`<div style="font-size:12px;color:#8e8e93">✈️ יעד: ${esc(d.destination)}</div>`:''}
+    <div style="font-size:16px;font-weight:800;color:#22c55e;margin:6px 0">₪ ${d.price}</div>
+    <button onclick="openBooking('${esc(d.username)}')" style="width:100%;padding:8px;background:#22c55e;border:none;border-radius:8px;color:#000;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">הזמן נסיעה</button>
+  </div>`;
+}
+
+// ═══════════════════════ DRIVER GPS ═══════════════════════
+function driverLocateMe(){
+  if(!navigator.geolocation){toast('GPS לא זמין','error');return;}
+  toast('מאתר מיקום GPS...','info',2500);
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const{latitude:lat,longitude:lng}=pos.coords;
+    let addr=`${lat.toFixed(5)},${lng.toFixed(5)}`;
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=he`,{headers:{'User-Agent':'BgoApp/1.0'}});
+      const data=await r.json();
+      if(data?.address){
+        const a=data.address;
+        addr=[a.road,a.house_number,a.city||a.town||a.village||a.county].filter(Boolean).join(' ');
+      }
+    }catch(e){}
+    document.getElementById('d-location').value=addr;
+    if(driverState){driverState.lat=lat;driverState.lng=lng;driverState.location=addr;driverState._gpsSet=true;}
+    toast('מיקום GPS עודכן ✓','success'); debSave();
+  },()=>toast('לא ניתן לקבל מיקום','error'),{enableHighAccuracy:true,timeout:12000});
+}
+
+// ═══════════════════════ GEOCODE (text→lat/lng) ═══════════════════════
+async function geocodeAddress(addr){
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1&accept-language=he`,{headers:{'User-Agent':'BgoApp/1.0'}});
+    const d=await r.json();
+    if(d&&d.length>0) return{lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};
+  }catch(e){}
+  return null;
+}
+
+// ═══════════════════════ MQTT ═══════════════════════
+function connectMQTT(){
+  setConnPill('connecting');
+  const cid='bgo_'+Math.random().toString(36).slice(2,9);
+  mqttClient=mqtt.connect(BROKER,{clientId:cid,clean:true,reconnectPeriod:3000,connectTimeout:10000,keepalive:30});
+  mqttClient.on('connect',onConnect);
+  mqttClient.on('reconnect',()=>setConnPill('connecting'));
+  mqttClient.on('offline',()=>setConnPill('disconnected'));
+  mqttClient.on('error',(e)=>{console.error(e);setConnPill('disconnected');});
+  mqttClient.on('message',onMessage);
+}
+function onConnect(){
+  setConnPill('connected'); toast('מחובר ✓','success',2000);
+  mqttClient.subscribe(TAXI_NS+'/#',{qos:1});
+  mqttClient.subscribe(BANK_NS+'/account/#',{qos:1});
+  if(currentUser?.role==='נהג'&&driverState) publishDriver();
+}
+function onMessage(topic,payload){
+  const raw=payload.toString();
+  const dm=topic.match(new RegExp('^'+TAXI_NS+'/driver/(.+)$'));
+  if(dm){
+    const u=decodeURIComponent(dm[1]);
+    if(raw===''){
+      delete allDrivers[u];
+      if(driverMarkers[u]&&bgoMap){bgoMap.removeLayer(driverMarkers[u]);delete driverMarkers[u];}
+    } else {
+      try{const d=JSON.parse(raw);if(d?.username)allDrivers[u]=d;}catch(e){}
+    }
+    if(currentUser?.role==='נוסע'){renderDriversList();updateMapMarkers();}
+    return;
+  }
+  const rm=topic.match(new RegExp('^'+TAXI_NS+'/ride/(.+)$'));
+  if(rm){
+    const id=decodeURIComponent(rm[1]);
+    if(raw===''){delete allRides[id];return;}
+    try{const r=JSON.parse(raw);if(r?.id){allRides[id]=r;handleRideUpdate(r);}}catch(e){}
+    return;
+  }
+  const bm=topic.match(new RegExp('^'+BANK_NS+'/account/(.+)$'));
+  if(bm){try{bankCache[decodeURIComponent(bm[1])]=JSON.parse(raw);}catch(e){} return;}
+}
+
+// ═══════════════════════ MQTT HELPERS ═══════════════════════
+function publishDriver(){
+  if(!mqttClient?.connected||!driverState) return;
+  driverState.lastSeen=new Date().toISOString();
+  mqttClient.publish(TAXI_NS+'/driver/'+encodeURIComponent(driverState.username),JSON.stringify(driverState),{qos:1,retain:true});
+}
+function removeDriverListing(){
+  if(!mqttClient?.connected||!driverState) return;
+  mqttClient.publish(TAXI_NS+'/driver/'+encodeURIComponent(driverState.username),'',{qos:1,retain:true},()=>toast('הפרופיל הוסר','info'));
+  driverState.available=false; updateAvailToggle();
+}
+function publishRide(ride){
+  if(!mqttClient?.connected){toast('לא מחובר','error');return false;}
+  mqttClient.publish(TAXI_NS+'/ride/'+encodeURIComponent(ride.id),JSON.stringify(ride),{qos:1,retain:true});
   return true;
 }
-
-function publishBankAccount(bankUser, accountObj) {
-  return new Promise((resolve, reject) => {
-    if (!mqttClient || !mqttClient.connected) { reject(new Error('לא מחובר')); return; }
-    const topic = BANK_NS + '/account/' + encodeURIComponent(bankUser);
-    mqttClient.publish(topic, JSON.stringify(accountObj), { qos: 1, retain: true }, (err) => {
-      if (err) reject(err); else resolve();
-    });
+function publishBank(user,data){
+  return new Promise((res,rej)=>{
+    if(!mqttClient?.connected){rej(new Error('לא מחובר'));return;}
+    mqttClient.publish(BANK_NS+'/account/'+encodeURIComponent(user),JSON.stringify(data),{qos:1,retain:true},(e)=>e?rej(e):res());
   });
 }
-
-// Wait for a bank account (from cache or MQTT retained)
-function waitForAccount(username) {
-  return new Promise((resolve) => {
-    if (bankCache[username]) { resolve(bankCache[username]); return; }
-    const topic = BANK_NS + '/account/' + encodeURIComponent(username);
-    let done = false;
-    const timeout = setTimeout(() => {
-      if (!done) { done = true; mqttClient.removeListener('message', h); resolve(null); }
-    }, 8000);
-    const h = (t, payload) => {
-      if (t !== topic || done) return;
-      done = true; clearTimeout(timeout); mqttClient.removeListener('message', h);
-      try { const d = JSON.parse(payload.toString()); bankCache[username] = d; resolve(d); } catch(e) { resolve(null); }
+function waitForAccount(username){
+  return new Promise(res=>{
+    if(bankCache[username]){res(bankCache[username]);return;}
+    const topic=BANK_NS+'/account/'+encodeURIComponent(username);
+    let done=false;
+    const t=setTimeout(()=>{if(!done){done=true;mqttClient.removeListener('message',h);res(null);}},8000);
+    const h=(tp,payload)=>{
+      if(tp!==topic||done) return;
+      done=true;clearTimeout(t);mqttClient.removeListener('message',h);
+      try{const d=JSON.parse(payload.toString());bankCache[username]=d;res(d);}catch(e){res(null);}
     };
-    mqttClient.on('message', h);
-    mqttClient.subscribe(topic, { qos: 1 });
+    mqttClient.on('message',h);
+    mqttClient.subscribe(topic,{qos:1});
   });
 }
-
-// ════════════════════════════════════════════════════════
-//  CONN PILL
-// ════════════════════════════════════════════════════════
-function setConnPill(state) {
-  const dot  = document.getElementById('conn-dot');
-  const text = document.getElementById('conn-text');
-  dot.className = 'conn-dot' + (state==='connected' ? ' connected' : state==='connecting' ? ' connecting' : '');
-  text.textContent = state==='connected' ? 'מחובר' : state==='connecting' ? 'מתחבר...' : 'מנותק';
+function setConnPill(state){
+  document.getElementById('conn-dot').className='conn-dot'+(state==='connected'?' connected':state==='connecting'?' connecting':'');
+  document.getElementById('conn-text').textContent=state==='connected'?'מחובר':state==='connecting'?'מתחבר...':'מנותק';
 }
 
-// ════════════════════════════════════════════════════════
-//  DRIVER FUNCTIONS
-// ════════════════════════════════════════════════════════
-function toggleAvail() {
-  if (!driverState) return;
-  driverState.available = !driverState.available;
-  updateAvailToggle();
-  saveDriver();
-  toast(driverState.available ? 'אתה זמין לנסיעות ✓' : 'הפסקת לקבל נסיעות', driverState.available ? 'success' : 'info', 2500);
+// ═══════════════════════ DRIVER FUNCTIONS ═══════════════════════
+function toggleAvail(){
+  if(!driverState) return;
+  driverState.available=!driverState.available;
+  updateAvailToggle(); saveDriver();
+  toast(driverState.available?'אתה זמין לנסיעות ✓':'הפסקת לקבל נסיעות',driverState.available?'success':'info',2500);
 }
-
-function updateAvailToggle() {
-  const btn   = document.getElementById('avail-toggle');
-  const icon  = document.getElementById('avail-icon');
-  const label = document.getElementById('avail-label');
-  if (driverState && driverState.available) {
-    btn.className = 'avail-toggle on'; icon.textContent = '✅'; label.textContent = 'זמין לנסיעות';
-  } else {
-    btn.className = 'avail-toggle off'; icon.textContent = '⏸'; label.textContent = 'לא זמין';
-  }
+function updateAvailToggle(){
+  const btn=document.getElementById('avail-toggle');
+  document.getElementById('avail-icon').textContent=driverState?.available?'✅':'⏸';
+  document.getElementById('avail-label').textContent=driverState?.available?'זמין לנסיעות':'לא זמין';
+  btn.className='avail-toggle '+(driverState?.available?'on':'off');
 }
-
-function selVType(type) {
-  if (!driverState) return;
-  driverState.type = type;
-  ['מונית','אוטובוס','טיסה'].forEach(t => document.getElementById('vt-'+t)?.classList.toggle('active', t===type));
-  const isFlight = type === 'טיסה';
-  document.getElementById('flight-extras').style.display = isFlight ? '' : 'none';
-  document.getElementById('d-price-label').textContent = isFlight ? 'מחיר למושב )(' : 'מחיר לנסיעה )(';
+function selVType(type){
+  if(!driverState) return; driverState.type=type;
+  ['מונית','אוטובוס','טיסה'].forEach(t=>document.getElementById('vt-'+t)?.classList.toggle('active',t===type));
+  document.getElementById('flight-extras').style.display=type==='טיסה'?'':'none';
+  document.getElementById('d-price-label').textContent=type==='טיסה'?'מחיר למושב (₪)':'מחיר לנסיעה (₪)';
   debSave();
 }
-
-function debSave() {
-  clearTimeout(debTimer);
-  debTimer = setTimeout(saveDriver, 1200);
+function debSave(){ clearTimeout(debTimer); debTimer=setTimeout(saveDriver,1400); }
+async function saveDriver(){
+  if(!driverState||!currentUser) return;
+  const loc=document.getElementById('d-location').value.trim();
+  driverState.location=loc;
+  driverState.price=parseFloat(document.getElementById('d-price').value)||0;
+  driverState.destination=document.getElementById('d-dest')?.value.trim()||'';
+  driverState.seats=parseInt(document.getElementById('d-seats')?.value)||0;
+  if(loc&&loc!==driverState._lastGeocoded&&!driverState._gpsSet){
+    const coords=await geocodeAddress(loc);
+    if(coords){driverState.lat=coords.lat;driverState.lng=coords.lng;driverState._lastGeocoded=loc;}
+  }
+  driverState._gpsSet=false;
+  publishDriver(); toast('פרופיל עודכן ✓','success',1800);
 }
 
-function saveDriver() {
-  if (!driverState || !currentUser) return;
-  driverState.location    = document.getElementById('d-location').value.trim();
-  driverState.price       = parseFloat(document.getElementById('d-price').value) || 0;
-  driverState.destination = document.getElementById('d-dest')?.value.trim() || '';
-  driverState.seats       = parseInt(document.getElementById('d-seats')?.value) || 0;
-  publishDriver();
-  toast('פרופיל עודכן', 'success', 1800);
-}
-
-// ════════════════════════════════════════════════════════
-//  RIDE UPDATES (shared)
-// ════════════════════════════════════════════════════════
-function handleRideUpdate(ride) {
-  if (!currentUser) return;
-
-  if (currentUser.role === 'נהג') {
-    if (ride.driver !== currentUser.username) return;
-    allRides[ride.id] = ride;
-
-    if (ride.status === 'pending' || ride.status === 'accepted' || ride.status === 'arrived_at_pickup' || ride.status === 'in_progress') {
-      myActiveRide = ride;
-    } else if (ride.status === 'completed' || ride.status === 'cancelled') {
-      if (myActiveRide && myActiveRide.id === ride.id) myActiveRide = null;
-    }
+// ═══════════════════════ RIDE UPDATES ═══════════════════════
+function handleRideUpdate(ride){
+  if(!currentUser) return;
+  if(currentUser.role==='נהג'){
+    if(ride.driver!==currentUser.username) return;
+    allRides[ride.id]=ride;
+    if(['pending','accepted','arrived_at_pickup','in_progress'].includes(ride.status)) myActiveRide=ride;
+    else if(['completed','cancelled'].includes(ride.status)&&myActiveRide?.id===ride.id) myActiveRide=null;
     renderDriverRides();
   } else {
-    // Passenger
-    if (ride.passenger !== currentUser.username) return;
-    allRides[ride.id] = ride;
-    activeRide = ride;
-
-    if (ride.status === 'accepted') {
-      toast('הנסיעה שלך אושרה! הנהג בדרך 🚗', 'success');
-    } else if (ride.status === 'arrived_at_pickup') {
-      toast('הנהג הגיע! 📍', 'success', 5000);
-    } else if (ride.status === 'in_progress') {
-      toast('אתה בנסיעה 🚗', 'success', 2000);
-    } else if (ride.status === 'completed') {
-      toast('הגעת! תודה שנסעת עם BIRGSOL TAXI 🙏', 'success', 4000);
-      // save to history
-      const hist = loadHistory();
-      hist.unshift({ ...ride, savedAt: new Date().toISOString() });
-      saveHistory(hist);
-      // clear after 3s
-      setTimeout(() => { if (activeRide && activeRide.id === ride.id) { activeRide = null; renderPassengerRideBar(); } }, 3000);
-    } else if (ride.status === 'cancelled') {
-      toast('הנסיעה בוטלה ❌', 'error', 2000);
-      setTimeout(() => { if (activeRide && activeRide.id === ride.id) { activeRide = null; renderPassengerRideBar(); } }, 2000);
+    if(ride.passenger!==currentUser.username) return;
+    allRides[ride.id]=ride; activeRide=ride;
+    if(ride.status==='accepted')          toast('הנסיעה אושרה! הנהג בדרך 🚗','success');
+    else if(ride.status==='arrived_at_pickup') toast('הנהג הגיע! 📍','success',5000);
+    else if(ride.status==='in_progress')  toast('אתה בנסיעה 🚗','success',2000);
+    else if(ride.status==='completed'){
+      toast('הגעת! תודה שנסעת עם Bgo 🙏','success',4000);
+      const h=loadHistory(); h.unshift({...ride,savedAt:new Date().toISOString()}); saveHistory(h);
+      setTimeout(()=>{if(activeRide?.id===ride.id){activeRide=null;renderPassengerRideBar();}},3000);
+    } else if(ride.status==='cancelled'){
+      toast('הנסיעה בוטלה ❌','error',2000);
+      setTimeout(()=>{if(activeRide?.id===ride.id){activeRide=null;renderPassengerRideBar();}},2000);
     }
     renderPassengerRideBar();
   }
 }
 
-// ════════════════════════════════════════════════════════
-//  DRIVER — RENDER RIDES LIST
-// ════════════════════════════════════════════════════════
-function renderDriverRides() {
-  const container = document.getElementById('driver-rides-list');
-  if (!container) return;
-
-  const mine = Object.values(allRides).filter(r =>
-    r.driver === currentUser.username &&
-    !['completed','cancelled'].includes(r.status)
-  );
-
-  if (mine.length === 0) {
-    container.innerHTML = '<div class="empty-state"><span class="es-icon">📭</span><p>אין בקשות כרגע</p></div>';
-    return;
-  }
-
-  container.innerHTML = mine.map(r => {
-    let actions = '';
-    if (r.status === 'pending') {
-      actions = `<div class="req-actions">
-        <button class="btn btn-green btn-sm" onclick="acceptRide('${esc(r.id)}')">✓ קבל</button>
-        <button class="btn btn-red   btn-sm" onclick="cancelRide('${esc(r.id)}')">✗ דחה</button>
-      </div>`;
-    } else if (r.status === 'accepted') {
-      actions = `<div class="req-actions">
-        <button class="btn btn-green btn-sm" onclick="markArrived('${esc(r.id)}')">📍 הגעתי</button>
-        <button class="btn btn-red   btn-sm" onclick="cancelRide('${esc(r.id)}')">בטל</button>
-      </div>`;
-    } else if (r.status === 'arrived_at_pickup') {
-      actions = `<div style="font-size:13px;color:var(--muted);padding:4px 0">ממתין לאישור תשלום מהנוסע...</div>`;
-    } else if (r.status === 'in_progress') {
-      actions = `<div class="req-actions">
-        <button class="btn btn-green btn-sm" onclick="completeRide('${esc(r.id)}')">סיים נסיעה ✓</button>
-      </div>`;
-    }
-
-    return `<div class="req-card">
-      <div class="req-hdr">
-        <div class="rpassenger">👤 ${esc(r.passenger)}</div>
-        <span class="sbadge ${r.status}">${statusLabel(r.status)}</span>
-      </div>
-      <div class="route">מ: <b>${esc(r.from)}</b> → אל: <b>${esc(r.to||'—')}</b></div>
-      <div class="route">מחיר: <b style="color:var(--accent)">)( ${r.price}</b></div>
-      ${actions}
-    </div>`;
+// ═══════════════════════ DRIVER RIDES ═══════════════════════
+function renderDriverRides(){
+  const c=document.getElementById('driver-rides-list'); if(!c) return;
+  const mine=Object.values(allRides).filter(r=>r.driver===currentUser.username&&!['completed','cancelled'].includes(r.status));
+  if(!mine.length){c.innerHTML='<div class="empty-state"><span class="es-icon">📭</span><p>אין בקשות כרגע</p></div>';return;}
+  c.innerHTML=mine.map(r=>{
+    let a='';
+    if(r.status==='pending') a=`<div class="req-actions"><button class="btn btn-green btn-sm" onclick="acceptRide('${esc(r.id)}')">✓ קבל</button><button class="btn btn-red btn-sm" onclick="cancelRide('${esc(r.id)}')">✗ דחה</button></div>`;
+    else if(r.status==='accepted') a=`<div class="req-actions"><button class="btn btn-green btn-sm" onclick="markArrived('${esc(r.id)}')">📍 הגעתי</button><button class="btn btn-red btn-sm" onclick="cancelRide('${esc(r.id)}')">בטל</button></div>`;
+    else if(r.status==='arrived_at_pickup') a=`<div style="font-size:13px;color:var(--muted);padding:4px 0">⏳ ממתין לתשלום...</div>`;
+    else if(r.status==='in_progress') a=`<div class="req-actions"><button class="btn btn-green btn-sm" onclick="completeRide('${esc(r.id)}')">סיים ✓</button></div>`;
+    return`<div class="req-card"><div class="req-hdr"><div class="rpassenger">👤 ${esc(r.passenger)}</div><span class="sbadge ${r.status}">${statusLabel(r.status)}</span></div><div class="route">מ: <b>${esc(r.from)}</b> → <b>${esc(r.to||'—')}</b></div><div class="route">מחיר: <b style="color:var(--accent)">₪ ${r.price}</b></div>${a}</div>`;
   }).join('');
 }
+function acceptRide(id){ const r=allRides[id];if(!r)return;r.status='accepted';publishRide(r);myActiveRide=r;renderDriverRides();toast('קיבלת נסיעה! 🚗','success'); }
+function cancelRide(id){ const r=allRides[id];if(!r)return;r.status='cancelled';publishRide(r);if(myActiveRide?.id===id)myActiveRide=null;renderDriverRides();toast('בוטל','info'); }
+function markArrived(id){ const r=allRides[id];if(!r)return;r.status='arrived_at_pickup';publishRide(r);myActiveRide=r;renderDriverRides();toast('📍 סומנת כהגעה','success'); }
+function completeRide(id){ const r=allRides[id];if(!r)return;if(r.status!=='in_progress'){toast('ממתין לתשלום','info');return;}r.status='completed';publishRide(r);if(myActiveRide?.id===id)myActiveRide=null;const h=loadHistory();h.unshift({...r,savedAt:new Date().toISOString()});saveHistory(h);renderDriverRides();toast('🏁 הושלם!','success'); }
 
-function acceptRide(rideId) {
-  const ride = allRides[rideId]; if (!ride) return;
-  ride.status = 'accepted';
-  publishRide(ride); myActiveRide = ride;
-  renderDriverRides(); toast('קיבלת את הנסיעה!', 'success');
-}
-
-function cancelRide(rideId) {
-  const ride = allRides[rideId]; if (!ride) return;
-  ride.status = 'cancelled';
-  publishRide(ride);
-  if (myActiveRide && myActiveRide.id === rideId) myActiveRide = null;
-  renderDriverRides(); toast('הנסיעה בוטלה', 'info');
-}
-
-function markArrived(rideId) {
-  const ride = allRides[rideId]; if (!ride) return;
-  ride.status = 'arrived_at_pickup';
-  publishRide(ride); myActiveRide = ride;
-  renderDriverRides(); toast('סומנת כהגעה לנוסע 📍', 'success');
-}
-
-function completeRide(rideId) {
-  const ride = allRides[rideId]; if (!ride) return;
-  if (ride.status !== 'in_progress') { toast('ממתין לתשלום מהנוסע תחילה', 'info'); return; }
-  ride.status = 'completed';
-  publishRide(ride);
-  if (myActiveRide && myActiveRide.id === rideId) myActiveRide = null;
-  // save to driver history
-  const hist = loadHistory();
-  hist.unshift({ ...ride, savedAt: new Date().toISOString() });
-  saveHistory(hist);
-  renderDriverRides(); toast('נסיעה הושלמה! 🏁', 'success');
-}
-
-// ════════════════════════════════════════════════════════
-//  PASSENGER — DRIVER LIST
-// ════════════════════════════════════════════════════════
-function renderDriversList() {
-  const container = document.getElementById('drivers-list');
-  if (!container) return;
-  let drivers = Object.values(allDrivers).filter(d => d.available && d.username !== currentUser.username);
-  if (currentFilter !== 'הכל') drivers = drivers.filter(d => d.type === currentFilter);
-
-  if (drivers.length === 0) {
-    container.innerHTML = '<div class="empty-state"><span class="es-icon">🔍</span><p>אין נהגים זמינים כרגע</p></div>';
-    return;
-  }
-
-  container.innerHTML = drivers.map(d => {
-    const icon = vIcon(d.type);
-    const destTag = d.type==='טיסה' && d.destination ? `<span class="dest-chip">✈️ ${esc(d.destination)}</span>` : '';
-    const seatsTag = d.type==='טיסה' && d.seats > 0 ? `<span style="font-size:12px;color:var(--muted)">${d.seats} מקומות פנויים</span>` : '';
-    return `<div class="driver-card" onclick="openBooking('${esc(d.username)}')">
-      <div class="vic">${icon}</div>
+// ═══════════════════════ DRIVER LIST ═══════════════════════
+function renderDriversList(){
+  const c=document.getElementById('drivers-list'); if(!c) return;
+  let drivers=Object.values(allDrivers).filter(d=>d.available&&d.username!==currentUser.username);
+  if(currentFilter!=='הכל') drivers=drivers.filter(d=>d.type===currentFilter);
+  if(!drivers.length){c.innerHTML='<div class="empty-state"><span class="es-icon">🔍</span><p>אין נהגים זמינים</p></div>';return;}
+  c.innerHTML=drivers.map(d=>`
+    <div class="driver-card" onclick="selectDriver('${esc(d.username)}')">
+      <div class="vic">${vIcon(d.type)}</div>
       <div class="dinfo">
-        <div class="dname-row">
-          <div class="dname">${esc(d.username)}</div>
-          <div class="avail-dot"></div>
-          <span class="vtype-chip">${esc(d.type)}</span>
-        </div>
+        <div class="dname-row"><div class="dname">${esc(d.username)}</div><div class="avail-dot"></div><span class="vtype-chip">${esc(d.type)}</span></div>
         <div class="dloc">📍 ${esc(d.location||'מיקום לא צוין')}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
-          <span class="price-chip">)( ${d.price}</span>
-          ${destTag}${seatsTag}
-        </div>
+        <span class="price-chip">₪ ${d.price}</span>
+        ${d.type==='טיסה'&&d.destination?`<span style="font-size:11px;color:var(--muted);margin-right:6px">✈️ ${esc(d.destination)}</span>`:''}
       </div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
 }
-
-function setFilter(type) {
-  currentFilter = type;
-  document.querySelectorAll('.ftab').forEach(el => {
-    el.classList.toggle('active', el.textContent.trim().includes(type==='הכל'?'הכל':type));
-  });
-  renderDriversList();
-}
-
-// ════════════════════════════════════════════════════════
-//  BOOKING BOTTOM SHEET
-// ════════════════════════════════════════════════════════
-function openBooking(username) {
-  const d = allDrivers[username];
-  if (!d) { toast('נהג לא נמצא', 'error'); return; }
-  if (activeRide && !['completed','cancelled'].includes(activeRide.status)) {
-    toast('יש לך נסיעה פעילה', 'info'); return;
+function selectDriver(username){
+  const d=allDrivers[username]; if(!d) return;
+  if(bgoMap&&d.lat&&d.lng){
+    bgoMap.flyTo([d.lat,d.lng],15,{duration:0.7});
+    setTimeout(()=>{ if(driverMarkers[username]) driverMarkers[username].openPopup(); },800);
   }
-  selectedDriver = d;
+  openBooking(username);
+}
+function setFilter(type,el){
+  currentFilter=type;
+  document.querySelectorAll('.mf-pill').forEach(p=>p.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderDriversList(); updateMapMarkers();
+}
 
-  document.getElementById('bm-icon').textContent  = vIcon(d.type);
-  document.getElementById('bm-title').textContent  = 'הזמנת נסיעה – ' + d.username;
-  document.getElementById('bm-driver').textContent = d.username;
-  document.getElementById('bm-loc').textContent    = d.location || '—';
-  document.getElementById('bm-price').textContent  = ')( ' + d.price;
-
-  const isFlight = d.type === 'טיסה';
-  document.getElementById('bm-dest-row').style.display  = isFlight ? '' : 'none';
-  document.getElementById('bm-seats-row').style.display = isFlight ? '' : 'none';
-  document.getElementById('bm-to-wrap').style.display   = isFlight ? 'none' : '';
-  document.getElementById('bm-dest').textContent  = d.destination || '—';
-  document.getElementById('bm-seats').textContent = d.seats || '0';
-
-  document.getElementById('bm-from').value = '';
-  document.getElementById('bm-to').value   = '';
-
+// ═══════════════════════ BOOKING ═══════════════════════
+function openBooking(username){
+  const d=allDrivers[username]; if(!d){toast('נהג לא נמצא','error');return;}
+  if(activeRide&&!['completed','cancelled'].includes(activeRide.status)){toast('יש לך נסיעה פעילה','info');return;}
+  selectedDriver=d;
+  document.getElementById('bm-icon').textContent=vIcon(d.type);
+  document.getElementById('bm-title').textContent='הזמנת נסיעה – '+d.username;
+  document.getElementById('bm-driver').textContent=d.username;
+  document.getElementById('bm-loc').textContent=d.location||'—';
+  document.getElementById('bm-price').textContent='₪ '+d.price;
+  const isFlight=d.type==='טיסה';
+  document.getElementById('bm-dest-row').style.display=isFlight?'':'none';
+  document.getElementById('bm-seats-row').style.display=isFlight?'':'none';
+  document.getElementById('bm-to-wrap').style.display=isFlight?'none':'';
+  document.getElementById('bm-dest').textContent=d.destination||'—';
+  document.getElementById('bm-seats').textContent=d.seats||'0';
+  document.getElementById('bm-from').value='';
+  document.getElementById('bm-to').value='';
   document.getElementById('booking-modal').classList.add('visible');
 }
-
-function closeBooking(e) {
-  if (e && e.target !== document.getElementById('booking-modal')) return;
-  document.getElementById('booking-modal').classList.remove('visible');
-  selectedDriver = null;
+function closeBooking(e){
+  if(e&&e.target!==document.getElementById('booking-modal')) return;
+  document.getElementById('booking-modal').classList.remove('visible'); selectedDriver=null;
 }
-
-function sendRideRequest() {
-  if (!selectedDriver) return;
-  const from     = document.getElementById('bm-from').value.trim();
-  const isFlight = selectedDriver.type === 'טיסה';
-  const to       = isFlight ? selectedDriver.destination : document.getElementById('bm-to').value.trim();
-
-  if (!from) { toast('נא להזין נקודת איסוף', 'error'); return; }
-  if (!isFlight && !to) { toast('נא להזין יעד', 'error'); return; }
-
-  const rideId = 'ride_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-  const ride = {
-    id: rideId,
-    passenger: currentUser.username,
-    driver: selectedDriver.username,
-    driverBankUsername: selectedDriver.bankUsername || selectedDriver.username,
-    from, to: to || '',
-    price: selectedDriver.price,
-    type: selectedDriver.type,
-    status: 'pending',
-    timestamp: new Date().toISOString()
-  };
-
-  if (publishRide(ride)) {
-    activeRide = ride;
-    allRides[rideId] = ride;
-    document.getElementById('booking-modal').classList.remove('visible');
-    selectedDriver = null;
-    renderPassengerRideBar();
-    toast('בקשת נסיעה נשלחה! ממתין לאישור נהג ⏳', 'info', 3500);
+function sendRideRequest(){
+  if(!selectedDriver) return;
+  const from=document.getElementById('bm-from').value.trim();
+  const isFlight=selectedDriver.type==='טיסה';
+  const to=isFlight?selectedDriver.destination:document.getElementById('bm-to').value.trim();
+  if(!from){toast('נא להזין נקודת איסוף','error');return;}
+  if(!isFlight&&!to){toast('נא להזין יעד','error');return;}
+  const ride={id:'ride_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),passenger:currentUser.username,driver:selectedDriver.username,driverBankUsername:selectedDriver.bankUsername||selectedDriver.username,from,to:to||'',price:selectedDriver.price,type:selectedDriver.type,status:'pending',timestamp:new Date().toISOString()};
+  if(publishRide(ride)){
+    activeRide=ride; allRides[ride.id]=ride;
+    document.getElementById('booking-modal').classList.remove('visible'); selectedDriver=null;
+    renderPassengerRideBar(); toast('בקשת נסיעה נשלחה! ⏳','info',3500);
   }
 }
 
-// ════════════════════════════════════════════════════════
-//  PASSENGER — ACTIVE RIDE BAR
-// ════════════════════════════════════════════════════════
-function renderPassengerRideBar() {
-  const sec   = document.getElementById('pax-active-section');
-  const bar   = document.getElementById('pax-ride-bar');
-  const payWrap = document.getElementById('pax-pay-btn-wrap');
-  if (!activeRide || ['completed','cancelled'].includes(activeRide.status)) {
-    sec.style.display = 'none';
-    payWrap.style.display = 'none';
-    return;
-  }
-  sec.style.display = '';
-
-  const isArrived = activeRide.status === 'arrived_at_pickup';
-  payWrap.style.display = isArrived ? '' : 'none';
-
-  const icons = { pending:'⏳', accepted:'🚗', arrived_at_pickup:'📍', in_progress:'🚗', completed:'✅', cancelled:'❌' };
-  const labels = { pending:'ממתין לאישור נהג', accepted:'הנהג בדרך אליך', arrived_at_pickup:'הנהג הגיע!', in_progress:'אתה בנסיעה', completed:'הנסיעה הסתיימה', cancelled:'הנסיעה בוטלה' };
-
-  bar.innerHTML = `
-    <div class="rb-icon">${icons[activeRide.status]||'⏳'}</div>
-    <div class="rb-info">
-      <div class="rb-title">${labels[activeRide.status]||activeRide.status}</div>
-      <div class="rb-sub">${esc(activeRide.driver)} · )( ${activeRide.price}</div>
-    </div>
-    <span class="sbadge ${activeRide.status}">${statusLabel(activeRide.status)}</span>
-  `;
+// ═══════════════════════ ACTIVE RIDE BAR ═══════════════════════
+function renderPassengerRideBar(){
+  const sec=document.getElementById('pax-active-section');
+  const bar=document.getElementById('pax-ride-bar');
+  const pay=document.getElementById('pax-pay-btn-wrap');
+  if(!activeRide||['completed','cancelled'].includes(activeRide.status)){sec.style.display='none';pay.style.display='none';return;}
+  sec.style.display='';
+  pay.style.display=activeRide.status==='arrived_at_pickup'?'':'none';
+  const icons={pending:'⏳',accepted:'🚗',arrived_at_pickup:'📍',in_progress:'🚗',completed:'✅',cancelled:'❌'};
+  const labels={pending:'ממתין לאישור נהג',accepted:'הנהג בדרך אליך',arrived_at_pickup:'הנהג הגיע!',in_progress:'אתה בנסיעה',completed:'הסתיים',cancelled:'בוטל'};
+  bar.innerHTML=`<div class="rb-icon">${icons[activeRide.status]||'⏳'}</div><div class="rb-info"><div class="rb-title">${labels[activeRide.status]||activeRide.status}</div><div class="rb-sub">${esc(activeRide.driver)} · ₪ ${activeRide.price}</div></div><span class="sbadge ${activeRide.status}">${statusLabel(activeRide.status)}</span>`;
 }
 
-// ════════════════════════════════════════════════════════
-//  PAYMENT MODAL
-// ════════════════════════════════════════════════════════
-function openPaymentModal() {
-  if (!activeRide) return;
-  document.getElementById('pay-driver-info').textContent = 'נהג: ' + activeRide.driver + ' · מחיר: )( ' + activeRide.price;
-  document.getElementById('pay-bank-user').value = currentUser.bankUsername || '';
-  document.getElementById('pay-bank-pass').value = '';
+// ═══════════════════════ PAYMENT ═══════════════════════
+function openPaymentModal(){
+  if(!activeRide) return;
+  document.getElementById('pay-driver-info').textContent='נהג: '+activeRide.driver+' · ₪ '+activeRide.price;
+  document.getElementById('pay-bank-user').value=currentUser.bankUsername||'';
+  document.getElementById('pay-bank-pass').value='';
   document.getElementById('payment-modal').classList.add('visible');
 }
-
-function closePaymentModal(e) {
-  if (e && e.target !== document.getElementById('payment-modal')) return;
+function closePaymentModal(e){
+  if(e&&e.target!==document.getElementById('payment-modal')) return;
   document.getElementById('payment-modal').classList.remove('visible');
 }
-
-async function submitPayment() {
-  if (!activeRide) return;
-  const bankUser = document.getElementById('pay-bank-user').value.trim();
-  const bankPass = document.getElementById('pay-bank-pass').value;
-  if (!bankUser || !bankPass) { toast('נא למלא פרטי בנק', 'error'); return; }
-
-  const btn = document.getElementById('pay-submit-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> מעבד...';
-
-  try {
-    const result = await processPayment(bankUser, bankPass, activeRide.price, activeRide.driverBankUsername || activeRide.driver);
-    if (!result.success) {
-      toast(result.message, 'error');
-    } else {
-      // Update ride to in_progress
-      activeRide.status = 'in_progress';
-      publishRide(activeRide);
-      renderPassengerRideBar();
+async function submitPayment(){
+  if(!activeRide) return;
+  const u=document.getElementById('pay-bank-user').value.trim();
+  const p=document.getElementById('pay-bank-pass').value;
+  if(!u||!p){toast('נא למלא פרטי בנק','error');return;}
+  const btn=document.getElementById('pay-submit-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> מעבד...';
+  try{
+    const r=await processPayment(u,p,activeRide.price,activeRide.driverBankUsername||activeRide.driver);
+    if(!r.success) toast(r.message,'error');
+    else{
+      activeRide.status='in_progress'; publishRide(activeRide); renderPassengerRideBar();
       document.getElementById('payment-modal').classList.remove('visible');
-      showReceipt(activeRide, bankUser, result.newBalance);
-      toast('תשלום בוצע! 🎉', 'success');
+      showReceipt(activeRide,u,r.newBalance); toast('תשלום בוצע! 🎉','success');
     }
-  } catch(e) {
-    toast('שגיאה: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'שלם';
+  }catch(e){toast('שגיאה: '+e.message,'error');}
+  finally{btn.disabled=false;btn.innerHTML='שלם';}
+}
+async function processPayment(bankUser,bankPass,amount,driverBankUser){
+  if(!mqttClient?.connected) return{success:false,message:'לא מחובר'};
+  const buyer=await waitForAccount(bankUser);
+  if(!buyer) return{success:false,message:'חשבון לא נמצא: '+bankUser};
+  if(buyer.password&&buyer.password!==bankPass) return{success:false,message:'סיסמה שגויה'};
+  const bal=parseFloat(buyer.balance)||0;
+  if(bal<amount) return{success:false,message:'יתרה לא מספיקה. יש: ₪ '+bal.toFixed(2)};
+  const changes={};
+  const newBal=bal-amount;
+  changes[bankUser]={...buyer,balance:newBal,history:[{type:'debit',amount,desc:'Bgo – נסיעה',date:new Date().toISOString(),balance:newBal},...(buyer.history||[])]};
+  const isSame=bankUser===driverBankUser;
+  const driver=isSame?{...changes[bankUser]}:await waitForAccount(driverBankUser);
+  if(driver){
+    const db=isSame?newBal:(parseFloat(driver.balance)||0);
+    const nb=db+amount;
+    changes[driverBankUser]={...driver,balance:nb,history:[{type:'credit',amount,desc:'Bgo – נסיעה מ-'+bankUser,date:new Date().toISOString(),balance:nb},...(driver.history||[])]};
   }
+  for(const[u,d] of Object.entries(changes)){await publishBank(u,d);bankCache[u]=d;}
+  return{success:true,newBalance:newBal};
 }
 
-// ════════════════════════════════════════════════════════
-//  PAYMENT FUNCTION
-// ════════════════════════════════════════════════════════
-async function processPayment(bankUser, bankPass, amount, driverUsername) {
-  if (!mqttClient || !mqttClient.connected) return { success: false, message: 'לא מחובר ל-MQTT' };
-
-  // 1. Fetch buyer account
-  const buyerAccount = await waitForAccount(bankUser);
-  if (!buyerAccount) return { success: false, message: 'חשבון בנק לא נמצא: ' + bankUser };
-  if (buyerAccount.password && buyerAccount.password !== bankPass) return { success: false, message: 'סיסמת בנק שגויה' };
-
-  const balance = parseFloat(buyerAccount.balance) || 0;
-  if (balance < amount) return { success: false, message: 'יתרה לא מספיקה. יתרה: )( ' + balance.toFixed(2) };
-
-  // Determine driver bank username
-  const driverBankUser = driverUsername;
-
-  // 2. Calculate all changes in memory
-  const allChanges = {};
-
-  const newBuyerBalance = balance - amount;
-  const updatedBuyer = {
-    ...buyerAccount,
-    balance: newBuyerBalance,
-    history: [
-      { type: 'debit', amount, desc: 'BIRGSOL TAXI – נסיעה', date: new Date().toISOString(), balance: newBuyerBalance },
-      ...(buyerAccount.history || [])
-    ]
-  };
-  allChanges[bankUser] = updatedBuyer;
-
-  // Fetch driver account
-  const isSameAccount = (bankUser === driverBankUser);
-  let driverAccount;
-  if (isSameAccount) {
-    driverAccount = { ...updatedBuyer }; // start from already-deducted
-  } else {
-    driverAccount = await waitForAccount(driverBankUser);
-  }
-
-  if (driverAccount) {
-    const driverBalance = isSameAccount ? newBuyerBalance : (parseFloat(driverAccount.balance) || 0);
-    const newDriverBalance = driverBalance + amount;
-    const updatedDriver = {
-      ...driverAccount,
-      balance: newDriverBalance,
-      history: [
-        { type: 'credit', amount, desc: 'BIRGSOL TAXI – תשלום נסיעה מ-' + bankUser, date: new Date().toISOString(), balance: newDriverBalance },
-        ...(driverAccount.history || [])
-      ]
-    };
-    allChanges[driverBankUser] = updatedDriver;
-  }
-
-  // 3. Publish all changes
-  for (const [user, data] of Object.entries(allChanges)) {
-    await publishBankAccount(user, data);
-    bankCache[user] = data;
-  }
-
-  return { success: true, message: 'תשלום בוצע', newBalance: newBuyerBalance };
-}
-
-// ════════════════════════════════════════════════════════
-//  RECEIPT
-// ════════════════════════════════════════════════════════
-function showReceipt(ride, bankUser, newBalance) {
-  document.getElementById('receipt-content').innerHTML = `
-    <div class="rcpt-row"><span class="rl">מספר נסיעה</span><span class="rv" style="font-size:11px">${esc(ride.id)}</span></div>
+// ═══════════════════════ RECEIPT ═══════════════════════
+function showReceipt(ride,bankUser,newBal){
+  document.getElementById('receipt-content').innerHTML=`
     <div class="rcpt-row"><span class="rl">נהג</span><span class="rv">${esc(ride.driver)}</span></div>
-    <div class="rcpt-row"><span class="rl">סוג</span><span class="rv">${vIcon(ride.type)} ${esc(ride.type)}</span></div>
     <div class="rcpt-row"><span class="rl">מ</span><span class="rv">${esc(ride.from)}</span></div>
     <div class="rcpt-row"><span class="rl">אל</span><span class="rv">${esc(ride.to||'—')}</span></div>
     <div class="rcpt-row"><span class="rl">שולם מ</span><span class="rv">${esc(bankUser)}</span></div>
-    ${newBalance != null ? `<div class="rcpt-row"><span class="rl">יתרה חדשה</span><span class="rv" style="color:var(--accent)">)( ${parseFloat(newBalance).toFixed(2)}</span></div>` : ''}
-    <div class="rcpt-row total"><span class="rl">סכום</span><span class="rv">)( ${ride.price}</span></div>
-  `;
+    ${newBal!=null?`<div class="rcpt-row"><span class="rl">יתרה חדשה</span><span class="rv" style="color:var(--accent)">₪ ${parseFloat(newBal).toFixed(2)}</span></div>`:''}
+    <div class="rcpt-row total"><span class="rl">סכום</span><span class="rv">₪ ${ride.price}</span></div>`;
   document.getElementById('receipt-modal').classList.add('visible');
 }
+function closeReceiptModal(){ document.getElementById('receipt-modal').classList.remove('visible'); }
 
-function closeReceiptModal() {
-  document.getElementById('receipt-modal').classList.remove('visible');
+// ═══════════════════════ HISTORY ═══════════════════════
+function renderHistory(){
+  const c=document.getElementById('history-list'); if(!c) return;
+  const h=loadHistory();
+  if(!h.length){c.innerHTML='<div class="empty-state"><span class="es-icon">📭</span><p>אין נסיעות</p></div>';return;}
+  c.innerHTML=h.map(r=>`<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:700">${vIcon(r.type)} ${esc(r.driver||r.passenger)}</div><span class="sbadge ${r.status}">${statusLabel(r.status)}</span></div><div style="font-size:13px;color:var(--muted)">📍 ${esc(r.from)} → ${esc(r.to||'—')}<br>🕐 ${new Date(r.timestamp).toLocaleString('he-IL')}</div><div style="margin-top:8px;font-weight:700;color:var(--accent)">₪ ${r.price}</div></div>`).join('');
 }
 
-// ════════════════════════════════════════════════════════
-//  HISTORY SCREEN
-// ════════════════════════════════════════════════════════
-function renderHistory() {
-  const container = document.getElementById('history-list');
-  if (!container) return;
-  const hist = loadHistory();
-  if (hist.length === 0) {
-    container.innerHTML = '<div class="empty-state"><span class="es-icon">📭</span><p>אין נסיעות בהיסטוריה</p></div>';
-    return;
-  }
-  container.innerHTML = hist.map(r => `
-    <div class="card" style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-weight:700">${vIcon(r.type)} ${esc(r.driver||r.passenger)}</div>
-        <span class="sbadge ${r.status}">${statusLabel(r.status)}</span>
-      </div>
-      <div style="font-size:13px;color:var(--muted)">
-        📍 ${esc(r.from)} → ${esc(r.to||'—')}<br>
-        🕐 ${new Date(r.timestamp).toLocaleString('he-IL')}
-      </div>
-      <div style="margin-top:8px;font-weight:700;color:var(--accent)">)( ${r.price}</div>
-    </div>
-  `).join('');
+// ═══════════════════════ PROFILE ═══════════════════════
+function updateProfileScreen(){
+  if(!currentUser) return;
+  document.getElementById('prof-username').textContent=currentUser.username;
+  document.getElementById('prof-role').textContent=currentUser.role;
+  document.getElementById('prof-bank').textContent=currentUser.bankUsername||'—';
+  const h=loadHistory();
+  document.getElementById('stat-rides').textContent=h.length;
+  document.getElementById('stat-spent').textContent='₪'+h.reduce((s,r)=>s+(parseFloat(r.price)||0),0).toFixed(0);
 }
 
-// ════════════════════════════════════════════════════════
-//  PROFILE SCREEN
-// ════════════════════════════════════════════════════════
-function updateProfileScreen() {
-  if (!currentUser) return;
-  document.getElementById('prof-username').textContent = currentUser.username;
-  document.getElementById('prof-role').textContent     = currentUser.role;
-  document.getElementById('prof-bank').textContent     = currentUser.bankUsername || '—';
-  const hist = loadHistory();
-  document.getElementById('stat-rides').textContent = hist.length;
-  const total = hist.reduce((s, r) => s + (parseFloat(r.price)||0), 0);
-  document.getElementById('stat-spent').textContent = ')( ' + total.toFixed(2);
-}
+// ═══════════════════════ UTILS ═══════════════════════
+function vIcon(t){ return t==='מונית'?'🚕':t==='אוטובוס'?'🚌':t==='טיסה'?'✈️':'🚗'; }
+function statusLabel(s){ return{pending:'ממתין',accepted:'אושר',arrived_at_pickup:'הגיע',in_progress:'בנסיעה',completed:'הושלם',cancelled:'בוטל'}[s]||s; }
+function esc(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ════════════════════════════════════════════════════════
-//  UTILITIES
-// ════════════════════════════════════════════════════════
-function vIcon(type) {
-  if (type==='מונית')   return '🚕';
-  if (type==='אוטובוס') return '🚌';
-  if (type==='טיסה')    return '✈️';
-  return '🚗';
-}
-
-function statusLabel(s) {
-  const m = { pending:'ממתין', accepted:'אושר', arrived_at_pickup:'הנהג הגיע', in_progress:'בנסיעה', completed:'הושלם', cancelled:'בוטל' };
-  return m[s] || s;
-}
-
-function esc(str) {
-  if (str == null) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ════════════════════════════════════════════════════════
-//  BOOT
-// ════════════════════════════════════════════════════════
-(function init() {
-  const session = loadSession();
-  if (session) { currentUser = session; initAfterLogin(); }
+// ═══════════════════════ BOOT ═══════════════════════
+(function init(){
+  const s=loadSession();
+  if(s){currentUser=s;initAfterLogin();}
 })();
 </script>
 </body>
