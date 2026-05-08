@@ -263,9 +263,7 @@ body.nav-on #toast{top:auto;bottom:calc(88px + 90px)}
 .av-sub{font-size:15px;color:#888;text-align:center;max-width:260px}
 .av-btn{margin-top:8px;padding:14px 44px;background:#111;color:#fff;border:none;border-radius:30px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s}
 .av-btn:active{transform:scale(.95)}
-.av-conf{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.cnf{position:absolute;opacity:0;top:-10px;border-radius:2px}
-@keyframes cnfFall{0%{opacity:1;transform:translateY(0) rotate(0)}80%{opacity:1}100%{opacity:0;transform:translateY(110vh) rotate(720deg)}}
+.av-conf{display:none}
 
 /* ══ NIGHT MODE ══ */
 body.night #bottom-bar{background:#1c1c1e}
@@ -390,7 +388,6 @@ body.night #cam-wrap{background:#2c2c2e}
 
 <!-- Arrived -->
 <div id="arrived">
-  <div class="av-conf" id="av-conf"></div>
   <div class="av-emoji">🏁</div>
   <div class="av-title">הגעת!</div>
   <div class="av-sub" id="av-dest"></div>
@@ -783,12 +780,7 @@ function showArrived(){
   makeConf();
 }
 function closeArrived(){document.getElementById('arrived').classList.remove('vis');stopNav();}
-function makeConf(){
-  const w=document.getElementById('av-conf');w.innerHTML='';
-  ['#111','#333','#555','#888','#aaa','#ccc','#fff'].forEach(c=>{
-    for(let i=0;i<10;i++){const el=document.createElement('div');el.className='cnf';el.style.cssText=`left:${Math.random()*100}%;background:${c};width:${5+Math.random()*8}px;height:${5+Math.random()*8}px;border-radius:${Math.random()>.5?'50%':'2px'};animation:cnfFall ${1.5+Math.random()*2}s ease-in ${Math.random()*.8}s forwards`;w.appendChild(el);}
-  });
-}
+function makeConf(){}
 
 /* ── History ── */
 function getHist(){try{return JSON.parse(localStorage.getItem('pathly_h')||'[]');}catch(e){return[];}}
