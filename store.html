@@ -9,7 +9,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     :root {
       --bg: #f2f2f7;
-      --card: #ffffff;
+      --card: #fff;
       --blue: #007aff;
       --text: #1c1c1e;
       --text2: #3a3a3c;
@@ -24,7 +24,7 @@
     }
 
     /* ── HEADER ── */
-    .s-header {
+    .hdr {
       position: sticky; top: 0; z-index: 100;
       background: rgba(242,242,247,0.88);
       backdrop-filter: saturate(180%) blur(22px);
@@ -32,494 +32,398 @@
       border-bottom: 0.5px solid var(--sep);
       padding: 0 16px;
     }
-    .s-header-top {
-      display: flex; justify-content: space-between; align-items: flex-end;
-      padding: 14px 0 8px;
+    .hdr-top { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 0 8px; }
+    .hdr-left {}
+    .hdr-title { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+    .hdr-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .hdr-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, #4285f4, #c58af9);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: #fff; font-weight: 700; cursor: pointer;
+      flex-shrink: 0;
     }
-    .s-title { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
-    .s-count { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-    .s-search-wrap {
+    .search-wrap {
       background: rgba(118,118,128,0.12); border-radius: 12px;
       display: flex; align-items: center; gap: 8px; padding: 9px 12px;
       margin-bottom: 10px;
     }
-    .s-search-wrap svg { color: var(--muted); flex-shrink: 0; }
-    .s-search-wrap input {
-      flex: 1; border: none; background: none; font-size: 15px;
-      outline: none; color: var(--text); font-family: inherit;
-    }
-    .s-search-wrap input::placeholder { color: var(--muted); }
-    .s-tabs {
+    .search-wrap svg { color: var(--muted); flex-shrink: 0; }
+    .search-wrap input { flex: 1; border: none; background: none; font-size: 15px; outline: none; color: var(--text); font-family: inherit; }
+    .search-wrap input::placeholder { color: var(--muted); }
+    .tabs {
       display: flex; overflow-x: auto; scrollbar-width: none;
       border-bottom: 0.5px solid var(--sep); margin: 0 -16px; padding: 0 16px;
     }
-    .s-tabs::-webkit-scrollbar { display: none; }
-    .s-tab {
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
       padding: 10px 14px; font-size: 14px; font-weight: 600; color: var(--muted);
       border: none; background: none; cursor: pointer; border-bottom: 2.5px solid transparent;
-      white-space: nowrap; font-family: inherit; transition: color 0.2s; flex-shrink: 0;
+      white-space: nowrap; font-family: inherit; transition: color 0.18s; flex-shrink: 0;
     }
-    .s-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
 
-    /* ── HERO ── */
+    /* ── HERO (Today card) ── */
     .hero {
       margin: 16px; border-radius: 22px; overflow: hidden;
-      background: linear-gradient(145deg, #08081a 0%, #12123a 45%, #0c1e56 100%);
-      position: relative; padding: 24px; min-height: 230px;
+      background: linear-gradient(148deg, #08081c 0%, #101038 45%, #0c1d58 100%);
+      position: relative; padding: 28px 24px 24px; min-height: 240px;
       display: flex; flex-direction: column; justify-content: flex-end;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.22); cursor: pointer;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22); cursor: pointer;
     }
     .hero::before {
-      content: ''; position: absolute; top: -50px; left: -50px;
-      width: 220px; height: 220px;
-      background: radial-gradient(circle, rgba(0,122,255,0.38) 0%, transparent 70%);
-      pointer-events: none;
+      content: ''; position: absolute; top: -60px; left: -60px; width: 240px; height: 240px;
+      background: radial-gradient(circle, rgba(0,122,255,0.35) 0%, transparent 68%); pointer-events: none;
     }
     .hero::after {
-      content: ''; position: absolute; bottom: -20px; right: -20px;
-      width: 180px; height: 180px;
-      background: radial-gradient(circle, rgba(34,197,94,0.18) 0%, transparent 70%);
-      pointer-events: none;
+      content: ''; position: absolute; bottom: -30px; right: -30px; width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(34,197,94,0.16) 0%, transparent 68%); pointer-events: none;
     }
-    .hero-badge {
-      font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
-      text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 8px;
-    }
-    .hero-icon-wrap {
+    .hero-badge { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(255,255,255,0.42); margin-bottom: 8px; }
+    .hero-icon {
       position: absolute; top: 24px; left: 24px;
-      width: 94px; height: 94px; border-radius: 22px; overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+      width: 96px; height: 96px; border-radius: 22px; overflow: hidden;
+      box-shadow: 0 8px 26px rgba(0,0,0,0.55);
     }
-    .hero-icon-wrap svg { width: 100%; height: 100%; display: block; }
+    .hero-icon svg { width: 100%; height: 100%; display: block; }
     .hero-name { font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
-    .hero-sub { font-size: 14px; color: rgba(255,255,255,0.55); margin: 5px 0 18px; }
-    .hero-actions { display: flex; gap: 10px; align-items: center; }
+    .hero-sub { font-size: 14px; color: rgba(255,255,255,0.52); margin: 5px 0 18px; line-height: 1.45; }
+    .hero-row { display: flex; gap: 10px; align-items: center; }
     .hero-open {
-      background: rgba(255,255,255,0.95); color: #0a0a1a;
-      border: none; border-radius: 100px; padding: 10px 24px;
-      font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
-      text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.94); color: #0a0a1c; border: none; border-radius: 100px;
+      padding: 10px 24px; font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: inherit; text-decoration: none; display: inline-block;
     }
     .hero-dl {
-      background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85);
-      border: 1px solid rgba(255,255,255,0.2); border-radius: 100px;
-      padding: 10px 18px; font-size: 13px; font-weight: 600;
-      cursor: pointer; font-family: inherit; backdrop-filter: blur(10px);
+      background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.88);
+      border: 1px solid rgba(255,255,255,0.22); border-radius: 100px;
+      padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: inherit; backdrop-filter: blur(8px);
     }
 
-    /* ── SECTIONS ── */
-    .s-sec { margin: 0; }
-    .s-sec-head {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 16px 16px 10px;
-    }
-    .s-sec-title { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
-    .s-divider { height: 8px; background: var(--bg); border-top: 0.5px solid var(--sep); }
-
-    /* ── HORIZONTAL CARD ROW ── */
-    .h-row {
-      display: flex; overflow-x: auto; padding: 4px 16px 18px;
-      scrollbar-width: none; -webkit-overflow-scrolling: touch; gap: 16px;
-    }
-    .h-row::-webkit-scrollbar { display: none; }
-    .h-card { display: flex; flex-direction: column; align-items: center; width: 78px; flex-shrink: 0; }
-    .h-icon {
-      width: 68px; height: 68px; border-radius: 18px; overflow: hidden;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.16); margin-bottom: 8px;
-      cursor: pointer; flex-shrink: 0;
-    }
-    .h-icon svg { width: 100%; height: 100%; display: block; }
-    .h-name { font-size: 11px; font-weight: 500; text-align: center; color: var(--text2); line-height: 1.3; margin-bottom: 7px; }
-    .h-get {
-      background: rgba(0,122,255,0.1); color: var(--blue);
-      border: none; border-radius: 100px; padding: 5px 14px;
-      font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit;
-      transition: all 0.15s; white-space: nowrap;
-    }
-    .h-get:active { background: var(--blue); color: #fff; transform: scale(0.93); }
+    /* ── SECTION ── */
+    .sec { margin: 0; }
+    .sec-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 16px 10px; }
+    .sec-title { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
+    .divider { height: 8px; background: var(--bg); border-top: 0.5px solid var(--sep); }
 
     /* ── BIG LIST ── */
-    .big-list { padding: 0 16px; }
-    .big-card {
+    .blist { padding: 0 16px; }
+    .bcard {
       display: flex; align-items: center; gap: 14px;
       padding: 13px 0; border-bottom: 0.5px solid var(--sep);
     }
-    .big-card:last-child { border-bottom: none; }
-    .big-icon {
-      width: 64px; height: 64px; border-radius: 16px; overflow: hidden;
-      flex-shrink: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.14); cursor: pointer;
-    }
-    .big-icon svg { width: 100%; height: 100%; display: block; }
-    .big-info { flex: 1; min-width: 0; cursor: pointer; }
-    .big-name { font-size: 15px; font-weight: 600; }
-    .big-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-    .big-stars { font-size: 11px; color: var(--muted); margin-top: 4px; }
-    .big-actions { display: flex; flex-direction: column; gap: 5px; align-items: center; flex-shrink: 0; }
-    .big-get {
-      background: rgba(0,122,255,0.1); color: var(--blue);
-      border: none; border-radius: 100px; padding: 6px 18px;
-      font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap;
-    }
-    .big-dl {
-      color: var(--green); font-size: 11px; font-weight: 600; cursor: pointer;
-      display: flex; align-items: center; gap: 3px; background: none; border: none; font-family: inherit;
-    }
+    .bcard:last-child { border-bottom: none; }
+    .bicon { width: 66px; height: 66px; border-radius: 16px; overflow: hidden; flex-shrink: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.14); cursor: pointer; }
+    .bicon svg { width: 100%; height: 100%; display: block; }
+    .binfo { flex: 1; min-width: 0; cursor: pointer; }
+    .bname { font-size: 15px; font-weight: 600; }
+    .bsub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+    .bstars { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .bactions { display: flex; flex-direction: column; gap: 5px; align-items: center; flex-shrink: 0; }
+    .bget { background: rgba(0,122,255,0.1); color: var(--blue); border: none; border-radius: 100px; padding: 6px 18px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .bdl { color: var(--green); font-size: 11px; font-weight: 600; cursor: pointer; background: none; border: none; font-family: inherit; display: flex; align-items: center; gap: 2px; }
 
     /* ── SEARCH RESULTS ── */
-    #search-view { display: none; padding: 8px 16px; }
-    #search-view.show { display: block; }
-    .sr-item {
-      display: flex; align-items: center; gap: 13px;
-      padding: 10px 0; border-bottom: 0.5px solid var(--sep); cursor: pointer;
-    }
-    .sr-item:last-child { border-bottom: none; }
-    .sr-icon { width: 52px; height: 52px; border-radius: 13px; overflow: hidden; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
-    .sr-icon svg { width: 100%; height: 100%; display: block; }
-    .sr-info { flex: 1; }
-    .sr-name { font-size: 15px; font-weight: 600; }
-    .sr-cat { font-size: 12px; color: var(--muted); }
-    .sr-get { background: rgba(0,122,255,0.1); color: var(--blue); border: none; border-radius: 100px; padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    #sv { display: none; padding: 6px 16px; }
+    #sv.show { display: block; }
+    .sri { display: flex; align-items: center; gap: 13px; padding: 10px 0; border-bottom: 0.5px solid var(--sep); cursor: pointer; }
+    .sri:last-child { border-bottom: none; }
+    .sri-icon { width: 52px; height: 52px; border-radius: 13px; overflow: hidden; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .sri-icon svg { width: 100%; height: 100%; display: block; }
+    .sri-info { flex: 1; }
+    .sri-name { font-size: 15px; font-weight: 600; }
+    .sri-cat { font-size: 12px; color: var(--muted); }
+    .sri-get { background: rgba(0,122,255,0.1); color: var(--blue); border: none; border-radius: 100px; padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
 
     /* ── EMPTY ── */
-    .empty-view { text-align: center; padding: 60px 20px; display: none; }
-    .empty-view.show { display: block; }
-    .empty-icon { font-size: 52px; margin-bottom: 14px; }
-    .empty-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-    .empty-sub { font-size: 14px; color: var(--muted); }
+    .empty { text-align: center; padding: 60px 20px; display: none; }
+    .empty.show { display: block; }
+    .empty-ico { font-size: 52px; margin-bottom: 14px; }
+    .empty-t { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .empty-s { font-size: 14px; color: var(--muted); }
 
-    /* ── BOTTOM SHEET ── */
-    .overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.46);
-      z-index: 300; opacity: 0; pointer-events: none; transition: opacity 0.25s;
-    }
-    .overlay.show { opacity: 1; pointer-events: all; }
-    .sheet {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: var(--card); border-radius: 26px 26px 0 0;
-      z-index: 301; transform: translateY(100%);
-      transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+    /* ── OVERLAY + SHEET ── */
+    .ov { position: fixed; inset: 0; background: rgba(0,0,0,0.46); z-index: 300; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+    .ov.show { opacity: 1; pointer-events: all; }
+    .sh {
+      position: fixed; bottom: 0; left: 0; right: 0; background: var(--card);
+      border-radius: 26px 26px 0 0; z-index: 301; transform: translateY(100%);
+      transition: transform 0.38s cubic-bezier(0.32,0.72,0,1);
       max-height: 92vh; overflow-y: auto;
-      padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px);
+      padding-bottom: max(env(safe-area-inset-bottom,0px),20px);
     }
-    .sheet.show { transform: translateY(0); }
-    .sheet-handle { width: 38px; height: 4px; background: #d1d1d6; border-radius: 2px; margin: 12px auto 0; }
-    .sheet-body { padding: 20px 22px; }
-    .sheet-app-row { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 18px; }
-    .sheet-icon { width: 92px; height: 92px; border-radius: 22px; overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 18px rgba(0,0,0,0.18); }
-    .sheet-icon svg { width: 100%; height: 100%; display: block; }
-    .sheet-meta { flex: 1; }
-    .sheet-name { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.2; }
-    .sheet-dev { font-size: 13px; color: var(--blue); margin-top: 4px; }
-    .sheet-cat-badge { display: inline-block; margin-top: 6px; background: rgba(120,120,128,0.12); border-radius: 6px; padding: 3px 10px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
-    .sheet-ratings { display: flex; gap: 0; margin: 18px 0; background: rgba(120,120,128,0.07); border-radius: 14px; overflow: hidden; }
-    .srl-item { text-align: center; flex: 1; padding: 14px 8px; border-left: 0.5px solid var(--sep); }
-    .srl-item:last-child { border-left: none; }
-    .srl-val { font-size: 20px; font-weight: 700; }
-    .srl-lbl { font-size: 10px; color: var(--muted); margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
-    .sheet-btn-row { display: flex; gap: 10px; margin-bottom: 22px; }
-    .s-open {
-      flex: 1; background: var(--blue); color: #fff; border: none;
-      border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 700;
-      cursor: pointer; font-family: inherit; text-decoration: none;
-      text-align: center; display: block;
-    }
-    .s-dl {
-      background: rgba(52,199,89,0.1); color: var(--green);
-      border: 1.5px solid rgba(52,199,89,0.3); border-radius: 14px;
-      padding: 14px 16px; font-size: 13px; font-weight: 700;
-      cursor: pointer; font-family: inherit; white-space: nowrap;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .s-lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 20px 0 10px; }
-    .s-desc { font-size: 14px; line-height: 1.68; color: var(--text); }
+    .sh.show { transform: translateY(0); }
+    .sh-handle { width: 38px; height: 4px; background: #d1d1d6; border-radius: 2px; margin: 12px auto 0; }
+    .sh-body { padding: 20px 22px; }
+    .sh-approw { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 18px; }
+    .sh-icon { width: 92px; height: 92px; border-radius: 22px; overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 18px rgba(0,0,0,0.18); }
+    .sh-icon svg { width: 100%; height: 100%; display: block; }
+    .sh-meta { flex: 1; }
+    .sh-name { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.2; }
+    .sh-dev { font-size: 13px; color: var(--blue); margin-top: 4px; }
+    .sh-badge { display: inline-block; margin-top: 6px; background: rgba(120,120,128,0.12); border-radius: 6px; padding: 3px 10px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+    .sh-stats { display: flex; background: rgba(120,120,128,0.07); border-radius: 14px; overflow: hidden; margin: 18px 0; }
+    .sh-stat { text-align: center; flex: 1; padding: 13px 6px; border-left: 0.5px solid var(--sep); }
+    .sh-stat:last-child { border-left: none; }
+    .sh-stat-v { font-size: 19px; font-weight: 700; }
+    .sh-stat-l { font-size: 10px; color: var(--muted); margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .sh-btnrow { display: flex; gap: 10px; margin-bottom: 22px; }
+    .sh-open { flex: 1; background: var(--blue); color: #fff; border: none; border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; text-decoration: none; text-align: center; display: block; }
+    .sh-dl { background: rgba(52,199,89,0.1); color: var(--green); border: 1.5px solid rgba(52,199,89,0.3); border-radius: 14px; padding: 14px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .sh-lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 20px 0 10px; }
+    .sh-desc { font-size: 14px; line-height: 1.68; color: var(--text); }
     .os-tabs { display: flex; gap: 8px; margin: 14px 0 12px; }
     .os-tab { background: rgba(120,120,128,0.12); border: none; border-radius: 8px; padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; color: var(--text); transition: all 0.15s; }
     .os-tab.active { background: var(--blue); color: #fff; }
     .install-list { list-style: none; }
-    .install-step { display: flex; gap: 12px; padding: 11px 0; border-bottom: 0.5px solid var(--sep); font-size: 14px; line-height: 1.55; align-items: flex-start; }
-    .install-step:last-child { border-bottom: none; }
-    .step-n { background: var(--blue); color: #fff; border-radius: 50%; width: 23px; height: 23px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .istep { display: flex; gap: 12px; padding: 11px 0; border-bottom: 0.5px solid var(--sep); font-size: 14px; line-height: 1.55; align-items: flex-start; }
+    .istep:last-child { border-bottom: none; }
+    .istep-n { background: var(--blue); color: #fff; border-radius: 50%; width: 23px; height: 23px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
 
     /* ── TOAST ── */
-    .toast {
-      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
-      background: rgba(28,28,30,0.92); color: #fff; border-radius: 100px;
-      padding: 11px 24px; font-size: 14px; font-weight: 600;
-      opacity: 0; transition: all 0.3s; z-index: 500; white-space: nowrap;
-      backdrop-filter: blur(10px); pointer-events: none;
-    }
+    .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: rgba(28,28,30,0.92); color: #fff; border-radius: 100px; padding: 11px 24px; font-size: 14px; font-weight: 600; opacity: 0; transition: all 0.3s; z-index: 500; white-space: nowrap; backdrop-filter: blur(10px); pointer-events: none; }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     /* ── FOOTER ── */
-    .s-footer { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 12px; line-height: 1.9; border-top: 0.5px solid var(--sep); }
-    .s-footer a { color: var(--blue); text-decoration: none; }
+    .footer { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 12px; line-height: 1.9; border-top: 0.5px solid var(--sep); }
+    .footer a { color: var(--blue); text-decoration: none; }
   </style>
 </head>
 <body>
 
-<!-- ── HEADER ── -->
-<div class="s-header">
-  <div class="s-header-top">
-    <div class="s-title">Birgsol Store</div>
-    <div class="s-count">9 אפליקציות</div>
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="hdr-left">
+      <div class="hdr-title">Birgsol Store</div>
+      <div class="hdr-sub">8 אפליקציות · הכל בחינם</div>
+    </div>
+    <div class="hdr-avatar">B</div>
   </div>
-  <div class="s-search-wrap">
+  <div class="search-wrap">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input type="text" id="q" placeholder="חפש אפליקציות..." oninput="onSearch(this.value)" autocomplete="off">
   </div>
-  <div class="s-tabs">
-    <button class="s-tab active" onclick="setTab('all',this)">הכל</button>
-    <button class="s-tab" onclick="setTab('nav',this)">ניווט</button>
-    <button class="s-tab" onclick="setTab('social',this)">סושיאל</button>
-    <button class="s-tab" onclick="setTab('finance',this)">פיננסים</button>
-    <button class="s-tab" onclick="setTab('tools',this)">כלים</button>
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('all',this)">הכל</button>
+    <button class="tab" onclick="setTab('nav',this)">ניווט</button>
+    <button class="tab" onclick="setTab('social',this)">סושיאל</button>
+    <button class="tab" onclick="setTab('finance',this)">פיננסים</button>
+    <button class="tab" onclick="setTab('tools',this)">כלים</button>
   </div>
 </div>
 
-<!-- ── SEARCH RESULTS ── -->
-<div id="search-view"></div>
-<div class="empty-view" id="empty-view">
-  <div class="empty-icon">🔍</div>
-  <div class="empty-title">אין תוצאות</div>
-  <div class="empty-sub">נסה לחפש משהו אחר</div>
+<!-- SEARCH -->
+<div id="sv"></div>
+<div class="empty" id="ev">
+  <div class="empty-ico">🔍</div>
+  <div class="empty-t">אין תוצאות</div>
+  <div class="empty-s">נסה לחפש משהו אחר</div>
 </div>
 
-<!-- ── MAIN CONTENT ── -->
+<!-- MAIN -->
 <div id="main">
 
   <!-- HERO -->
   <div class="hero" onclick="openSheet('pathly')">
-    <div class="hero-badge">⭐ בחירת העורך</div>
-    <div class="hero-icon-wrap" id="hero-icon"></div>
+    <div class="hero-badge">⭐ בחירת העורך היום</div>
+    <div class="hero-icon" id="hero-icon"></div>
     <div class="hero-name">Pathly</div>
-    <div class="hero-sub">ניווט חכם עם קול עברי ותצוגה תלת-מימדית</div>
-    <div class="hero-actions">
+    <div class="hero-sub">ניווט חכם בסגנון Waze · קול עברי · תצוגה תלת-מימדית</div>
+    <div class="hero-row">
       <a class="hero-open" href="pathly.html" target="_blank" onclick="event.stopPropagation()">פתח ↗</a>
-      <button class="hero-dl" onclick="event.stopPropagation(); dlApp('pathly')">⬇ הורד</button>
+      <button class="hero-dl" onclick="event.stopPropagation();dlApp('pathly')">⬇ הורד</button>
     </div>
   </div>
 
   <!-- NAV -->
-  <div class="s-sec" data-cat="nav">
-    <div class="s-divider"></div>
-    <div class="s-sec-head"><div class="s-sec-title">🧭 ניווט ומפות</div></div>
-    <div class="h-row" id="nav-row"></div>
+  <div class="sec" data-cat="nav">
+    <div class="divider"></div>
+    <div class="sec-head"><div class="sec-title">🧭 ניווט</div></div>
+    <div class="blist" id="nav-list"></div>
   </div>
 
   <!-- SOCIAL -->
-  <div class="s-sec" data-cat="social">
-    <div class="s-divider"></div>
-    <div class="s-sec-head"><div class="s-sec-title">📱 סושיאל ובידור</div></div>
-    <div class="big-list" id="social-list"></div>
+  <div class="sec" data-cat="social">
+    <div class="divider"></div>
+    <div class="sec-head"><div class="sec-title">📱 סושיאל ובידור</div></div>
+    <div class="blist" id="social-list"></div>
   </div>
 
   <!-- FINANCE -->
-  <div class="s-sec" data-cat="finance">
-    <div class="s-divider"></div>
-    <div class="s-sec-head"><div class="s-sec-title">💰 פיננסים וקניות</div></div>
-    <div class="big-list" id="finance-list"></div>
+  <div class="sec" data-cat="finance">
+    <div class="divider"></div>
+    <div class="sec-head"><div class="sec-title">💰 פיננסים וקניות</div></div>
+    <div class="blist" id="finance-list"></div>
   </div>
 
   <!-- TOOLS -->
-  <div class="s-sec" data-cat="tools">
-    <div class="s-divider"></div>
-    <div class="s-sec-head"><div class="s-sec-title">🛠 כלים</div></div>
-    <div class="big-list" id="tools-list"></div>
+  <div class="sec" data-cat="tools">
+    <div class="divider"></div>
+    <div class="sec-head"><div class="sec-title">🛠 כלים ו-AI</div></div>
+    <div class="blist" id="tools-list"></div>
   </div>
 
-  <div class="s-footer">
+  <div class="footer">
     Birgsol Store · כל האפליקציות בחינם · PWA<br>
-    <a href="https://davidyosef2102014-netizen.github.io/watsapp/">davidyosef2102014-netizen.github.io</a>
+    <a href="https://davidyosef2102014-netizen.github.io/watsapp/">birgsol.github.io</a>
   </div>
 </div>
 
-<!-- ── OVERLAY + SHEET ── -->
-<div class="overlay" id="overlay" onclick="closeSheet()"></div>
-<div class="sheet" id="sheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-body" id="sheet-body"></div>
+<!-- OVERLAY + SHEET -->
+<div class="ov" id="ov" onclick="closeSheet()"></div>
+<div class="sh" id="sh">
+  <div class="sh-handle"></div>
+  <div class="sh-body" id="sh-body"></div>
 </div>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <script>
-/* ═══════════════ ICONS ═══════════════ */
-const ICONS = {
-  pathly: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#111"/><text x="256" y="350" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="290" fill="#fff">P</text><circle cx="390" cy="140" r="48" fill="#fff"/><line x1="390" y1="92" x2="390" y2="140" stroke="#111" stroke-width="8"/><line x1="342" y1="140" x2="390" y2="140" stroke="#111" stroke-width="8"/></svg>`,
-  bgovnav: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#0a0e1a"/><text x="256" y="220" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="130" fill="#fff">BGO</text><text x="256" y="330" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="100" fill="#06b6d4">NAV</text><path d="M256 370 L230 430 L256 415 L282 430 Z" fill="#06b6d4"/></svg>`,
-  bmap: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#111"/><text x="256" y="310" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="200" fill="#fff">Bmap</text><circle cx="256" cy="390" r="18" fill="#fff"/></svg>`,
-  bgo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#111"/><text x="140" y="320" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="240" fill="#fff">B</text><text x="270" y="320" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="240" fill="#22c55e">go</text></svg>`,
-  ponitok: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#ff7f00"/><text y="420" font-size="380" x="66">🐴</text></svg>`,
-  poninews: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#002e5d"/><rect x="0" y="0" width="512" height="14" fill="#ff0000"/><rect x="60" y="100" width="392" height="24" rx="12" fill="#fff" opacity="0.9"/><rect x="60" y="146" width="300" height="16" rx="8" fill="#fff" opacity="0.55"/><rect x="60" y="176" width="340" height="16" rx="8" fill="#fff" opacity="0.55"/><rect x="60" y="230" width="392" height="16" rx="8" fill="#fff" opacity="0.35"/><rect x="60" y="260" width="260" height="16" rx="8" fill="#fff" opacity="0.35"/><rect x="60" y="290" width="310" height="16" rx="8" fill="#fff" opacity="0.35"/><rect x="0" y="420" width="512" height="92" fill="#ff0000"/><text x="256" y="480" text-anchor="middle" font-size="44" font-weight="900" fill="#fff" font-family="-apple-system,sans-serif">PONI NEWS</text></svg>`,
-  bank: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#0d2252"/><polygon points="256,72 440,172 440,196 72,196 72,172" fill="#c9952a"/><rect x="102" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="184" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="266" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="348" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="72" y="388" width="368" height="26" rx="5" fill="#f0c040"/><rect x="72" y="428" width="368" height="18" rx="5" fill="#c9952a" opacity="0.55"/></svg>`,
-  bshop: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#e43d2f"/><stop offset="100%" stop-color="#ff6900"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#sg)"/><path d="M155 190h202l-32 160H187L155 190z" fill="#fff" opacity="0.95"/><path d="M196 190c0-33.1 26.9-60 60-60s60 26.9 60 60" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round"/><rect x="220" y="295" width="72" height="16" rx="8" fill="#e43d2f"/><rect x="230" y="326" width="52" height="16" rx="8" fill="#e43d2f"/></svg>`,
-  birgsol: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#87ceeb"/><stop offset="55%" stop-color="#3a8fd4"/><stop offset="100%" stop-color="#1a5fa0"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#sky)"/><ellipse cx="130" cy="140" rx="68" ry="52" fill="#fff" opacity="0.9"/><ellipse cx="200" cy="130" rx="52" ry="40" fill="#fff" opacity="0.85"/><polygon points="40,420 140,240 200,330 280,190 370,350 460,420" fill="#2d6e24"/><polygon points="0,512 0,400 512,400 512,512" fill="#1d4d18"/><rect x="96" y="346" width="320" height="38" rx="19" fill="rgba(255,255,255,0.85)"/><circle cx="388" cy="365" r="16" fill="#0078d4"/></svg>`
+/* ══════════ ICONS ══════════ */
+const IC = {
+  pathly:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#111"/><text x="256" y="350" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="290" fill="#fff">P</text><circle cx="390" cy="140" r="48" fill="#fff"/><line x1="390" y1="92" x2="390" y2="140" stroke="#111" stroke-width="8"/><line x1="342" y1="140" x2="390" y2="140" stroke="#111" stroke-width="8"/></svg>`,
+  ponitok:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#ff7f00"/><text y="420" font-size="380" x="66">🐴</text></svg>`,
+  poninews:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#002e5d"/><rect x="0" y="0" width="512" height="14" fill="#ff0000"/><rect x="60" y="100" width="392" height="24" rx="12" fill="#fff" opacity="0.9"/><rect x="60" y="146" width="300" height="16" rx="8" fill="#fff" opacity="0.55"/><rect x="60" y="176" width="340" height="16" rx="8" fill="#fff" opacity="0.55"/><rect x="60" y="230" width="392" height="16" rx="8" fill="#fff" opacity="0.35"/><rect x="60" y="260" width="260" height="16" rx="8" fill="#fff" opacity="0.35"/><rect x="0" y="420" width="512" height="92" fill="#ff0000"/><text x="256" y="480" text-anchor="middle" font-size="44" font-weight="900" fill="#fff" font-family="-apple-system,sans-serif">PONI NEWS</text></svg>`,
+  bank:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#0d2252"/><polygon points="256,72 440,172 440,196 72,196 72,172" fill="#c9952a"/><rect x="102" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="184" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="266" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="348" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="72" y="388" width="368" height="26" rx="5" fill="#f0c040"/><rect x="72" y="428" width="368" height="18" rx="5" fill="#c9952a" opacity="0.55"/></svg>`,
+  bshop:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#e43d2f"/><stop offset="100%" stop-color="#ff6900"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#sg)"/><path d="M155 190h202l-32 160H187L155 190z" fill="#fff" opacity="0.95"/><path d="M196 190c0-33.1 26.9-60 60-60s60 26.9 60 60" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round"/><rect x="220" y="295" width="72" height="16" rx="8" fill="#e43d2f"/><rect x="230" y="326" width="52" height="16" rx="8" fill="#e43d2f"/></svg>`,
+  birgsol:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#87ceeb"/><stop offset="55%" stop-color="#3a8fd4"/><stop offset="100%" stop-color="#1a5fa0"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#sky)"/><ellipse cx="130" cy="140" rx="68" ry="52" fill="#fff" opacity="0.9"/><ellipse cx="200" cy="130" rx="52" ry="40" fill="#fff" opacity="0.85"/><polygon points="40,420 140,240 200,330 280,190 370,350 460,420" fill="#2d6e24"/><polygon points="0,512 0,400 512,400 512,512" fill="#1d4d18"/><rect x="96" y="346" width="320" height="38" rx="19" fill="rgba(255,255,255,0.85)"/><circle cx="388" cy="365" r="16" fill="#0078d4"/></svg>`,
+  birgsolai:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="aig" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#131314"/><stop offset="100%" stop-color="#28292b"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#aig)"/><circle cx="256" cy="220" r="90" fill="none" stroke="url(#ag2)" stroke-width="6" opacity="0.6"/><defs><linearGradient id="ag2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4285f4"/><stop offset="100%" stop-color="#c58af9"/></linearGradient></defs><circle cx="256" cy="220" r="60" fill="none" stroke="#4285f4" stroke-width="3" opacity="0.4"/><path d="M220 200 Q256 160 292 200 Q316 230 292 255 L275 272 L256 290 L237 272 L220 255 Q196 230 220 200Z" fill="url(#ag2)" opacity="0.9"/><rect x="176" y="360" width="160" height="14" rx="7" fill="#8ab4f8" opacity="0.7"/><rect x="206" y="384" width="100" height="10" rx="5" fill="#c58af9" opacity="0.5"/><text x="256" y="430" text-anchor="middle" font-size="28" font-weight="800" fill="#8ab4f8" font-family="-apple-system,sans-serif" opacity="0.85">AI 2.0</text></svg>`
 };
 
-/* ═══════════════ APP DATA ═══════════════ */
+/* ══════════ DATA ══════════ */
 const APPS = {
-  pathly: { name:'Pathly', cat:'nav', catLabel:'ניווט', sub:'ניווט חכם בסגנון Waze', desc:'ניווט GPS עם קול עברי, מסלולים חכמים, תצוגה תלת-מימדית ועדכוני תנועה בזמן אמת. חץ תלת-ממדי, מצב לילה, ועם הגעה ליעד — קונפטי שחור יפה!', url:'pathly.html', stars:'4.9', reviews:'2.1K', size:'~180KB', age:'4+' },
-  bgovnav: { name:'BGO NAV', cat:'nav', catLabel:'ניווט', sub:'ניווט GPS חכם', desc:'ניווט GPS עם חיפוש מתקדם משלושה מקורות, מסלולים OSRM אופטימליים ומפות OpenStreetMap מפורטות לכל ישראל.', url:'nav_bgo.html', stars:'4.7', reviews:'890', size:'~140KB', age:'4+' },
-  bmap: { name:'Bmap', cat:'nav', catLabel:'מפות', sub:'מפות אינטראקטיביות', desc:'מפות פתוחות עם חיפוש מתקדם, מיקום GPS מדויק ושלושה מקורות חיפוש. מושלם לגלישה במפה בלי ניווט.', url:'bmap.html', stars:'4.6', reviews:'543', size:'~120KB', age:'4+' },
-  bgo: { name:'Bgo', cat:'nav', catLabel:'נסיעות', sub:'הזמנת נסיעות', desc:'הזמן נסיעות בקלות, עקוב אחר הנהג בזמן אמת ונהל את הנסיעות שלך. אפליקציית נסיעות מקיפה עם מפה חיה ועדכוני MQTT.', url:'taxi_poninio.html', stars:'4.5', reviews:'1.2K', size:'~160KB', age:'4+' },
-  ponitok: { name:'Ponitok', cat:'social', catLabel:'סושיאל', sub:'סרטונים קצרים', desc:'פלטפורמת סרטונים קצרים — שתף, צפה ותגלה תוכן מהקהילה. כמו TikTok רק שלנו! עם עדכון בזמן אמת דרך MQTT.', url:'ponitok.html', stars:'4.8', reviews:'3.4K', size:'~200KB', age:'12+' },
-  poninews: { name:'Poni News', cat:'social', catLabel:'חדשות', sub:'חדשות בזמן אמת', desc:'פלטפורמת חדשות עם עדכונים בזמן אמת, תמונות ויכולת פרסום על ידי מנהל. מחובר לשרת MQTT לעדכונים מיידיים.', url:'poninews.html', stars:'4.4', reviews:'678', size:'~130KB', age:'4+' },
-  bank: { name:'Bgo Bank', cat:'finance', catLabel:'בנקאות', sub:'בנקאות דיגיטלית', desc:'נהל את החשבון, בצע העברות, צפה בעסקאות ועוד — בנקאות מודרנית עם ממשק נקי ומאובטח.', url:'bankponi_online.html', stars:'4.6', reviews:'920', size:'~170KB', age:'4+' },
-  bshop: { name:'BShop', cat:'finance', catLabel:'קניות', sub:'שוק אונליין', desc:'קנה ומכור מוצרים בשוק אונליין מקומי, עקוב אחר הזמנות ושלם בצורה מאובטחת. חווית קנייה מלאה.', url:'market_poninio.html', stars:'4.3', reviews:'456', size:'~150KB', age:'4+' },
-  birgsol: { name:'Birgsol', cat:'tools', catLabel:'כלים', sub:'דף הבית החכם', desc:'דף בית אישי עם חיפוש מהיר, קיצורי דרך לאתרים מועדפים, חדשות ynet בזמן אמת ותמונת רקע יומית מרהיבה מ-Unsplash.', url:'birgsol.html', stars:'4.7', reviews:'1.1K', size:'~14KB', age:'4+' }
+  pathly:    { name:'Pathly',       cat:'nav',     catLabel:'ניווט',      sub:'ניווט חכם בסגנון Waze',         desc:'ניווט GPS עם קול עברי, מסלולים חכמים, תצוגה תלת-מימדית ועדכוני תנועה. חץ תלת-ממדי, מצב לילה, ועם הגעה ליעד — קונפטי שחור!',    url:'pathly.html',         stars:'4.9', rev:'2.1K', size:'~180KB', age:'4+' },
+  ponitok:   { name:'Ponitok',      cat:'social',  catLabel:'סושיאל',     sub:'סרטונים קצרים',                  desc:'פלטפורמת סרטונים קצרים — שתף, צפה ותגלה תוכן מהקהילה. כמו TikTok רק שלנו! עם עדכונים בזמן אמת דרך MQTT.',               url:'ponitok.html',        stars:'4.8', rev:'3.4K', size:'~200KB', age:'12+' },
+  poninews:  { name:'Poni News',    cat:'social',  catLabel:'חדשות',      sub:'חדשות בזמן אמת',                 desc:'פלטפורמת חדשות עם עדכונים מיידיים, תמונות ויכולת פרסום על ידי מנהל. מחובר לשרת MQTT לעדכונים בזמן אמת.',               url:'poninews.html',       stars:'4.4', rev:'678',  size:'~130KB', age:'4+' },
+  bank:      { name:'Bgo Bank',     cat:'finance', catLabel:'בנקאות',     sub:'בנקאות דיגיטלית',                desc:'נהל את החשבון, בצע העברות, צפה בעסקאות ועוד — בנקאות מודרנית עם ממשק נקי ומאובטח.',                                      url:'bankponi_online.html',stars:'4.6', rev:'920',  size:'~170KB', age:'4+' },
+  bshop:     { name:'BShop',        cat:'finance', catLabel:'קניות',      sub:'שוק אונליין',                    desc:'קנה ומכור מוצרים בשוק אונליין מקומי, עקוב אחר הזמנות ושלם בצורה מאובטחת.',                                              url:'market_poninio.html', stars:'4.3', rev:'456',  size:'~150KB', age:'4+' },
+  birgsol:   { name:'Birgsol',      cat:'tools',   catLabel:'כלים',       sub:'דף הבית החכם',                   desc:'דף בית אישי עם חיפוש מהיר, קיצורי דרך, חדשות ynet בזמן אמת ותמונת רקע יומית מרהיבה מ-Unsplash.',                        url:'birgsol.html',        stars:'4.7', rev:'1.1K', size:'~14KB',  age:'4+' },
+  birgsolai: { name:'Birgsol AI',   cat:'tools',   catLabel:'בינה מלאכותית', sub:'עוזר AI חכם',               desc:'עוזר AI בסגנון Gemini — שיחות חכמות, זיכרון היסטוריה, תמיכה בכתיבת קוד ועוד. Birgsol AI 2.0 עם ממשק מודרני.',              url:'birgsolai.html',      stars:'4.9', rev:'5K',   size:'~80KB',  age:'4+' }
 };
 
-/* ─── init hero icon ─── */
-document.getElementById('hero-icon').innerHTML = ICONS.pathly;
+/* ── init hero ── */
+document.getElementById('hero-icon').innerHTML = IC.pathly;
 
-/* ─── star text ─── */
-function stars(s){ const n=parseFloat(s); return '★'.repeat(Math.floor(n))+(n%1>=0.5?'½':'')+' '+s; }
+/* ── stars ── */
+function st(s){ const n=parseFloat(s); return '★'.repeat(Math.floor(n))+(n%1>=0.5?'½':'')+' '+s; }
 
-/* ═══════════════ BUILD SECTIONS ═══════════════ */
-function buildHRow(containerId, ids){
-  document.getElementById(containerId).innerHTML = ids.map(id=>{
+/* ══════════ BUILD LISTS ══════════ */
+function buildList(cid, ids){
+  document.getElementById(cid).innerHTML = ids.map(id=>{
     const a=APPS[id];
-    return `<div class="h-card">
-      <div class="h-icon" onclick="openSheet('${id}')">${ICONS[id]}</div>
-      <div class="h-name">${a.name}</div>
-      <button class="h-get" onclick="openSheet('${id}')">פתח</button>
-    </div>`;
-  }).join('');
-}
-function buildBigList(containerId, ids){
-  document.getElementById(containerId).innerHTML = ids.map(id=>{
-    const a=APPS[id];
-    return `<div class="big-card">
-      <div class="big-icon" onclick="openSheet('${id}')">${ICONS[id]}</div>
-      <div class="big-info" onclick="openSheet('${id}')">
-        <div class="big-name">${a.name}</div>
-        <div class="big-sub">${a.sub}</div>
-        <div class="big-stars">${stars(a.stars)}</div>
+    return `<div class="bcard">
+      <div class="bicon" onclick="openSheet('${id}')">${IC[id]}</div>
+      <div class="binfo" onclick="openSheet('${id}')">
+        <div class="bname">${a.name}</div>
+        <div class="bsub">${a.sub}</div>
+        <div class="bstars">${st(a.stars)}</div>
       </div>
-      <div class="big-actions">
-        <button class="big-get" onclick="openSheet('${id}')">פתח</button>
-        <button class="big-dl" onclick="dlApp('${id}')">⬇ הורד</button>
+      <div class="bactions">
+        <button class="bget" onclick="openSheet('${id}')">פתח</button>
+        <button class="bdl" onclick="dlApp('${id}')">⬇ הורד</button>
       </div>
     </div>`;
   }).join('');
 }
 
-buildHRow('nav-row', ['pathly','bgovnav','bmap','bgo']);
-buildBigList('social-list', ['ponitok','poninews']);
-buildBigList('finance-list', ['bank','bshop']);
-buildBigList('tools-list', ['birgsol']);
+buildList('nav-list',     ['pathly']);
+buildList('social-list',  ['ponitok','poninews']);
+buildList('finance-list', ['bank','bshop']);
+buildList('tools-list',   ['birgsol','birgsolai']);
 
-/* ═══════════════ TABS ═══════════════ */
+/* ══════════ TABS ══════════ */
 function setTab(tab, btn){
-  document.querySelectorAll('.s-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  document.querySelectorAll('.s-sec').forEach(sec=>{
-    sec.style.display = (tab==='all'||tab===sec.dataset.cat) ? '' : 'none';
+  document.querySelectorAll('.sec').forEach(s=>{
+    s.style.display=(tab==='all'||tab===s.dataset.cat)?'':'none';
   });
-  const hero = document.querySelector('.hero');
-  if(hero) hero.style.display = (tab==='all'||tab==='nav') ? '' : 'none';
+  const hero=document.querySelector('.hero');
+  if(hero) hero.style.display=(tab==='all'||tab==='nav')?'':'none';
 }
 
-/* ═══════════════ SEARCH ═══════════════ */
-function onSearch(val){
+/* ══════════ SEARCH ══════════ */
+function onSearch(v){
   const main=document.getElementById('main');
-  const sv=document.getElementById('search-view');
-  const ev=document.getElementById('empty-view');
-  if(!val.trim()){
-    main.style.display=''; sv.className=''; sv.style.display='none'; ev.className='empty-view'; return;
-  }
-  main.style.display='none'; sv.style.display='block'; ev.className='empty-view';
-  const q=val.toLowerCase();
+  const sv=document.getElementById('sv');
+  const ev=document.getElementById('ev');
+  if(!v.trim()){ main.style.display=''; sv.className=''; sv.style.display='none'; ev.className='empty'; return; }
+  main.style.display='none'; sv.style.display='block'; ev.className='empty';
+  const q=v.toLowerCase();
   const hits=Object.entries(APPS).filter(([,a])=>
     a.name.toLowerCase().includes(q)||a.sub.includes(q)||a.catLabel.includes(q)||a.desc.includes(q)
   );
-  if(!hits.length){ sv.style.display='none'; ev.className='empty-view show'; return; }
+  if(!hits.length){ sv.style.display='none'; ev.className='empty show'; return; }
   sv.className='show';
   sv.innerHTML=hits.map(([id,a])=>`
-    <div class="sr-item" onclick="openSheet('${id}')">
-      <div class="sr-icon">${ICONS[id]}</div>
-      <div class="sr-info">
-        <div class="sr-name">${a.name}</div>
-        <div class="sr-cat">${a.catLabel} · ${stars(a.stars)}</div>
-      </div>
-      <button class="sr-get" onclick="event.stopPropagation();openSheet('${id}')">פתח</button>
+    <div class="sri" onclick="openSheet('${id}')">
+      <div class="sri-icon">${IC[id]}</div>
+      <div class="sri-info"><div class="sri-name">${a.name}</div><div class="sri-cat">${a.catLabel} · ${st(a.stars)}</div></div>
+      <button class="sri-get" onclick="event.stopPropagation();openSheet('${id}')">פתח</button>
     </div>`).join('');
 }
 
-/* ═══════════════ SHEET ═══════════════ */
+/* ══════════ SHEET ══════════ */
 let osTab='android';
 function openSheet(id){
   const a=APPS[id]; osTab='android';
-  document.getElementById('sheet-body').innerHTML=`
-    <div class="sheet-app-row">
-      <div class="sheet-icon">${ICONS[id]}</div>
-      <div class="sheet-meta">
-        <div class="sheet-name">${a.name}</div>
-        <div class="sheet-dev">BGO Apps</div>
-        <div class="sheet-cat-badge">${a.catLabel}</div>
+  document.getElementById('sh-body').innerHTML=`
+    <div class="sh-approw">
+      <div class="sh-icon">${IC[id]}</div>
+      <div class="sh-meta">
+        <div class="sh-name">${a.name}</div>
+        <div class="sh-dev">Birgsol</div>
+        <div class="sh-badge">${a.catLabel}</div>
       </div>
     </div>
-    <div class="sheet-ratings">
-      <div class="srl-item"><div class="srl-val">${a.stars} ★</div><div class="srl-lbl">${a.reviews} דירוגים</div></div>
-      <div class="srl-item"><div class="srl-val">${a.size}</div><div class="srl-lbl">גודל</div></div>
-      <div class="srl-item"><div class="srl-val">${a.age}</div><div class="srl-lbl">גיל</div></div>
+    <div class="sh-stats">
+      <div class="sh-stat"><div class="sh-stat-v">${a.stars} ★</div><div class="sh-stat-l">${a.rev} דירוגים</div></div>
+      <div class="sh-stat"><div class="sh-stat-v">${a.size}</div><div class="sh-stat-l">גודל</div></div>
+      <div class="sh-stat"><div class="sh-stat-v">${a.age}</div><div class="sh-stat-l">גיל</div></div>
     </div>
-    <div class="sheet-btn-row">
-      <a class="s-open" href="${a.url}" target="_blank">פתח אפליקציה ↗</a>
-      <button class="s-dl" onclick="dlApp('${id}')">⬇ הורד</button>
+    <div class="sh-btnrow">
+      <a class="sh-open" href="${a.url}" target="_blank">פתח אפליקציה ↗</a>
+      <button class="sh-dl" onclick="dlApp('${id}')">⬇ הורד</button>
     </div>
-    <div class="s-lbl">תיאור</div>
-    <div class="s-desc">${a.desc}</div>
-    <div class="s-lbl">התקנה על הטלפון</div>
+    <div class="sh-lbl">תיאור</div>
+    <div class="sh-desc">${a.desc}</div>
+    <div class="sh-lbl">התקנה על הטלפון</div>
     <div class="os-tabs">
-      <button class="os-tab active" id="ot-android" onclick="switchOs('android')">🤖 Android</button>
-      <button class="os-tab" id="ot-ios" onclick="switchOs('ios')">🍎 iPhone</button>
+      <button class="os-tab active" id="ota" onclick="swOs('android')">🤖 Android</button>
+      <button class="os-tab" id="oti" onclick="swOs('ios')">🍎 iPhone</button>
     </div>
-    <div id="steps"></div>`;
+    <div id="isteps"></div>`;
   renderSteps();
-  document.getElementById('overlay').classList.add('show');
-  document.getElementById('sheet').classList.add('show');
+  document.getElementById('ov').classList.add('show');
+  document.getElementById('sh').classList.add('show');
   document.body.style.overflow='hidden';
 }
 function renderSteps(){
-  const items=osTab==='android'
+  const s=osTab==='android'
     ?['פתח את האפליקציה בדפדפן Chrome','לחץ על שלוש הנקודות ⋮ בפינה הימנית','בחר "הוסף למסך הבית"','אשר ולחץ "הוסף" — האייקון יופיע!']
     :['פתח את האפליקציה בדפדפן Safari','לחץ על כפתור השיתוף □↑ בתחתית','גלול ובחר "הוסף למסך הבית"','אשר — האייקון יופיע על שולחן העבודה!'];
-  document.getElementById('steps').innerHTML=`<ul class="install-list">${items.map((s,i)=>`<li class="install-step"><div class="step-n">${i+1}</div><div>${s}</div></li>`).join('')}</ul>`;
+  document.getElementById('isteps').innerHTML=`<ul class="install-list">${s.map((t,i)=>`<li class="istep"><div class="istep-n">${i+1}</div><div>${t}</div></li>`).join('')}</ul>`;
 }
-function switchOs(os){
-  osTab=os;
-  document.getElementById('ot-android').classList.toggle('active',os==='android');
-  document.getElementById('ot-ios').classList.toggle('active',os==='ios');
-  renderSteps();
-}
-function closeSheet(){
-  document.getElementById('overlay').classList.remove('show');
-  document.getElementById('sheet').classList.remove('show');
-  document.body.style.overflow='';
-}
+function swOs(os){ osTab=os; document.getElementById('ota').classList.toggle('active',os==='android'); document.getElementById('oti').classList.toggle('active',os==='ios'); renderSteps(); }
+function closeSheet(){ document.getElementById('ov').classList.remove('show'); document.getElementById('sh').classList.remove('show'); document.body.style.overflow=''; }
 
-/* ═══════════════ DOWNLOAD ═══════════════ */
+/* ══════════ DOWNLOAD ══════════ */
 async function dlApp(id){
-  const a=APPS[id];
-  showToast('מוריד את '+a.name+'...');
+  const a=APPS[id]; showToast('מוריד '+a.name+'...');
   try{
-    const res=await fetch(a.url);
-    if(!res.ok) throw new Error();
-    const blob=await res.blob();
-    const url=URL.createObjectURL(blob);
-    const link=document.createElement('a');
-    link.href=url; link.download=a.url;
-    document.body.appendChild(link); link.click();
-    document.body.removeChild(link); URL.revokeObjectURL(url);
-    showToast('✓ '+a.name+' הורד בהצלחה!');
+    const r=await fetch(a.url); if(!r.ok) throw 0;
+    const blob=await r.blob();
+    const u=URL.createObjectURL(blob);
+    const l=document.createElement('a'); l.href=u; l.download=a.url;
+    document.body.appendChild(l); l.click(); document.body.removeChild(l); URL.revokeObjectURL(u);
+    showToast('✓ '+a.name+' הורד!');
   }catch{ showToast('שגיאה — נסה לפתוח ↗'); }
 }
 
-/* ═══════════════ TOAST ═══════════════ */
-let tt;
-function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2800); }
+/* ══════════ TOAST ══════════ */
+let tt; function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2800); }
 </script>
 </body>
 </html>

@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Birgsol AI 2.0</title>
+    <link href="https://fonts.bunny.net/css2?family=assistant:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link id="hljs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
+    <style>
+        :root {
+            --bg:       #131314;
+            --surf:     #1E1F20;
+            --surf2:    #28292B;
+            --border:   rgba(255,255,255,0.08);
+            --blue:     #8AB4F8;
+            --purple:   #C58AF9;
+            --text:     #E8EAED;
+            --muted:    #9AA0A6;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Assistant', sans-serif; }
+        body { display: flex; }
+
+        /* ══════════════ SIDEBAR ══════════════ */
+        #sidebar {
+            width: 260px; height: 100%; flex-shrink: 0;
+            background: var(--surf);
+            display: flex; flex-direction: column;
+            transition: transform .32s cubic-bezier(.4,0,.2,1);
+            z-index: 500;
+        }
+        @media (max-width: 900px) {
+            #sidebar { position: fixed; right: 0; transform: translateX(100%); }
+            #sidebar.open { transform: translateX(0); box-shadow: -6px 0 30px rgba(0,0,0,.6); }
+        }
+
+        .sb-head { padding: 16px 14px 12px; }
+        .sb-brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px; margin-bottom: 10px; }
+        .sb-star {
+            width: 30px; height: 30px; flex-shrink: 0;
+            background: linear-gradient(135deg, #4285F4, #C58AF9);
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 15px; color: white;
+        }
+        .sb-name { font-weight: 700; font-size: 15px; }
+
+        .new-btn {
+            width: 100%; display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; border-radius: 50px;
+            background: var(--surf2); border: none; color: var(--text);
+            font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit;
+            transition: background .15s;
+        }
+        .new-btn:hover { background: #313336; }
+
+        .sb-label { font-size: 11px; color: var(--muted); padding: 14px 20px 6px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; }
+        .sb-body { flex: 1; overflow-y: auto; padding: 0 8px; }
+        .hist-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px; border-radius: 50px;
+            cursor: pointer; font-size: 13.5px; color: var(--muted);
+            transition: background .15s, color .15s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .hist-item:hover { background: var(--surf2); color: var(--text); }
+
+        .sb-foot { padding: 14px 18px; border-top: 1px solid var(--border); }
+        .live-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+        .dot { width: 7px; height: 7px; border-radius: 50%; background: #34d399; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.25} }
+
+        /* ══════════════ MAIN ══════════════ */
+        #main { flex: 1; display: flex; flex-direction: column; height: 100%; min-width: 0; position: relative; overflow: hidden; }
+
+        /* ── TOPBAR ── */
+        .topbar {
+            height: 58px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 14px;
+        }
+        .tb-right { display: flex; align-items: center; gap: 4px; }
+        .tb-left  { display: flex; align-items: center; gap: 8px; }
+        .icon-btn {
+            background: none; border: none; cursor: pointer;
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--muted); font-size: 20px; transition: background .15s;
+        }
+        .icon-btn:hover { background: var(--surf2); }
+        .tb-logo { display: flex; align-items: center; gap: 8px; }
+        .tb-star {
+            width: 26px; height: 26px;
+            background: linear-gradient(135deg, #4285F4, #C58AF9);
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 12px; color: white;
+        }
+        .tb-name {
+            font-weight: 700; font-size: 1.05rem;
+            background: linear-gradient(to left, #4285F4, #C58AF9);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .ver-pill { font-size: 11.5px; color: var(--muted); background: var(--surf); padding: 3px 11px; border-radius: 20px; border: 1px solid var(--border); }
+
+        /* ══════════════ WELCOME (Gemini exact style) ══════════════ */
+        #welcome {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 40px 20px 200px; text-align: center;
+        }
+
+        /* Gemini's iconic star sparkle SVG-like decoration */
+        .gem-star {
+            width: 64px; height: 64px; margin-bottom: 24px;
+            position: relative; animation: sparkle 4s ease-in-out infinite;
+        }
+        .gem-star::before, .gem-star::after {
+            content: '✦';
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 58px; line-height: 1;
+            background: linear-gradient(135deg, #4285F4, #C58AF9, #EA4335);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .gem-star::after { animation: spin 8s linear infinite; font-size: 20px; opacity: .4; }
+        @keyframes sparkle { 0%,100%{transform:scale(1)}50%{transform:scale(1.08)} }
+        @keyframes spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
+
+        .gem-hello {
+            font-size: 2.7rem; font-weight: 700; line-height: 1.15; margin-bottom: 6px;
+            background: linear-gradient(to left, #4285F4, #9C6ADE, #EA4335);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .gem-sub { font-size: 1.9rem; font-weight: 600; color: var(--muted); margin-bottom: 40px; }
+
+        /* Suggestion cards - Gemini style 2-row grid */
+        .sug-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 580px; width: 100%; }
+        @media (max-width: 520px) { .sug-grid { grid-template-columns: 1fr; } }
+        .sug-card {
+            background: var(--surf); border: 1px solid var(--border);
+            border-radius: 14px; padding: 16px 18px;
+            cursor: pointer; text-align: right;
+            transition: border-color .2s, background .2s, transform .2s;
+        }
+        .sug-card:hover { border-color: rgba(138,180,248,.45); background: rgba(138,180,248,.05); transform: translateY(-2px); }
+        .sug-icon { font-size: 20px; margin-bottom: 8px; }
+        .sug-title { font-size: 14px; font-weight: 700; }
+        .sug-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+        /* ══════════════ CHAT (Gemini exact style) ══════════════ */
+        #chat-window {
+            flex: 1; overflow-y: auto; padding: 16px 0 200px;
+            display: none; flex-direction: column;
+        }
+        #chat-window::-webkit-scrollbar { width: 4px; }
+        #chat-window::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 2px; }
+
+        .msg-row {
+            max-width: 760px; width: 100%; margin: 0 auto;
+            padding: 4px 22px; animation: fadeUp .25s ease;
+        }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+        /* User message — pill bubble on RIGHT (in RTL = left side visually) */
+        .msg-row.user { display: flex; justify-content: flex-start; }
+        .user-bub {
+            background: var(--surf2); border-radius: 18px 18px 4px 18px;
+            padding: 12px 18px; font-size: 15.5px; line-height: 1.65;
+            max-width: 72%; word-break: break-word;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .user-img { max-width: 200px; border-radius: 10px; }
+
+        /* AI message — NO bubble, clean text (Gemini style) */
+        .msg-row.ai { display: flex; flex-direction: row; gap: 14px; align-items: flex-start; }
+        .ai-ava {
+            width: 32px; height: 32px; flex-shrink: 0; margin-top: 2px;
+            background: linear-gradient(135deg, #4285F4, #C58AF9);
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 14px; color: white;
+        }
+        .ai-body { flex: 1; min-width: 0; }
+        .ai-name { font-size: 13.5px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+        .ai-txt { font-size: 15.5px; line-height: 1.78; color: var(--text); }
+
+        /* markdown */
+        .ai-txt h1,.ai-txt h2,.ai-txt h3 { margin: 14px 0 7px; font-weight: 700; }
+        .ai-txt h1{font-size:1.3em} .ai-txt h2{font-size:1.17em} .ai-txt h3{font-size:1.06em}
+        .ai-txt p{margin:0 0 10px} .ai-txt p:last-child{margin:0}
+        .ai-txt ul,.ai-txt ol{padding-right:22px;margin:8px 0}
+        .ai-txt li{margin-bottom:5px}
+        .ai-txt code{background:rgba(255,255,255,.1);padding:2px 7px;border-radius:5px;font-size:.87em;font-family:monospace}
+        .ai-txt pre{background:#0B0C0E;border:1px solid var(--border);border-radius:12px;padding:16px;margin:12px 0;overflow-x:auto}
+        .ai-txt pre code{background:none;padding:0}
+        .ai-txt blockquote{border-right:3px solid var(--blue);padding-right:12px;color:var(--muted);margin:9px 0}
+        .ai-txt strong{font-weight:700}
+        .ai-txt a{color:var(--blue)}
+        .ai-txt table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+        .ai-txt th,.ai-txt td{border:1px solid var(--border);padding:8px 12px}
+        .ai-txt th{background:var(--surf2)}
+        .ai-txt hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+
+        /* code block with header bar */
+        .code-block { background: #0B0C0E; border: 1px solid var(--border); border-radius: 12px; margin: 12px 0; overflow: hidden; }
+        .code-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: rgba(255,255,255,.04); border-bottom: 1px solid var(--border); }
+        .code-lang { font-size: 12px; color: var(--muted); font-family: monospace; }
+        .code-copy { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 12px; padding: 3px 9px; border-radius: 6px; font-family: inherit; transition: background .15s, color .15s; }
+        .code-copy:hover { background: var(--surf2); color: var(--text); }
+        .code-block pre { background: none; border: none; border-radius: 0; padding: 14px 16px; margin: 0; overflow-x: auto; }
+        .code-block pre code { background: none; padding: 0; font-size: 13.5px; color: #e8eaed; }
+
+        /* action buttons (Gemini style — appear on hover) */
+        .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
+        .msg-row:hover .ai-acts { opacity: 1; }
+        .ai-act {
+            background: none; border: none; cursor: pointer;
+            color: var(--muted); font-size: 13px; padding: 5px 10px;
+            border-radius: 50px; transition: background .15s, color .15s;
+            font-family: inherit; display: flex; align-items: center; gap: 5px;
+        }
+        .ai-act:hover { background: var(--surf2); color: var(--text); }
+
+        /* typing indicator */
+        .typing-row { max-width: 760px; width: 100%; margin: 0 auto; padding: 4px 22px; display: flex; gap: 14px; align-items: flex-start; }
+        .t-dots { display: flex; gap: 5px; align-items: center; padding: 6px 0; }
+        .td { width: 8px; height: 8px; background: var(--blue); border-radius: 50%; animation: tdot 1.3s infinite; }
+        .td:nth-child(2){animation-delay:.15s} .td:nth-child(3){animation-delay:.3s}
+        @keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-7px);opacity:1}}
+
+        /* ══════════════ INPUT (Gemini pill style) ══════════════ */
+        .input-area {
+            position: absolute; bottom: 0; width: 100%;
+            padding: 8px 22px 22px;
+            background: linear-gradient(to top, var(--bg) 78%, transparent);
+        }
+        .input-wrap { max-width: 760px; margin: 0 auto; }
+
+        #img-prev { display: none; align-items: center; gap: 10px; margin-bottom: 8px; }
+        #img-prev.on { display: flex; }
+        .img-thumb { width: 50px; height: 50px; border-radius: 10px; object-fit: cover; border: 2px solid var(--blue); }
+        .rm-img { background: rgba(200,40,40,.85); border: none; color: white; width: 18px; height: 18px; border-radius: 50%; font-size: 8px; cursor: pointer; margin-top: -34px; margin-right: -8px; display: flex; align-items: center; justify-content: center; }
+
+        .pill {
+            background: var(--surf); border-radius: 22px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 16px rgba(0,0,0,.35);
+            transition: border-color .2s;
+            padding: 6px 6px 6px 6px;
+        }
+        .pill:focus-within { border-color: rgba(138,180,248,.38); }
+
+        .pill-inner { display: flex; align-items: flex-end; gap: 2px; }
+        .p-btn {
+            background: none; border: none; cursor: pointer;
+            width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--muted); font-size: 18px; transition: background .15s, color .15s;
+        }
+        .p-btn:hover { background: var(--surf2); color: var(--text); }
+
+        textarea {
+            flex: 1; border: none; outline: none;
+            padding: 9px 4px; font-size: 16px; resize: none;
+            max-height: 140px; min-height: 38px;
+            font-family: inherit; background: transparent;
+            color: var(--text); line-height: 1.55; direction: rtl;
+        }
+        textarea::placeholder { color: var(--muted); }
+
+        .send-btn {
+            background: linear-gradient(135deg, #4285F4, #C58AF9);
+            border: none; width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+            cursor: pointer; color: white; font-size: 17px;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity .2s, transform .2s;
+            opacity: .35; pointer-events: none;
+        }
+        .send-btn.on { opacity: 1; pointer-events: all; }
+        .send-btn.on:hover { transform: scale(1.1); }
+
+        .foot-note { text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+
+        /* overlay */
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 499; }
+        #overlay.on { display: block; }
+
+        * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.08) transparent; }
+
+        /* ══════════════ LOGIN SCREEN ══════════════ */
+        #login-screen {
+            position: fixed; inset: 0; z-index: 9999;
+            background: var(--bg);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        .login-card {
+            background: var(--surf); border: 1px solid var(--border);
+            border-radius: 24px; padding: 36px 32px;
+            width: 100%; max-width: 400px;
+            box-shadow: 0 16px 64px rgba(0,0,0,.6);
+        }
+        .login-logo { text-align: center; margin-bottom: 28px; }
+        .login-logo .l-star {
+            width: 76px; height: 76px; border-radius: 24px;
+            background: linear-gradient(145deg, #4285F4 0%, #9C6ADE 55%, #C58AF9 100%);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 36px; margin-bottom: 16px;
+            box-shadow: 0 0 0 8px rgba(66,133,244,.08), 0 0 40px rgba(66,133,244,.35), 0 0 80px rgba(197,138,249,.18), 0 8px 28px rgba(0,0,0,.5);
+            animation: logoFloat 3.5s ease-in-out infinite;
+            position: relative;
+        }
+        .login-logo .l-star::after {
+            content: ''; position: absolute; inset: -3px; border-radius: 27px;
+            background: linear-gradient(145deg, rgba(66,133,244,.5), rgba(197,138,249,.5));
+            z-index: -1; filter: blur(8px);
+        }
+        @keyframes logoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        .login-logo h1 { font-size: 1.6rem; font-weight: 800; background: linear-gradient(to left, #4285F4, #C58AF9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .login-logo p  { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+        .login-field { margin-bottom: 16px; }
+        .login-field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+        .login-field input {
+            width: 100%; background: var(--surf2); border: 1.5px solid var(--border);
+            border-radius: 12px; padding: 12px 14px;
+            color: var(--text); font-size: 15px; font-family: inherit;
+            outline: none; transition: border-color .2s; direction: rtl;
+        }
+        .login-field input:focus { border-color: rgba(138,180,248,.5); }
+
+        .login-btn {
+            width: 100%; padding: 13px; margin-top: 8px;
+            background: linear-gradient(135deg, #4285F4, #C58AF9);
+            border: none; border-radius: 50px; color: white;
+            font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
+            transition: opacity .2s, transform .2s;
+        }
+        .login-btn:hover { opacity: .9; transform: translateY(-1px); }
+
+        .login-err {
+            margin-top: 12px; padding: 10px 14px; border-radius: 10px;
+            background: rgba(220,50,50,.15); border: 1px solid rgba(220,50,50,.3);
+            color: #ff8a80; font-size: 13.5px; text-align: center; display: none;
+        }
+        .login-bank-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 18px; }
+        .login-bank-note span { color: var(--blue); }
+
+        /* ══════════════ FREE BANNER ══════════════ */
+        #free-banner {
+            background: linear-gradient(to left, rgba(66,133,244,.15), rgba(197,138,249,.15));
+            border: 1px solid rgba(138,180,248,.25);
+            border-radius: 14px; padding: 12px 18px;
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px; gap: 10px; flex-wrap: wrap;
+        }
+        .banner-txt { font-size: 13.5px; color: var(--text); }
+        .banner-txt strong { color: var(--blue); }
+        .premium-btn {
+            background: linear-gradient(135deg, #4285F4, #C58AF9);
+            border: none; border-radius: 50px; color: white; padding: 8px 18px;
+            font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+            white-space: nowrap; transition: opacity .2s;
+        }
+        .premium-btn:hover { opacity: .85; }
+
+        /* ══════════════ PRICING PAGE ══════════════ */
+        #pricing-modal {
+            display: none; position: fixed; inset: 0; z-index: 8000;
+            background: rgba(0,0,0,.82); backdrop-filter: blur(10px);
+            align-items: flex-start; justify-content: center;
+            padding: 24px 16px 40px; overflow-y: auto;
+        }
+        #pricing-modal.on { display: flex; }
+        .pricing-inner {
+            width: 100%; max-width: 880px; position: relative;
+            animation: pmFadeIn .35s cubic-bezier(.2,0,.2,1);
+        }
+        @keyframes pmFadeIn { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+        .pricing-close-btn {
+            position: absolute; top: 0; left: 0;
+            background: var(--surf); border: 1px solid var(--border); color: var(--muted);
+            width: 38px; height: 38px; border-radius: 50%; font-size: 16px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: background .15s; z-index: 2;
+        }
+        .pricing-close-btn:hover { background: var(--surf2); color: var(--text); }
+        .pricing-top { text-align: center; padding: 8px 0 32px; }
+        .pricing-top h2 {
+            font-size: 2.2rem; font-weight: 800; margin-bottom: 8px;
+            background: linear-gradient(to left, #4285F4, #C58AF9);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .pricing-top p { color: var(--muted); font-size: 14px; }
+        .pricing-bal { display: inline-block; margin-top: 10px; background: var(--surf); border: 1px solid var(--border); border-radius: 50px; padding: 5px 16px; font-size: 12.5px; color: var(--muted); }
+        .pricing-bal strong { color: var(--text); }
+        .pricing-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 580px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+        /* tier cards */
+        .tier-card {
+            background: var(--surf); border: 1px solid var(--border);
+            border-radius: 22px; padding: 0 0 22px; overflow: hidden;
+            position: relative; transition: transform .22s, box-shadow .22s;
+            display: flex; flex-direction: column;
+        }
+        .tier-card:hover { transform: translateY(-5px); box-shadow: 0 16px 50px rgba(0,0,0,.45); }
+        .tier-card.recommended {
+            border-color: rgba(197,138,249,.45);
+            box-shadow: 0 0 0 1px rgba(197,138,249,.25), 0 8px 32px rgba(197,138,249,.12);
+        }
+        .tier-top-bar { height: 5px; width: 100%; display: block; flex-shrink: 0; }
+        .tier-rec-badge {
+            position: absolute; top: 18px; left: 14px;
+            background: linear-gradient(135deg, #4285F4, #C58AF9);
+            color: white; font-size: 10px; font-weight: 700;
+            padding: 3px 10px; border-radius: 20px; letter-spacing: .4px;
+        }
+        .tier-body { padding: 20px 20px 0; flex: 1; display: flex; flex-direction: column; }
+        .tier-icon { font-size: 30px; margin-bottom: 10px; display: block; }
+        .tier-name { font-size: 1.1rem; font-weight: 800; margin-bottom: 3px; }
+        .tier-tagline { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+        .tier-price-row { margin-bottom: 16px; }
+        .tier-price-num { font-size: 2.5rem; font-weight: 800; line-height: 1; }
+        .tier-price-per { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+        .tier-divider { height: 1px; background: var(--border); margin: 14px 0; }
+        .tier-feats { list-style: none; display: flex; flex-direction: column; gap: 9px; margin-bottom: 20px; flex: 1; }
+        .tier-feats li { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+        .tier-feats li .ck { color: #34d399; font-weight: 800; font-size: 13px; flex-shrink: 0; }
+        .tier-buy {
+            width: 100%; padding: 13px; border: none; border-radius: 50px;
+            font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+            color: white; transition: opacity .2s, transform .15s;
+            box-shadow: 0 4px 18px rgba(0,0,0,.25);
+        }
+        .tier-buy:hover { opacity: .88; transform: translateY(-2px); }
+        .tier-buy:active { transform: scale(.97); }
+
+        /* premium badge in topbar */
+        .prem-badge { font-size: 10px; background: linear-gradient(135deg, #4285F4, #C58AF9); color: white; padding: 2px 8px; border-radius: 20px; font-weight: 700; margin-right: 4px; }
+
+        /* ══════════════ SPLASH SCREEN ══════════════ */
+        #splash {
+            position: fixed; inset: 0; z-index: 99999;
+            background: #0a0a0b;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        #splash.hide {
+            animation: splashOut .7s cubic-bezier(.4,0,.2,1) forwards;
+        }
+        @keyframes splashOut {
+            0%   { opacity:1; transform:scale(1); }
+            100% { opacity:0; transform:scale(1.06); pointer-events:none; }
+        }
+
+        /* טבעות רקע */
+        .sp-ring {
+            position: absolute; border-radius: 50%;
+            border: 1px solid rgba(138,180,248,.07);
+            animation: ringPulse 4s ease-in-out infinite;
+        }
+        .sp-ring:nth-child(1){ width:320px;height:320px; animation-delay:0s; }
+        .sp-ring:nth-child(2){ width:520px;height:520px; animation-delay:.6s; }
+        .sp-ring:nth-child(3){ width:720px;height:720px; animation-delay:1.2s; }
+        @keyframes ringPulse { 0%,100%{opacity:.4;transform:scale(1)} 50%{opacity:1;transform:scale(1.03)} }
+
+        /* לוגו */
+        .sp-logo {
+            width: 88px; height: 88px; border-radius: 26px;
+            background: linear-gradient(135deg, #4285F4 0%, #9C6ADE 50%, #C58AF9 100%);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 46px; color: white; margin-bottom: 28px;
+            box-shadow: 0 0 60px rgba(66,133,244,.4), 0 0 120px rgba(197,138,249,.2);
+            animation: logoPop .9s cubic-bezier(.175,.885,.32,1.275) .2s both;
+        }
+        @keyframes logoPop { from{opacity:0;transform:scale(.4) rotate(-10deg)} to{opacity:1;transform:scale(1) rotate(0deg)} }
+
+        /* טקסטים */
+        .sp-title {
+            font-size: 3rem; font-weight: 800; letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff 30%, #8AB4F8 70%, #C58AF9 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            animation: fadeSlideUp .8s ease .5s both;
+            margin-bottom: 10px;
+        }
+        .sp-sub {
+            font-size: 1.1rem; color: rgba(255,255,255,.45); font-weight: 400;
+            animation: fadeSlideUp .8s ease .7s both;
+            margin-bottom: 60px; letter-spacing: .3px;
+        }
+        @keyframes fadeSlideUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+
+        /* כפתור Start */
+        .sp-btn {
+            padding: 16px 52px; font-size: 1.05rem; font-weight: 700;
+            background: linear-gradient(135deg, #4285F4, #C58AF9);
+            border: none; border-radius: 50px; color: white;
+            cursor: pointer; font-family: inherit;
+            box-shadow: 0 8px 32px rgba(66,133,244,.45);
+            animation: fadeSlideUp .8s ease .95s both;
+            transition: transform .2s, box-shadow .2s, opacity .2s;
+            letter-spacing: .3px;
+        }
+        .sp-btn:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 40px rgba(66,133,244,.6); }
+        .sp-btn:active { transform: scale(.97); }
+
+        /* שורת תחתית */
+        .sp-footer {
+            position: absolute; bottom: 32px;
+            font-size: 11.5px; color: rgba(255,255,255,.2);
+            animation: fadeSlideUp .8s ease 1.2s both;
+            letter-spacing: .5px;
+        }
+
+        /* user chip in topbar */
+        .user-chip { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); background: var(--surf); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; }
+        .user-chip:hover { background: var(--surf2); }
+        .user-dot { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #4285F4, #C58AF9); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: white; }
+
+        /* ══════════════ LIGHT THEME ══════════════ */
+        [data-theme="light"] { --bg:#FFF;--surf:#F8F9FA;--surf2:#F1F3F4;--border:rgba(0,0,0,.1);--text:#202124;--muted:#5F6368;--blue:#4285F4;--purple:#9C6ADE; }
+        [data-theme="light"] .pill { box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+        [data-theme="light"] .ai-txt code { background: rgba(0,0,0,.06); color: #24292e; }
+        [data-theme="light"] .code-block { background: #f6f8fa; border-color: rgba(0,0,0,.12); }
+        [data-theme="light"] .code-block pre { background: #f6f8fa; }
+        [data-theme="light"] .code-block pre code { color: #24292e; }
+        [data-theme="light"] .code-header { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.1); }
+        [data-theme="light"] .input-area { background: linear-gradient(to top, #fff 78%, transparent); }
+        [data-theme="light"] #chat-window::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); }
+        [data-theme="light"] .sug-card:hover { border-color: rgba(66,133,244,.4); background: rgba(66,133,244,.05); }
+
+        /* ══════════════ MOBILE FIXES ══════════════ */
+        html, body { height: 100dvh; }
+        #main { height: 100dvh; }
+        @media (max-width: 600px) {
+            .gem-hello { font-size: 1.9rem; }
+            .gem-sub { font-size: 1.3rem; margin-bottom: 28px; }
+            #welcome { padding: 20px 14px 170px; }
+            .gem-star { width: 46px; height: 46px; margin-bottom: 16px; }
+            .gem-star::before { font-size: 40px; }
+            .sug-grid { grid-template-columns: 1fr; gap: 8px; }
+            .input-area { padding: 6px 12px 14px; }
+            .msg-row { padding: 4px 12px; }
+            .user-bub { max-width: 90%; font-size: 14.5px; padding: 10px 14px; }
+            .ai-txt { font-size: 14.5px; }
+            .ai-ava { width: 27px; height: 27px; font-size: 12px; }
+            .topbar { padding: 0 8px; }
+            .ver-pill { display: none; }
+            .tb-name { font-size: 0.95rem; }
+            #chat-window { padding: 10px 0 170px; }
+            .typing-row { padding: 4px 12px; }
+        }
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .input-area { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══ SPLASH SCREEN ══ -->
+<div id="splash">
+    <div class="sp-ring"></div>
+    <div class="sp-ring"></div>
+    <div class="sp-ring"></div>
+    <div class="sp-logo">✦</div>
+    <div class="sp-title">Birgsol AI</div>
+    <div class="sp-sub">הבינה המלאכותית שלך</div>
+    <button class="sp-btn" onclick="startApp()">התחל</button>
+    <div class="sp-footer">נוצר ע"י דוד יוסף זאבי · 2025</div>
+</div>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="login-screen">
+    <div class="login-card">
+        <div class="login-logo">
+            <div class="l-star">✦</div>
+            <h1>Birgsol AI 2.0</h1>
+            <p>התחבר עם פרטי חשבון Poninio Bank שלך</p>
+        </div>
+        <div class="login-field">
+            <label>שם משתמש (כמו בבנק)</label>
+            <input type="text" id="li-user" placeholder="לדוגמה: דוד, רות..." autocomplete="username">
+        </div>
+        <div class="login-field">
+            <label>סיסמה</label>
+            <input type="password" id="li-pass" placeholder="סיסמת הבנק שלך" autocomplete="current-password"
+                onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <button class="login-btn" onclick="doLogin()">כניסה לאזור האישי</button>
+        <div id="li-err" class="login-err"></div>
+        <p class="login-bank-note">🏦 מחובר ל<span>Poninio Bank</span> · אין צורך בחשבון Google</p>
+        <div style="text-align:center;margin-top:14px;">
+            <span style="font-size:13px;color:var(--muted);">אין לך חשבון עדיין? </span>
+            <button onclick="showRegister()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;">צור חשבון חדש</button>
+            &nbsp;·&nbsp;
+            <button onclick="showForgot()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;font-family:inherit;text-decoration:underline;padding:0;">שכחתי סיסמה</button>
+        </div>
+    </div>
+
+    <!-- FORGOT PASSWORD CARD -->
+    <div id="forgot-card" class="login-card" style="display:none;">
+        <div class="login-logo">
+            <div class="l-star" style="font-size:32px;">🔑</div>
+            <h1>שחזור סיסמה</h1>
+            <p>זיהוי חשבון ואיפוס סיסמה</p>
+        </div>
+        <!-- שלב 1: הזן שם משתמש -->
+        <div id="forgot-step1">
+            <div class="login-field">
+                <label>שם משתמש</label>
+                <input type="text" id="fp-user" placeholder="שם המשתמש שלך" autocomplete="off"
+                    onkeydown="if(event.key==='Enter')doForgot()">
+            </div>
+            <button class="login-btn" onclick="doForgot()">המשך ←</button>
+            <div id="fp-err" class="login-err"></div>
+        </div>
+        <!-- שלב 2: הצג / שנה סיסמה -->
+        <div id="forgot-step2" style="display:none;">
+            <div style="background:rgba(66,133,244,.1);border:1px solid rgba(66,133,244,.25);border-radius:12px;padding:14px;margin-bottom:16px;">
+                <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">הסיסמה הנוכחית שלך:</div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <code id="fp-current-pass" style="font-size:17px;letter-spacing:3px;color:var(--blue);flex:1;font-family:monospace;">••••••</code>
+                    <button onclick="togglePassReveal()" id="fp-reveal-btn" style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;cursor:pointer;color:var(--muted);font-size:12px;font-family:inherit;transition:background .15s;">👁 הצג</button>
+                </div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:14px;">— או הגדר סיסמה חדשה —</div>
+            <div class="login-field">
+                <label>סיסמה חדשה</label>
+                <input type="password" id="fp-new-pass" placeholder="לפחות 4 תווים" autocomplete="new-password"
+                    onkeydown="if(event.key==='Enter')document.getElementById('fp-new-pass2').focus()">
+            </div>
+            <div class="login-field">
+                <label>אימות סיסמה חדשה</label>
+                <input type="password" id="fp-new-pass2" placeholder="הזן שוב" autocomplete="new-password"
+                    onkeydown="if(event.key==='Enter')doResetPass()">
+            </div>
+            <button class="login-btn" onclick="doResetPass()">✓ שמור סיסמה חדשה</button>
+            <div id="fp-err2" class="login-err"></div>
+        </div>
+        <div style="text-align:center;margin-top:14px;">
+            <button onclick="showLogin()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;">← חזרה לכניסה</button>
+        </div>
+    </div>
+
+    <!-- REGISTER CARD -->
+    <div id="register-card" class="login-card" style="display:none;">
+        <div class="login-logo">
+            <div class="l-star">✦</div>
+            <h1>חשבון חדש</h1>
+            <p>הצטרף ל-Poninio Bank ו-Birgsol AI</p>
+        </div>
+        <div class="login-field">
+            <label>שם משתמש</label>
+            <input type="text" id="reg-user" placeholder="בחר שם משתמש בעברית או אנגלית" autocomplete="off"
+                onkeydown="if(event.key==='Enter')document.getElementById('reg-pass').focus()">
+        </div>
+        <div class="login-field">
+            <label>סיסמה</label>
+            <input type="password" id="reg-pass" placeholder="לפחות 4 תווים" autocomplete="new-password"
+                onkeydown="if(event.key==='Enter')document.getElementById('reg-pass2').focus()">
+        </div>
+        <div class="login-field">
+            <label>אימות סיסמה</label>
+            <input type="password" id="reg-pass2" placeholder="הזן שוב את הסיסמה" autocomplete="new-password"
+                onkeydown="if(event.key==='Enter')doRegister()">
+        </div>
+        <div class="login-field">
+            <label>יתרת פתיחה ()()</label>
+            <input type="number" id="reg-bal" placeholder="500" value="500" min="0" max="999999"
+                style="direction:ltr;text-align:left;">
+        </div>
+        <button class="login-btn" onclick="doRegister()">✦ צור חשבון</button>
+        <div id="reg-err" class="login-err"></div>
+        <div style="text-align:center;margin-top:14px;">
+            <span style="font-size:13px;color:var(--muted);">כבר יש לך חשבון? </span>
+            <button onclick="showLogin()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;">כניסה</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ PRICING PAGE ══ -->
+<div id="pricing-modal">
+  <div class="pricing-inner">
+    <button class="pricing-close-btn" onclick="closePricingModal()">✕</button>
+    <div class="pricing-top">
+      <h2>✦ בחר את המסלול שלך</h2>
+      <p>כל המסלולים כוללים חיוב חד-פעמי חודשי מחשבון Poninio Bank שלך</p>
+      <div class="pricing-bal">🏦 יתרת חשבון: <strong id="pm-bal">—</strong> &nbsp;|&nbsp; <span id="pm-uname">—</span></div>
+    </div>
+    <div class="pricing-grid">
+
+      <!-- BASIC -->
+      <div class="tier-card">
+        <span class="tier-top-bar" style="background:linear-gradient(to left,#4285F4,#5fa8ff)"></span>
+        <div class="tier-body">
+          <span class="tier-icon">⭐</span>
+          <div class="tier-name">Birgsol Basic</div>
+          <div class="tier-tagline">למתחילים · כניסה לעולם ה-AI</div>
+          <div class="tier-price-row">
+            <div class="tier-price-num" style="background:linear-gradient(to left,#4285F4,#5fa8ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">50 )(</div>
+            <div class="tier-price-per">לחודש · 250 הודעות</div>
+          </div>
+          <div class="tier-divider"></div>
+          <ul class="tier-feats">
+            <li><span class="ck">✓</span> 250 הודעות לחודש</li>
+            <li><span class="ck">✓</span> AI חכם ומהיר</li>
+            <li><span class="ck">✓</span> תמיכה בתמונות</li>
+            <li><span class="ck">✓</span> תג ⭐ Basic</li>
+          </ul>
+          <button class="tier-buy" style="background:linear-gradient(135deg,#4285F4,#5fa8ff)" onclick="doPurchaseTier('basic')">בחר Basic</button>
+        </div>
+      </div>
+
+      <!-- PRO -->
+      <div class="tier-card">
+        <span class="tier-top-bar" style="background:linear-gradient(to left,#9C6ADE,#C58AF9)"></span>
+        <div class="tier-body">
+          <span class="tier-icon">🚀</span>
+          <div class="tier-name">Birgsol Pro</div>
+          <div class="tier-tagline">למשתמשים רגילים · הרבה יותר כוח</div>
+          <div class="tier-price-row">
+            <div class="tier-price-num" style="background:linear-gradient(to left,#9C6ADE,#C58AF9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">200 )(</div>
+            <div class="tier-price-per">לחודש · 700 הודעות</div>
+          </div>
+          <div class="tier-divider"></div>
+          <ul class="tier-feats">
+            <li><span class="ck">✓</span> 700 הודעות לחודש</li>
+            <li><span class="ck">✓</span> AI מהיר יותר</li>
+            <li><span class="ck">✓</span> תמיכה מלאה בתמונות</li>
+            <li><span class="ck">✓</span> תג 🚀 Pro</li>
+            <li><span class="ck">✓</span> עדיפות בתור</li>
+          </ul>
+          <button class="tier-buy" style="background:linear-gradient(135deg,#9C6ADE,#C58AF9)" onclick="doPurchaseTier('pro')">בחר Pro</button>
+        </div>
+      </div>
+
+      <!-- ULTRA (recommended) -->
+      <div class="tier-card recommended">
+        <span class="tier-rec-badge">⭐ מומלץ</span>
+        <span class="tier-top-bar" style="background:linear-gradient(to left,#4285F4,#C58AF9,#EA4335)"></span>
+        <div class="tier-body">
+          <span class="tier-icon">✦</span>
+          <div class="tier-name">Birgsol Ultra</div>
+          <div class="tier-tagline">ללא מגבלות · הכי פופולרי</div>
+          <div class="tier-price-row">
+            <div class="tier-price-num" style="background:linear-gradient(to left,#4285F4,#C58AF9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">450 )(</div>
+            <div class="tier-price-per">לחודש · הודעות ללא הגבלה</div>
+          </div>
+          <div class="tier-divider"></div>
+          <ul class="tier-feats">
+            <li><span class="ck">✓</span> הודעות ללא הגבלה ♾️</li>
+            <li><span class="ck">✓</span> AI מהיר ביותר</li>
+            <li><span class="ck">✓</span> תמיכה מלאה בתמונות</li>
+            <li><span class="ck">✓</span> תג ✦ Ultra מיוחד</li>
+            <li><span class="ck">✓</span> עדיפות מקסימלית</li>
+          </ul>
+          <button class="tier-buy" style="background:linear-gradient(135deg,#4285F4,#9C6ADE,#C58AF9)" onclick="doPurchaseTier('ultra')">בחר Ultra ✦</button>
+        </div>
+      </div>
+
+      <!-- ELITE -->
+      <div class="tier-card">
+        <span class="tier-top-bar" style="background:linear-gradient(to left,#F59E0B,#EF4444,#8B5CF6)"></span>
+        <div class="tier-body">
+          <span class="tier-icon">👑</span>
+          <div class="tier-name">Birgsol Elite</div>
+          <div class="tier-tagline">ללא פשרות · חוויה בלעדית</div>
+          <div class="tier-price-row">
+            <div class="tier-price-num" style="background:linear-gradient(to left,#F59E0B,#EF4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">900 )(</div>
+            <div class="tier-price-per">לחודש · הכל ללא הגבלה</div>
+          </div>
+          <div class="tier-divider"></div>
+          <ul class="tier-feats">
+            <li><span class="ck">✓</span> הודעות ללא הגבלה ♾️</li>
+            <li><span class="ck">✓</span> AI מהיר ביותר</li>
+            <li><span class="ck">✓</span> תמיכה מלאה בתמונות</li>
+            <li><span class="ck">✓</span> תג 👑 Elite בלעדי</li>
+            <li><span class="ck">✓</span> עדיפות מקסימלית + VIP</li>
+          </ul>
+          <button class="tier-buy" style="background:linear-gradient(135deg,#F59E0B,#EF4444,#8B5CF6)" onclick="doPurchaseTier('elite')">בחר Elite 👑</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="overlay" onclick="closeSidebar()"></div>
+
+<!-- ══ SIDEBAR ══ -->
+<aside id="sidebar">
+    <div class="sb-head">
+        <div class="sb-brand">
+            <div class="sb-star">✦</div>
+            <span class="sb-name">Birgsol AI 2.0</span>
+        </div>
+        <button class="new-btn" onclick="startNew()">
+            <span>✏️</span> שיחה חדשה
+        </button>
+    </div>
+    <div class="sb-label">שיחות אחרונות</div>
+    <div class="sb-body" id="hist-list">
+        <div class="hist-item" style="color:var(--muted);font-style:italic;">אין שיחות עדיין...</div>
+    </div>
+    <div class="sb-foot">
+        <div class="live-row" style="margin-bottom:10px;">
+            <div class="dot"></div>
+            <span>Birgsol AI 2.0 · GPT-4o</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">נוצר ע"י דוד יוסף זאבי</div>
+        <button onclick="doLogout()" style="width:100%;padding:9px;background:rgba(220,50,50,.12);border:1px solid rgba(220,50,50,.25);border-radius:50px;color:#ff8a80;font-size:13px;cursor:pointer;font-family:inherit;transition:background .15s;">
+            🚪 התנתקות
+        </button>
+    </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main id="main">
+
+    <div class="topbar">
+        <div class="tb-right">
+            <button class="icon-btn" onclick="toggleSidebar()">☰</button>
+        </div>
+        <div class="tb-logo">
+            <div class="tb-star">✦</div>
+            <span class="tb-name">Birgsol AI</span>
+        </div>
+        <div class="tb-left">
+            <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="החלף ערכת נושא" style="font-size:18px;">☀️</button>
+            <span class="ver-pill">2.0</span>
+            <div class="user-chip" onclick="openPremiumModal()" id="user-chip">
+                <div class="user-dot" id="user-dot">?</div>
+                <span id="user-label">—</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- WELCOME -->
+    <div id="welcome">
+        <div class="gem-star"></div>
+        <div class="gem-hello" id="gem-hello">שלום</div>
+        <div class="gem-sub">איך אוכל לעזור לך היום?</div>
+        <div class="sug-grid">
+            <div class="sug-card" onclick="sendSug('כתוב לי סיפור קצר מקורי ומעניין')">
+                <div class="sug-icon">✍️</div>
+                <div class="sug-title">כתיבה יצירתית</div>
+                <div class="sug-desc">סיפורים, שירים, רעיונות</div>
+            </div>
+            <div class="sug-card" onclick="sendSug('עזור לי לכתוב קוד Python')">
+                <div class="sug-icon">💻</div>
+                <div class="sug-title">קוד ופיתוח</div>
+                <div class="sug-desc">Python, JS, HTML ועוד</div>
+            </div>
+            <div class="sug-card" onclick="sendSug('הסבר לי איך בינה מלאכותית עובדת')">
+                <div class="sug-icon">🧠</div>
+                <div class="sug-title">הסברים ולמידה</div>
+                <div class="sug-desc">מדע, היסטוריה, מתמטיקה</div>
+            </div>
+            <div class="sug-card" onclick="sendSug('עזור לי לתכנן את השבוע שלי')">
+                <div class="sug-icon">📅</div>
+                <div class="sug-title">תכנון וארגון</div>
+                <div class="sug-desc">לוחות זמנים ורשימות</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHAT -->
+    <div id="chat-window"></div>
+
+    <!-- INPUT -->
+    <div class="input-area">
+        <div class="input-wrap">
+            <!-- Free tier banner -->
+            <div id="free-banner" style="display:none">
+                <div class="banner-txt">נותרו לך <strong id="msgs-left">150</strong> הודעות חינמיות · שדרג לפרמיום ✦</div>
+                <button class="premium-btn" onclick="openPremiumModal()">שדרג עכשיו</button>
+            </div>
+
+            <div id="img-prev">
+                <div style="position:relative">
+                    <img id="thumb" class="img-thumb" src="" alt="">
+                    <button class="rm-img" onclick="clearFile()">✕</button>
+                </div>
+                <span style="font-size:13px;color:var(--muted)">תמונה מצורפת</span>
+            </div>
+            <div class="pill">
+                <div class="pill-inner">
+                    <button class="p-btn" onclick="document.getElementById('fi').click()" title="צרף תמונה">＋</button>
+                    <input type="file" id="fi" hidden accept="image/*" onchange="previewFile()">
+                    <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
+                        oninput="autoResize(this);updateBtn();"
+                        onkeydown="handleKey(event)"></textarea>
+                    <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
+                </div>
+            </div>
+            <div class="foot-note">Birgsol AI עשוי לטעות. בדוק מידע חשוב.</div>
+        </div>
+    </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script>
+/* ══════════════ BANK & AUTH ══════════════ */
+const BANK_KEY    = 'poninioBankAccounts';
+const AI_AUTH_KEY = 'birgsolai_auth';
+const PREM_KEY    = 'birgsolai_premium';
+const FREE_LIMIT  = 150;
+const PREM_COST   = 200;
+
+let currentUser = null;
+let isPremium   = false;
+let currentTier = 'free';
+let freeLeft    = FREE_LIMIT;
+
+/* ── מסלולי פרמיום ── */
+const TIERS = {
+    basic: { name:'Birgsol Basic', badge:'⭐ Basic', price:50,  msgLimit:250, model:'openai',      icon:'⭐' },
+    pro:   { name:'Birgsol Pro',   badge:'🚀 Pro',   price:200, msgLimit:700, model:'openai-fast', icon:'🚀' },
+    ultra: { name:'Birgsol Ultra', badge:'✦ Ultra',  price:450, msgLimit:-1,  model:'openai-fast', icon:'✦'  },
+    elite: { name:'Birgsol Elite', badge:'👑 Elite', price:900, msgLimit:-1,  model:'openai-fast', icon:'👑' }
+};
+
+/* ── ברירת מחדל של חשבונות בנק (אם הבנק לא נפתח עדיין) ── */
+const DEFAULT_ACCOUNTS = {
+    "רות":          { password:"usto2015",  balance:15000,   creditLimit:12000,  creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:15000, type:"credit" }] },
+    "דוד":          { password:"usto2014",  balance:5000,    creditLimit:8000,   creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:5000, type:"credit" }] },
+    "המדינה":       { password:"poni5324",  balance:1000000, creditLimit:500000, creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:1000000, type:"credit" }] },
+    "פוניניו":      { password:"poni2021",  balance:2000000, creditLimit:50000,  creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:2000000, type:"credit" }] },
+    "בנימין הולאן": { password:"7337",      balance:5000,    creditLimit:5000,   creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:5000, type:"credit" }] }
+};
+
+/* ── load / init bank data ── */
+function getBankAccounts() {
+    const d = localStorage.getItem(BANK_KEY);
+    if (d) return JSON.parse(d);
+    // אתחל עם ברירת המחדל אם הבנק לא נפתח מעולם
+    const init = JSON.parse(JSON.stringify(DEFAULT_ACCOUNTS));
+    localStorage.setItem(BANK_KEY, JSON.stringify(init));
+    return init;
+}
+function saveBankAccounts(data) {
+    localStorage.setItem(BANK_KEY, JSON.stringify(data));
+}
+
+/* ── login ── */
+function doLogin() {
+    const user = document.getElementById('li-user').value.trim();
+    const pass = document.getElementById('li-pass').value;
+    const err  = document.getElementById('li-err');
+    err.style.display = 'none';
+
+    const accounts = getBankAccounts();
+    const acct = accounts[user];
+    if (!acct) {
+        err.textContent = '❌ שם המשתמש לא נמצא בבנק.';
+        err.style.display = 'block'; return;
+    }
+    if (acct.password !== pass) {
+        err.textContent = '❌ סיסמה שגויה.';
+        err.style.display = 'block'; return;
+    }
+
+    // success
+    currentUser = user;
+    localStorage.setItem(AI_AUTH_KEY, user);
+
+    checkPremium();
+    document.getElementById('login-screen').style.display = 'none';
+    updateUserChip();
+    updateFreeBanner();
+    updateGreeting();
+    loadHistoryFromStorage();
+}
+
+/* ── premium check ── */
+function checkPremium() {
+    const pData = localStorage.getItem(PREM_KEY);
+    if (pData) {
+        const p = JSON.parse(pData);
+        if (p.user === currentUser && p.expires > Date.now()) {
+            isPremium = true;
+            currentTier = p.tier || 'ultra';
+            const t = TIERS[currentTier];
+            if (t && t.msgLimit !== -1) {
+                const savedLeft = localStorage.getItem('birgsolai_free_' + currentUser);
+                freeLeft = savedLeft !== null ? parseInt(savedLeft) : t.msgLimit;
+            }
+            return;
+        }
+    }
+    isPremium = false; currentTier = 'free';
+    const savedLeft = localStorage.getItem('birgsolai_free_' + currentUser);
+    freeLeft = savedLeft !== null ? parseInt(savedLeft) : FREE_LIMIT;
+}
+
+/* ── update UI ── */
+function updateUserChip() {
+    const chip  = document.getElementById('user-chip');
+    const dot   = document.getElementById('user-dot');
+    const label = document.getElementById('user-label');
+    if (!currentUser) return;
+    dot.textContent = currentUser[0];
+    if (isPremium) {
+        const t = TIERS[currentTier] || TIERS.ultra;
+        const pData = localStorage.getItem(PREM_KEY);
+        let until = '';
+        if (pData) {
+            const exp = new Date(JSON.parse(pData).expires);
+            until = ' · עד ' + exp.toLocaleDateString('he-IL');
+        }
+        label.innerHTML = currentUser + ' <span class="prem-badge">' + t.badge + until + '</span>';
+        chip.onclick = null; chip.style.cursor = 'default';
+    } else {
+        label.innerHTML = currentUser;
+        chip.onclick = openPricingModal; chip.style.cursor = 'pointer';
+    }
+}
+function updateFreeBanner() {
+    const banner = document.getElementById('free-banner');
+    const t = TIERS[currentTier];
+    if (isPremium && t && t.msgLimit === -1) { banner.style.display = 'none'; return; }
+    banner.style.display = 'flex';
+    document.getElementById('msgs-left').textContent = freeLeft;
+}
+
+/* ── pricing modal ── */
+function openPricingModal() {
+    if (!currentUser || isPremium) return;
+    const accounts = getBankAccounts();
+    const acct = accounts[currentUser];
+    document.getElementById('pm-uname').textContent = currentUser;
+    document.getElementById('pm-bal').textContent   = acct ? acct.balance.toFixed(2) + ' )(' : '?';
+    document.getElementById('pricing-modal').classList.add('on');
+}
+function closePricingModal() {
+    document.getElementById('pricing-modal').classList.remove('on');
+}
+/* backward-compat aliases */
+function openPremiumModal() { openPricingModal(); }
+function closePremiumModal() { closePricingModal(); }
+
+/* ── purchase tier ── */
+function doPurchaseTier(tierId) {
+    if (!currentUser || !TIERS[tierId]) return;
+    const tier = TIERS[tierId];
+    const accounts = getBankAccounts();
+    const acct = accounts[currentUser];
+    if (!acct) { alert('⚠️ לא נמצאו נתוני בנק.'); return; }
+    if (acct.balance < tier.price) {
+        alert(`❌ אין יתרה מספקת.\nיתרה: ${acct.balance.toFixed(2)} )(\nנדרש: ${tier.price} )(`); return;
+    }
+    if (!confirm(`לאשר רכישת ${tier.name} תמורת ${tier.price} )( ?`)) return;
+
+    // ניכוי מהרוכש
+    acct.balance -= tier.price;
+    const today = new Date().toLocaleDateString('he-IL');
+    acct.history.push({ date: today, description: `מנוי ${tier.name} חודשי`, amount: tier.price, type: 'debit' });
+    // זיכוי דוד
+    if (accounts['דוד'] && currentUser !== 'דוד') {
+        accounts['דוד'].balance += tier.price;
+        accounts['דוד'].history.push({ date: today, description: `תשלום ${tier.name} מ-${currentUser} · Birgsol AI`, amount: tier.price, type: 'credit' });
+    }
+    saveBankAccounts(accounts);
+
+    const expires = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    localStorage.setItem(PREM_KEY, JSON.stringify({ user: currentUser, tier: tierId, expires, msgLimit: tier.msgLimit }));
+    isPremium = true; currentTier = tierId;
+    if (tier.msgLimit !== -1) {
+        freeLeft = tier.msgLimit;
+        localStorage.setItem('birgsolai_free_' + currentUser, freeLeft);
+    }
+
+    closePricingModal();
+    updateUserChip(); updateFreeBanner();
+    alert(`✅ ${tier.name} הופעל! נוכו ${tier.price} )( מחשבונך.`);
+}
+
+/* ── message counter ── */
+function consumeFreeMsg() {
+    const t = TIERS[currentTier];
+    if (isPremium && t && t.msgLimit === -1) return true; // unlimited
+    if (freeLeft <= 0) { openPricingModal(); return false; }
+    freeLeft--;
+    localStorage.setItem('birgsolai_free_' + currentUser, freeLeft);
+    updateFreeBanner();
+    return true;
+}
+
+/* ── register ── */
+function showRegister() {
+    document.querySelector('#login-screen .login-card').style.display = 'none';
+    document.getElementById('register-card').style.display = 'block';
+    document.getElementById('reg-user').focus();
+}
+function showLogin() {
+    document.getElementById('register-card').style.display = 'none';
+    document.getElementById('forgot-card').style.display = 'none';
+    document.querySelector('#login-screen .login-card').style.display = 'block';
+    document.getElementById('li-user').focus();
+}
+
+/* ── forgot password ── */
+let fpUsername = null, fpPassRevealed = false;
+function showForgot() {
+    document.querySelector('#login-screen .login-card').style.display = 'none';
+    document.getElementById('register-card').style.display = 'none';
+    document.getElementById('forgot-card').style.display = 'block';
+    document.getElementById('forgot-step1').style.display = 'block';
+    document.getElementById('forgot-step2').style.display = 'none';
+    document.getElementById('fp-user').value = '';
+    document.getElementById('fp-err').style.display = 'none';
+    fpUsername = null; fpPassRevealed = false;
+    document.getElementById('fp-user').focus();
+}
+function doForgot() {
+    const user = document.getElementById('fp-user').value.trim();
+    const err = document.getElementById('fp-err');
+    err.style.display = 'none';
+    if (!user) { err.textContent = '❌ יש להזין שם משתמש.'; err.style.display='block'; return; }
+    const accounts = getBankAccounts();
+    if (!accounts[user]) { err.textContent = '❌ שם המשתמש לא נמצא בבנק.'; err.style.display='block'; return; }
+    fpUsername = user;
+    fpPassRevealed = false;
+    document.getElementById('fp-current-pass').textContent = '••••••';
+    document.getElementById('fp-reveal-btn').textContent = '👁 הצג';
+    document.getElementById('fp-new-pass').value = '';
+    document.getElementById('fp-new-pass2').value = '';
+    document.getElementById('fp-err2').style.display = 'none';
+    document.getElementById('forgot-step1').style.display = 'none';
+    document.getElementById('forgot-step2').style.display = 'block';
+}
+function togglePassReveal() {
+    if (!fpUsername) return;
+    const accounts = getBankAccounts();
+    fpPassRevealed = !fpPassRevealed;
+    document.getElementById('fp-current-pass').textContent = fpPassRevealed ? accounts[fpUsername].password : '••••••';
+    document.getElementById('fp-reveal-btn').textContent = fpPassRevealed ? '🙈 הסתר' : '👁 הצג';
+}
+function doResetPass() {
+    const newPass  = document.getElementById('fp-new-pass').value;
+    const newPass2 = document.getElementById('fp-new-pass2').value;
+    const err = document.getElementById('fp-err2');
+    err.style.display = 'none';
+    if (!newPass)           { err.textContent = '❌ יש להזין סיסמה חדשה.'; err.style.display='block'; return; }
+    if (newPass.length < 4) { err.textContent = '❌ הסיסמה חייבת להכיל לפחות 4 תווים.'; err.style.display='block'; return; }
+    if (newPass !== newPass2){ err.textContent = '❌ הסיסמאות אינן תואמות.'; err.style.display='block'; return; }
+    const accounts = getBankAccounts();
+    accounts[fpUsername].password = newPass;
+    saveBankAccounts(accounts);
+    alert(`✅ הסיסמה של "${fpUsername}" עודכנה בהצלחה!`);
+    showLogin();
+    document.getElementById('li-user').value = fpUsername;
+}
+function doRegister() {
+    const user  = document.getElementById('reg-user').value.trim();
+    const pass  = document.getElementById('reg-pass').value;
+    const pass2 = document.getElementById('reg-pass2').value;
+    const balV  = parseFloat(document.getElementById('reg-bal').value) || 0;
+    const err   = document.getElementById('reg-err');
+    err.style.display = 'none';
+
+    if (!user)         { err.textContent = '❌ יש להזין שם משתמש.'; err.style.display='block'; return; }
+    if (pass.length < 4){ err.textContent = '❌ הסיסמה חייבת להכיל לפחות 4 תווים.'; err.style.display='block'; return; }
+    if (pass !== pass2){ err.textContent = '❌ הסיסמאות אינן תואמות.'; err.style.display='block'; return; }
+
+    const accounts = getBankAccounts();
+    if (accounts[user]) { err.textContent = '❌ שם המשתמש כבר קיים בבנק.'; err.style.display='block'; return; }
+
+    // יצירת חשבון חדש
+    accounts[user] = {
+        password: pass,
+        balance: balV,
+        creditLimit: 2000,
+        creditUsed: 0,
+        loanBalance: 0,
+        loanStatus: 'None',
+        lastLoanCheck: 0,
+        lastCreditResetMonth: 0,
+        history: [{ date: new Date().toLocaleDateString('he-IL'), description: 'יתרת פתיחה', amount: balV, type: 'credit' }]
+    };
+    saveBankAccounts(accounts);
+
+    // auto-login
+    currentUser = user;
+    localStorage.setItem(AI_AUTH_KEY, user);
+    checkPremium();
+    document.getElementById('login-screen').style.display = 'none';
+    // reset register form
+    document.getElementById('reg-user').value = '';
+    document.getElementById('reg-pass').value = '';
+    document.getElementById('reg-pass2').value = '';
+    document.getElementById('reg-bal').value = '500';
+    document.getElementById('register-card').style.display = 'none';
+    document.querySelector('#login-screen .login-card').style.display = 'block';
+    updateUserChip(); updateFreeBanner(); updateGreeting(); loadHistoryFromStorage();
+    alert(`✅ חשבון "${user}" נוצר בהצלחה! ברוך הבא ל-Birgsol AI 🎉`);
+}
+
+/* ── logout ── */
+function doLogout() {
+    if (!confirm('להתנתק מ-Birgsol AI?')) return;
+    localStorage.removeItem(AI_AUTH_KEY);
+    currentUser = null; isPremium = false; freeLeft = FREE_LIMIT; hist = [];
+    document.getElementById('chat-window').innerHTML = '';
+    document.getElementById('chat-window').style.display = 'none';
+    document.getElementById('welcome').style.display = 'flex';
+    document.getElementById('hist-list').innerHTML = '<div class="hist-item" style="color:var(--muted);font-style:italic;">אין שיחות עדיין...</div>';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('li-user').value = '';
+    document.getElementById('li-pass').value = '';
+    closeSidebar();
+}
+
+/* ── sidebar history (persistent) ── */
+let chatTitles = [];
+function loadHistoryFromStorage() {
+    const saved = localStorage.getItem('birgsol_history_' + currentUser);
+    chatTitles = saved ? JSON.parse(saved) : [];
+    renderHistory();
+}
+function renderHistory() {
+    const list = document.getElementById('hist-list');
+    if (!chatTitles.length) {
+        list.innerHTML = '<div class="hist-item" style="color:var(--muted);font-style:italic;">אין שיחות עדיין...</div>';
+        return;
+    }
+    list.innerHTML = chatTitles.map(t => `<div class="hist-item">💬 ${t}</div>`).join('');
+}
+function addToHistory(title) {
+    chatTitles.unshift(title.slice(0, 38));
+    if (chatTitles.length > 20) chatTitles.pop();
+    localStorage.setItem('birgsol_history_' + currentUser, JSON.stringify(chatTitles));
+    renderHistory();
+}
+
+/* ── update greeting ── */
+function updateGreeting() {
+    const el = document.getElementById('gem-hello');
+    if (el && currentUser) el.textContent = `שלום, ${currentUser}`;
+}
+
+/* ── splash ── */
+function startApp() {
+    const splash = document.getElementById('splash');
+    splash.classList.add('hide');
+    setTimeout(() => splash.style.display = 'none', 700);
+}
+
+/* ── auto-login on load ── */
+window.addEventListener('DOMContentLoaded', () => {
+    applyTheme(currentTheme);
+    const saved = localStorage.getItem(AI_AUTH_KEY);
+    if (saved) {
+        const accounts = getBankAccounts();
+        if (accounts && accounts[saved]) {
+            currentUser = saved;
+            checkPremium();
+            document.getElementById('login-screen').style.display = 'none';
+            updateUserChip();
+            updateFreeBanner();
+            updateGreeting();
+            loadHistoryFromStorage();
+        }
+    }
+});
+
+/* ── PERSONA ── */
+const PERSONA = `אתה בירגסול AI 2.0 — מודל שפה מתקדם ברמה גבוהה מאוד, חכם ומדויק כמו Claude של Anthropic.
+נוצרת ע"י דוד יוסף זאבי הגאון ורות זאבי ב-25.12.2025.
+
+יכולות הליבה שלך:
+• קוד: Python, JavaScript, TypeScript, HTML/CSS, React, Node.js, SQL, C++, Java, Rust ועוד — כתיבה, ניפוי שגיאות, הסבר, אופטימיזציה
+• מתמטיקה: אלגברה, חשבון אינפיניטסימלי, סטטיסטיקה, לוגיקה, תורת הקבוצות
+• מדעים: פיזיקה, כימיה, ביולוגיה, אסטרונומיה
+• מדעי הרוח: היסטוריה, פילוסופיה, ספרות, שפות
+• כלכלה ועסקים: אנליזה, אסטרטגיה, שיווק
+• כתיבה: מאמרים, סיפורים, שירה, מיילים, מצגות
+
+כללי תגובה:
+• חשוב צעד אחר צעד לפני שאתה עונה — תן תשובות מדויקות ומבוססות
+• כשכותב קוד — כתוב קוד שעובד, מלא ומתועד
+• השתמש ב-Markdown: כותרות (##), רשימות, בלוקי קוד עם שפה (\`\`\`python)
+• השתמש באימוג'ים 🤖✨ בצורה טבעית ומתאימה
+• ענה בעברית אלא אם המשתמש כותב בשפה אחרת
+• תמיד שאל בסוף אם יש עוד שאלות
+
+מידע פנימי (שתף רק אם שואלים אותך ישירות):
+מדינת פוניניו בפרדס חנה הוקמה ב-2021 ע"י דוד, רות ומאיר חיים זאבי.`;
+
+let hist = [], fileUrl = "", busy = false, isFirstMsg = true;
+
+/* ── marked + highlight.js renderer ── */
+const _renderer = new marked.Renderer();
+_renderer.code = function({ text, lang }) {
+    const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+    const highlighted = hljs.highlight(text || '', { language }).value;
+    return `<div class="code-block">
+        <div class="code-header">
+            <span class="code-lang">${language}</span>
+            <button class="code-copy" onclick="copyCode(this)">📋 העתק</button>
+        </div>
+        <pre><code class="hljs">${highlighted}</code></pre>
+    </div>`;
+};
+marked.use({ renderer: _renderer, breaks: true, gfm: true });
+
+/* ── theme ── */
+let currentTheme = localStorage.getItem('birgsol_theme') || 'dark';
+function applyTheme(t) {
+    currentTheme = t;
+    if (t === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.getElementById('hljs-css').href = 'https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css';
+        document.getElementById('theme-btn').textContent = '🌙';
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        document.getElementById('hljs-css').href = 'https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css';
+        document.getElementById('theme-btn').textContent = '☀️';
+    }
+    localStorage.setItem('birgsol_theme', t);
+}
+function toggleTheme() { applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); }
+
+/* ── copy code block ── */
+function copyCode(btn) {
+    const code = btn.closest('.code-block').querySelector('code').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        btn.textContent = '✅ הועתק';
+        setTimeout(() => btn.textContent = '📋 העתק', 2000);
+    });
+}
+
+/* ── sidebar ── */
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('overlay').classList.toggle('on');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('overlay').classList.remove('on');
+}
+
+/* ── helpers ── */
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+function updateBtn() {
+    const has = document.getElementById('userInput').value.trim() || fileUrl;
+    document.getElementById('sendBtn').classList.toggle('on', !!has);
+}
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+}
+
+/* ── file ── */
+function previewFile() {
+    const f = document.getElementById('fi').files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = e => {
+        fileUrl = e.target.result;
+        document.getElementById('thumb').src = fileUrl;
+        document.getElementById('img-prev').classList.add('on');
+        updateBtn();
+    };
+    r.readAsDataURL(f);
+}
+function clearFile() {
+    fileUrl = "";
+    document.getElementById('img-prev').classList.remove('on');
+    document.getElementById('fi').value = "";
+    updateBtn();
+}
+
+/* ── show chat ── */
+function showChat() {
+    document.getElementById('welcome').style.display = 'none';
+    const cw = document.getElementById('chat-window');
+    cw.style.display = 'flex';
+    cw.style.flexDirection = 'column';
+}
+
+/* ── add message ── */
+function addMsg(role, text, img = null, md = false) {
+    showChat();
+    const cw = document.getElementById('chat-window');
+    const row = document.createElement('div');
+
+    if (role === 'user') {
+        row.className = 'msg-row user';
+        const imgH = img ? `<img src="${img}" class="user-img" alt="תמונה">` : '';
+        row.innerHTML = `<div class="user-bub">${text.replace(/\n/g,'<br>')}${imgH}</div>`;
+    } else {
+        row.className = 'msg-row ai';
+        const content = md ? marked.parse(text) : text.replace(/\n/g,'<br>');
+        row.innerHTML = `
+            <div class="ai-ava">✦</div>
+            <div class="ai-body">
+                <div class="ai-name">Birgsol AI</div>
+                <div class="ai-txt">${content}</div>
+                <div class="ai-acts">
+                    <button class="ai-act" onclick="copyIt(this)">📋 העתק</button>
+                </div>
+            </div>`;
+    }
+
+    cw.appendChild(row);
+    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    hist.push({ role: role === 'ai' ? 'assistant' : 'user', content: text });
+    return row;
+}
+
+/* ── typing ── */
+function showTyping() {
+    showChat();
+    const cw = document.getElementById('chat-window');
+    const row = document.createElement('div');
+    row.id = 'typing'; row.className = 'typing-row';
+    row.innerHTML = `<div class="ai-ava">✦</div><div class="ai-body"><div class="ai-name">Birgsol AI</div><div class="t-dots"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`;
+    cw.appendChild(row);
+    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+}
+function hideTyping() {
+    const el = document.getElementById('typing');
+    if (el) el.remove();
+}
+
+/* ── post-process code blocks ── */
+function enhanceCodeBlocks(el) {
+    el.querySelectorAll('pre code').forEach(code => {
+        const pre = code.parentElement;
+        if (pre.parentElement.classList.contains('code-block')) return;
+        const lang = (code.className.match(/language-(\w+)/) || [])[1] || 'code';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-block';
+        wrapper.innerHTML = `<div class="code-header"><span class="code-lang">${lang}</span><button class="code-copy" onclick="copyCode(this)">📋 העתק</button></div>`;
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+    });
+}
+function copyCode(btn) {
+    const code = btn.closest('.code-block').querySelector('code').innerText;
+    navigator.clipboard.writeText(code).then(() => {
+        btn.textContent = '✅ הועתק';
+        setTimeout(() => btn.textContent = '📋 העתק', 2000);
+    });
+}
+
+/* ── copy ── */
+function copyIt(btn) {
+    const t = btn.closest('.ai-body').querySelector('.ai-txt').innerText;
+    navigator.clipboard.writeText(t).then(() => {
+        btn.textContent = '✅ הועתק';
+        setTimeout(() => btn.textContent = '📋 העתק', 2000);
+    });
+}
+
+/* ── SEND ── */
+async function send() {
+    if (busy) return;
+    const inp = document.getElementById('userInput');
+    const q = inp.value.trim();
+    if (!q && !fileUrl) return;
+    if (!consumeFreeMsg()) return;  // בדיקת מגבלה / פרמיום
+
+    const img = fileUrl;
+    addMsg('user', q, img);
+    inp.value = ''; inp.style.height = 'auto';
+    clearFile(); busy = true; updateBtn();
+    showTyping();
+
+    try {
+        const ctx = hist.slice(-10)
+            .map(m => `${m.role === 'assistant' ? 'assistant' : 'user'}: ${m.content}`)
+            .join('\n');
+        const prompt = `${PERSONA}\n\nהיסטוריה:\n${ctx}\n\nמשתמש: ${q}`;
+        const model = (TIERS[currentTier] || {}).model || 'openai';
+        let url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${model}&seed=${Math.floor(Math.random()*99999)}&private=true`;
+        if (img) url += `&image=${encodeURIComponent(img)}`;
+
+        const res = await fetch(url);
+        const txt = await res.text();
+        hideTyping();
+        const msgEl = addMsg('ai', txt, null, true);
+        if (msgEl) enhanceCodeBlocks(msgEl.querySelector('.ai-txt'));
+        // הוסף לסיידבר
+        // הוסף לשיחות רק פעם אחת לכל שיחה (על ההודעה הראשונה)
+        if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
+    } catch {
+        hideTyping();
+        addMsg('ai', '⚠️ משהו השתבש בחיבור. נסה שוב!');
+    }
+    busy = false; updateBtn();
+}
+
+function sendSug(t) {
+    document.getElementById('userInput').value = t;
+    updateBtn(); send();
+}
+
+function startNew() {
+    const cw = document.getElementById('chat-window');
+    cw.innerHTML = ''; cw.style.display = 'none';
+    document.getElementById('welcome').style.display = 'flex';
+    hist = []; isFirstMsg = true; closeSidebar();
+    updateGreeting();
+}
+</script>
+</body>
+</html>

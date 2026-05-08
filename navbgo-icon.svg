@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="110" fill="#0a0e1a"/>
-  <text x="256" y="220" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="130" fill="#ffffff">BGO</text>
-  <text x="256" y="330" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="100" fill="#06b6d4">NAV</text>
-  <path d="M256 370 L230 430 L256 415 L282 430 Z" fill="#06b6d4"/>
-</svg>
