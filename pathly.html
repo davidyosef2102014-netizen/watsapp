@@ -486,13 +486,46 @@ if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = () => {};
 /* ── GPS ── */
 function startGPS() {
   if (!navigator.geolocation) { setGps(false,'GPS לא נתמך'); return; }
-  wid = navigator.geolocation.watchPosition(onPos, () => setGps(false,'GPS לא זמין'),
-    { enableHighAccuracy:true, maximumAge:2000, timeout:20000 });
+  setGps(false, 'מאתר מיקום…');
+  // Step 1: quick low-accuracy fix (fast, 1-2 sec)
+  navigator.geolocation.getCurrentPosition(
+    pos => { onPos(pos); startWatch(); },
+    err => { handleGpsErr(err); startWatch(); },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+  );
+}
+function startWatch() {
+  if (wid) navigator.geolocation.clearWatch(wid);
+  // Step 2: continuous high-accuracy watch
+  wid = navigator.geolocation.watchPosition(onPos, handleGpsErr,
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 30000 });
+}
+function handleGpsErr(err) {
+  if (err.code === 1) {
+    setGps(false, '🔒 אשר GPS בדפדפן');
+    showGpsBanner();
+  } else if (err.code === 2) {
+    setGps(false, 'GPS חלש — צא לחוץ');
+  } else {
+    setGps(false, 'GPS — מנסה שוב…');
+  }
+}
+function showGpsBanner() {
+  let b = document.getElementById('gps-banner');
+  if (b) return;
+  b = document.createElement('div');
+  b.id = 'gps-banner';
+  b.style.cssText = 'position:fixed;bottom:100px;left:12px;right:12px;z-index:500;background:#111;color:#fff;border-radius:16px;padding:14px 18px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;gap:12px';
+  b.innerHTML = `<span style="font-size:22px">📍</span><div style="flex:1">GPS חסום.<br><span style="opacity:.7;font-size:12px">לחץ על 🔒 בשורת הכתובת ← אפשר מיקום</span></div><button onclick="this.parentElement.remove();startGPS()" style="background:#fff;color:#111;border:none;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px">נסה שוב</button>`;
+  document.body.appendChild(b);
 }
 function onPos(pos) {
   const { latitude:lat, longitude:lng, speed, accuracy } = pos.coords;
   uPos = { lat, lng };
-  setGps(true, accuracy ? `±${Math.round(accuracy)}מ'` : 'GPS פעיל');
+  const accTxt = accuracy < 20 ? 'GPS מדויק' : accuracy < 100 ? `±${Math.round(accuracy)}מ'` : `±${Math.round(accuracy)}מ'`;
+  setGps(true, accTxt);
+  // Remove banner if it exists
+  const b = document.getElementById('gps-banner'); if (b) b.remove();
   if (!userMark) {
     userMark = L.marker([lat,lng], { icon: L.divIcon({
       className:'', iconSize:[28,28], iconAnchor:[14,14],
@@ -515,6 +548,7 @@ function setGps(ok, txt) {
 }
 function centerMe() {
   if (uPos) { map.flyTo([uPos.lat,uPos.lng],17,{animate:true,duration:1.2}); autoC=true; }
+  else { startGPS(); toast('מאתר מיקום…'); }
 }
 
 /* ── Speed ── */
@@ -559,37 +593,84 @@ function closeRes() {
   const r = document.getElementById('sb-results');
   r.className=''; r.innerHTML='';
 }
+/* Build smart Hebrew query variants */
+function buildQueries(q) {
+  const qs = new Set([q]);
+  // Strip Hebrew street prefixes that confuse Nominatim
+  const stripped = q.replace(/^(רחוב|רח'|שד'|שדרות|כיכר|סמטת|סמ')\s+/i, '').trim();
+  if (stripped && stripped !== q) qs.add(stripped);
+  // Append ישראל if missing (helps Nominatim rank IL results first)
+  if (!/ישראל|israel/i.test(q)) qs.add(stripped + ', ישראל');
+  return [...qs];
+}
+
 async function doSearch(q) {
   const r = document.getElementById('sb-results');
   r.innerHTML='<div class="ri-load">מחפש…</div>'; r.className='open';
   try {
-    const [ph, nm] = await Promise.allSettled([
-      fetch(`https://photon.komoot.io/api/?q=${enc(q)}&limit=6&lang=he&bbox=34.2,29.4,35.9,33.4`),
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${enc(q)}&limit=6&accept-language=he&countrycodes=il&addressdetails=1`, { headers:{'Accept-Language':'he'} })
+    const variants = buildQueries(q);
+    const mainQ = enc(variants[0]);
+    const cleanQ = enc(variants[variants.length - 1]);
+    // Location bias for Photon
+    const locBias = uPos ? `&lat=${uPos.lat}&lon=${uPos.lng}` : '';
+
+    // 3 sources in parallel:
+    // 1. Photon — Israel bbox, location-biased
+    // 2. Nominatim — countrycodes=il (strict Israel)
+    // 3. Nominatim — viewbox Israel, no country lock (catches more)
+    const [ph, nm1, nm2] = await Promise.allSettled([
+      fetch(`https://photon.komoot.io/api/?q=${cleanQ}&limit=7&lang=he&bbox=34.2,29.4,35.9,33.4${locBias}`),
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${cleanQ}&limit=6&accept-language=he,iw,en&countrycodes=il&addressdetails=1&namedetails=1`, { headers:{'Accept-Language':'he'} }),
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${mainQ}&limit=5&accept-language=he,iw,en&viewbox=34.2,33.5,35.9,29.4&bounded=0&addressdetails=1`, { headers:{'Accept-Language':'he'} })
     ]);
+
     const items=[], seen=new Set();
-    const add=(name,addr,lat,lng)=>{
-      const k=`${lat.toFixed(4)},${lng.toFixed(4)}`;
-      if(!name||seen.has(k))return; seen.add(k); items.push({name,addr,lat,lng});
+    const add=(name, city, addr, lat, lng)=>{
+      if(!name||isNaN(lat)||isNaN(lng)) return;
+      const k=`${lat.toFixed(3)},${lng.toFixed(3)}`;
+      if(seen.has(k)) return; seen.add(k);
+      // Filter out non-Israel results (bbox check)
+      if(lat<29||lat>34||lng<34||lng>36) return;
+      items.push({name, city, addr, lat, lng});
     };
+
+    // Parse Photon
     if (ph.status==='fulfilled'&&ph.value.ok) {
       const d=await ph.value.json();
       (d.features||[]).forEach(f=>{
-        const p=f.properties,[lng,lat]=f.geometry.coordinates;
-        const name=p.name||p.street||p.city||'';
-        const parts=[p.street&&p.housenumber?`${p.street} ${p.housenumber}`:p.street,p.city||p.county,'ישראל'].filter(Boolean);
-        add(name,parts.join(', '),lat,lng);
+        const p=f.properties, [lng,lat]=f.geometry.coordinates;
+        const name = p.name||p.street||p.city||'';
+        const city = p.city||p.county||p.state||'';
+        const street = p.housenumber ? `${p.street||''} ${p.housenumber}`.trim() : (p.street||'');
+        const addr = [street, city].filter(Boolean).join(', ');
+        add(name, city, addr||city, lat, lng);
       });
     }
-    if (nm.status==='fulfilled'&&nm.value.ok) {
-      const d=await nm.value.json();
-      d.forEach(it=>add(it.namedetails?.name||it.display_name.split(',')[0],it.display_name,parseFloat(it.lat),parseFloat(it.lon)));
+
+    // Parse Nominatim (both sources, deduplicated)
+    const parseNom = async (res) => {
+      if (res.status!=='fulfilled'||!res.value.ok) return;
+      const d = await res.value.json();
+      d.forEach(it => {
+        const name = it.namedetails?.name || it.namedetails?.['name:he'] || it.display_name.split(',')[0];
+        const a = it.address||{};
+        const city = a.city||a.town||a.village||a.municipality||'';
+        const street = a.house_number ? `${a.road||''} ${a.house_number}`.trim() : (a.road||'');
+        const addr = [street||name, city].filter(Boolean).join(', ');
+        add(name, city, addr, parseFloat(it.lat), parseFloat(it.lon));
+      });
+    };
+    await parseNom(nm1);
+    await parseNom(nm2);
+
+    if (!items.length) {
+      r.innerHTML='<div class="ri-load">לא נמצא — נסה כתובת מלאה עם שם עיר</div>'; return;
     }
-    if (!items.length) { r.innerHTML='<div class="ri-load">לא נמצא — נסה עם מילה אחרת</div>'; return; }
     r.innerHTML='';
-    items.slice(0,7).forEach(it=>{
+    items.slice(0,8).forEach(it=>{
       const d=document.createElement('div'); d.className='ri';
-      d.innerHTML=`<span class="ri-pin">📍</span><div class="ri-txt"><div class="ri-name">${esc(it.name)}</div><div class="ri-addr">${esc(it.addr)}</div></div>`;
+      const sub = it.city && it.city!==it.name ? `<div class="ri-addr">${esc(it.city)} · ${esc(it.addr)}</div>` : `<div class="ri-addr">${esc(it.addr)}</div>`;
+      d.innerHTML=`<span class="ri-pin">📍</span><div class="ri-txt"><div class="ri-name">${esc(it.name)}</div>${sub}</div>`;
       d.onclick=()=>pickDest(it); r.appendChild(d);
     });
   } catch(e) { r.innerHTML='<div class="ri-load">שגיאת חיבור</div>'; }
