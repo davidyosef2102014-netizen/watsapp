@@ -278,6 +278,7 @@ html,body { background:var(--bg); color:var(--text); font-family:'Segoe UI',syst
 .remove-btn:hover { background:rgba(239,68,68,.1); }
 .spinner { display:inline-block; width:18px; height:18px; border:2px solid rgba(34,197,94,.3); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes carBob{from{transform:translateY(0)}to{transform:translateY(-3px)}}
 .loc-row { display:flex; gap:8px; align-items:flex-end; }
 .loc-row .fg { flex:1; margin-bottom:0; }
 .gps-btn { flex-shrink:0; width:44px; height:44px; border-radius:10px; background:var(--card2); border:1px solid var(--border); color:var(--accent); font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
@@ -496,6 +497,7 @@ let currentFilter='הכל', selectedDriver=null, bankCache={};
 let debTimer=null, selectedRole='נוסע';
 let bgoMap=null, driverMarkers={}, myLocMarker=null;
 let sheetExpanded=false;
+let gpsWatchId=null, liveLocMarkers={}, ridePolyline=null;
 
 // ═══════════════════════ STORAGE ═══════════════════════
 const SS = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
@@ -551,6 +553,7 @@ function doRegister(){
 }
 function loginOK(user){ currentUser=user; saveSession(user); initAfterLogin(); }
 function doLogout(){
+  stopDriverGPS();
   if(mqttClient){
     if(currentUser?.role==='נהג'&&driverState){driverState.available=false;publishDriver();}
     mqttClient.end(true); mqttClient=null;
@@ -560,7 +563,7 @@ function doLogout(){
   clearSession();
   document.getElementById('bottom-nav').classList.remove('visible');
   setConnPill('disconnected');
-  if(bgoMap){bgoMap.remove();bgoMap=null;driverMarkers={};myLocMarker=null;}
+  if(bgoMap){bgoMap.remove();bgoMap=null;driverMarkers={};myLocMarker=null;liveLocMarkers={};ridePolyline=null;}
   showScreen('auth');
 }
 
@@ -696,6 +699,51 @@ function updateMapMarkers(){
   });
 }
 
+function updateLiveMarker(username, lat, lng){
+  if(!bgoMap) return;
+  const carIcon=L.divIcon({
+    html:'<div style="font-size:28px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));animation:carBob 1s ease-in-out infinite alternate">🚕</div>',
+    className:'',iconSize:[36,36],iconAnchor:[18,18]
+  });
+  if(liveLocMarkers[username]){
+    liveLocMarkers[username].setLatLng([lat,lng]);
+  } else {
+    const m=L.marker([lat,lng],{icon:carIcon,zIndexOffset:1500}).addTo(bgoMap);
+    m.bindPopup(`<b>🚕 ${esc(username)}</b><br><small style="color:#8e8e93">מיקום חי</small>`,{maxWidth:160});
+    liveLocMarkers[username]=m;
+    // Also update/replace the static driver marker icon with the animated one
+    if(driverMarkers[username]){
+      driverMarkers[username].setIcon(carIcon);
+    }
+  }
+  // Update static marker position too (keep in sync)
+  if(driverMarkers[username]){
+    driverMarkers[username].setLatLng([lat,lng]);
+  }
+  // If passenger has an active ride with this driver, draw route polyline
+  if(currentUser?.role==='נוסע'&&activeRide&&activeRide.driver===username&&
+     ['accepted','arrived_at_pickup'].includes(activeRide.status)&&activeRide.from){
+    drawRidePolyline(lat,lng,activeRide.from);
+  } else if(ridePolyline&&(!activeRide||!['accepted','arrived_at_pickup'].includes(activeRide.status))){
+    bgoMap.removeLayer(ridePolyline); ridePolyline=null;
+  }
+}
+
+async function drawRidePolyline(driverLat, driverLng, pickupAddr){
+  if(!bgoMap) return;
+  let pickupCoords=null;
+  // Try to get coords from the active ride driver's last known location or geocode the address
+  const d=activeRide&&allDrivers[activeRide.driver];
+  if(d&&d.lat&&d.lng&&activeRide.from===d.location){ pickupCoords={lat:d.lat,lng:d.lng}; }
+  else { pickupCoords=await geocodeAddress(pickupAddr); }
+  if(!pickupCoords) return;
+  const pts=[[driverLat,driverLng],[pickupCoords.lat,pickupCoords.lng]];
+  if(ridePolyline){ ridePolyline.setLatLngs(pts); }
+  else{
+    ridePolyline=L.polyline(pts,{color:'#22c55e',weight:4,dashArray:'10,8',opacity:.85}).addTo(bgoMap);
+  }
+}
+
 function makePopup(d){
   return `<div style="padding:4px">
     <div style="font-weight:800;font-size:15px;margin-bottom:4px">${vIcon(d.type)} ${esc(d.username)}</div>
@@ -725,6 +773,20 @@ function driverLocateMe(){
     if(driverState){driverState.lat=lat;driverState.lng=lng;driverState.location=addr;driverState._gpsSet=true;}
     toast('מיקום GPS עודכן ✓','success'); debSave();
   },()=>toast('לא ניתן לקבל מיקום','error'),{enableHighAccuracy:true,timeout:12000});
+}
+
+// ═══════════════════════ REALTIME DRIVER GPS ═══════════════════════
+function startDriverGPS(){
+  if(!navigator.geolocation||gpsWatchId!=null) return;
+  gpsWatchId=navigator.geolocation.watchPosition(pos=>{
+    if(!mqttClient?.connected||!driverState?.available) return;
+    const{latitude:lat,longitude:lng}=pos.coords;
+    const payload=JSON.stringify({lat,lng,ts:Date.now()});
+    mqttClient.publish(TAXI_NS+'/live_loc/'+encodeURIComponent(driverState.username),payload,{qos:0,retain:false});
+  },null,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+}
+function stopDriverGPS(){
+  if(gpsWatchId!=null){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null;}
 }
 
 // ═══════════════════════ GEOCODE (text→lat/lng) ═══════════════════════
@@ -762,6 +824,7 @@ function onMessage(topic,payload){
     if(raw===''){
       delete allDrivers[u];
       if(driverMarkers[u]&&bgoMap){bgoMap.removeLayer(driverMarkers[u]);delete driverMarkers[u];}
+      if(liveLocMarkers[u]&&bgoMap){bgoMap.removeLayer(liveLocMarkers[u]);delete liveLocMarkers[u];}
     } else {
       try{const d=JSON.parse(raw);if(d?.username)allDrivers[u]=d;}catch(e){}
     }
@@ -773,6 +836,14 @@ function onMessage(topic,payload){
     const id=decodeURIComponent(rm[1]);
     if(raw===''){delete allRides[id];return;}
     try{const r=JSON.parse(raw);if(r?.id){allRides[id]=r;handleRideUpdate(r);}}catch(e){}
+    return;
+  }
+  const lm=topic.match(new RegExp('^'+TAXI_NS+'/live_loc/(.+)$'));
+  if(lm){
+    if(currentUser?.role==='נוסע'){
+      const u=decodeURIComponent(lm[1]);
+      try{const p=JSON.parse(raw);if(p?.lat&&p?.lng) updateLiveMarker(u,p.lat,p.lng);}catch(e){}
+    }
     return;
   }
   const bm=topic.match(new RegExp('^'+BANK_NS+'/account/(.+)$'));
@@ -826,6 +897,7 @@ function toggleAvail(){
   if(!driverState) return;
   driverState.available=!driverState.available;
   updateAvailToggle(); saveDriver();
+  if(driverState.available) startDriverGPS(); else stopDriverGPS();
   toast(driverState.available?'אתה זמין לנסיעות ✓':'הפסקת לקבל נסיעות',driverState.available?'success':'info',2500);
 }
 function updateAvailToggle(){
@@ -875,9 +947,11 @@ function handleRideUpdate(ride){
     else if(ride.status==='completed'){
       toast('הגעת! תודה שנסעת עם Bgo 🙏','success',4000);
       const h=loadHistory(); h.unshift({...ride,savedAt:new Date().toISOString()}); saveHistory(h);
+      if(ridePolyline&&bgoMap){bgoMap.removeLayer(ridePolyline);ridePolyline=null;}
       setTimeout(()=>{if(activeRide?.id===ride.id){activeRide=null;renderPassengerRideBar();}},3000);
     } else if(ride.status==='cancelled'){
       toast('הנסיעה בוטלה ❌','error',2000);
+      if(ridePolyline&&bgoMap){bgoMap.removeLayer(ridePolyline);ridePolyline=null;}
       setTimeout(()=>{if(activeRide?.id===ride.id){activeRide=null;renderPassengerRideBar();}},2000);
     }
     renderPassengerRideBar();
