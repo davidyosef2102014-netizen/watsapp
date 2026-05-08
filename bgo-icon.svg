@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="110" fill="#111111"/>
+  <text x="140" y="320" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="240" fill="#ffffff">B</text>
+  <text x="270" y="320" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="240" fill="#22c55e">go</text>
+</svg>

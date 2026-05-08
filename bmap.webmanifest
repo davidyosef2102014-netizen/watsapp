@@ -1,0 +1,17 @@
+{
+  "name": "Bmap — ניווט ישראל",
+  "short_name": "Bmap",
+  "description": "ניווט GPS בישראל",
+  "start_url": "/watsapp/bmap.html",
+  "scope": "/watsapp/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111111",
+  "orientation": "portrait-primary",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    { "src": "bmap-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "bmap-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

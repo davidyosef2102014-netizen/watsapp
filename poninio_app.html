@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bgo, BSHOP & NAV</title>
+<link rel="manifest" href="bgo.webmanifest">
+<meta name="theme-color" content="#22c55e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bgo">
+<link rel="apple-touch-icon" href="bgo-icon.svg">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -116,6 +123,7 @@ function switchTab(name){
     document.getElementById('frame-'+t).classList.toggle('active', t===name);
   });
 }
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/watsapp/bgo-sw.js').catch(()=>{});
 </script>
 </body>
 </html>

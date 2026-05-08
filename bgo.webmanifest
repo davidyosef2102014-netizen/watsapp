@@ -1,0 +1,17 @@
+{
+  "name": "Bgo — מוניות, חנות וניווט",
+  "short_name": "Bgo",
+  "description": "מוניות Bgo, חנות BSHOP וניווט NAV",
+  "start_url": "/watsapp/poninio_app.html",
+  "scope": "/watsapp/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#22c55e",
+  "orientation": "portrait-primary",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    { "src": "bgo-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "bgo-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

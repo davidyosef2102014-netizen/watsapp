@@ -1,0 +1,17 @@
+{
+  "name": "BGO NAV — ניווט חכם",
+  "short_name": "BGO NAV",
+  "description": "ניווט GPS מתקדם",
+  "start_url": "/watsapp/nav_bgo.html",
+  "scope": "/watsapp/",
+  "display": "standalone",
+  "background_color": "#0a0e1a",
+  "theme_color": "#06b6d4",
+  "orientation": "portrait-primary",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    { "src": "navbgo-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "navbgo-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
