@@ -600,9 +600,17 @@ function toggleNight() {
 /* ─── GPS ─── */
 function startGPS() {
   if (!navigator.geolocation) { setGpsStatus(false, 'GPS לא נתמך'); return; }
-  watchId = navigator.geolocation.watchPosition(onPosition, onGpsError, {
-    enableHighAccuracy: true, maximumAge: 2000, timeout: 20000,
-  });
+  setGpsStatus(false, 'מאתר מיקום…');
+  navigator.geolocation.getCurrentPosition(
+    pos => { onPosition(pos); startWatch(); },
+    err => { handleGpsErr(err); startWatch(); },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+  );
+}
+function startWatch() {
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  watchId = navigator.geolocation.watchPosition(onPosition, handleGpsErr,
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 30000 });
 }
 
 function onPosition(pos) {
@@ -634,7 +642,19 @@ function onPosition(pos) {
   }
 }
 
-function onGpsError(err) { setGpsStatus(false, 'שגיאת GPS'); }
+function onGpsError(err) { handleGpsErr(err); }
+function handleGpsErr(err) {
+  if (err.code===1) { setGpsStatus(false,'🔒 אשר GPS בדפדפן'); showGpsBanner(); }
+  else if (err.code===2) setGpsStatus(false,'GPS חלש — צא לחוץ');
+  else setGpsStatus(false,'GPS — מנסה שוב…');
+}
+function showGpsBanner() {
+  if (document.getElementById('gps-banner')) return;
+  const b = document.createElement('div'); b.id='gps-banner';
+  b.style.cssText='position:fixed;bottom:110px;left:12px;right:12px;z-index:500;background:rgba(10,14,26,.97);color:#fff;border:1px solid rgba(6,182,212,.3);padding:12px 16px;border-radius:16px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,.6);backdrop-filter:blur(14px)';
+  b.innerHTML='<span>📍 GPS חסום — אפשר מיקום בדפדפן ולחץ נסה שוב</span><button onclick="this.parentElement.remove();startGPS()" style="background:#06b6d4;color:#0a0e1a;border:none;padding:6px 14px;border-radius:10px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:inherit">נסה שוב</button>';
+  document.body.appendChild(b);
+}
 
 function setGpsStatus(active, label) {
   document.getElementById('gps-dot').classList.toggle('active', active);
@@ -746,25 +766,64 @@ function showHistory() {
   ac.classList.add('open');
 }
 
+function buildNavQueries(q) {
+  const qs = new Set([q]);
+  const stripped = q.replace(/^(רחוב|רח'|שד'|שדרות|כיכר|סמטת|סמ')\s+/i,'').trim();
+  if (stripped && stripped !== q) qs.add(stripped);
+  if (!/ישראל|israel/i.test(q)) qs.add(stripped + ', ישראל');
+  return [...qs];
+}
 async function fetchSuggestions(q) {
   const ac = document.getElementById('autocomplete');
   ac.innerHTML = '<div class="ac-loading">מחפש…</div>';
   ac.classList.add('open');
   try {
-    const bias = userPos ? `&viewbox=${userPos.lng-0.5},${userPos.lat-0.5},${userPos.lng+0.5},${userPos.lat+0.5}&bounded=0` : '';
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&accept-language=he&addressdetails=1${bias}`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'he' } });
-    const data = await res.json();
+    const variants = buildNavQueries(q);
+    const cleanQ = encodeURIComponent(variants[0]);
+    const mainQ  = encodeURIComponent(variants[variants.length - 1]);
+    const locBias = userPos ? `&lat=${userPos.lat}&lon=${userPos.lng}` : '';
 
-    if (!data.length) { ac.innerHTML = '<div class="ac-loading">לא נמצאו תוצאות</div>'; return; }
+    const [ph, nm1, nm2] = await Promise.allSettled([
+      fetch(`https://photon.komoot.io/api/?q=${cleanQ}&limit=7&lang=he&bbox=34.2,29.4,35.9,33.4${locBias}`),
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${cleanQ}&limit=6&accept-language=he,iw,en&countrycodes=il&addressdetails=1&namedetails=1`),
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${mainQ}&limit=5&accept-language=he,iw,en&viewbox=34.2,33.5,35.9,29.4&bounded=0&addressdetails=1`)
+    ]);
+
+    const items = [], seen = new Set();
+    const inIL = (la, lo) => la >= 29 && la <= 34 && lo >= 34 && lo <= 36;
+    const add = (name, addr, la, lo) => {
+      if (!inIL(la, lo)) return;
+      const k = `${la.toFixed(3)},${lo.toFixed(3)}`;
+      if (!name || seen.has(k)) return; seen.add(k);
+      // Build a normalized item compatible with selectDestination()
+      items.push({ display_name: addr, lat: String(la), lon: String(lo), _name: name });
+    };
+
+    if (ph.status === 'fulfilled' && ph.value.ok) {
+      const d = await ph.value.json();
+      (d.features || []).forEach(f => {
+        const p = f.properties, [lo, la] = f.geometry.coordinates;
+        const name = p.name || p.street || p.city || '';
+        const city = p.city || p.county || p.state || '';
+        const street = p.housenumber ? `${p.street||''} ${p.housenumber}`.trim() : p.street||'';
+        const parts = [street||name, city, 'ישראל'].filter(Boolean);
+        add(name||street, parts.join(', '), la, lo);
+      });
+    }
+    const parseNom = (arr) => arr.forEach(it => {
+      const name = it.namedetails?.name || it.namedetails?.['name:he'] || it.display_name.split(',')[0];
+      add(name, it.display_name, parseFloat(it.lat), parseFloat(it.lon));
+    });
+    if (nm1.status === 'fulfilled' && nm1.value.ok) parseNom(await nm1.value.json());
+    if (nm2.status === 'fulfilled' && nm2.value.ok) parseNom(await nm2.value.json());
+
+    if (!items.length) { ac.innerHTML = '<div class="ac-loading">לא נמצאו תוצאות — נסה בניסוח אחר</div>'; return; }
 
     ac.innerHTML = '';
-    data.forEach(item => {
-      const name = item.namedetails?.name || item.display_name.split(',')[0];
-      const addr = item.display_name;
+    items.slice(0, 8).forEach(item => {
       const div = document.createElement('div');
       div.className = 'ac-item';
-      div.innerHTML = `<div class="ac-pin">📍</div><div class="ac-text"><div class="ac-name">${escHtml(name)}</div><div class="ac-addr">${escHtml(addr)}</div></div>`;
+      div.innerHTML = `<div class="ac-pin">📍</div><div class="ac-text"><div class="ac-name">${escHtml(item._name)}</div><div class="ac-addr">${escHtml(item.display_name)}</div></div>`;
       div.addEventListener('click', () => selectDestination(item));
       ac.appendChild(div);
     });
@@ -784,7 +843,7 @@ function escHtml(s) {
 }
 
 async function selectDestination(item) {
-  destName = item.display_name.split(',')[0];
+  destName = item._name || item.display_name.split(',')[0];
   destPos = { lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
 
   document.getElementById('search-input').value = destName;
