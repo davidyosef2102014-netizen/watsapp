@@ -1,560 +1,525 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bgo Store</title>
-<meta name="theme-color" content="#111">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Bgo Store">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{
-  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
-  background:#0d0d0f;color:#fff;
-  min-height:100vh;direction:rtl;
-  -webkit-tap-highlight-color:transparent;
-}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>BGO Store</title>
+  <meta name="theme-color" content="#f2f2f7">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg: #f2f2f7;
+      --card: #ffffff;
+      --blue: #007aff;
+      --text: #1c1c1e;
+      --text2: #3a3a3c;
+      --muted: #8e8e93;
+      --sep: rgba(60,60,67,0.18);
+      --green: #34c759;
+    }
+    body {
+      font-family: -apple-system, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text); direction: rtl;
+      min-height: 100vh; -webkit-font-smoothing: antialiased;
+    }
 
-/* ═══ HEADER ═══ */
-.hdr{
-  background:linear-gradient(180deg,#1c1c1e 0%,#0d0d0f 100%);
-  padding:54px 20px 24px;
-  border-bottom:1px solid rgba(255,255,255,.07);
-  position:sticky;top:0;z-index:50;
-  backdrop-filter:blur(20px);
-  -webkit-backdrop-filter:blur(20px);
-}
-.hdr-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.hdr-logo{font-size:24px;font-weight:900;letter-spacing:-.5px}
-.hdr-logo .g{color:#22c55e}
-.hdr-badge{
-  background:rgba(34,197,94,.15);
-  color:#22c55e;
-  font-size:11px;font-weight:800;
-  padding:5px 12px;border-radius:20px;
-  border:1px solid rgba(34,197,94,.25);
-}
-.search-bar{
-  display:flex;align-items:center;gap:10px;
-  background:rgba(255,255,255,.07);
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:14px;padding:11px 14px;
-}
-.search-bar input{
-  flex:1;background:none;border:none;outline:none;
-  color:#fff;font-size:15px;font-family:inherit;
-  direction:rtl;
-}
-.search-bar input::placeholder{color:rgba(255,255,255,.35)}
-.search-ico{color:rgba(255,255,255,.4);font-size:16px}
+    /* ── HEADER ── */
+    .s-header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(242,242,247,0.88);
+      backdrop-filter: saturate(180%) blur(22px);
+      -webkit-backdrop-filter: saturate(180%) blur(22px);
+      border-bottom: 0.5px solid var(--sep);
+      padding: 0 16px;
+    }
+    .s-header-top {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      padding: 14px 0 8px;
+    }
+    .s-title { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+    .s-count { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .s-search-wrap {
+      background: rgba(118,118,128,0.12); border-radius: 12px;
+      display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+      margin-bottom: 10px;
+    }
+    .s-search-wrap svg { color: var(--muted); flex-shrink: 0; }
+    .s-search-wrap input {
+      flex: 1; border: none; background: none; font-size: 15px;
+      outline: none; color: var(--text); font-family: inherit;
+    }
+    .s-search-wrap input::placeholder { color: var(--muted); }
+    .s-tabs {
+      display: flex; overflow-x: auto; scrollbar-width: none;
+      border-bottom: 0.5px solid var(--sep); margin: 0 -16px; padding: 0 16px;
+    }
+    .s-tabs::-webkit-scrollbar { display: none; }
+    .s-tab {
+      padding: 10px 14px; font-size: 14px; font-weight: 600; color: var(--muted);
+      border: none; background: none; cursor: pointer; border-bottom: 2.5px solid transparent;
+      white-space: nowrap; font-family: inherit; transition: color 0.2s; flex-shrink: 0;
+    }
+    .s-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
 
-/* ═══ FEATURED ═══ */
-.featured-wrap{padding:20px 16px 0}
-.featured{
-  border-radius:26px;padding:28px 24px;
-  position:relative;overflow:hidden;
-  background:linear-gradient(135deg,#0f0f0f 0%,#1a1a2e 60%,#0f3460 100%);
-  border:1px solid rgba(255,255,255,.08);
-}
-.feat-glow{
-  position:absolute;top:-60px;left:-60px;
-  width:200px;height:200px;border-radius:50%;
-  background:radial-gradient(circle,rgba(34,197,94,.18) 0%,transparent 70%);
-  pointer-events:none;
-}
-.feat-glow2{
-  position:absolute;bottom:-40px;right:-40px;
-  width:160px;height:160px;border-radius:50%;
-  background:radial-gradient(circle,rgba(99,102,241,.15) 0%,transparent 70%);
-  pointer-events:none;
-}
-.feat-chip{
-  display:inline-flex;align-items:center;gap:5px;
-  background:rgba(34,197,94,.2);
-  color:#22c55e;font-size:11px;font-weight:800;
-  padding:4px 12px;border-radius:20px;
-  border:1px solid rgba(34,197,94,.3);
-  margin-bottom:12px;
-}
-.feat-name{font-size:32px;font-weight:900;margin-bottom:6px;letter-spacing:-.5px}
-.feat-desc{font-size:13px;color:rgba(255,255,255,.62);line-height:1.55;margin-bottom:20px;max-width:240px}
-.feat-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px}
-.feat-tag{
-  background:rgba(255,255,255,.08);
-  color:rgba(255,255,255,.7);
-  font-size:11px;font-weight:700;
-  padding:4px 10px;border-radius:10px;
-}
-.feat-btn{
-  display:inline-flex;align-items:center;gap:8px;
-  background:#22c55e;color:#000;
-  border:none;border-radius:14px;
-  padding:13px 22px;font-size:14px;font-weight:900;
-  cursor:pointer;font-family:inherit;
-  text-decoration:none;transition:all .15s;
-  box-shadow:0 4px 20px rgba(34,197,94,.4);
-}
-.feat-btn:active{transform:scale(.95)}
-.feat-icon-big{
-  position:absolute;top:20px;left:20px;
-  width:56px;height:56px;border-radius:14px;
-  overflow:hidden;opacity:.9;
-}
+    /* ── HERO ── */
+    .hero {
+      margin: 16px; border-radius: 22px; overflow: hidden;
+      background: linear-gradient(145deg, #08081a 0%, #12123a 45%, #0c1e56 100%);
+      position: relative; padding: 24px; min-height: 230px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.22); cursor: pointer;
+    }
+    .hero::before {
+      content: ''; position: absolute; top: -50px; left: -50px;
+      width: 220px; height: 220px;
+      background: radial-gradient(circle, rgba(0,122,255,0.38) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: ''; position: absolute; bottom: -20px; right: -20px;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, rgba(34,197,94,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+      text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 8px;
+    }
+    .hero-icon-wrap {
+      position: absolute; top: 24px; left: 24px;
+      width: 94px; height: 94px; border-radius: 22px; overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+    }
+    .hero-icon-wrap svg { width: 100%; height: 100%; display: block; }
+    .hero-name { font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+    .hero-sub { font-size: 14px; color: rgba(255,255,255,0.55); margin: 5px 0 18px; }
+    .hero-actions { display: flex; gap: 10px; align-items: center; }
+    .hero-open {
+      background: rgba(255,255,255,0.95); color: #0a0a1a;
+      border: none; border-radius: 100px; padding: 10px 24px;
+      font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .hero-dl {
+      background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 100px;
+      padding: 10px 18px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit; backdrop-filter: blur(10px);
+    }
 
-/* ═══ SECTION ═══ */
-.section{padding:28px 16px 0}
-.sec-title{font-size:19px;font-weight:900;margin-bottom:16px;letter-spacing:-.3px}
-.sec-sub{font-size:13px;color:rgba(255,255,255,.4);font-weight:600;margin-bottom:16px;margin-top:-10px}
+    /* ── SECTIONS ── */
+    .s-sec { margin: 0; }
+    .s-sec-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 16px 10px;
+    }
+    .s-sec-title { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
+    .s-divider { height: 8px; background: var(--bg); border-top: 0.5px solid var(--sep); }
 
-/* ═══ APP CARDS ═══ */
-.app-grid{display:flex;flex-direction:column;gap:10px}
-.app-card{
-  background:#1a1a1c;
-  border:1px solid rgba(255,255,255,.07);
-  border-radius:22px;padding:16px;
-  display:flex;align-items:center;gap:14px;
-  transition:background .15s;
-  cursor:pointer;
-}
-.app-card:active{background:#222}
-.app-icon{
-  width:68px;height:68px;border-radius:18px;
-  flex-shrink:0;overflow:hidden;
-  box-shadow:0 4px 14px rgba(0,0,0,.4);
-}
-.app-icon svg{width:68px;height:68px;display:block}
-.app-info{flex:1;min-width:0}
-.app-name{font-size:16px;font-weight:800;margin-bottom:2px}
-.app-cat{font-size:11px;color:rgba(255,255,255,.38);font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
-.app-desc{font-size:12px;color:rgba(255,255,255,.58);line-height:1.45}
-.app-meta{display:flex;align-items:center;gap:8px;margin-top:7px}
-.stars{color:#f59e0b;font-size:11px;letter-spacing:1px}
-.app-size{font-size:11px;color:rgba(255,255,255,.28);font-weight:600}
-.app-free{
-  font-size:10px;font-weight:800;
-  color:#22c55e;
-  background:rgba(34,197,94,.1);
-  border:1px solid rgba(34,197,94,.2);
-  padding:2px 8px;border-radius:8px;
-}
-.app-btn{
-  flex-shrink:0;
-  background:#22c55e;color:#000;
-  border:none;border-radius:12px;
-  padding:10px 16px;font-size:13px;font-weight:900;
-  cursor:pointer;font-family:inherit;
-  white-space:nowrap;text-decoration:none;
-  display:flex;align-items:center;gap:5px;
-  transition:all .15s;
-  box-shadow:0 2px 10px rgba(34,197,94,.3);
-}
-.app-btn:active{transform:scale(.92)}
+    /* ── HORIZONTAL CARD ROW ── */
+    .h-row {
+      display: flex; overflow-x: auto; padding: 4px 16px 18px;
+      scrollbar-width: none; -webkit-overflow-scrolling: touch; gap: 16px;
+    }
+    .h-row::-webkit-scrollbar { display: none; }
+    .h-card { display: flex; flex-direction: column; align-items: center; width: 78px; flex-shrink: 0; }
+    .h-icon {
+      width: 68px; height: 68px; border-radius: 18px; overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.16); margin-bottom: 8px;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .h-icon svg { width: 100%; height: 100%; display: block; }
+    .h-name { font-size: 11px; font-weight: 500; text-align: center; color: var(--text2); line-height: 1.3; margin-bottom: 7px; }
+    .h-get {
+      background: rgba(0,122,255,0.1); color: var(--blue);
+      border: none; border-radius: 100px; padding: 5px 14px;
+      font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .h-get:active { background: var(--blue); color: #fff; transform: scale(0.93); }
 
-/* ═══ HOW TO INSTALL ═══ */
-.how-card{
-  margin:24px 16px 0;
-  background:#1a1a1c;
-  border:1px solid rgba(255,255,255,.07);
-  border-radius:22px;padding:20px;
-}
-.how-title{font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.how-steps{display:flex;flex-direction:column;gap:12px}
-.how-step{display:flex;gap:12px;align-items:flex-start}
-.step-num{
-  width:28px;height:28px;border-radius:50%;
-  background:#22c55e;color:#000;
-  font-size:13px;font-weight:900;
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-}
-.step-txt{font-size:13px;color:rgba(255,255,255,.65);line-height:1.55;padding-top:4px}
-.step-txt strong{color:#fff}
-.os-tabs{display:flex;gap:8px;margin-bottom:12px}
-.os-tab{
-  flex:1;padding:8px;border-radius:10px;text-align:center;
-  font-size:12px;font-weight:700;cursor:pointer;
-  transition:all .15s;border:1px solid rgba(255,255,255,.1);
-  color:rgba(255,255,255,.5);background:rgba(255,255,255,.04);
-}
-.os-tab.active{background:rgba(34,197,94,.15);color:#22c55e;border-color:rgba(34,197,94,.3)}
+    /* ── BIG LIST ── */
+    .big-list { padding: 0 16px; }
+    .big-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px 0; border-bottom: 0.5px solid var(--sep);
+    }
+    .big-card:last-child { border-bottom: none; }
+    .big-icon {
+      width: 64px; height: 64px; border-radius: 16px; overflow: hidden;
+      flex-shrink: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.14); cursor: pointer;
+    }
+    .big-icon svg { width: 100%; height: 100%; display: block; }
+    .big-info { flex: 1; min-width: 0; cursor: pointer; }
+    .big-name { font-size: 15px; font-weight: 600; }
+    .big-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+    .big-stars { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .big-actions { display: flex; flex-direction: column; gap: 5px; align-items: center; flex-shrink: 0; }
+    .big-get {
+      background: rgba(0,122,255,0.1); color: var(--blue);
+      border: none; border-radius: 100px; padding: 6px 18px;
+      font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap;
+    }
+    .big-dl {
+      color: var(--green); font-size: 11px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 3px; background: none; border: none; font-family: inherit;
+    }
 
-/* ═══ STATS STRIP ═══ */
-.stats{
-  margin:20px 16px 0;
-  background:#1a1a1c;
-  border:1px solid rgba(255,255,255,.07);
-  border-radius:20px;
-  display:flex;
-}
-.stat{flex:1;padding:16px;text-align:center;position:relative}
-.stat:not(:last-child)::after{
-  content:'';position:absolute;left:0;top:20%;height:60%;
-  width:1px;background:rgba(255,255,255,.07);
-}
-.stat-num{font-size:22px;font-weight:900;color:#22c55e;margin-bottom:3px}
-.stat-label{font-size:11px;color:rgba(255,255,255,.4);font-weight:700}
+    /* ── SEARCH RESULTS ── */
+    #search-view { display: none; padding: 8px 16px; }
+    #search-view.show { display: block; }
+    .sr-item {
+      display: flex; align-items: center; gap: 13px;
+      padding: 10px 0; border-bottom: 0.5px solid var(--sep); cursor: pointer;
+    }
+    .sr-item:last-child { border-bottom: none; }
+    .sr-icon { width: 52px; height: 52px; border-radius: 13px; overflow: hidden; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .sr-icon svg { width: 100%; height: 100%; display: block; }
+    .sr-info { flex: 1; }
+    .sr-name { font-size: 15px; font-weight: 600; }
+    .sr-cat { font-size: 12px; color: var(--muted); }
+    .sr-get { background: rgba(0,122,255,0.1); color: var(--blue); border: none; border-radius: 100px; padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
 
-/* ═══ BOTTOM ═══ */
-.bottom-gap{height:40px}
+    /* ── EMPTY ── */
+    .empty-view { text-align: center; padding: 60px 20px; display: none; }
+    .empty-view.show { display: block; }
+    .empty-icon { font-size: 52px; margin-bottom: 14px; }
+    .empty-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .empty-sub { font-size: 14px; color: var(--muted); }
 
-/* ═══ TOAST ═══ */
-#toast{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
-  background:#1a1a1c;border:1px solid rgba(34,197,94,.35);
-  color:#fff;padding:12px 20px;border-radius:18px;
-  font-size:13px;font-weight:700;white-space:nowrap;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);
-  z-index:999;transition:transform .3s cubic-bezier(.4,0,.2,1);
-  pointer-events:none;max-width:90vw;white-space:normal;text-align:center;
-}
-#toast.show{transform:translateX(-50%) translateY(0)}
+    /* ── BOTTOM SHEET ── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.46);
+      z-index: 300; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .overlay.show { opacity: 1; pointer-events: all; }
+    .sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--card); border-radius: 26px 26px 0 0;
+      z-index: 301; transform: translateY(100%);
+      transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+      max-height: 92vh; overflow-y: auto;
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px);
+    }
+    .sheet.show { transform: translateY(0); }
+    .sheet-handle { width: 38px; height: 4px; background: #d1d1d6; border-radius: 2px; margin: 12px auto 0; }
+    .sheet-body { padding: 20px 22px; }
+    .sheet-app-row { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 18px; }
+    .sheet-icon { width: 92px; height: 92px; border-radius: 22px; overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 18px rgba(0,0,0,0.18); }
+    .sheet-icon svg { width: 100%; height: 100%; display: block; }
+    .sheet-meta { flex: 1; }
+    .sheet-name { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.2; }
+    .sheet-dev { font-size: 13px; color: var(--blue); margin-top: 4px; }
+    .sheet-cat-badge { display: inline-block; margin-top: 6px; background: rgba(120,120,128,0.12); border-radius: 6px; padding: 3px 10px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+    .sheet-ratings { display: flex; gap: 0; margin: 18px 0; background: rgba(120,120,128,0.07); border-radius: 14px; overflow: hidden; }
+    .srl-item { text-align: center; flex: 1; padding: 14px 8px; border-left: 0.5px solid var(--sep); }
+    .srl-item:last-child { border-left: none; }
+    .srl-val { font-size: 20px; font-weight: 700; }
+    .srl-lbl { font-size: 10px; color: var(--muted); margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .sheet-btn-row { display: flex; gap: 10px; margin-bottom: 22px; }
+    .s-open {
+      flex: 1; background: var(--blue); color: #fff; border: none;
+      border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 700;
+      cursor: pointer; font-family: inherit; text-decoration: none;
+      text-align: center; display: block;
+    }
+    .s-dl {
+      background: rgba(52,199,89,0.1); color: var(--green);
+      border: 1.5px solid rgba(52,199,89,0.3); border-radius: 14px;
+      padding: 14px 16px; font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: inherit; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .s-lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 20px 0 10px; }
+    .s-desc { font-size: 14px; line-height: 1.68; color: var(--text); }
+    .os-tabs { display: flex; gap: 8px; margin: 14px 0 12px; }
+    .os-tab { background: rgba(120,120,128,0.12); border: none; border-radius: 8px; padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; color: var(--text); transition: all 0.15s; }
+    .os-tab.active { background: var(--blue); color: #fff; }
+    .install-list { list-style: none; }
+    .install-step { display: flex; gap: 12px; padding: 11px 0; border-bottom: 0.5px solid var(--sep); font-size: 14px; line-height: 1.55; align-items: flex-start; }
+    .install-step:last-child { border-bottom: none; }
+    .step-n { background: var(--blue); color: #fff; border-radius: 50%; width: 23px; height: 23px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
 
-/* ═══ INSTALL MODAL ═══ */
-#install-modal{
-  position:fixed;inset:0;z-index:500;
-  background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
-  display:flex;align-items:flex-end;justify-content:center;
-  opacity:0;pointer-events:none;transition:opacity .3s;
-}
-#install-modal.show{opacity:1;pointer-events:auto}
-.modal-card{
-  background:#1c1c1e;border-radius:28px 28px 0 0;
-  padding:28px 20px 40px;width:100%;max-width:500px;
-  border-top:1px solid rgba(255,255,255,.1);
-  transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);
-}
-#install-modal.show .modal-card{transform:translateY(0)}
-.modal-handle{width:40px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:0 auto 20px}
-.modal-icon{width:72px;height:72px;border-radius:18px;overflow:hidden;margin-bottom:14px}
-.modal-icon svg{width:72px;height:72px}
-.modal-name{font-size:22px;font-weight:900;margin-bottom:6px}
-.modal-desc{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:20px;line-height:1.5}
-.modal-steps{background:rgba(255,255,255,.05);border-radius:16px;padding:16px;margin-bottom:20px}
-.modal-step{display:flex;gap:10px;align-items:center;padding:6px 0;font-size:13px;color:rgba(255,255,255,.75)}
-.modal-step:not(:last-child){border-bottom:1px solid rgba(255,255,255,.06)}
-.modal-step-icon{font-size:18px;flex-shrink:0}
-.modal-open-btn{
-  display:flex;align-items:center;justify-content:center;gap:8px;
-  width:100%;padding:16px;
-  background:#22c55e;color:#000;
-  border:none;border-radius:16px;
-  font-size:16px;font-weight:900;
-  cursor:pointer;font-family:inherit;
-  text-decoration:none;
-  box-shadow:0 4px 20px rgba(34,197,94,.4);
-}
-.modal-close{
-  margin-top:10px;width:100%;padding:12px;
-  background:none;border:none;color:rgba(255,255,255,.4);
-  font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;
-}
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(28,28,30,0.92); color: #fff; border-radius: 100px;
+      padding: 11px 24px; font-size: 14px; font-weight: 600;
+      opacity: 0; transition: all 0.3s; z-index: 500; white-space: nowrap;
+      backdrop-filter: blur(10px); pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* NIGHT for search on body */
-body.night-mode .search-bar{background:rgba(255,255,255,.05)}
-</style>
+    /* ── FOOTER ── */
+    .s-footer { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 12px; line-height: 1.9; border-top: 0.5px solid var(--sep); }
+    .s-footer a { color: var(--blue); text-decoration: none; }
+  </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="hdr">
-  <div class="hdr-row">
-    <div class="hdr-logo">Bgo<span class="g">Store</span></div>
-    <div class="hdr-badge">🏪 חינם</div>
+<!-- ── HEADER ── -->
+<div class="s-header">
+  <div class="s-header-top">
+    <div class="s-title">BGO Store</div>
+    <div class="s-count">9 אפליקציות</div>
   </div>
-  <div class="search-bar">
-    <span class="search-ico">🔍</span>
-    <input type="text" placeholder="חפש אפליקציה…" oninput="filterApps(this.value)">
+  <div class="s-search-wrap">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="q" placeholder="חפש אפליקציות..." oninput="onSearch(this.value)" autocomplete="off">
   </div>
-</div>
-
-<!-- STATS STRIP -->
-<div class="stats">
-  <div class="stat"><div class="stat-num">4</div><div class="stat-label">אפליקציות</div></div>
-  <div class="stat"><div class="stat-num">100%</div><div class="stat-label">חינמי</div></div>
-  <div class="stat"><div class="stat-num">PWA</div><div class="stat-label">ללא חנות</div></div>
-</div>
-
-<!-- FEATURED -->
-<div class="featured-wrap">
-  <div class="featured">
-    <div class="feat-glow"></div>
-    <div class="feat-glow2"></div>
-    <div class="feat-icon-big">
-      <svg viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
-        <rect width="56" height="56" rx="13" fill="#111"/>
-        <text x="28" y="40" text-anchor="middle" fill="#fff" font-size="32" font-weight="900" font-family="system-ui">P</text>
-      </svg>
-    </div>
-    <div style="margin-top:8px">
-      <div class="feat-chip">⭐ מומלץ השבוע</div>
-      <div class="feat-name">Pathly</div>
-      <div class="feat-desc">ניווט חכם בסגנון וויז עם קול עברית, תלת מימד ומידע פקקים בזמן אמת</div>
-      <div class="feat-tags">
-        <span class="feat-tag">🔊 קול עברית</span>
-        <span class="feat-tag">🗺️ תלת מימד</span>
-        <span class="feat-tag">🚦 פקקים</span>
-        <span class="feat-tag">📍 GPS</span>
-      </div>
-      <button class="feat-btn" onclick="openApp('pathly')">פתח ↗</button>
-    </div>
+  <div class="s-tabs">
+    <button class="s-tab active" onclick="setTab('all',this)">הכל</button>
+    <button class="s-tab" onclick="setTab('nav',this)">ניווט</button>
+    <button class="s-tab" onclick="setTab('social',this)">סושיאל</button>
+    <button class="s-tab" onclick="setTab('finance',this)">פיננסים</button>
+    <button class="s-tab" onclick="setTab('tools',this)">כלים</button>
   </div>
 </div>
 
-<!-- ALL APPS -->
-<div class="section">
-  <div class="sec-title">כל האפליקציות</div>
-  <div class="sec-sub">לחץ על כפתור "פתח" ← התקן מהדפדפן</div>
-  <div class="app-grid" id="app-grid">
+<!-- ── SEARCH RESULTS ── -->
+<div id="search-view"></div>
+<div class="empty-view" id="empty-view">
+  <div class="empty-icon">🔍</div>
+  <div class="empty-title">אין תוצאות</div>
+  <div class="empty-sub">נסה לחפש משהו אחר</div>
+</div>
 
-    <!-- Pathly -->
-    <div class="app-card" data-id="pathly" onclick="showModal('pathly')">
-      <div class="app-icon">
-        <svg viewBox="0 0 68 68" xmlns="http://www.w3.org/2000/svg">
-          <rect width="68" height="68" rx="16" fill="#111"/>
-          <text x="34" y="50" text-anchor="middle" fill="#fff" font-size="40" font-weight="900" font-family="system-ui">P</text>
-        </svg>
-      </div>
-      <div class="app-info">
-        <div class="app-name">Pathly</div>
-        <div class="app-cat">ניווט · GPS</div>
-        <div class="app-desc">ניווט עם קול עברית, תלת מימד ופקקים</div>
-        <div class="app-meta">
-          <span class="stars">★★★★★</span>
-          <span class="app-free">חינם</span>
-          <span class="app-size">PWA</span>
-        </div>
-      </div>
-      <button class="app-btn" onclick="event.stopPropagation();openApp('pathly')">פתח ↗</button>
+<!-- ── MAIN CONTENT ── -->
+<div id="main">
+
+  <!-- HERO -->
+  <div class="hero" onclick="openSheet('pathly')">
+    <div class="hero-badge">⭐ בחירת העורך</div>
+    <div class="hero-icon-wrap" id="hero-icon"></div>
+    <div class="hero-name">Pathly</div>
+    <div class="hero-sub">ניווט חכם עם קול עברי ותצוגה תלת-מימדית</div>
+    <div class="hero-actions">
+      <a class="hero-open" href="pathly.html" target="_blank" onclick="event.stopPropagation()">פתח ↗</a>
+      <button class="hero-dl" onclick="event.stopPropagation(); dlApp('pathly')">⬇ הורד</button>
     </div>
+  </div>
 
-    <!-- Bmap -->
-    <div class="app-card" data-id="bmap" onclick="showModal('bmap')">
-      <div class="app-icon">
-        <svg viewBox="0 0 68 68" xmlns="http://www.w3.org/2000/svg">
-          <rect width="68" height="68" rx="16" fill="#111"/>
-          <text x="34" y="40" text-anchor="middle" fill="#fff" font-size="18" font-weight="900" font-family="system-ui">Bmap</text>
-          <text x="34" y="56" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="10" font-family="system-ui">ישראל</text>
-        </svg>
-      </div>
-      <div class="app-info">
-        <div class="app-name">Bmap</div>
-        <div class="app-cat">מפות · ניווט</div>
-        <div class="app-desc">מפה וניווט לישראל — מהיר ומינימליסטי</div>
-        <div class="app-meta">
-          <span class="stars">★★★★☆</span>
-          <span class="app-free">חינם</span>
-          <span class="app-size">PWA</span>
-        </div>
-      </div>
-      <button class="app-btn" onclick="event.stopPropagation();openApp('bmap')">פתח ↗</button>
-    </div>
+  <!-- NAV -->
+  <div class="s-sec" data-cat="nav">
+    <div class="s-divider"></div>
+    <div class="s-sec-head"><div class="s-sec-title">🧭 ניווט ומפות</div></div>
+    <div class="h-row" id="nav-row"></div>
+  </div>
 
-    <!-- BGO NAV -->
-    <div class="app-card" data-id="nav" onclick="showModal('nav')">
-      <div class="app-icon">
-        <svg viewBox="0 0 68 68" xmlns="http://www.w3.org/2000/svg">
-          <rect width="68" height="68" rx="16" fill="#0a0e1a"/>
-          <text x="34" y="36" text-anchor="middle" fill="#fff" font-size="18" font-weight="900" font-family="system-ui">BGO</text>
-          <text x="34" y="54" text-anchor="middle" fill="#06b6d4" font-size="14" font-weight="900" font-family="system-ui">NAV</text>
-        </svg>
-      </div>
-      <div class="app-info">
-        <div class="app-name">BGO NAV</div>
-        <div class="app-cat">ניווט מתקדם</div>
-        <div class="app-desc">מסלולים חלופיים, מצב לילה ומצפן חכם</div>
-        <div class="app-meta">
-          <span class="stars">★★★★★</span>
-          <span class="app-free">חינם</span>
-          <span class="app-size">PWA</span>
-        </div>
-      </div>
-      <button class="app-btn" onclick="event.stopPropagation();openApp('nav')">פתח ↗</button>
-    </div>
+  <!-- SOCIAL -->
+  <div class="s-sec" data-cat="social">
+    <div class="s-divider"></div>
+    <div class="s-sec-head"><div class="s-sec-title">📱 סושיאל ובידור</div></div>
+    <div class="big-list" id="social-list"></div>
+  </div>
 
-    <!-- Bgo (3-in-1) -->
-    <div class="app-card" data-id="bgo" onclick="showModal('bgo')">
-      <div class="app-icon">
-        <svg viewBox="0 0 68 68" xmlns="http://www.w3.org/2000/svg">
-          <rect width="68" height="68" rx="16" fill="#111"/>
-          <text x="34" y="46" text-anchor="middle" font-size="32" font-weight="900" font-family="system-ui">
-            <tspan fill="#fff">B</tspan><tspan fill="#22c55e">go</tspan>
-          </text>
-        </svg>
-      </div>
-      <div class="app-info">
-        <div class="app-name">Bgo</div>
-        <div class="app-cat">תחבורה · שוק</div>
-        <div class="app-desc">מוניות, חנות ונייווט — הכל במקום אחד</div>
-        <div class="app-meta">
-          <span class="stars">★★★★★</span>
-          <span class="app-free">חינם</span>
-          <span class="app-size">PWA</span>
-        </div>
-      </div>
-      <button class="app-btn" onclick="event.stopPropagation();openApp('bgo')">פתח ↗</button>
-    </div>
+  <!-- FINANCE -->
+  <div class="s-sec" data-cat="finance">
+    <div class="s-divider"></div>
+    <div class="s-sec-head"><div class="s-sec-title">💰 פיננסים וקניות</div></div>
+    <div class="big-list" id="finance-list"></div>
+  </div>
 
+  <!-- TOOLS -->
+  <div class="s-sec" data-cat="tools">
+    <div class="s-divider"></div>
+    <div class="s-sec-head"><div class="s-sec-title">🛠 כלים</div></div>
+    <div class="big-list" id="tools-list"></div>
+  </div>
+
+  <div class="s-footer">
+    BGO Store · כל האפליקציות בחינם · PWA<br>
+    <a href="https://davidyosef2102014-netizen.github.io/watsapp/">davidyosef2102014-netizen.github.io</a>
   </div>
 </div>
 
-<!-- HOW TO INSTALL -->
-<div class="how-card">
-  <div class="how-title">📲 איך להתקין אפליקציה?</div>
-  <div class="os-tabs">
-    <div class="os-tab active" onclick="showOS('android',this)">🤖 Android</div>
-    <div class="os-tab" onclick="showOS('ios',this)">🍎 iPhone</div>
-  </div>
-  <div class="how-steps" id="android-steps">
-    <div class="how-step">
-      <div class="step-num">1</div>
-      <div class="step-txt">לחץ <strong>פתח ↗</strong> על האפליקציה הרצויה</div>
-    </div>
-    <div class="how-step">
-      <div class="step-num">2</div>
-      <div class="step-txt">בכרום, לחץ על <strong>⋮</strong> (תפריט שלוש נקודות) בפינה העליונה</div>
-    </div>
-    <div class="how-step">
-      <div class="step-num">3</div>
-      <div class="step-txt">בחר <strong>"הוסף למסך הבית"</strong> או <strong>"Install App"</strong></div>
-    </div>
-    <div class="how-step">
-      <div class="step-num">4</div>
-      <div class="step-txt">לחץ <strong>"התקן"</strong> — האפליקציה תופיע בדיוק כמו אפליקציה רגילה!</div>
-    </div>
-  </div>
-  <div class="how-steps" id="ios-steps" style="display:none">
-    <div class="how-step">
-      <div class="step-num">1</div>
-      <div class="step-txt">לחץ <strong>פתח ↗</strong> על האפליקציה (ב-Safari)</div>
-    </div>
-    <div class="how-step">
-      <div class="step-num">2</div>
-      <div class="step-txt">לחץ על אייקון <strong>השיתוף □↑</strong> בתחתית המסך</div>
-    </div>
-    <div class="how-step">
-      <div class="step-num">3</div>
-      <div class="step-txt">גלול ובחר <strong>"הוסף למסך הבית"</strong></div>
-    </div>
-    <div class="how-step">
-      <div class="step-num">4</div>
-      <div class="step-txt">לחץ <strong>"הוסף"</strong> — האפליקציה מוכנה!</div>
-    </div>
-  </div>
+<!-- ── OVERLAY + SHEET ── -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-body" id="sheet-body"></div>
 </div>
-
-<div class="bottom-gap"></div>
 
 <!-- TOAST -->
-<div id="toast"></div>
-
-<!-- INSTALL MODAL -->
-<div id="install-modal" onclick="closeModal(event)">
-  <div class="modal-card">
-    <div class="modal-handle"></div>
-    <div class="modal-icon" id="modal-icon"></div>
-    <div class="modal-name" id="modal-name"></div>
-    <div class="modal-desc" id="modal-desc"></div>
-    <div class="modal-steps">
-      <div class="modal-step"><span class="modal-step-icon">1️⃣</span> פתח את האפליקציה בדפדפן</div>
-      <div class="modal-step"><span class="modal-step-icon">⋮</span> לחץ על תפריט הדפדפן (שלוש נקודות)</div>
-      <div class="modal-step"><span class="modal-step-icon">📲</span> בחר "הוסף למסך הבית"</div>
-    </div>
-    <a id="modal-open-btn" class="modal-open-btn" href="#" target="_blank" onclick="closeModalDirect()">
-      <span>פתח את האפליקציה ↗</span>
-    </a>
-    <button class="modal-close" onclick="closeModalDirect()">סגור</button>
-  </div>
-</div>
+<div class="toast" id="toast"></div>
 
 <script>
-const APPS = {
-  pathly: {
-    name: 'Pathly',
-    url: 'https://davidyosef2102014-netizen.github.io/watsapp/pathly.html',
-    desc: 'ניווט חכם בסגנון וויז עם קול עברית, תלת מימד, פקקים ולחיצה על מפה לניווט מהיר.',
-    icon: `<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"><rect width="72" height="72" rx="16" fill="#111"/><text x="36" y="53" text-anchor="middle" fill="#fff" font-size="42" font-weight="900" font-family="system-ui">P</text></svg>`
-  },
-  bmap: {
-    name: 'Bmap',
-    url: 'https://davidyosef2102014-netizen.github.io/watsapp/bmap.html',
-    desc: 'מפה וניווט לישראל — ממשק נקי ומינימליסטי, חיפוש מקומות מהיר.',
-    icon: `<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"><rect width="72" height="72" rx="16" fill="#111"/><text x="36" y="42" text-anchor="middle" fill="#fff" font-size="18" font-weight="900" font-family="system-ui">Bmap</text><text x="36" y="58" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="11" font-family="system-ui">ישראל</text></svg>`
-  },
-  nav: {
-    name: 'BGO NAV',
-    url: 'https://davidyosef2102014-netizen.github.io/watsapp/nav_bgo.html',
-    desc: 'ניווט מתקדם עם מסלולים חלופיים, מצב לילה, מצפן ומד מהירות.',
-    icon: `<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"><rect width="72" height="72" rx="16" fill="#0a0e1a"/><text x="36" y="38" text-anchor="middle" fill="#fff" font-size="20" font-weight="900" font-family="system-ui">BGO</text><text x="36" y="57" text-anchor="middle" fill="#06b6d4" font-size="15" font-weight="900" font-family="system-ui">NAV</text></svg>`
-  },
-  bgo: {
-    name: 'Bgo',
-    url: 'https://davidyosef2102014-netizen.github.io/watsapp/poninio_app.html',
-    desc: 'מוניות, חנות וניווט — שלושה שירותים במקום אחד. האפליקציה המלאה של Bgo.',
-    icon: `<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"><rect width="72" height="72" rx="16" fill="#111"/><text x="36" y="50" text-anchor="middle" font-size="34" font-weight="900" font-family="system-ui"><tspan fill="#fff">B</tspan><tspan fill="#22c55e">go</tspan></text></svg>`
-  }
+/* ═══════════════ ICONS ═══════════════ */
+const ICONS = {
+  pathly: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#111"/><text x="256" y="350" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="290" fill="#fff">P</text><circle cx="390" cy="140" r="48" fill="#fff"/><line x1="390" y1="92" x2="390" y2="140" stroke="#111" stroke-width="8"/><line x1="342" y1="140" x2="390" y2="140" stroke="#111" stroke-width="8"/></svg>`,
+  bgovnav: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#0a0e1a"/><text x="256" y="220" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="130" fill="#fff">BGO</text><text x="256" y="330" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="100" fill="#06b6d4">NAV</text><path d="M256 370 L230 430 L256 415 L282 430 Z" fill="#06b6d4"/></svg>`,
+  bmap: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#111"/><text x="256" y="310" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="200" fill="#fff">Bmap</text><circle cx="256" cy="390" r="18" fill="#fff"/></svg>`,
+  bgo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#111"/><text x="140" y="320" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="240" fill="#fff">B</text><text x="270" y="320" font-family="-apple-system,system-ui,sans-serif" font-weight="900" font-size="240" fill="#22c55e">go</text></svg>`,
+  ponitok: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#ff7f00"/><text y="420" font-size="380" x="66">🐴</text></svg>`,
+  poninews: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#002e5d"/><rect x="0" y="0" width="512" height="14" fill="#ff0000"/><rect x="60" y="100" width="392" height="24" rx="12" fill="#fff" opacity="0.9"/><rect x="60" y="146" width="300" height="16" rx="8" fill="#fff" opacity="0.55"/><rect x="60" y="176" width="340" height="16" rx="8" fill="#fff" opacity="0.55"/><rect x="60" y="230" width="392" height="16" rx="8" fill="#fff" opacity="0.35"/><rect x="60" y="260" width="260" height="16" rx="8" fill="#fff" opacity="0.35"/><rect x="60" y="290" width="310" height="16" rx="8" fill="#fff" opacity="0.35"/><rect x="0" y="420" width="512" height="92" fill="#ff0000"/><text x="256" y="480" text-anchor="middle" font-size="44" font-weight="900" fill="#fff" font-family="-apple-system,sans-serif">PONI NEWS</text></svg>`,
+  bank: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#0d2252"/><polygon points="256,72 440,172 440,196 72,196 72,172" fill="#c9952a"/><rect x="102" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="184" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="266" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="348" y="196" width="54" height="192" rx="4" fill="#c9952a" opacity="0.85"/><rect x="72" y="388" width="368" height="26" rx="5" fill="#f0c040"/><rect x="72" y="428" width="368" height="18" rx="5" fill="#c9952a" opacity="0.55"/></svg>`,
+  bshop: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#e43d2f"/><stop offset="100%" stop-color="#ff6900"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#sg)"/><path d="M155 190h202l-32 160H187L155 190z" fill="#fff" opacity="0.95"/><path d="M196 190c0-33.1 26.9-60 60-60s60 26.9 60 60" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round"/><rect x="220" y="295" width="72" height="16" rx="8" fill="#e43d2f"/><rect x="230" y="326" width="52" height="16" rx="8" fill="#e43d2f"/></svg>`,
+  birgsol: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#87ceeb"/><stop offset="55%" stop-color="#3a8fd4"/><stop offset="100%" stop-color="#1a5fa0"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#sky)"/><ellipse cx="130" cy="140" rx="68" ry="52" fill="#fff" opacity="0.9"/><ellipse cx="200" cy="130" rx="52" ry="40" fill="#fff" opacity="0.85"/><polygon points="40,420 140,240 200,330 280,190 370,350 460,420" fill="#2d6e24"/><polygon points="0,512 0,400 512,400 512,512" fill="#1d4d18"/><rect x="96" y="346" width="320" height="38" rx="19" fill="rgba(255,255,255,0.85)"/><circle cx="388" cy="365" r="16" fill="#0078d4"/></svg>`
 };
 
-function openApp(id) {
-  const app = APPS[id];
-  window.open(app.url, '_blank');
-  showToast(`${app.name} נפתחה! לחץ ⋮ → "הוסף למסך הבית" להתקנה`);
+/* ═══════════════ APP DATA ═══════════════ */
+const APPS = {
+  pathly: { name:'Pathly', cat:'nav', catLabel:'ניווט', sub:'ניווט חכם בסגנון Waze', desc:'ניווט GPS עם קול עברי, מסלולים חכמים, תצוגה תלת-מימדית ועדכוני תנועה בזמן אמת. חץ תלת-ממדי, מצב לילה, ועם הגעה ליעד — קונפטי שחור יפה!', url:'pathly.html', stars:'4.9', reviews:'2.1K', size:'~180KB', age:'4+' },
+  bgovnav: { name:'BGO NAV', cat:'nav', catLabel:'ניווט', sub:'ניווט GPS חכם', desc:'ניווט GPS עם חיפוש מתקדם משלושה מקורות, מסלולים OSRM אופטימליים ומפות OpenStreetMap מפורטות לכל ישראל.', url:'nav_bgo.html', stars:'4.7', reviews:'890', size:'~140KB', age:'4+' },
+  bmap: { name:'Bmap', cat:'nav', catLabel:'מפות', sub:'מפות אינטראקטיביות', desc:'מפות פתוחות עם חיפוש מתקדם, מיקום GPS מדויק ושלושה מקורות חיפוש. מושלם לגלישה במפה בלי ניווט.', url:'bmap.html', stars:'4.6', reviews:'543', size:'~120KB', age:'4+' },
+  bgo: { name:'Bgo', cat:'nav', catLabel:'נסיעות', sub:'הזמנת נסיעות', desc:'הזמן נסיעות בקלות, עקוב אחר הנהג בזמן אמת ונהל את הנסיעות שלך. אפליקציית נסיעות מקיפה עם מפה חיה ועדכוני MQTT.', url:'taxi_poninio.html', stars:'4.5', reviews:'1.2K', size:'~160KB', age:'4+' },
+  ponitok: { name:'Ponitok', cat:'social', catLabel:'סושיאל', sub:'סרטונים קצרים', desc:'פלטפורמת סרטונים קצרים — שתף, צפה ותגלה תוכן מהקהילה. כמו TikTok רק שלנו! עם עדכון בזמן אמת דרך MQTT.', url:'ponitok.html', stars:'4.8', reviews:'3.4K', size:'~200KB', age:'12+' },
+  poninews: { name:'Poni News', cat:'social', catLabel:'חדשות', sub:'חדשות בזמן אמת', desc:'פלטפורמת חדשות עם עדכונים בזמן אמת, תמונות ויכולת פרסום על ידי מנהל. מחובר לשרת MQTT לעדכונים מיידיים.', url:'poninews.html', stars:'4.4', reviews:'678', size:'~130KB', age:'4+' },
+  bank: { name:'Bgo Bank', cat:'finance', catLabel:'בנקאות', sub:'בנקאות דיגיטלית', desc:'נהל את החשבון, בצע העברות, צפה בעסקאות ועוד — בנקאות מודרנית עם ממשק נקי ומאובטח.', url:'bankponi_online.html', stars:'4.6', reviews:'920', size:'~170KB', age:'4+' },
+  bshop: { name:'BShop', cat:'finance', catLabel:'קניות', sub:'שוק אונליין', desc:'קנה ומכור מוצרים בשוק אונליין מקומי, עקוב אחר הזמנות ושלם בצורה מאובטחת. חווית קנייה מלאה.', url:'market_poninio.html', stars:'4.3', reviews:'456', size:'~150KB', age:'4+' },
+  birgsol: { name:'Birgsol', cat:'tools', catLabel:'כלים', sub:'דף הבית החכם', desc:'דף בית אישי עם חיפוש מהיר, קיצורי דרך לאתרים מועדפים, חדשות ynet בזמן אמת ותמונת רקע יומית מרהיבה מ-Unsplash.', url:'birgsol.html', stars:'4.7', reviews:'1.1K', size:'~14KB', age:'4+' }
+};
+
+/* ─── init hero icon ─── */
+document.getElementById('hero-icon').innerHTML = ICONS.pathly;
+
+/* ─── star text ─── */
+function stars(s){ const n=parseFloat(s); return '★'.repeat(Math.floor(n))+(n%1>=0.5?'½':'')+' '+s; }
+
+/* ═══════════════ BUILD SECTIONS ═══════════════ */
+function buildHRow(containerId, ids){
+  document.getElementById(containerId).innerHTML = ids.map(id=>{
+    const a=APPS[id];
+    return `<div class="h-card">
+      <div class="h-icon" onclick="openSheet('${id}')">${ICONS[id]}</div>
+      <div class="h-name">${a.name}</div>
+      <button class="h-get" onclick="openSheet('${id}')">פתח</button>
+    </div>`;
+  }).join('');
+}
+function buildBigList(containerId, ids){
+  document.getElementById(containerId).innerHTML = ids.map(id=>{
+    const a=APPS[id];
+    return `<div class="big-card">
+      <div class="big-icon" onclick="openSheet('${id}')">${ICONS[id]}</div>
+      <div class="big-info" onclick="openSheet('${id}')">
+        <div class="big-name">${a.name}</div>
+        <div class="big-sub">${a.sub}</div>
+        <div class="big-stars">${stars(a.stars)}</div>
+      </div>
+      <div class="big-actions">
+        <button class="big-get" onclick="openSheet('${id}')">פתח</button>
+        <button class="big-dl" onclick="dlApp('${id}')">⬇ הורד</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-function showModal(id) {
-  const app = APPS[id];
-  document.getElementById('modal-icon').innerHTML = app.icon;
-  document.getElementById('modal-name').textContent = app.name;
-  document.getElementById('modal-desc').textContent = app.desc;
-  document.getElementById('modal-open-btn').href = app.url;
-  document.getElementById('install-modal').classList.add('show');
-}
-function closeModal(e) {
-  if (e.target === document.getElementById('install-modal')) closeModalDirect();
-}
-function closeModalDirect() {
-  document.getElementById('install-modal').classList.remove('show');
-}
+buildHRow('nav-row', ['pathly','bgovnav','bmap','bgo']);
+buildBigList('social-list', ['ponitok','poninews']);
+buildBigList('finance-list', ['bank','bshop']);
+buildBigList('tools-list', ['birgsol']);
 
-function showToast(msg, ms=5000) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._t);
-  t._t = setTimeout(() => t.classList.remove('show'), ms);
-}
-
-function showOS(os, el) {
-  document.querySelectorAll('.os-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('android-steps').style.display = os === 'android' ? '' : 'none';
-  document.getElementById('ios-steps').style.display = os === 'ios' ? '' : 'none';
-}
-
-function filterApps(q) {
-  const ql = q.toLowerCase();
-  document.querySelectorAll('.app-card').forEach(card => {
-    const name = card.querySelector('.app-name').textContent.toLowerCase();
-    const desc = card.querySelector('.app-desc').textContent.toLowerCase();
-    card.style.display = (!ql || name.includes(ql) || desc.includes(ql)) ? '' : 'none';
+/* ═══════════════ TABS ═══════════════ */
+function setTab(tab, btn){
+  document.querySelectorAll('.s-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.s-sec').forEach(sec=>{
+    sec.style.display = (tab==='all'||tab===sec.dataset.cat) ? '' : 'none';
   });
+  const hero = document.querySelector('.hero');
+  if(hero) hero.style.display = (tab==='all'||tab==='nav') ? '' : 'none';
 }
 
-// Native PWA install prompt (for this store page itself)
-let deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-});
-
-// Detect iOS
-const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-if (isIOS) {
-  // Default to iOS tab
-  document.querySelector('[onclick*="ios"]').click();
+/* ═══════════════ SEARCH ═══════════════ */
+function onSearch(val){
+  const main=document.getElementById('main');
+  const sv=document.getElementById('search-view');
+  const ev=document.getElementById('empty-view');
+  if(!val.trim()){
+    main.style.display=''; sv.className=''; sv.style.display='none'; ev.className='empty-view'; return;
+  }
+  main.style.display='none'; sv.style.display='block'; ev.className='empty-view';
+  const q=val.toLowerCase();
+  const hits=Object.entries(APPS).filter(([,a])=>
+    a.name.toLowerCase().includes(q)||a.sub.includes(q)||a.catLabel.includes(q)||a.desc.includes(q)
+  );
+  if(!hits.length){ sv.style.display='none'; ev.className='empty-view show'; return; }
+  sv.className='show';
+  sv.innerHTML=hits.map(([id,a])=>`
+    <div class="sr-item" onclick="openSheet('${id}')">
+      <div class="sr-icon">${ICONS[id]}</div>
+      <div class="sr-info">
+        <div class="sr-name">${a.name}</div>
+        <div class="sr-cat">${a.catLabel} · ${stars(a.stars)}</div>
+      </div>
+      <button class="sr-get" onclick="event.stopPropagation();openSheet('${id}')">פתח</button>
+    </div>`).join('');
 }
+
+/* ═══════════════ SHEET ═══════════════ */
+let osTab='android';
+function openSheet(id){
+  const a=APPS[id]; osTab='android';
+  document.getElementById('sheet-body').innerHTML=`
+    <div class="sheet-app-row">
+      <div class="sheet-icon">${ICONS[id]}</div>
+      <div class="sheet-meta">
+        <div class="sheet-name">${a.name}</div>
+        <div class="sheet-dev">BGO Apps</div>
+        <div class="sheet-cat-badge">${a.catLabel}</div>
+      </div>
+    </div>
+    <div class="sheet-ratings">
+      <div class="srl-item"><div class="srl-val">${a.stars} ★</div><div class="srl-lbl">${a.reviews} דירוגים</div></div>
+      <div class="srl-item"><div class="srl-val">${a.size}</div><div class="srl-lbl">גודל</div></div>
+      <div class="srl-item"><div class="srl-val">${a.age}</div><div class="srl-lbl">גיל</div></div>
+    </div>
+    <div class="sheet-btn-row">
+      <a class="s-open" href="${a.url}" target="_blank">פתח אפליקציה ↗</a>
+      <button class="s-dl" onclick="dlApp('${id}')">⬇ הורד</button>
+    </div>
+    <div class="s-lbl">תיאור</div>
+    <div class="s-desc">${a.desc}</div>
+    <div class="s-lbl">התקנה על הטלפון</div>
+    <div class="os-tabs">
+      <button class="os-tab active" id="ot-android" onclick="switchOs('android')">🤖 Android</button>
+      <button class="os-tab" id="ot-ios" onclick="switchOs('ios')">🍎 iPhone</button>
+    </div>
+    <div id="steps"></div>`;
+  renderSteps();
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('sheet').classList.add('show');
+  document.body.style.overflow='hidden';
+}
+function renderSteps(){
+  const items=osTab==='android'
+    ?['פתח את האפליקציה בדפדפן Chrome','לחץ על שלוש הנקודות ⋮ בפינה הימנית','בחר "הוסף למסך הבית"','אשר ולחץ "הוסף" — האייקון יופיע!']
+    :['פתח את האפליקציה בדפדפן Safari','לחץ על כפתור השיתוף □↑ בתחתית','גלול ובחר "הוסף למסך הבית"','אשר — האייקון יופיע על שולחן העבודה!'];
+  document.getElementById('steps').innerHTML=`<ul class="install-list">${items.map((s,i)=>`<li class="install-step"><div class="step-n">${i+1}</div><div>${s}</div></li>`).join('')}</ul>`;
+}
+function switchOs(os){
+  osTab=os;
+  document.getElementById('ot-android').classList.toggle('active',os==='android');
+  document.getElementById('ot-ios').classList.toggle('active',os==='ios');
+  renderSteps();
+}
+function closeSheet(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('sheet').classList.remove('show');
+  document.body.style.overflow='';
+}
+
+/* ═══════════════ DOWNLOAD ═══════════════ */
+async function dlApp(id){
+  const a=APPS[id];
+  showToast('מוריד את '+a.name+'...');
+  try{
+    const res=await fetch(a.url);
+    if(!res.ok) throw new Error();
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url; link.download=a.url;
+    document.body.appendChild(link); link.click();
+    document.body.removeChild(link); URL.revokeObjectURL(url);
+    showToast('✓ '+a.name+' הורד בהצלחה!');
+  }catch{ showToast('שגיאה — נסה לפתוח ↗'); }
+}
+
+/* ═══════════════ TOAST ═══════════════ */
+let tt;
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2800); }
 </script>
 </body>
 </html>

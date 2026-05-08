@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birgsol | דף הבית</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; overflow-x: hidden; }
+
+        /* רקע נוף */
+        .bg {
+            position: fixed; inset: 0; z-index: 0;
+            background: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80') center/cover no-repeat;
+            transition: opacity 1s;
+        }
+        .bg::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(to bottom,
+                rgba(0,0,0,0.25) 0%,
+                rgba(0,0,0,0.05) 45%,
+                rgba(0,0,0,0.65) 100%);
+        }
+
+        /* כותרת */
+        header {
+            position: fixed; top: 0; left: 0; right: 0;
+            z-index: 100;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 24px;
+        }
+        .header-left { display: flex; gap: 8px; }
+        .header-btn {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: white; padding: 7px 16px;
+            border-radius: 8px; text-decoration: none;
+            font-size: 13px; font-weight: 600;
+            transition: background 0.2s;
+        }
+        .header-btn:hover { background: rgba(255,255,255,0.28); }
+        #p-date {
+            color: white; font-size: 13px; font-weight: 600;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(12px);
+            padding: 7px 14px; border-radius: 8px;
+        }
+
+        /* תוכן ראשי */
+        .main {
+            position: relative; z-index: 10;
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 80px 20px 180px;
+        }
+
+        /* לוגו */
+        .logo {
+            font-size: clamp(52px, 13vw, 88px);
+            font-weight: 800; color: white;
+            letter-spacing: -3px;
+            text-shadow: 0 2px 24px rgba(0,0,0,0.35);
+            margin-bottom: 32px;
+            user-select: none;
+        }
+
+        /* חיפוש */
+        .search-container { width: 100%; max-width: 640px; position: relative; }
+        .search-bar {
+            display: flex;
+            background: rgba(255,255,255,0.96);
+            backdrop-filter: blur(20px);
+            border-radius: 50px;
+            box-shadow: 0 4px 32px rgba(0,0,0,0.25);
+            overflow: hidden;
+        }
+        .search-bar input {
+            flex: 1; border: none; padding: 16px 22px;
+            font-size: 17px; outline: none;
+            background: transparent; color: #222;
+            font-family: inherit;
+        }
+        .search-bar input::placeholder { color: #999; }
+        .search-bar button {
+            background: #0078d4; border: none;
+            padding: 0 26px; cursor: pointer;
+            color: white; font-size: 19px;
+            transition: background 0.2s;
+        }
+        .search-bar button:hover { background: #006abc; }
+
+        /* הצעות */
+        .suggestions {
+            position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+            background: white; border-radius: 18px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+            max-height: 300px; overflow-y: auto;
+            display: none; z-index: 1000;
+        }
+        .suggest-item {
+            padding: 12px 20px; display: flex; align-items: center; gap: 12px;
+            text-decoration: none; color: #333;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.12s; font-size: 14px;
+        }
+        .suggest-item:hover { background: #f5f8ff; }
+        .suggest-item:last-child { border-bottom: none; }
+
+        /* קיצורי דרך */
+        .shortcuts {
+            display: flex; flex-wrap: wrap;
+            gap: 10px; margin-top: 26px;
+            justify-content: center; max-width: 640px;
+        }
+        .tile {
+            background: rgba(255,255,255,0.14);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.28);
+            padding: 10px 18px; border-radius: 50px;
+            text-decoration: none; color: white;
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 600;
+            transition: background 0.2s, transform 0.18s;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+        }
+        .tile:hover { background: rgba(255,255,255,0.26); transform: translateY(-2px); }
+        .tile img { width: 18px; height: 18px; border-radius: 4px; }
+
+        /* חדשות */
+        .news-section {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            z-index: 10;
+            padding: 0 24px 18px;
+            background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%);
+        }
+        .news-label {
+            color: rgba(255,255,255,0.65);
+            font-size: 10.5px; font-weight: 700;
+            letter-spacing: 1.2px; text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .news-grid {
+            display: flex; gap: 10px;
+            overflow-x: auto; padding-bottom: 2px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        .news-grid::-webkit-scrollbar { height: 3px; }
+        .news-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 2px; }
+
+        .news-card {
+            background: rgba(255,255,255,0.11);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 14px; padding: 12px 14px;
+            min-width: 210px; max-width: 210px;
+            text-decoration: none; color: white;
+            flex-shrink: 0;
+            transition: background 0.2s, transform 0.18s;
+        }
+        .news-card:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+        .news-source {
+            font-size: 10px; color: rgba(255,255,255,0.55);
+            font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 6px;
+        }
+        .news-title {
+            font-size: 13px; font-weight: 600; line-height: 1.45;
+            display: -webkit-box;
+            -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .news-loading { color: rgba(255,255,255,0.45); font-size: 13px; padding: 12px 0; }
+
+        /* קרדיט תמונה */
+        #img-credit {
+            position: fixed; bottom: 120px; left: 18px;
+            color: rgba(255,255,255,0.4);
+            font-size: 10.5px; z-index: 5;
+            text-decoration: none;
+        }
+        #img-credit:hover { color: rgba(255,255,255,0.75); }
+
+        @media (max-width: 600px) {
+            .news-card { min-width: 180px; max-width: 180px; }
+            .shortcuts { gap: 7px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg" id="bg"></div>
+
+<header>
+    <div class="header-left">
+        <a href="https://mail.google.com" class="header-btn">✉️ Gmail</a>
+    </div>
+    <div id="p-date">טוען...</div>
+</header>
+
+<div class="main">
+    <div class="logo">Birgsol</div>
+
+    <div class="search-container">
+        <form class="search-bar" onsubmit="event.preventDefault(); doSearch();">
+            <input type="text" id="si" placeholder="חפש באינטרנט..." oninput="filterSites()" autocomplete="off">
+            <button type="submit">🔍</button>
+        </form>
+        <div id="suggestions-box" class="suggestions"></div>
+    </div>
+
+    <div class="shortcuts">
+        <a href="https://www.youtube.com/@דוד_יוסף_זאבי" class="tile">
+            <img src="https://www.google.com/s2/favicons?sz=32&domain=youtube.com">
+            <span>היוטיוב שלי</span>
+        </a>
+        <a href="https://www.adamada.co.il" class="tile">
+            <img src="https://www.google.com/s2/favicons?sz=32&domain=adamada.co.il">
+            <span>אדהמדע</span>
+        </a>
+        <a href="https://david-zeevi.github.io/bank" class="tile">
+            <img src="https://cdn-icons-png.flaticon.com/512/2830/2830284.png">
+            <span>בנק פוני</span>
+        </a>
+        <a href="https://www.youtube.com" class="tile">
+            <img src="https://www.google.com/s2/favicons?sz=32&domain=youtube.com">
+            <span>YouTube</span>
+        </a>
+        <a href="https://www.google.com" class="tile">
+            <img src="https://www.google.com/s2/favicons?sz=32&domain=google.com">
+            <span>Google</span>
+        </a>
+        <a href="birgsolai2.0.html" class="tile">
+            <img src="https://cdn-icons-png.flaticon.com/512/4616/4616734.png">
+            <span>Birgsol AI</span>
+        </a>
+        <a href="https://chatgpt.com" class="tile">
+            <img src="https://www.google.com/s2/favicons?sz=32&domain=chatgpt.com">
+            <span>ChatGPT</span>
+        </a>
+    </div>
+</div>
+
+<a href="#" id="img-credit" target="_blank">📷 Unsplash</a>
+
+<div class="news-section">
+    <div class="news-label">🗞 חדשות עכשיו</div>
+    <div class="news-grid" id="news-grid">
+        <div class="news-loading">טוען חדשות...</div>
+    </div>
+</div>
+
+<script>
+    /* ── רקע יומי מתחלף ── */
+    const BG_IMAGES = [
+        { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80', credit: 'Flo Maderebner · Unsplash' },
+        { url: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1920&q=80', credit: 'Luca Bravo · Unsplash' },
+        { url: 'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=1920&q=80', credit: 'Luca Bravo · Unsplash' },
+        { url: 'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=1920&q=80', credit: 'Luca Bravo · Unsplash' },
+        { url: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=1920&q=80', credit: 'Luca Bravo · Unsplash' },
+        { url: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=1920&q=80', credit: 'Unsplash' },
+        { url: 'https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=1920&q=80', credit: 'Unsplash' },
+    ];
+    const bg = BG_IMAGES[new Date().getDate() % BG_IMAGES.length];
+    document.getElementById('bg').style.background = `url('${bg.url}') center/cover no-repeat fixed`;
+    document.getElementById('img-credit').textContent = '📷 ' + bg.credit;
+
+    /* ── מונה ימים ── */
+    const START_DATE = new Date('2021-08-10');
+    (function sync() {
+        const diff = Math.floor((new Date() - START_DATE) / 86400000);
+        document.getElementById('p-date').textContent =
+            `יום ${diff % 365 + 1}, שנה ${Math.floor(diff / 365) + 1}`;
+    })();
+
+    /* ── אתרים לחיפוש ── */
+    const sites = [
+        {n:"היוטיוב שלי", u:"youtube.com/@דוד_יוסף_זאבי"},
+        {n:"אדהמדע", u:"adamada.co.il"},
+        {n:"בנק פוני", u:"david-zeevi.github.io/bank"},
+        {n:"ynet", u:"ynet.co.il"}, {n:"וולט", u:"wolt.com"},
+        {n:"וואלה", u:"walla.co.il"}, {n:"מאקו", u:"mako.co.il"},
+        {n:"ChatGPT", u:"chatgpt.com"}, {n:"Google", u:"google.com"},
+        {n:"Netflix", u:"netflix.com"}, {n:"Instagram", u:"instagram.com"},
+        {n:"Facebook", u:"facebook.com"}, {n:"TikTok", u:"tiktok.com"},
+        {n:"ksp", u:"ksp.co.il"}, {n:"ivory", u:"ivory.co.il"},
+        {n:"n12", u:"n12.co.il"}, {n:"כאן", u:"kan.org.il"},
+        {n:"רכבת ישראל", u:"rail.co.il"}, {n:"כללית", u:"clalit.co.il"},
+        {n:"מכבי", u:"maccabi4u.co.il"},
+    ];
+
+    function filterSites() {
+        const val = document.getElementById('si').value.toLowerCase().trim();
+        const box = document.getElementById('suggestions-box');
+        if (!val) { box.style.display = 'none'; return; }
+        const filtered = sites.filter(s =>
+            s.n.toLowerCase().includes(val) || s.u.includes(val)
+        ).slice(0, 8);
+        if (filtered.length) {
+            box.innerHTML = filtered.map(s => `
+                <a href="https://${s.u}" class="suggest-item">
+                    <img src="https://www.google.com/s2/favicons?sz=32&domain=${s.u.split('/')[0]}" width="20" height="20">
+                    <span>${s.n}</span>
+                </a>`).join('');
+            box.style.display = 'block';
+        } else { box.style.display = 'none'; }
+    }
+
+    function doSearch() {
+        const q = document.getElementById('si').value.trim();
+        if (q) window.location.href = 'https://www.google.com/search?q=' + encodeURIComponent(q);
+    }
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.search-container'))
+            document.getElementById('suggestions-box').style.display = 'none';
+    });
+
+    /* ── חדשות מ-ynet ── */
+    async function loadNews() {
+        const grid = document.getElementById('news-grid');
+        try {
+            const res = await fetch(
+                'https://api.rss2json.com/v1/api.json?rss_url=' +
+                encodeURIComponent('https://www.ynet.co.il/Integration/StoryRss2.xml') +
+                '&count=10'
+            );
+            const data = await res.json();
+            if (data.items && data.items.length) {
+                grid.innerHTML = data.items.slice(0, 10).map(item => `
+                    <a href="${item.link}" target="_blank" rel="noopener" class="news-card">
+                        <div class="news-source">ynet</div>
+                        <div class="news-title">${item.title}</div>
+                    </a>`).join('');
+            } else {
+                grid.innerHTML = '<div class="news-loading">לא ניתן לטעון חדשות כרגע</div>';
+            }
+        } catch {
+            grid.innerHTML = '<div class="news-loading">לא ניתן לטעון חדשות כרגע</div>';
+        }
+    }
+    loadNews();
+</script>
+</body>
+</html>
