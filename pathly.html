@@ -71,7 +71,7 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Segoe UI',system-u
 
 /* ══ LOGO (hidden when navigating) ══ */
 #logo{
-  position:fixed;top:14px;right:14px;z-index:100;
+  position:fixed;top:14px;left:14px;z-index:100;
   background:#fff;border-radius:14px;padding:9px 16px;
   font-size:20px;font-weight:900;letter-spacing:-.5px;color:#111;
   box-shadow:0 2px 16px rgba(0,0,0,.13);
@@ -95,9 +95,9 @@ body.nav-on #gps-pill{opacity:0}
 #gps-dot.ok{background:#22c55e;animation:gb 2s ease-in-out infinite}
 @keyframes gb{0%,100%{opacity:1}50%{opacity:.4}}
 
-/* ══ TOP-LEFT CONTROLS ══ */
-#top-left{position:fixed;top:14px;left:14px;z-index:250;display:flex;flex-direction:column;gap:8px}
-body.nav-on #top-left{top:auto;bottom:calc(90px + 20px)}
+/* ══ TOP-RIGHT CONTROLS ══ */
+#top-left{position:fixed;top:14px;right:14px;z-index:250;display:flex;flex-direction:column;gap:8px}
+body.nav-on #top-left{top:auto;bottom:calc(90px + 20px);right:auto;left:14px}
 .ic{
   width:44px;height:44px;border-radius:50%;
   background:#fff;border:none;cursor:pointer;
@@ -292,6 +292,41 @@ body.night #arrived{background:rgba(0,0,0,.96)}
 body.night .av-title{color:#f1f1f1}
 body.night .av-btn{background:#f1f1f1;color:#111}
 body.night #cam-wrap{background:#2c2c2e}
+
+/* ══ MAP TAP CARD ══ */
+#map-tap-card{
+  position:fixed;bottom:90px;left:12px;right:12px;z-index:300;
+  background:#111;color:#fff;
+  border-radius:20px;padding:14px 18px;
+  display:flex;align-items:center;gap:12px;
+  box-shadow:0 4px 24px rgba(0,0,0,.35);
+  animation:tapCardIn .22s cubic-bezier(.4,0,.2,1);
+}
+@keyframes tapCardIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+#map-tap-card .mtc-addr{flex:1;font-size:14px;font-weight:600;line-height:1.35;min-width:0}
+#map-tap-card .mtc-go{
+  flex-shrink:0;
+  background:#fff;color:#111;
+  border:none;border-radius:14px;
+  padding:9px 14px;font-size:13px;font-weight:800;
+  cursor:pointer;font-family:inherit;white-space:nowrap;
+  transition:transform .13s;
+}
+#map-tap-card .mtc-go:active{transform:scale(.9)}
+#map-tap-card .mtc-close{
+  flex-shrink:0;
+  background:rgba(255,255,255,.12);color:#fff;
+  border:none;border-radius:50%;
+  width:28px;height:28px;font-size:15px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .13s;
+}
+#map-tap-card .mtc-close:active{background:rgba(255,255,255,.25)}
+.mtc-spinner{
+  width:18px;height:18px;border:2px solid rgba(255,255,255,.2);
+  border-top-color:#fff;border-radius:50%;
+  animation:spin .7s linear infinite;flex-shrink:0;
+}
 </style>
 </head>
 <body>
@@ -420,6 +455,7 @@ let night = false, tile = null;
 let camTm = null, lastCam = 0;
 let voiceOn = true;
 let alerted200 = false; // for 200m warning
+let tapMark = null, lastHeading = 0;
 
 /* ── Init ── */
 document.addEventListener('DOMContentLoaded', () => {
@@ -519,24 +555,41 @@ function showGpsBanner() {
   b.innerHTML = `<span style="font-size:22px">📍</span><div style="flex:1">GPS חסום.<br><span style="opacity:.7;font-size:12px">לחץ על 🔒 בשורת הכתובת ← אפשר מיקום</span></div><button onclick="this.parentElement.remove();startGPS()" style="background:#fff;color:#111;border:none;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px">נסה שוב</button>`;
   document.body.appendChild(b);
 }
+function buildArrowHtml(deg) {
+  return `<div data-arrow style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;transition:transform .25s ease;transform:rotate(${deg}deg)">
+    <svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="15" cy="36" rx="6" ry="1.8" fill="rgba(0,0,0,0.22)"/>
+      <path d="M15 3L27 33L15 26L3 33Z" fill="rgba(0,0,0,0.2)" transform="translate(1.5,2.5)"/>
+      <path d="M15 3L27 33L15 26L3 33Z" fill="#111" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+    </svg>
+  </div>`;
+}
 function onPos(pos) {
-  const { latitude:lat, longitude:lng, speed, accuracy } = pos.coords;
+  const { latitude:lat, longitude:lng, speed, accuracy, heading } = pos.coords;
+  // Track heading (only when moving to avoid GPS drift spin)
+  if (heading != null && (speed||0) > 0.5) lastHeading = heading;
+  // Always set uPos so routing can use it
   uPos = { lat, lng };
-  const accTxt = accuracy < 20 ? 'GPS מדויק' : accuracy < 100 ? `±${Math.round(accuracy)}מ'` : `±${Math.round(accuracy)}מ'`;
+  // Skip very inaccurate positions (cell-tower fix can be hundreds of metres off)
+  if (accuracy > 150) {
+    setGps(false, 'מאתר GPS…');
+    const b = document.getElementById('gps-banner'); if (b) b.remove();
+    return;
+  }
+  const accTxt = accuracy < 30 ? 'GPS מדויק' : `GPS \xb1${Math.round(accuracy)}מ'`;
   setGps(true, accTxt);
-  // Remove banner if it exists
   const b = document.getElementById('gps-banner'); if (b) b.remove();
   if (!userMark) {
     userMark = L.marker([lat,lng], { icon: L.divIcon({
-      className:'', iconSize:[28,28], iconAnchor:[14,14],
-      html:`<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center">
-        <div style="position:absolute;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.12);animation:uP 2s infinite"></div>
-        <div style="width:16px;height:16px;border-radius:50%;background:#111;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.4);position:relative;z-index:1"></div>
-      </div>`
+      className:'', iconSize:[40,40], iconAnchor:[20,20],
+      html: buildArrowHtml(lastHeading)
     }), zIndexOffset:1000 }).addTo(map);
     if (autoC) map.setView([lat,lng],16);
   } else {
     userMark.setLatLng([lat,lng]);
+    // Rotate arrow to match travel direction
+    const el = userMark.getElement();
+    if (el) { const inner = el.querySelector('[data-arrow]'); if (inner) inner.style.transform = `rotate(${lastHeading}deg)`; }
     if (autoC) map.panTo([lat,lng]);
   }
   updSpeed(speed||0);
@@ -582,7 +635,46 @@ function initSearch() {
     searchTm = setTimeout(() => doSearch(q), 380);
   });
   inp.addEventListener('focus', () => { if (!inp.value.trim()) showHist(); });
-  map.on('click', closeRes);
+  map.on('click', onMapClick);
+}
+function onMapClick(e) {
+  closeRes();
+  if (isNav) return; // don't interrupt active navigation
+  closeTapCard();
+  const { lat, lng } = e.latlng;
+  // Temp dot at tapped location
+  if (tapMark) map.removeLayer(tapMark);
+  tapMark = L.marker([lat,lng], { icon: L.divIcon({
+    className:'', iconSize:[22,22], iconAnchor:[11,11],
+    html:`<div style="width:22px;height:22px;border-radius:50%;background:#111;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.35)"></div>`
+  })}).addTo(map);
+  // Show loading card
+  const card = document.createElement('div');
+  card.id = 'map-tap-card';
+  card.innerHTML = `<div class="mtc-spinner"></div><div class="mtc-addr">מחפש כתובת…</div><button class="mtc-close" onclick="closeTapCard()">✕</button>`;
+  document.body.appendChild(card);
+  card._tm = setTimeout(() => closeTapCard(), 15000);
+  // Reverse geocode
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=he&namedetails=1`)
+    .then(r => r.json()).then(d => {
+      const name = d.namedetails?.name || d.address?.road || d.display_name.split(',')[0];
+      const city = d.address?.city || d.address?.town || d.address?.village || '';
+      const label = city && !name.includes(city) ? `${name}, ${city}` : name;
+      const lf = lat.toFixed(6), lng2 = lng.toFixed(6);
+      card.innerHTML = `<div class="mtc-addr">${esc(label)}</div><button class="mtc-go" onclick="tapNav(${lf},${lng2},'${label.replace(/'/g,"\\'")}')">🚗 נסע לכאן</button><button class="mtc-close" onclick="closeTapCard()">✕</button>`;
+    }).catch(() => {
+      const lf = lat.toFixed(6), lng2 = lng.toFixed(6);
+      card.innerHTML = `<div class="mtc-addr">מיקום נבחר</div><button class="mtc-go" onclick="tapNav(${lf},${lng2},'מיקום נבחר')">🚗 נסע לכאן</button><button class="mtc-close" onclick="closeTapCard()">✕</button>`;
+    });
+}
+function closeTapCard() {
+  const c = document.getElementById('map-tap-card');
+  if (c) { clearTimeout(c._tm); c.remove(); }
+  if (tapMark) { map.removeLayer(tapMark); tapMark = null; }
+}
+function tapNav(lat, lng, name) {
+  closeTapCard();
+  pickDest({ name, addr: name, lat, lng });
 }
 function clearSearch() {
   document.getElementById('sb-input').value='';
