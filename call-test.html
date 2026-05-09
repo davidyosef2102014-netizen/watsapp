@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Birgsol Call</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root { --green: #34c759; --red: #ff3b30; --bg: #000; --card: #1c1c1e; --text: #fff; --muted: #8e8e93; }
+    body { font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; direction: rtl; -webkit-font-smoothing: antialiased; }
+
+    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; transition: opacity 0.3s; }
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    /* ── LOGIN ── */
+    #login-screen { background: linear-gradient(160deg, #0a0a0a 0%, #1a1a2e 100%); }
+    .login-logo { font-size: 56px; margin-bottom: 8px; }
+    .login-title { font-size: 28px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; }
+    .login-sub { font-size: 15px; color: var(--muted); margin-bottom: 48px; text-align: center; line-height: 1.5; }
+    .login-input {
+      width: 100%; max-width: 320px; background: rgba(255,255,255,0.1);
+      border: 1.5px solid rgba(255,255,255,0.15); border-radius: 14px;
+      padding: 16px 18px; font-size: 18px; color: #fff; outline: none;
+      font-family: inherit; text-align: center; margin-bottom: 16px;
+    }
+    .login-input::placeholder { color: var(--muted); }
+    .login-input:focus { border-color: var(--green); }
+    .login-btn {
+      width: 100%; max-width: 320px; background: var(--green); color: #fff;
+      border: none; border-radius: 14px; padding: 16px; font-size: 17px;
+      font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.2s;
+    }
+    .login-btn:active { opacity: 0.8; }
+
+    /* ── MAIN ── */
+    #main-screen { background: linear-gradient(160deg, #0a0a0a 0%, #0d1117 100%); justify-content: flex-start; padding-top: max(env(safe-area-inset-top, 0px), 60px); }
+    .status-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 400px; margin-bottom: 32px; }
+    .my-name { font-size: 22px; font-weight: 800; }
+    .conn-pill { display: flex; align-items: center; gap: 6px; background: rgba(52,199,89,0.15); border-radius: 100px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--green); }
+    .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+    .conn-pill.offline { background: rgba(255,59,48,0.15); color: var(--red); }
+    .conn-pill.offline .conn-dot { background: var(--red); animation: none; }
+
+    .dial-section { width: 100%; max-width: 360px; }
+    .dial-label { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 10px; letter-spacing: 0.4px; text-transform: uppercase; }
+    .dial-input-wrap { display: flex; gap: 10px; margin-bottom: 20px; }
+    .dial-input {
+      flex: 1; background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 14px; padding: 14px 16px; font-size: 17px; color: #fff;
+      outline: none; font-family: inherit;
+    }
+    .dial-input::placeholder { color: var(--muted); }
+    .dial-input:focus { border-color: var(--green); }
+    .call-btn {
+      width: 56px; height: 56px; border-radius: 50%; background: var(--green);
+      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0; transition: transform 0.15s, opacity 0.15s;
+    }
+    .call-btn:active { transform: scale(0.92); opacity: 0.85; }
+
+    .online-section { width: 100%; max-width: 360px; }
+    .online-label { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 12px; letter-spacing: 0.4px; text-transform: uppercase; }
+    .online-list { display: flex; flex-direction: column; gap: 10px; }
+    .online-item {
+      display: flex; align-items: center; gap: 14px;
+      background: rgba(255,255,255,0.06); border-radius: 16px; padding: 14px 16px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .online-item:active { background: rgba(255,255,255,0.12); }
+    .online-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, #007aff, #5856d6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; flex-shrink: 0;
+    }
+    .online-name { font-size: 16px; font-weight: 600; flex: 1; }
+    .online-call-ico { font-size: 20px; color: var(--green); }
+    .empty-online { color: var(--muted); font-size: 14px; text-align: center; padding: 20px; }
+
+    /* ── OUTGOING CALL ── */
+    #outgoing-screen { background: linear-gradient(160deg, #1a2e1a 0%, #0a1a0a 100%); }
+    .call-avatar {
+      width: 110px; height: 110px; border-radius: 50%;
+      background: linear-gradient(135deg, #007aff, #5856d6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 48px; font-weight: 700; margin-bottom: 24px;
+      box-shadow: 0 0 0 16px rgba(52,199,89,0.1), 0 0 0 32px rgba(52,199,89,0.05);
+    }
+    .call-name { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+    .call-status { font-size: 17px; color: rgba(255,255,255,0.55); margin-bottom: 60px; }
+    .call-actions { display: flex; gap: 40px; }
+    .action-btn { display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; }
+    .action-circle {
+      width: 72px; height: 72px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-size: 28px;
+      transition: transform 0.15s;
+    }
+    .action-circle:active { transform: scale(0.9); }
+    .action-circle.red { background: var(--red); }
+    .action-circle.gray { background: rgba(255,255,255,0.18); }
+    .action-circle.green { background: var(--green); }
+    .action-lbl { font-size: 13px; color: rgba(255,255,255,0.65); font-weight: 500; }
+
+    /* ── INCOMING CALL ── */
+    #incoming-screen { background: linear-gradient(160deg, #1a1a2e 0%, #0a0a1a 100%); }
+    .incoming-actions { display: flex; gap: 60px; }
+
+    /* ── ACTIVE CALL ── */
+    #active-screen { background: linear-gradient(160deg, #0d1f0d 0%, #061006 100%); }
+    .call-timer { font-size: 17px; color: rgba(255,255,255,0.55); margin-bottom: 60px; font-variant-numeric: tabular-nums; }
+    .active-actions { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 280px; }
+    .active-btn { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+    .active-circle {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); display: flex;
+      align-items: center; justify-content: center; font-size: 24px;
+      transition: all 0.15s;
+    }
+    .active-circle.active { background: rgba(255,255,255,0.35); }
+    .active-circle:active { transform: scale(0.9); }
+    .active-lbl { font-size: 12px; color: rgba(255,255,255,0.55); }
+    .end-btn-wrap { margin-top: 30px; }
+
+    audio { display: none; }
+  </style>
+</head>
+<body>
+
+<audio id="remote-audio" autoplay playsinline></audio>
+<audio id="ringtone" loop src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
+
+<!-- ── LOGIN ── -->
+<div class="screen" id="login-screen">
+  <div class="login-logo">📞</div>
+  <div class="login-title">Birgsol Call</div>
+  <div class="login-sub">שיחות קול אמיתיות בין משתמשים<br>הזן שם משתמש כדי להתחיל</div>
+  <input class="login-input" id="username-input" placeholder="שם משתמש (עברית/אנגלית)" maxlength="20" oninput="this.value=this.value.replace(/\s/g,'')" onkeydown="if(event.key==='Enter')join()">
+  <button class="login-btn" onclick="join()">התחבר</button>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="screen hidden" id="main-screen">
+  <div class="status-bar">
+    <div class="my-name" id="my-name-label"></div>
+    <div class="conn-pill offline" id="conn-pill"><div class="conn-dot"></div><span id="conn-text">מתחבר...</span></div>
+  </div>
+
+  <div class="dial-section">
+    <div class="dial-label">חייג ישירות</div>
+    <div class="dial-input-wrap">
+      <input class="dial-input" id="dial-input" placeholder="שם משתמש לשיחה...">
+      <button class="call-btn" onclick="startCall()" title="חייג">📞</button>
+    </div>
+  </div>
+
+  <div class="online-section">
+    <div class="online-label">מחוברים עכשיו</div>
+    <div class="online-list" id="online-list">
+      <div class="empty-online">אין משתמשים מחוברים כרגע</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── OUTGOING ── -->
+<div class="screen hidden" id="outgoing-screen">
+  <div class="call-avatar" id="out-avatar">?</div>
+  <div class="call-name" id="out-name"></div>
+  <div class="call-status" id="out-status">מחייג...</div>
+  <div class="call-actions">
+    <div class="action-btn" onclick="hangUp()">
+      <div class="action-circle red">📵</div>
+      <div class="action-lbl">נתק</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── INCOMING ── -->
+<div class="screen hidden" id="incoming-screen">
+  <div class="call-avatar" id="in-avatar">?</div>
+  <div class="call-name" id="in-name"></div>
+  <div class="call-status">שיחה נכנסת...</div>
+  <div class="incoming-actions">
+    <div class="action-btn" onclick="rejectCall()">
+      <div class="action-circle red">📵</div>
+      <div class="action-lbl">דחה</div>
+    </div>
+    <div class="action-btn" onclick="answerCall()">
+      <div class="action-circle green">📞</div>
+      <div class="action-lbl">ענה</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ACTIVE ── -->
+<div class="screen hidden" id="active-screen">
+  <div class="call-avatar" id="act-avatar">?</div>
+  <div class="call-name" id="act-name"></div>
+  <div class="call-timer" id="call-timer">00:00</div>
+  <div class="active-actions">
+    <div class="active-btn" onclick="toggleMute()">
+      <div class="active-circle" id="mute-btn">🎤</div>
+      <div class="active-lbl">השתק</div>
+    </div>
+    <div class="active-btn" onclick="toggleSpeaker()">
+      <div class="active-circle" id="speaker-btn">🔊</div>
+      <div class="active-lbl">רמקול</div>
+    </div>
+  </div>
+  <div class="end-btn-wrap">
+    <div class="action-btn" onclick="hangUp()">
+      <div class="action-circle red" style="width:80px;height:80px;font-size:32px;">📵</div>
+      <div class="action-lbl">נתק</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════
+   BIRGSOL CALL — WebRTC + MQTT
+════════════════════════════════════ */
+
+const MQTT_URL   = 'wss://broker.hivemq.com:8884/mqtt';
+const TOPIC_PRE  = 'birgsol-call-v1';
+
+const ICE_CONF = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80',    username:'openrelayproject', credential:'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443',   username:'openrelayproject', credential:'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username:'openrelayproject', credential:'openrelayproject' }
+  ]
+};
+
+/* ── State ── */
+let myName   = '';
+let mqClient = null;
+let pc       = null;          // RTCPeerConnection
+let localStream = null;
+let callWith = '';            // who we're calling / being called by
+let isCaller = false;
+let muted    = false;
+let timerInterval = null;
+let timerSec = 0;
+const onlineUsers = new Set();
+
+/* ══════════ SCREENS ══════════ */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+/* ══════════ JOIN ══════════ */
+function join() {
+  const v = document.getElementById('username-input').value.trim();
+  if (!v) return;
+  myName = v;
+  document.getElementById('my-name-label').textContent = '👤 ' + myName;
+  show('main-screen');
+  connectMQTT();
+}
+
+/* ══════════ MQTT ══════════ */
+function connectMQTT() {
+  const clientId = 'bcall_' + myName + '_' + Math.random().toString(36).slice(2,7);
+  mqClient = mqtt.connect(MQTT_URL, { clientId, clean: true });
+
+  mqClient.on('connect', () => {
+    setConn(true);
+    // Subscribe to our signal channel
+    mqClient.subscribe(`${TOPIC_PRE}/signal/${myName}`);
+    mqClient.subscribe(`${TOPIC_PRE}/online/+`);
+    // Announce presence
+    mqClient.publish(`${TOPIC_PRE}/online/${myName}`, myName, { retain: true, qos: 1 });
+    // Request online list by re-publishing our own
+    setTimeout(() => mqClient.publish(`${TOPIC_PRE}/online/${myName}`, myName, { retain: true, qos: 1 }), 500);
+  });
+
+  mqClient.on('offline', () => setConn(false));
+  mqClient.on('error', () => setConn(false));
+
+  mqClient.on('message', (topic, payload) => {
+    const msg = payload.toString();
+    if (topic.startsWith(`${TOPIC_PRE}/online/`)) {
+      const user = topic.split('/').pop();
+      if (!msg) { onlineUsers.delete(user); }
+      else if (user !== myName) { onlineUsers.add(user); }
+      renderOnline();
+      return;
+    }
+    if (topic === `${TOPIC_PRE}/signal/${myName}`) {
+      try { handleSignal(JSON.parse(msg)); } catch(e) {}
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (mqClient) mqClient.publish(`${TOPIC_PRE}/online/${myName}`, '', { retain: true, qos: 1 });
+  });
+}
+
+function setConn(online) {
+  const pill = document.getElementById('conn-pill');
+  const txt  = document.getElementById('conn-text');
+  pill.className = 'conn-pill' + (online ? '' : ' offline');
+  txt.textContent = online ? 'מחובר' : 'מתחבר...';
+}
+
+function send(to, data) {
+  mqClient.publish(`${TOPIC_PRE}/signal/${to}`, JSON.stringify({ from: myName, ...data }));
+}
+
+/* ══════════ ONLINE LIST ══════════ */
+function renderOnline() {
+  const list = document.getElementById('online-list');
+  const users = [...onlineUsers];
+  if (!users.length) {
+    list.innerHTML = '<div class="empty-online">אין משתמשים מחוברים כרגע<br><small style="font-size:11px;opacity:0.5">פתח דף נוסף בטלפון אחר</small></div>';
+    return;
+  }
+  list.innerHTML = users.map(u => `
+    <div class="online-item" onclick="callUser('${u}')">
+      <div class="online-avatar">${u[0].toUpperCase()}</div>
+      <div class="online-name">${u}</div>
+      <div class="online-call-ico">📞</div>
+    </div>`).join('');
+}
+
+/* ══════════ START CALL ══════════ */
+async function callUser(name) {
+  document.getElementById('dial-input').value = name;
+  startCall();
+}
+
+async function startCall() {
+  const target = (document.getElementById('dial-input').value || '').trim();
+  if (!target || target === myName) return alert('הזן שם משתמש תקין');
+  callWith = target; isCaller = true;
+
+  setCallUI('out', target);
+  show('outgoing-screen');
+  document.getElementById('out-status').textContent = 'מצלצל...';
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    pc = new RTCPeerConnection(ICE_CONF);
+    setupPC();
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    send(target, { type: 'ring', sdp: offer });
+  } catch(e) {
+    alert('לא ניתן לגשת למיקרופון: ' + e.message);
+    hangUp();
+  }
+}
+
+/* ══════════ HANDLE SIGNAL ══════════ */
+async function handleSignal(msg) {
+  const { type, from, sdp, ice } = msg;
+
+  if (type === 'ring') {
+    if (callWith) { send(from, { type: 'busy' }); return; }
+    callWith = from; isCaller = false;
+    setCallUI('in', from);
+    show('incoming-screen');
+    document.getElementById('ringtone').play().catch(()=>{});
+    window._pendingSdp = sdp;
+  }
+
+  if (type === 'answer' && pc) {
+    document.getElementById('out-status').textContent = 'מחובר';
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+  }
+
+  if (type === 'ice' && pc && ice) {
+    try { await pc.addIceCandidate(new RTCIceCandidate(ice)); } catch(e) {}
+  }
+
+  if (type === 'hang' || type === 'busy' || type === 'reject') {
+    if (type === 'busy')  showToast(from + ' עסוק כרגע');
+    if (type === 'reject') showToast(from + ' דחה את השיחה');
+    endCallCleanup();
+  }
+}
+
+/* ══════════ ANSWER ══════════ */
+async function answerCall() {
+  document.getElementById('ringtone').pause();
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    pc = new RTCPeerConnection(ICE_CONF);
+    setupPC();
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    await pc.setRemoteDescription(new RTCSessionDescription(window._pendingSdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    send(callWith, { type: 'answer', sdp: answer });
+    startTimer();
+    setCallUI('act', callWith);
+    show('active-screen');
+  } catch(e) {
+    alert('שגיאה: ' + e.message); hangUp();
+  }
+}
+
+/* ══════════ REJECT ══════════ */
+function rejectCall() {
+  document.getElementById('ringtone').pause();
+  send(callWith, { type: 'reject' });
+  endCallCleanup();
+}
+
+/* ══════════ HANG UP ══════════ */
+function hangUp() {
+  document.getElementById('ringtone').pause();
+  if (callWith) send(callWith, { type: 'hang' });
+  endCallCleanup();
+}
+
+function endCallCleanup() {
+  if (pc) { pc.close(); pc = null; }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  document.getElementById('remote-audio').srcObject = null;
+  clearInterval(timerInterval); timerInterval = null; timerSec = 0;
+  callWith = ''; isCaller = false; muted = false;
+  show('main-screen');
+}
+
+/* ══════════ WebRTC SETUP ══════════ */
+function setupPC() {
+  pc.onicecandidate = e => {
+    if (e.candidate) send(callWith, { type: 'ice', ice: e.candidate });
+  };
+  pc.ontrack = e => {
+    document.getElementById('remote-audio').srcObject = e.streams[0];
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc && pc.connectionState === 'connected') {
+      startTimer();
+      setCallUI('act', callWith);
+      show('active-screen');
+    }
+    if (pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')) {
+      showToast('החיבור נותק'); endCallCleanup();
+    }
+  };
+}
+
+/* ══════════ CONTROLS ══════════ */
+function toggleMute() {
+  muted = !muted;
+  if (localStream) localStream.getAudioTracks().forEach(t => t.enabled = !muted);
+  const btn = document.getElementById('mute-btn');
+  btn.textContent = muted ? '🔇' : '🎤';
+  btn.classList.toggle('active', muted);
+}
+function toggleSpeaker() {
+  const btn = document.getElementById('speaker-btn');
+  btn.classList.toggle('active');
+  showToast('רמקול: ' + (btn.classList.contains('active') ? 'פעיל' : 'כבוי'));
+}
+
+/* ══════════ TIMER ══════════ */
+function startTimer() {
+  timerSec = 0;
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timerSec++;
+    const m = String(Math.floor(timerSec/60)).padStart(2,'0');
+    const s = String(timerSec%60).padStart(2,'0');
+    document.getElementById('call-timer').textContent = m + ':' + s;
+  }, 1000);
+}
+
+/* ══════════ UI HELPERS ══════════ */
+function setCallUI(prefix, name) {
+  const el = id => document.getElementById(prefix+'-'+id);
+  if(el('avatar')) el('avatar').textContent = name[0]?.toUpperCase() || '?';
+  if(el('name'))   el('name').textContent   = name;
+}
+
+let toastTimer;
+function showToast(msg) {
+  let t = document.getElementById('_toast');
+  if (!t) { t = document.createElement('div'); t.id = '_toast'; t.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(28,28,30,0.92);color:#fff;border-radius:100px;padding:11px 24px;font-size:14px;font-weight:600;opacity:0;transition:all 0.3s;z-index:999;white-space:nowrap;backdrop-filter:blur(10px);pointer-events:none;'; document.body.appendChild(t); }
+  t.textContent = msg; t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(20px)'; }, 2800);
+}
+</script>
+</body>
+</html>
