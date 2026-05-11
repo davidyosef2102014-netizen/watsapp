@@ -14,6 +14,7 @@
 <link rel="apple-touch-icon" href="pathly-icon.svg">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;width:100%;overflow:hidden;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;direction:rtl;-webkit-tap-highlight-color:transparent}
@@ -504,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ── Map ── */
 function initMap() {
-  map = L.map('map', { center:[31.78,35.21], zoom:13, zoomControl:false, zoomSnap:.5 });
+  map = L.map('map', { center:[31.78,35.21], zoom:13, zoomControl:false, zoomSnap:.5, rotate:true, bearing:0 });
   tile = mkTile();
   map.on('dragstart', () => { autoC = false; });
 }
@@ -612,18 +613,23 @@ function showGpsBanner() {
   document.body.appendChild(b);
 }
 function buildArrowHtml(deg) {
-  return `<div data-arrow style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;transition:transform .25s ease;transform:rotate(${deg}deg)">
+  // Arrow always points UP — the map rotates beneath it (heading-up mode)
+  return `<div data-arrow style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
     <svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="15" cy="36" rx="6" ry="1.8" fill="rgba(0,0,0,0.22)"/>
       <path d="M15 3L27 33L15 26L3 33Z" fill="rgba(0,0,0,0.2)" transform="translate(1.5,2.5)"/>
-      <path d="M15 3L27 33L15 26L3 33Z" fill="#111" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+      <path id="arr-path" d="M15 3L27 33L15 26L3 33Z" fill="#111" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
     </svg>
   </div>`;
 }
 function onPos(pos) {
   const { latitude:lat, longitude:lng, speed, accuracy, heading } = pos.coords;
   // Track heading (only when moving to avoid GPS drift spin)
-  if (heading != null && (speed||0) > 0.5) lastHeading = heading;
+  if (heading != null && (speed||0) > 0.5) {
+    lastHeading = heading;
+    // Rotate map so heading is always UP — Waze style
+    map.setBearing(lastHeading);
+  }
   // Always set uPos so routing can use it
   uPos = { lat, lng };
   // Skip very inaccurate positions (cell-tower fix can be hundreds of metres off)
@@ -643,9 +649,7 @@ function onPos(pos) {
     if (autoC) map.setView([lat,lng],16);
   } else {
     userMark.setLatLng([lat,lng]);
-    // Rotate arrow to match travel direction
-    const el = userMark.getElement();
-    if (el) { const inner = el.querySelector('[data-arrow]'); if (inner) inner.style.transform = `rotate(${lastHeading}deg)`; }
+    // Arrow stays fixed pointing UP — map rotation handles direction (heading-up mode)
     if (autoC) map.panTo([lat,lng]);
   }
   updSpeed(speed||0);
