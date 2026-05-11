@@ -377,7 +377,15 @@ body.night #cam-wrap{background:#2c2c2e}
 <!-- Top-right controls -->
 <div id="top-left">
   <button class="ic" id="night-btn" onclick="toggleNight()">🌙</button>
-  <button class="ic" id="voice-btn" onclick="toggleVoice()" title="קול">🔊</button>
+  <div style="position:relative">
+    <button class="ic" id="voice-btn" onclick="toggleVoice()" title="קול">🔊🇮🇱</button>
+    <div id="voice-picker" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:#1c1c1e;border-radius:16px;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);min-width:150px;z-index:999;border:1px solid rgba(255,255,255,0.1)">
+      <button id="vp-he" onclick="setVoiceLang('he')" style="width:100%;background:none;border:none;color:#fff;font-size:15px;padding:10px 14px;text-align:right;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;font-family:inherit">🇮🇱 <span>עברית</span></button>
+      <button id="vp-en" onclick="setVoiceLang('en')" style="width:100%;background:none;border:none;color:#fff;font-size:15px;padding:10px 14px;text-align:right;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;font-family:inherit">🇺🇸 <span>English</span></button>
+      <div style="height:0.5px;background:rgba(255,255,255,0.12);margin:4px 8px"></div>
+      <button id="vp-off" onclick="voiceOn=false;document.getElementById('voice-btn').textContent='🔇';document.getElementById('voice-picker').style.display='none'" style="width:100%;background:none;border:none;color:#ff3b30;font-size:15px;padding:10px 14px;text-align:right;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;font-family:inherit">🔇 <span>כבוי</span></button>
+    </div>
+  </div>
   <button class="ic" id="comp-btn" title="מצפן">🧭</button>
   <button class="ic" id="tilt-btn" onclick="toggle3D()" title="תלת מימד">3D</button>
 </div>
@@ -493,7 +501,7 @@ let etaIv = null, searchTm = null;
 let dName = '';
 let night = false, tile = null;
 let camTm = null, lastCam = 0;
-let voiceOn = true;
+let voiceOn = true, voiceLang = 'he'; // 'he' | 'en'
 let alerted200 = false; // for 200m warning
 let tapMark = null, lastHeading = 0;
 let tilt3d = false, trafficFactor = 1.0;
@@ -501,6 +509,10 @@ let tilt3d = false, trafficFactor = 1.0;
 /* ── Init ── */
 document.addEventListener('DOMContentLoaded', () => {
   initMap(); initSearch(); startGPS(); initCompass();
+  document.addEventListener('click', e => {
+    const p = document.getElementById('voice-picker');
+    if (p && !p.closest('div').contains(e.target)) p.style.display = 'none';
+  });
 });
 
 /* ── Map ── */
@@ -539,40 +551,53 @@ function updateArrowColors() {
 }
 
 /* ── Voice ── */
-let heVoice = null;
+let heVoice = null, enVoice = null;
 function loadVoices() {
   if (!window.speechSynthesis) return;
   const vs = window.speechSynthesis.getVoices();
   heVoice = vs.find(v => v.lang === 'he-IL') ||
             vs.find(v => v.lang.startsWith('he')) ||
-            vs.find(v => /hebrew|ivrit/i.test(v.name)) ||
-            null;
+            vs.find(v => /hebrew|ivrit/i.test(v.name)) || null;
+  enVoice = vs.find(v => v.lang === 'en-US') ||
+            vs.find(v => v.lang === 'en-GB') ||
+            vs.find(v => v.lang.startsWith('en')) || null;
 }
 if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = loadVoices;
   loadVoices();
 }
-function toggleVoice() {
-  voiceOn = !voiceOn;
-  document.getElementById('voice-btn').textContent = voiceOn ? '🔊' : '🔇';
-  if (voiceOn) speak('קול מופעל');
+/* ── Voice picker ── */
+function openVoicePicker() {
+  const p = document.getElementById('voice-picker');
+  const open = p.style.display !== 'none';
+  p.style.display = open ? 'none' : 'block';
+  // mark active
+  ['he','en'].forEach(l => {
+    const b = document.getElementById('vp-'+l);
+    if (b) b.style.fontWeight = (voiceOn && voiceLang===l) ? '800' : '400';
+    if (b) b.style.color = (voiceOn && voiceLang===l) ? '#007aff' : '';
+  });
+  const off = document.getElementById('vp-off');
+  if (off) { off.style.fontWeight = !voiceOn ? '800' : '400'; off.style.color = !voiceOn ? '#ff3b30' : ''; }
 }
-function speak(text) {
+function setVoiceLang(lang) {
+  voiceLang = lang; voiceOn = true;
+  document.getElementById('voice-btn').textContent = lang === 'en' ? '🔊🇺🇸' : '🔊🇮🇱';
+  document.getElementById('voice-picker').style.display = 'none';
+  speak('קול מופעל', 'Voice enabled');
+}
+function toggleVoice() { openVoicePicker(); }
+function speak(heText, enText = '') {
   if (!voiceOn || !window.speechSynthesis) return;
-  // iOS fix: cancel any stuck utterance
+  const isEn = voiceLang === 'en';
+  const text  = isEn && enText ? enText : heText;
+  const lang  = isEn ? 'en-US' : 'he-IL';
+  const voice = isEn ? enVoice  : heVoice;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'he-IL';
-  u.rate = 0.9;
-  u.pitch = 1.0;
-  u.volume = 1.0;
-  if (heVoice) u.voice = heVoice;
-  else {
-    // Retry voice load
-    loadVoices();
-    if (heVoice) u.voice = heVoice;
-  }
-  // iOS workaround: delay slightly after cancel
+  u.lang = lang; u.rate = 0.9; u.pitch = 1.0; u.volume = 1.0;
+  if (voice) u.voice = voice;
+  else { loadVoices(); if (isEn ? enVoice : heVoice) u.voice = isEn ? enVoice : heVoice; }
   setTimeout(() => window.speechSynthesis.speak(u), 50);
 }
 
@@ -916,7 +941,8 @@ function startNav(route) {
     document.getElementById('traffic-badge').classList.add('vis');
   }
   toast(`✓ ${dist} · ${dur}${tLabel ? ' '+tLabel : ''}`);
-  speak(`מסלול נמצא. ${dur}, ${dist}${trafficFactor>1.2 ? ', שים לב לפקקים' : ''}`);
+  speak(`מסלול נמצא. ${dur}, ${dist}${trafficFactor>1.2 ? ', שים לב לפקקים' : ''}`,
+        `Route found. ${dur}, ${dist}${trafficFactor>1.2 ? ', heavy traffic ahead' : ''}`);
   // Auto-enable 3D view
   if (!tilt3d) toggle3D();
   // Keep screen on + allow background notifications
@@ -997,7 +1023,7 @@ function syncDist(lat,lng) {
   if (!alerted200 && d2<200 && d2>30) {
     alerted200=true;
     const warn200 = 'בעוד 200 מטר — ' + heInstr(steps[sIdx]);
-    speak(warn200);
+    speak(warn200, 'In 200 meters, ' + enInstr(steps[sIdx]));
     navNotif('📍 200 מטר', heInstr(steps[sIdx]));
   }
 }
@@ -1029,7 +1055,7 @@ function advStep(lat,lng) {
   if(dist<30){
     sIdx++; alerted200=false;
     const nextInstr=heInstr(steps[sIdx]);
-    speak(nextInstr);
+    speak(nextInstr, enInstr(steps[sIdx]));
     navNotif('🧭 ' + nextInstr, steps[sIdx].name || '');
     updHUD();
     if(autoC) map.panTo([lat,lng]);
@@ -1041,7 +1067,7 @@ function beepCam(kmh) {
   const now=Date.now(); if(now-lastCam<8000)return; lastCam=now;
   document.getElementById('cam-txt').textContent=`מצלמה — ${kmh} קמ"ש`;
   document.getElementById('cam-wrap').classList.add('vis');
-  speak(`זהירות, מצלמת מהירות`);
+  speak(`זהירות, מצלמת מהירות`, `Warning, speed camera ahead`);
   try{const c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.setValueAtTime(1000,c.currentTime);o.frequency.setValueAtTime(700,c.currentTime+.18);g.gain.setValueAtTime(.35,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.55);o.start();o.stop(c.currentTime+.55);}catch(e){}
   clearTimeout(camTm); camTm=setTimeout(()=>document.getElementById('cam-wrap').classList.remove('vis'),5000);
 }
@@ -1110,7 +1136,7 @@ function showArrived(){
   document.getElementById('av-dest').textContent = dName;
   document.getElementById('arrived').classList.add('vis');
   launchConfetti();
-  speak('הגעת ליעד!');
+  speak('הגעת ליעד!', 'You have arrived!');
   navNotif('🏁 הגעת!', dName);
 }
 function closeArrived(){document.getElementById('arrived').classList.remove('vis');stopNav();}
@@ -1129,6 +1155,18 @@ function enc(s){return encodeURIComponent(s);}
 function toast(msg,ms=3000){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('vis');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('vis'),ms);}
 function showLoad(v){document.getElementById('loading').classList.toggle('vis',v);}
 
+function enInstr(st){
+  const t=st.maneuver.type,m=st.maneuver.modifier||'',n=st.name||'';
+  if(t==='turn'){if(m==='uturn')return'Make a U-turn';if(m==='sharp right')return n?`Sharp right onto ${n}`:'Sharp right';if(m==='sharp left')return n?`Sharp left onto ${n}`:'Sharp left';if(m==='slight right')return n?`Keep right onto ${n}`:'Keep right';if(m==='slight left')return n?`Keep left onto ${n}`:'Keep left';if(m.includes('right'))return n?`Turn right onto ${n}`:'Turn right';if(m.includes('left'))return n?`Turn left onto ${n}`:'Turn left';return n?`Continue on ${n}`:'Continue straight';}
+  if(t==='arrive')return'You have arrived';
+  if(t==='depart')return n?`Head onto ${n}`:'Depart';
+  if(t==='roundabout'||t==='rotary')return n?`Enter roundabout, exit to ${n}`:'Enter the roundabout';
+  if(t==='merge')return n?`Merge onto ${n}`:'Merge';
+  if(t==='on ramp')return n?`Take ramp to ${n}`:'Take the ramp';
+  if(t==='off ramp')return n?`Take exit to ${n}`:'Take the exit';
+  if(t==='fork'){if(m.includes('right'))return n?`Keep right to ${n}`:'Keep right at fork';return n?`Keep left to ${n}`:'Keep left at fork';}
+  return n?`Continue on ${n}`:'Continue straight';
+}
 function heInstr(st){
   const t=st.maneuver.type,m=st.maneuver.modifier||'',n=st.name||'';
   if(t==='turn'){if(m==='uturn')return'בצע פניית פרסה';if(m==='sharp right')return`פנה חדה ימינה${n?' ל'+n:''}`;if(m==='sharp left')return`פנה חדה שמאלה${n?' ל'+n:''}`;if(m==='slight right')return`סע מעט ימינה${n?' ל'+n:''}`;if(m==='slight left')return`סע מעט שמאלה${n?' ל'+n:''}`;if(m.includes('right'))return`פנה ימינה${n?' ל'+n:''}`;if(m.includes('left'))return`פנה שמאלה${n?' ל'+n:''}`;return`המשך ישר${n?' ב'+n:''}`;}
