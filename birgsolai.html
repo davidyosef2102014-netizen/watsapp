@@ -380,6 +380,85 @@
         .login-bank-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 18px; }
         .login-bank-note span { color: var(--blue); }
 
+        /* ── Google sign-in ── */
+        .login-divider {
+            display:flex; align-items:center; gap:10px;
+            margin:18px 0 14px; color:var(--muted); font-size:12px;
+        }
+        .login-divider::before,.login-divider::after {
+            content:''; flex:1; height:1px; background:var(--border);
+        }
+        .google-login-btn {
+            width:100%; padding:13px 16px; border-radius:50px;
+            background:var(--surf2); border:1.5px solid var(--border);
+            color:var(--text); font-size:15px; font-weight:600;
+            font-family:inherit; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; gap:10px;
+            transition:background .2s, border-color .2s;
+        }
+        .google-login-btn:hover { background:var(--surf); border-color:rgba(255,255,255,.2); }
+        .google-login-btn svg { width:20px; height:20px; flex-shrink:0; }
+
+        /* ── Firebase setup modal ── */
+        #fb-setup-modal {
+            display:none; position:fixed; inset:0; z-index:10500;
+            background:rgba(0,0,0,.85); backdrop-filter:blur(10px);
+            align-items:center; justify-content:center; padding:20px;
+        }
+        #fb-setup-modal.on { display:flex; }
+        .fb-setup-card {
+            background:var(--surf); border:1px solid var(--border);
+            border-radius:24px; padding:32px 28px; width:100%; max-width:480px;
+            max-height:90vh; overflow-y:auto;
+        }
+        .fb-setup-card h2 { font-size:1.3rem; font-weight:800; margin-bottom:6px; }
+        .fb-setup-card p  { font-size:13px; color:var(--muted); margin-bottom:20px; line-height:1.6; }
+        .fb-step {
+            background:var(--surf2); border-radius:14px;
+            padding:14px 16px; margin-bottom:12px; font-size:13px; line-height:1.7;
+        }
+        .fb-step b { color:var(--blue); }
+        .fb-step a { color:var(--purple); }
+        #fb-config-input {
+            width:100%; min-height:130px; background:var(--surf2);
+            border:1.5px solid var(--border); border-radius:14px;
+            padding:14px; color:var(--text); font-size:13px;
+            font-family:monospace; resize:vertical; outline:none;
+            margin-top:12px; transition:border-color .2s;
+            direction:ltr;
+        }
+        #fb-config-input:focus { border-color:rgba(138,180,248,.5); }
+        #fb-config-err { color:#ff8a80; font-size:13px; margin-top:8px; display:none; }
+
+        /* ── sidebar Google user chip ── */
+        .g-user-chip {
+            display:flex; align-items:center; gap:10px;
+            padding:10px 14px; margin:8px 10px 4px;
+            background:var(--surf2); border-radius:14px;
+        }
+        .g-user-chip img {
+            width:32px; height:32px; border-radius:50%; object-fit:cover;
+        }
+        .g-user-chip .g-name { font-size:13px; font-weight:600; flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+        .g-user-chip .g-logout {
+            background:none; border:none; color:var(--muted);
+            font-size:12px; cursor:pointer; padding:4px 8px;
+            border-radius:8px; transition:background .15s; font-family:inherit;
+        }
+        .g-user-chip .g-logout:hover { background:rgba(255,255,255,.08); color:var(--text); }
+
+        /* ── conv list items (clickable full conversations) ── */
+        .conv-item {
+            padding:10px 14px; border-radius:12px; cursor:pointer;
+            font-size:13.5px; line-height:1.4; color:var(--text);
+            display:flex; align-items:flex-start; gap:8px;
+            transition:background .15s; margin-bottom:2px;
+        }
+        .conv-item:hover { background:var(--surf2); }
+        .conv-item.active { background:rgba(138,180,248,.12); }
+        .conv-item .ci-icon { flex-shrink:0; font-size:15px; }
+        .conv-item .ci-title { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+
         /* ══════════════ FREE BANNER ══════════════ */
         #free-banner {
             background: linear-gradient(to left, rgba(66,133,244,.15), rgba(197,138,249,.15));
@@ -627,7 +706,8 @@
         </div>
         <button class="login-btn" onclick="doLogin()">כניסה לאזור האישי</button>
         <div id="li-err" class="login-err"></div>
-        <p class="login-bank-note">🏦 מחובר ל<span>Poninio Bank</span> · אין צורך בחשבון Google</p>
+
+        <p class="login-bank-note">🏦 מחובר ל<span>Poninio Bank</span> · השיחות שלך נשמרות אוטומטית</p>
         <div style="text-align:center;margin-top:14px;">
             <span style="font-size:13px;color:var(--muted);">אין לך חשבון עדיין? </span>
             <button onclick="showRegister()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;">צור חשבון חדש</button>
@@ -716,6 +796,7 @@
         </div>
     </div>
 </div>
+
 
 <!-- ══ PRICING PAGE ══ -->
 <div id="pricing-modal">
@@ -942,6 +1023,99 @@
 <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 <script>
+/* ══════════════ שיחות — שמירה מלאה ב-localStorage ══════════════ */
+let currentConvId = null;
+let convList = [];   // [{id, title, messages, updatedAt}]
+
+const CONVS_KEY = () => 'birgsol_convs_' + currentUser;
+
+/* טען את כל השיחות של המשתמש */
+function loadConversations() {
+    const raw = localStorage.getItem(CONVS_KEY());
+    convList = raw ? JSON.parse(raw) : [];
+    renderConvList();
+}
+
+/* שמור / עדכן את השיחה הנוכחית */
+function saveConversation() {
+    if (!currentUser || !hist.length) return;
+    const title = (hist.find(m => m.role === 'user')?.content || 'שיחה').slice(0, 40);
+    const msgs  = hist.slice(-100); // מקסימום 100 הודעות לשיחה
+    const now   = Date.now();
+
+    if (!currentConvId) {
+        // שיחה חדשה
+        currentConvId = 'conv_' + now;
+        convList.unshift({ id: currentConvId, title, messages: msgs, updatedAt: now });
+    } else {
+        const idx = convList.findIndex(c => c.id === currentConvId);
+        if (idx !== -1) {
+            convList[idx].messages  = msgs;
+            convList[idx].updatedAt = now;
+            convList[idx].title     = title;
+        }
+    }
+    // שמור מקסימום 50 שיחות
+    if (convList.length > 50) convList = convList.slice(0, 50);
+    localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
+    renderConvList();
+}
+
+/* צייר את רשימת השיחות בסרגל הצד */
+function renderConvList() {
+    const list = document.getElementById('hist-list');
+    if (!convList.length) {
+        list.innerHTML = '<div style="padding:12px 14px;color:var(--muted);font-style:italic;font-size:13px;">אין שיחות עדיין...</div>';
+        return;
+    }
+    list.innerHTML = convList.map(c => `
+        <div class="conv-item ${c.id === currentConvId ? 'active' : ''}" onclick="openConversation('${c.id}')">
+            <span class="ci-icon">💬</span>
+            <span class="ci-title">${escHtml(c.title || 'שיחה')}</span>
+        </div>
+    `).join('');
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* פתח שיחה קיימת וטען אותה למסך */
+function openConversation(convId) {
+    const found = convList.find(c => c.id === convId);
+    if (!found) return;
+    currentConvId = convId;
+    hist = Array.isArray(found.messages) ? JSON.parse(JSON.stringify(found.messages)) : [];
+    isFirstMsg = false;
+
+    // רנדר מחדש את כל ההודעות
+    const cw = document.getElementById('chat-window');
+    cw.innerHTML = '';
+    showChat();
+    hist.forEach(m => renderMsgOnly(m.role === 'user' ? 'user' : 'ai', m.content));
+    cw.scrollTo({ top: cw.scrollHeight });
+    renderConvList(); // סמן פעיל
+    closeSidebar();
+}
+
+/* רנדר הודעה בלי להוסיף להיסטוריה */
+function renderMsgOnly(role, text) {
+    const cw  = document.getElementById('chat-window');
+    const row = document.createElement('div');
+    row.className = 'msg-row ' + (role === 'user' ? 'user' : 'ai');
+    const bub = document.createElement('div');
+    bub.className = 'bubble';
+    if (role === 'ai') {
+        bub.innerHTML = renderMd(text);
+        bub.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+        addCodeButtons(bub);
+    } else {
+        bub.textContent = text;
+    }
+    row.appendChild(bub);
+    cw.appendChild(row);
+}
+
 /* ══════════════ BANK & AUTH ══════════════ */
 const BANK_KEY    = 'poninioBankAccounts';
 const AI_AUTH_KEY = 'birgsolai_auth';
@@ -1242,7 +1416,7 @@ function doRegister() {
 function doLogout() {
     if (!confirm('להתנתק מ-Birgsol AI?')) return;
     localStorage.removeItem(AI_AUTH_KEY);
-    currentUser = null; isPremium = false; freeLeft = FREE_LIMIT; hist = [];
+    currentUser = null; isPremium = false; freeLeft = FREE_LIMIT; hist = []; currentConvId = null; convList = [];
     document.getElementById('chat-window').innerHTML = '';
     document.getElementById('chat-window').style.display = 'none';
     document.getElementById('welcome').style.display = 'flex';
@@ -1253,27 +1427,10 @@ function doLogout() {
     closeSidebar();
 }
 
-/* ── sidebar history (persistent) ── */
-let chatTitles = [];
-function loadHistoryFromStorage() {
-    const saved = localStorage.getItem('birgsol_history_' + currentUser);
-    chatTitles = saved ? JSON.parse(saved) : [];
-    renderHistory();
-}
-function renderHistory() {
-    const list = document.getElementById('hist-list');
-    if (!chatTitles.length) {
-        list.innerHTML = '<div class="hist-item" style="color:var(--muted);font-style:italic;">אין שיחות עדיין...</div>';
-        return;
-    }
-    list.innerHTML = chatTitles.map(t => `<div class="hist-item">💬 ${t}</div>`).join('');
-}
-function addToHistory(title) {
-    chatTitles.unshift(title.slice(0, 38));
-    if (chatTitles.length > 20) chatTitles.pop();
-    localStorage.setItem('birgsol_history_' + currentUser, JSON.stringify(chatTitles));
-    renderHistory();
-}
+/* ── sidebar history — עכשיו מנוהל ע"י renderConvList / loadConversations ── */
+function loadHistoryFromStorage() { loadConversations(); }
+function renderHistory()          { renderConvList(); }
+function addToHistory()           { /* לא בשימוש — saveConversation() מטפל בהכל */ }
 
 /* ── update greeting ── */
 function updateGreeting() {
@@ -1483,6 +1640,7 @@ function addMsg(role, text, img = null, md = false) {
     return row;
 }
 
+
 /* ── typing ── */
 function showTyping() {
     showChat();
@@ -1589,7 +1747,9 @@ async function generateImage(prompt, reuseRow) {
 
     // ── 2. Build Flux prompt — skip translation if already English ──
     setTimeout(() => { if (skelBar) skelBar.style.width = '30%'; }, 200);
-    const QUALITY = ', photorealistic, ultra-detailed, 8k resolution, sharp focus, professional photography, studio lighting';
+    // Prefix: forces Flux to anchor on white studio FIRST (highest token weight)
+    const BG_PREFIX = 'white seamless studio background, isolated product shot, ';
+    const QUALITY_SUFFIX = ', photorealistic, ultra-detailed, 8k resolution, sharp focus, soft studio lighting, product photography';
     let engPrompt = prompt;
 
     // Detect language: if >60% of letters are ASCII → already English
@@ -1598,8 +1758,8 @@ async function generateImage(prompt, reuseRow) {
     const alreadyEng  = allLetters === 0 || asciiLetter / allLetters > 0.6;
 
     if (alreadyEng) {
-        // English — just boost quality keywords, no translation needed
-        engPrompt = prompt + QUALITY;
+        // English — put BG anchor FIRST so Flux respects it
+        engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
     } else {
         // Hebrew / other — translate + enhance
         try {
@@ -1608,14 +1768,15 @@ async function generateImage(prompt, reuseRow) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: [{ role: 'system', content:
-                        `You are an expert Flux/Stable Diffusion prompt engineer.
+                        `You are an expert Flux image generation prompt engineer.
 Convert the image request to a detailed English image generation prompt.
 Rules:
-1. PRESERVE technical/brand/product names exactly (Smartwatch, iPhone, Tesla…)
-2. Add visual details: colors, materials, lighting, perspective, style
-3. Append at end: photorealistic, ultra-detailed, 8k, sharp focus, studio lighting
-4. Output ONLY the prompt — no explanation, no quotes
-5. Max 120 words`
+1. START the prompt with: "white seamless studio background, isolated product shot,"
+2. PRESERVE technical/brand/product names exactly (Smartwatch, iPhone, Tesla, Apple Watch…)
+3. Add visual details: colors, materials, finish, perspective, style
+4. END the prompt with: photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, product photography
+5. Output ONLY the prompt — no explanation, no quotes
+6. Max 120 words`
                     }, { role: 'user', content: `Image request: "${prompt}"` }],
                     model: 'openai-large',
                     private: true
@@ -1624,8 +1785,8 @@ Rules:
             });
             const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
             if (t && t.length > 8 && t.length < 700) engPrompt = t;
-            else engPrompt = prompt + QUALITY;
-        } catch { engPrompt = prompt + QUALITY; }
+            else engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
+        } catch { engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX; }
     }
 
     if (skelTxt) skelTxt.textContent = 'מייצר תמונה…';
@@ -1633,7 +1794,7 @@ Rules:
 
     // ── 3. Build image URL and load ──
     const seed = Math.floor(Math.random() * 999999);
-    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=768&height=512&nologo=true&model=flux&seed=${seed}&enhance=true`;
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=768&height=512&nologo=true&model=flux&seed=${seed}&enhance=false`;
 
     // Simulate progress during image generation (Flux takes 20-60s)
     let prog = 55;
@@ -1688,6 +1849,7 @@ Rules:
 
     hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    saveConversation();
 }
 
 function triggerImageGen() {
@@ -1996,8 +2158,9 @@ async function send() {
         body.appendChild(acts);
 
         hist.push({ role: 'assistant', content: cleanText || fullText });
-        if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
+        if (isFirstMsg) { isFirstMsg = false; }
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+        saveConversation(); // שמור שיחה מלאה ב-localStorage
     } catch (e) {
         txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
     }
@@ -2013,8 +2176,8 @@ function startNew() {
     const cw = document.getElementById('chat-window');
     cw.innerHTML = ''; cw.style.display = 'none';
     document.getElementById('welcome').style.display = 'flex';
-    hist = []; isFirstMsg = true; closeSidebar();
-    updateGreeting();
+    hist = []; isFirstMsg = true; currentConvId = null;
+    closeSidebar(); updateGreeting(); renderConvList();
 }
 </script>
 </body>
