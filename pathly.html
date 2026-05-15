@@ -494,8 +494,9 @@ let dName = '';
 let night = false, tile = null;
 let camTm = null, lastCam = 0;
 let voiceOn = true;
-let alerted200 = false; // for 200m warning
+let alerted400 = false, alerted200 = false, alerted30 = false; // 3-phase voice guidance
 let tapMark = null, lastHeading = 0;
+let prevPos = null; // for heading calc from consecutive positions
 let tilt3d = false, trafficFactor = 1.0;
 
 /* ── Init ── */
@@ -614,12 +615,19 @@ function buildArrowHtml(deg) {
 }
 function onPos(pos) {
   const { latitude:lat, longitude:lng, speed, accuracy, heading } = pos.coords;
-  // Track heading (only when moving to avoid GPS drift spin)
-  if (heading != null && (speed||0) > 0.5) {
-    lastHeading = heading;
-    // Rotate map so heading is always UP — Waze style
+  // ── Heading-up: rotate map so direction-of-travel is always at the top ──
+  const spd = speed || 0;
+  if (spd > 0.25) {
+    if (heading != null && heading >= 0) {
+      // GPS device provides heading directly
+      lastHeading = heading;
+    } else if (prevPos) {
+      // Fallback: calculate bearing from consecutive positions
+      lastHeading = calcBearing(prevPos.lat, prevPos.lng, lat, lng);
+    }
     map.setBearing(lastHeading);
   }
+  prevPos = { lat, lng };
   // Always set uPos so routing can use it
   uPos = { lat, lng };
   // Skip very inaccurate positions (cell-tower fix can be hundreds of metres off)
@@ -856,7 +864,7 @@ function applyRoute(route) {
   clearRoute();
   trafficFactor = getTrafficFactor();
   remSec = route.duration * trafficFactor;
-  steps=route.legs[0].steps; sIdx=0; alerted200=false;
+  steps=route.legs[0].steps; sIdx=0; alerted400=false; alerted200=false; alerted30=false;
   const coords=route.geometry.coordinates.map(c=>[c[1],c[0]]);
   // Black route line (brand style)
   const rc = night ? '#fff' : '#111';
@@ -925,6 +933,7 @@ function startNav(route) {
 function stopNav() {
   isNav=false; autoC=false; clearInterval(etaIv); clearRoute();
   if(destMark){map.removeLayer(destMark);destMark=null;} dPos=null; steps=[]; sIdx=0;
+  alerted400=false; alerted200=false; alerted30=false;
   document.getElementById('nav-hud').classList.remove('vis');
   document.getElementById('recalc-btn').classList.remove('vis');
   document.getElementById('traffic-badge').classList.remove('vis');
@@ -982,13 +991,27 @@ function syncDist(lat,lng) {
   const covered=Math.max(0,steps[sIdx].distance-d2);
   const rem=Math.max(0,rd-covered);
   document.getElementById('eta-rem').textContent=fmt(rem);
-  document.getElementById('ns-remain').textContent=fmt(rem);
-  // 200m advance warning
-  if (!alerted200 && d2<200 && d2>30) {
+
+  const instr=heInstr(steps[sIdx]);
+  const mtype=steps[sIdx].maneuver.type;
+  const isTurnLike=(mtype==='turn'||mtype==='roundabout'||mtype==='rotary'||mtype==='fork'||mtype==='on ramp'||mtype==='off ramp'||mtype==='end of road');
+
+  // ── שלב 1: 400מ' מוקדם (רק לפניות) ──
+  if (!alerted400 && d2<400 && d2>200 && isTurnLike) {
+    alerted400=true;
+    speak(`בעוד 400 מטר — ${instr}`);
+  }
+  // ── שלב 2: 200מ' ──
+  if (!alerted200 && d2<200 && d2>55) {
     alerted200=true;
-    const warn200 = 'בעוד 200 מטר — ' + heInstr(steps[sIdx]);
-    speak(warn200);
-    navNotif('📍 200 מטר', heInstr(steps[sIdx]));
+    speak(`בעוד 200 מטר — ${instr}`);
+    navNotif('📍 200 מטר', instr);
+  }
+  // ── שלב 3: "עכשיו" — ~50מ' מהפנייה ──
+  if (!alerted30 && d2<55 && d2>8) {
+    alerted30=true;
+    speak(instr);
+    navNotif('🧭 ' + instr, steps[sIdx].name || '');
   }
 }
 
@@ -1016,11 +1039,11 @@ function advStep(lat,lng) {
   if(sIdx>=steps.length-1) return;
   const loc=steps[sIdx].maneuver.location;
   const dist=haversine(lat,lng,loc[1],loc[0]);
-  if(dist<30){
-    sIdx++; alerted200=false;
-    const nextInstr=heInstr(steps[sIdx]);
-    speak(nextInstr);
-    navNotif('🧭 ' + nextInstr, steps[sIdx].name || '');
+  // מעבר לשלב הבא ברגע שמגיעים ממש לנקודת הפנייה
+  // הקול כבר נאמר ב-syncDist (שלב 3 ~50מ') — לא חוזרים שוב
+  if(dist<12){
+    sIdx++;
+    alerted400=false; alerted200=false; alerted30=false;
     updHUD();
     if(autoC) map.panTo([lat,lng]);
   }
@@ -1110,6 +1133,13 @@ function getHist(){try{return JSON.parse(localStorage.getItem('pathly_h')||'[]')
 function saveHist(it){try{let h=getHist().filter(x=>x.name!==it.name);h.unshift(it);h=h.slice(0,10);localStorage.setItem('pathly_h',JSON.stringify(h));}catch(e){}}
 
 /* ── Helpers ── */
+/* חישוב כיוון נסיעה משתי נקודות GPS (כאשר device לא מחזיר heading) */
+function calcBearing(lat1,lon1,lat2,lon2){
+  const dL=(lon2-lon1)*Math.PI/180, la1=lat1*Math.PI/180, la2=lat2*Math.PI/180;
+  const y=Math.sin(dL)*Math.cos(la2);
+  const x=Math.cos(la1)*Math.sin(la2)-Math.sin(la1)*Math.cos(la2)*Math.cos(dL);
+  return(Math.atan2(y,x)*180/Math.PI+360)%360;
+}
 function haversine(a,b,c,d){const R=6371000,dA=(c-a)*Math.PI/180,dB=(d-b)*Math.PI/180,e=Math.sin(dA/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dB/2)**2;return R*2*Math.atan2(Math.sqrt(e),Math.sqrt(1-e));}
 function fmt(m){return m<1000?`${Math.round(m)} מ'`:`${(m/1000).toFixed(1)} ק"מ`;}
 function fmtDur(s){if(s<60)return'< דקה';const m=Math.round(s/60);if(m<60)return`${m} דק'`;return`${Math.floor(m/60)}ש' ${m%60>0?m%60+"ד'":''}`.trim();}
