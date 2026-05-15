@@ -1876,7 +1876,7 @@ Rules:
 5. Output ONLY the prompt — no explanation, no quotes
 6. Max 120 words`
                     }, { role: 'user', content: `Image request: "${prompt}"` }],
-                    model: 'openai-large',
+                    model: 'openai',
                     private: true
                 }),
                 signal: AbortSignal.timeout(10000)
@@ -2116,7 +2116,7 @@ async function callAI(messages, onChunk) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages,
-                model: 'openai-large',
+                model: 'openai',
                 stream: true,
                 private: true,
                 seed: Math.floor(Math.random() * 99999)
@@ -2168,9 +2168,11 @@ async function callAI(messages, onChunk) {
             return `${role}: ${text}`;
         }).join('\n');
 
-        const prompt = `${sys}\n\nConversation:\n${conv}`;
+        // Trim system prompt to avoid URL-too-long 404s
+        const shortSys = sys.substring(0, 300);
+        const prompt = `${shortSys}\n\nConversation:\n${conv}`;
         const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}` +
-            `?model=openai-large&private=true&seed=${Math.floor(Math.random()*99999)}`;
+            `?model=openai&private=true&seed=${Math.floor(Math.random()*99999)}`;
 
         const r = await fetch(url);
         if (!r.ok) throw new Error('GET ' + r.status);
