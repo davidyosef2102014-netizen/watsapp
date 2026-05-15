@@ -224,6 +224,10 @@
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         .stream-cursor { display:inline-block; width:2px; height:1.1em; background:var(--blue); margin-right:2px; vertical-align:text-bottom; animation:blink .7s infinite; border-radius:1px; }
         .stream-raw { white-space:pre-wrap; font-size:15.5px; line-height:1.78; color:var(--text); font-family:inherit; }
+        /* agent status bar */
+        .agent-status { margin:6px 0 10px; display:flex; flex-direction:column; gap:4px; }
+        .agent-step { font-size:12.5px; color:var(--muted); background:var(--surf2); border-radius:8px; padding:5px 10px; display:flex; align-items:center; gap:6px; animation:fadeUp .2s ease; }
+        .agent-step b { color:var(--text); }
 
         /* action buttons (Gemini style — appear on hover) */
         .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
@@ -1316,6 +1320,21 @@ Self-verify your code mentally before outputting it.
 - Be thorough and precise — no filler phrases like "Great question!" or "Certainly!"
 - DEFAULT language: Hebrew (עברית) — switch to the user's language if they write in English or another language
 
+=== WEB AGENT TOOLS ===
+You have REAL internet access. Use these tools whenever you need current information:
+
+Write tool calls on their own line, exactly like this:
+[SEARCH: your search query]
+[BROWSE: https://full-url.com]
+
+When to use:
+- [SEARCH] — news, current events, prices, weather, sports, any recent facts, "מה קורה ב...", "מה השעה/מחיר של...", any question about today's world
+- [BROWSE] — after a search gives you a URL you want to read in full; read articles, pages, docs
+- You may use up to 4 tool calls per answer
+- After each tool result is inserted, continue reasoning and answering
+- NEVER invent search results — only use what tools actually return
+- If tools return nothing useful, say so honestly
+
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.`;
 
@@ -1556,6 +1575,121 @@ function triggerImageGen() {
     updateBtn();
 }
 
+/* ══════════════ WEB AGENT TOOLS ══════════════ */
+
+/* DuckDuckGo Instant Answer + Jina fallback */
+async function webSearch(query) {
+    let out = '';
+    try {
+        const ddg = await fetch(
+            `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`,
+            { signal: AbortSignal.timeout(8000) }
+        );
+        const d = await ddg.json();
+        if (d.Answer)       out += `**תשובה ישירה:** ${d.Answer}\n\n`;
+        if (d.AbstractText) out += `${d.AbstractText}\n**מקור:** ${d.AbstractURL||''}\n\n`;
+        (d.RelatedTopics||[]).slice(0,6).forEach((t,i) => {
+            if (t.Text) out += `${i+1}. ${t.Text}${t.FirstURL?' 🔗 '+t.FirstURL:''}\n`;
+        });
+    } catch {}
+
+    // Fallback: Jina reader on DuckDuckGo HTML search
+    if (!out.trim()) {
+        try {
+            const jinaUrl = `https://r.jina.ai/https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+            const r = await fetch(jinaUrl, { signal: AbortSignal.timeout(12000) });
+            const t = await r.text();
+            out = t.replace(/\n{3,}/g,'\n\n').slice(0, 2500);
+        } catch {}
+    }
+    return out.trim() || '❌ אין תוצאות לחיפוש זה.';
+}
+
+/* Jina.ai reader — converts any URL to clean Markdown */
+async function webBrowse(url) {
+    try {
+        const r = await fetch(`https://r.jina.ai/${url}`, {
+            headers: { 'Accept': 'text/plain', 'X-Return-Format': 'markdown' },
+            signal: AbortSignal.timeout(15000)
+        });
+        const t = await r.text();
+        return t.slice(0, 3500);
+    } catch (e) {
+        return `❌ לא הצלחתי לקרוא את הדף: ${e.message}`;
+    }
+}
+
+/* Parse and execute tool calls from AI response */
+const RE_SEARCH = /\[SEARCH:\s*(.+?)\]/gi;
+const RE_BROWSE = /\[BROWSE:\s*(https?:\/\/[^\]\s]+)\]/gi;
+
+async function executeTool(match, type, statusEl) {
+    if (type === 'search') {
+        const q = match[1].trim();
+        statusEl.innerHTML += `<div class="agent-step">🔍 <b>מחפש:</b> ${esc2(q)}…</div>`;
+        const result = await webSearch(q);
+        statusEl.querySelector('.agent-step:last-child').innerHTML =
+            `✅ <b>חיפוש:</b> "${esc2(q)}"`;
+        return `\n\n---\n**🔍 תוצאות חיפוש: "${q}"**\n${result}\n---\n`;
+    }
+    if (type === 'browse') {
+        const url = match[1].trim();
+        statusEl.innerHTML += `<div class="agent-step">🌐 <b>קורא:</b> ${esc2(url)}…</div>`;
+        const result = await webBrowse(url);
+        statusEl.querySelector('.agent-step:last-child').innerHTML =
+            `✅ <b>קרא:</b> ${esc2(url.slice(0,60))}`;
+        return `\n\n---\n**🌐 תוכן הדף: ${url}**\n${result}\n---\n`;
+    }
+    return '';
+}
+
+function esc2(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* Agent loop — calls AI, detects tool calls, executes them, calls AI again */
+async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4) {
+    let fullText = '';
+    for (let iter = 0; iter < maxIter; iter++) {
+        // Stream current AI response
+        fullText = await callAI(messages, (partial) => {
+            // Show raw streaming (hide tool call lines for cleanliness)
+            const clean = partial.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
+            RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+            txtEl.innerHTML = '<span class="stream-raw">' +
+                clean.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+                '</span><span class="stream-cursor"></span>';
+            cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+        });
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+
+        // Collect tool calls
+        const searchMatches = [...fullText.matchAll(RE_SEARCH)];
+        const browseMatches = [...fullText.matchAll(RE_BROWSE)];
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+
+        if (!searchMatches.length && !browseMatches.length) break; // no tools → done
+
+        // Show agent status area
+        if (!statusEl.innerHTML) {
+            statusEl.style.display = 'block';
+        }
+
+        // Execute all tool calls in parallel
+        const toolPromises = [
+            ...searchMatches.map(m => executeTool(m, 'search', statusEl)),
+            ...browseMatches.map(m => executeTool(m, 'browse',  statusEl))
+        ];
+        const toolResults = await Promise.all(toolPromises);
+        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+
+        // Add to conversation: AI said X, here are tool results
+        const cleanResponse = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+        messages.push({ role: 'assistant', content: cleanResponse || fullText });
+        messages.push({ role: 'user',      content: toolResults.join('\n') + '\n\nעכשיו ענה על בסיס המידע שקיבלת.' });
+    }
+    return fullText;
+}
+
 /* ── CODE RUNNER & DOWNLOADER ── */
 function runCode(btn, lang) {
     const block = btn.closest('.code-block');
@@ -1658,7 +1792,6 @@ async function send() {
     // Build messages for OpenAI-compatible API
     const messages = [{ role: 'system', content: PERSONA }];
     hist.slice(-14).forEach(m => {
-        // images are already consumed in UI — send text-only history
         const content = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
         messages.push({ role: m.role, content });
     });
@@ -1671,42 +1804,42 @@ async function send() {
         messages.push({ role: 'user', content: q });
     }
 
-    // Create streaming AI message row
+    // ── Build AI message row with streaming text + agent status ──
     showChat();
-    const cw = document.getElementById('chat-window');
-    const row = document.createElement('div');
-    row.className = 'msg-row ai';
-    const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
+    const cw   = document.getElementById('chat-window');
+    const row  = document.createElement('div'); row.className = 'msg-row ai';
+    const ava  = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
     const body = document.createElement('div'); body.className = 'ai-body';
     const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'Birgsol AI Code';
+    // Agent status bar (hidden until tools are used)
+    const status = document.createElement('div'); status.className = 'agent-status'; status.style.display = 'none';
     const txt  = document.createElement('div'); txt.className = 'ai-txt';
-    // show blinking cursor immediately
     txt.innerHTML = '<span class="stream-cursor"></span>';
-    body.appendChild(nm); body.appendChild(txt);
+    body.appendChild(nm); body.appendChild(status); body.appendChild(txt);
     row.appendChild(ava); row.appendChild(body);
     cw.appendChild(row);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
     let fullText = '';
     try {
-        fullText = await callAI(messages, (partial) => {
-            // live raw text while streaming
-            txt.innerHTML = '<span class="stream-raw">' +
-                partial.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
-                '</span><span class="stream-cursor"></span>';
-            cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
-        });
+        // Run agent loop — handles tool calls automatically
+        fullText = await agentLoop(messages, txt, status, cw);
 
-        // Final: render as Markdown
-        txt.innerHTML = marked.parse(fullText);
+        // Final clean response: strip any leftover tool call lines
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+        const cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+
+        // Render as Markdown
+        txt.innerHTML = marked.parse(cleanText || fullText);
         enhanceCodeBlocks(txt);
 
-        // Add copy button
+        // Copy button
         const acts = document.createElement('div'); acts.className = 'ai-acts';
         acts.innerHTML = '<button class="ai-act" onclick="copyIt(this)">📋 העתק</button>';
         body.appendChild(acts);
 
-        hist.push({ role: 'assistant', content: fullText });
+        hist.push({ role: 'assistant', content: cleanText || fullText });
         if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
     } catch (e) {
