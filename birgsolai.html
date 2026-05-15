@@ -2065,7 +2065,35 @@ function downloadCode(btn, ext) {
 
 /* ── CALL AI — POST streaming with GET fallback ── */
 async function callAI(messages, onChunk) {
-    // ── Primary: POST with SSE streaming ──
+    // ── בדוק אם יש תמונה בהודעות ──
+    const hasImage = messages.some(m => Array.isArray(m.content) &&
+        m.content.some(c => c.type === 'image_url'));
+
+    // ── אם יש תמונה — POST בלי streaming (vision לא עובד עם SSE) ──
+    if (hasImage) {
+        try {
+            const res = await fetch('https://text.pollinations.ai/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages,
+                    model: 'openai',
+                    stream: false,
+                    private: true
+                }),
+                signal: AbortSignal.timeout(45000)
+            });
+            if (!res.ok) throw new Error('vision HTTP ' + res.status);
+            const text = (await res.text()).trim();
+            if (!text) throw new Error('vision empty');
+            onChunk(text);
+            return text;
+        } catch(e) {
+            throw e; // אל תחזור לגרסת GET — היא לא תומכת בתמונות
+        }
+    }
+
+    // ── Primary: POST with SSE streaming (טקסט בלבד) ──
     try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 90000);
