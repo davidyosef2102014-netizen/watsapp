@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Birgsol AI 2.0</title>
+    <title>Birgsol AI Code</title>
     <link href="https://fonts.bunny.net/css2?family=assistant:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link id="hljs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
     <style>
@@ -206,8 +206,20 @@
         .code-lang { font-size: 12px; color: var(--muted); font-family: monospace; }
         .code-copy { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 12px; padding: 3px 9px; border-radius: 6px; font-family: inherit; transition: background .15s, color .15s; }
         .code-copy:hover { background: var(--surf2); color: var(--text); }
+        .code-run { background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.25); cursor: pointer; color: #34d399; font-size: 12px; padding: 3px 9px; border-radius: 6px; font-family: inherit; transition: background .15s; }
+        .code-run:hover { background: rgba(52,211,153,.22); }
+        .code-dl  { background: rgba(138,180,248,.12); border: 1px solid rgba(138,180,248,.25); cursor: pointer; color: var(--blue); font-size: 12px; padding: 3px 9px; border-radius: 6px; font-family: inherit; transition: background .15s; }
+        .code-dl:hover { background: rgba(138,180,248,.22); }
+        .code-header-btns { display:flex; gap:4px; align-items:center; }
         .code-block pre { background: none; border: none; border-radius: 0; padding: 14px 16px; margin: 0; overflow-x: auto; }
         .code-block pre code { background: none; padding: 0; font-size: 13.5px; color: #e8eaed; }
+        .code-preview { width:100%; min-height:180px; border:none; border-top:1px solid var(--border); border-radius:0 0 12px 12px; background:#fff; display:none; }
+        .code-preview.on { display:block; }
+        .ai-img-wrap { margin:12px 0; }
+        .ai-gen-img { max-width:100%; border-radius:14px; display:block; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+        .ai-img-caption { font-size:12px; color:var(--muted); margin-top:6px; }
+        .img-gen-btn { background:none; border:none; cursor:pointer; width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; transition:background .15s; }
+        .img-gen-btn:hover { background:var(--surf2); }
 
         /* action buttons (Gemini style — appear on hover) */
         .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
@@ -568,8 +580,8 @@
     <div class="sp-ring"></div>
     <div class="sp-ring"></div>
     <div class="sp-logo">✦</div>
-    <div class="sp-title">Birgsol AI</div>
-    <div class="sp-sub">הבינה המלאכותית שלך</div>
+    <div class="sp-title">Birgsol AI Code</div>
+    <div class="sp-sub">סוכן AI · קוד · תמונות</div>
     <button class="sp-btn" onclick="startApp()">התחל</button>
     <div class="sp-footer">נוצר ע"י דוד יוסף זאבי · 2025</div>
 </div>
@@ -579,7 +591,7 @@
     <div class="login-card">
         <div class="login-logo">
             <div class="l-star">✦</div>
-            <h1>Birgsol AI 2.0</h1>
+            <h1>Birgsol AI Code</h1>
             <p>התחבר עם פרטי חשבון Poninio Bank שלך</p>
         </div>
         <div class="login-field">
@@ -797,7 +809,7 @@
     <div class="sb-head">
         <div class="sb-brand">
             <div class="sb-star">✦</div>
-            <span class="sb-name">Birgsol AI 2.0</span>
+            <span class="sb-name">Birgsol AI Code</span>
         </div>
         <button class="new-btn" onclick="startNew()">
             <span>✏️</span> שיחה חדשה
@@ -810,7 +822,7 @@
     <div class="sb-foot">
         <div class="live-row" style="margin-bottom:10px;">
             <div class="dot"></div>
-            <span>Birgsol AI 2.0 · GPT-4o</span>
+            <span>Birgsol AI Code · GPT-4o</span>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">נוצר ע"י דוד יוסף זאבי</div>
         <button onclick="doLogout()" style="width:100%;padding:9px;background:rgba(220,50,50,.12);border:1px solid rgba(220,50,50,.25);border-radius:50px;color:#ff8a80;font-size:13px;cursor:pointer;font-family:inherit;transition:background .15s;">
@@ -828,7 +840,7 @@
         </div>
         <div class="tb-logo">
             <div class="tb-star">✦</div>
-            <span class="tb-name">Birgsol AI</span>
+            <span class="tb-name">Birgsol AI Code</span>
         </div>
         <div class="tb-left">
             <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="החלף ערכת נושא" style="font-size:18px;">☀️</button>
@@ -846,25 +858,25 @@
         <div class="gem-hello" id="gem-hello">שלום</div>
         <div class="gem-sub">איך אוכל לעזור לך היום?</div>
         <div class="sug-grid">
-            <div class="sug-card" onclick="sendSug('כתוב לי סיפור קצר מקורי ומעניין')">
-                <div class="sug-icon">✍️</div>
-                <div class="sug-title">כתיבה יצירתית</div>
-                <div class="sug-desc">סיפורים, שירים, רעיונות</div>
-            </div>
-            <div class="sug-card" onclick="sendSug('עזור לי לכתוב קוד Python')">
+            <div class="sug-card" onclick="sendSug('כתוב לי אפלקציית todo list ב-HTML/CSS/JS מלאה ועם עיצוב יפה')">
                 <div class="sug-icon">💻</div>
-                <div class="sug-title">קוד ופיתוח</div>
-                <div class="sug-desc">Python, JS, HTML ועוד</div>
+                <div class="sug-title">קוד מלא</div>
+                <div class="sug-desc">HTML, Python, JS, React ועוד</div>
             </div>
-            <div class="sug-card" onclick="sendSug('הסבר לי איך בינה מלאכותית עובדת')">
+            <div class="sug-card" onclick="sendSug('צור תמונה של עיר עתידנית מרהיבה בשקיעה')">
+                <div class="sug-icon">🎨</div>
+                <div class="sug-title">יצירת תמונה</div>
+                <div class="sug-desc">AI image generation בחינם</div>
+            </div>
+            <div class="sug-card" onclick="sendSug('הסבר לי צעד אחר צעד איך עובד Neural Network')">
                 <div class="sug-icon">🧠</div>
                 <div class="sug-title">הסברים ולמידה</div>
                 <div class="sug-desc">מדע, היסטוריה, מתמטיקה</div>
             </div>
-            <div class="sug-card" onclick="sendSug('עזור לי לתכנן את השבוע שלי')">
-                <div class="sug-icon">📅</div>
-                <div class="sug-title">תכנון וארגון</div>
-                <div class="sug-desc">לוחות זמנים ורשימות</div>
+            <div class="sug-card" onclick="sendSug('עזור לי לנפות שגיאה בקוד שלי — אסביר את הבעיה')">
+                <div class="sug-icon">🐛</div>
+                <div class="sug-title">Debug סוכן</div>
+                <div class="sug-desc">ניפוי שגיאות, אופטימיזציה</div>
             </div>
         </div>
     </div>
@@ -895,6 +907,7 @@
                     <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
+                    <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI">🎨</button>
                     <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
                 </div>
             </div>
@@ -1272,27 +1285,24 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ── PERSONA ── */
-const PERSONA = `אתה בירגסול AI 2.0 — מודל שפה מתקדם ברמה גבוהה מאוד, חכם ומדויק כמו Claude של Anthropic.
-נוצרת ע"י דוד יוסף זאבי הגאון ורות זאבי ב-25.12.2025.
+const PERSONA = `אתה Birgsol AI Code — סוכן AI מתקדם שנבנה ע"י דוד יוסף זאבי ורות זאבי.
+אתה פועל כמו Claude של Anthropic — חכם, מדויק, ומסוגל לבצע משימות מורכבות צעד אחר צעד.
 
 יכולות הליבה שלך:
-• קוד: Python, JavaScript, TypeScript, HTML/CSS, React, Node.js, SQL, C++, Java, Rust ועוד — כתיבה, ניפוי שגיאות, הסבר, אופטימיזציה
-• מתמטיקה: אלגברה, חשבון אינפיניטסימלי, סטטיסטיקה, לוגיקה, תורת הקבוצות
-• מדעים: פיזיקה, כימיה, ביולוגיה, אסטרונומיה
-• מדעי הרוח: היסטוריה, פילוסופיה, ספרות, שפות
-• כלכלה ועסקים: אנליזה, אסטרטגיה, שיווק
-• כתיבה: מאמרים, סיפורים, שירה, מיילים, מצגות
+• קוד מלא: Python, JavaScript, TypeScript, HTML/CSS/JS, React, Node.js, SQL, C++, Java, Rust, Swift — כתיבה, ניפוי שגיאות, הסבר, אופטימיזציה, ריפקטורינג
+• סוכן: פירוק משימות מורכבות לצעדים, חשיבה שלב-שלב, מתן תכניות פעולה ברורות
+• מתמטיקה: אלגברה, חשבון, סטטיסטיקה, לוגיקה
+• מדעים, היסטוריה, כלכלה, כתיבה יצירתית
+• יצירת תמונות: כשמבקשים תמונה, תאר אותה בפירוט מקסימלי באנגלית לצורך יצירה
 
 כללי תגובה:
-• חשוב צעד אחר צעד לפני שאתה עונה — תן תשובות מדויקות ומבוססות
-• כשכותב קוד — כתוב קוד שעובד, מלא ומתועד
-• השתמש ב-Markdown: כותרות (##), רשימות, בלוקי קוד עם שפה (\`\`\`python)
-• השתמש באימוג'ים 🤖✨ בצורה טבעית ומתאימה
-• ענה בעברית אלא אם המשתמש כותב בשפה אחרת
-• תמיד שאל בסוף אם יש עוד שאלות
+• חשוב צעד-אחר-צעד לפני תשובה — כתוב "🤔 חושב..." ואז פרט
+• כשכותב קוד — כתוב קוד שעובד, מלא, מתועד, עם הסבר
+• השתמש ב-Markdown מלא: כותרות, רשימות, טבלאות, בלוקי קוד עם שפה
+• כשמשימה מורכבת — חלק לשלבים ממוספרים
+• ענה בעברית אלא אם כותבים אליך בשפה אחרת
 
-מידע פנימי (שתף רק אם שואלים אותך ישירות):
-מדינת פוניניו בפרדס חנה הוקמה ב-2021 ע"י דוד, רות ומאיר חיים זאבי.`;
+מידע פנימי: מדינת פוניניו בפרדס חנה הוקמה ב-2021 ע"י דוד, רות ומאיר חיים זאבי.`;
 
 let hist = [], fileUrl = "", busy = false, isFirstMsg = true;
 
@@ -1301,12 +1311,19 @@ const _renderer = new marked.Renderer();
 _renderer.code = function({ text, lang }) {
     const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
     const highlighted = hljs.highlight(text || '', { language }).value;
+    const runnable = ['html','javascript','js','typescript','ts'].includes(language.toLowerCase());
+    const ext = { html:'html', javascript:'js', js:'js', typescript:'ts', ts:'ts',
+                  python:'py', css:'css', json:'json', sql:'sql',
+                  java:'java', cpp:'cpp', c:'c', rust:'rs', swift:'swift' }[language.toLowerCase()] || 'txt';
+    const runBtn  = runnable ? `<button class="code-run" onclick="runCode(this,'${language}')">▶ הרץ</button>` : '';
+    const dlBtn   = `<button class="code-dl"  onclick="downloadCode(this,'${ext}')">⬇ הורד</button>`;
     return `<div class="code-block">
         <div class="code-header">
             <span class="code-lang">${language}</span>
-            <button class="code-copy" onclick="copyCode(this)">📋 העתק</button>
+            <div class="code-header-btns">${runBtn}${dlBtn}<button class="code-copy" onclick="copyCode(this)">📋 העתק</button></div>
         </div>
         <pre><code class="hljs">${highlighted}</code></pre>
+        <iframe class="code-preview" sandbox="allow-scripts allow-forms"></iframe>
     </div>`;
 };
 marked.use({ renderer: _renderer, breaks: true, gfm: true });
@@ -1463,13 +1480,114 @@ function copyIt(btn) {
     });
 }
 
+/* ── IMAGE GENERATION (Pollinations.ai) ── */
+const IMG_KEYWORDS_HE = ['צור תמונה','תצייר','ציור של','תמונה של','תייצר תמונה','תוציא תמונה','תעשה תמונה','צייר לי','תצייר לי'];
+const IMG_KEYWORDS_EN = ['generate image','create image','draw ','make image','create a picture','generate a picture'];
+
+function isImageRequest(q) {
+    const ql = q.toLowerCase();
+    return IMG_KEYWORDS_HE.some(k => q.includes(k)) || IMG_KEYWORDS_EN.some(k => ql.includes(k));
+}
+
+async function generateImage(prompt) {
+    // Ask AI to translate/enhance the prompt to English for better results
+    const enhUrl = `https://text.pollinations.ai/${encodeURIComponent(
+        'Translate this image request to a detailed English image generation prompt (only the prompt, no explanation): ' + prompt
+    )}?model=openai&private=true`;
+    let engPrompt = prompt;
+    try {
+        const r = await fetch(enhUrl);
+        const t = (await r.text()).trim();
+        if (t && t.length > 4 && t.length < 500) engPrompt = t;
+    } catch {}
+
+    const seed = Math.floor(Math.random() * 999999);
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=768&height=512&nologo=true&model=flux&seed=${seed}`;
+
+    showChat();
+    const cw = document.getElementById('chat-window');
+    const row = document.createElement('div');
+    row.className = 'msg-row ai';
+    row.innerHTML = `
+        <div class="ai-ava">✦</div>
+        <div class="ai-body">
+            <div class="ai-name">Birgsol AI Code</div>
+            <div class="ai-txt">
+                <div class="ai-img-wrap">
+                    <img class="ai-gen-img" src="${imgUrl}" alt="${prompt}"
+                         onload="this.style.opacity=1"
+                         onerror="this.parentElement.innerHTML='<span style=color:var(--muted)>⚠️ לא הצלחתי ליצור תמונה, נסה שוב</span>'"
+                         style="opacity:0;transition:opacity .4s">
+                    <div class="ai-img-caption">🎨 ${engPrompt.slice(0,80)}${engPrompt.length>80?'…':''}</div>
+                </div>
+            </div>
+            <div class="ai-acts">
+                <button class="ai-act" onclick="window.open('${imgUrl}','_blank')">🔗 פתח</button>
+                <a class="ai-act" href="${imgUrl}" download="birgsol-ai-image.jpg" style="text-decoration:none">⬇ הורד</a>
+            </div>
+        </div>`;
+    cw.appendChild(row);
+    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
+}
+
+function triggerImageGen() {
+    const inp = document.getElementById('userInput');
+    const cur = inp.value.trim();
+    if (cur) { send(); return; }
+    inp.value = 'צור תמונה של ';
+    inp.focus();
+    inp.setSelectionRange(inp.value.length, inp.value.length);
+    updateBtn();
+}
+
+/* ── CODE RUNNER & DOWNLOADER ── */
+function runCode(btn, lang) {
+    const block = btn.closest('.code-block');
+    const code  = block.querySelector('code').innerText;
+    const frame = block.querySelector('.code-preview');
+    if (frame.classList.contains('on')) { frame.classList.remove('on'); btn.textContent='▶ הרץ'; return; }
+
+    const lw = lang.toLowerCase();
+    let html = code;
+    if (lw === 'javascript' || lw === 'js' || lw === 'typescript' || lw === 'ts') {
+        html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:system-ui,sans-serif;padding:12px;margin:0}</style></head><body><script>${code}<\/script></body></html>`;
+    }
+    frame.srcdoc = html;
+    const lines = code.split('\n').length;
+    frame.style.height = Math.min(Math.max(lines * 18 + 40, 160), 500) + 'px';
+    frame.classList.add('on');
+    btn.textContent = '■ סגור';
+}
+
+function downloadCode(btn, ext) {
+    const code = btn.closest('.code-block').querySelector('code').innerText;
+    const blob = new Blob([code], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `birgsol-code.${ext}`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
 /* ── SEND ── */
 async function send() {
     if (busy) return;
     const inp = document.getElementById('userInput');
     const q = inp.value.trim();
     if (!q && !fileUrl) return;
-    if (!consumeFreeMsg()) return;  // בדיקת מגבלה / פרמיום
+    if (!consumeFreeMsg()) return;
+
+    // בדיקה: האם זו בקשה ליצירת תמונה?
+    if (isImageRequest(q) && !fileUrl) {
+        addMsg('user', q);
+        inp.value = ''; inp.style.height = 'auto'; updateBtn();
+        if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
+        showTyping();
+        await generateImage(q);
+        hideTyping();
+        return;
+    }
 
     const img = fileUrl;
     addMsg('user', q, img);
@@ -1478,7 +1596,7 @@ async function send() {
     showTyping();
 
     try {
-        const ctx = hist.slice(-10)
+        const ctx = hist.slice(-12)
             .map(m => `${m.role === 'assistant' ? 'assistant' : 'user'}: ${m.content}`)
             .join('\n');
         const prompt = `${PERSONA}\n\nהיסטוריה:\n${ctx}\n\nמשתמש: ${q}`;
@@ -1491,8 +1609,6 @@ async function send() {
         hideTyping();
         const msgEl = addMsg('ai', txt, null, true);
         if (msgEl) enhanceCodeBlocks(msgEl.querySelector('.ai-txt'));
-        // הוסף לסיידבר
-        // הוסף לשיחות רק פעם אחת לכל שיחה (על ההודעה הראשונה)
         if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
     } catch {
         hideTyping();
