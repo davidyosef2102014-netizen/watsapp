@@ -701,13 +701,13 @@
         </div>
         <div class="login-field">
             <label>סיסמה</label>
-            <input type="password" id="li-pass" placeholder="סיסמת הבנק שלך" autocomplete="current-password"
+            <input type="password" id="li-pass" placeholder="הסיסמה שלך" autocomplete="current-password"
                 onkeydown="if(event.key==='Enter')doLogin()">
         </div>
         <button class="login-btn" onclick="doLogin()">כניסה לאזור האישי</button>
         <div id="li-err" class="login-err"></div>
 
-        <p class="login-bank-note">🏦 מחובר ל<span>Poninio Bank</span> · השיחות שלך נשמרות אוטומטית</p>
+        <p class="login-bank-note">☁️ שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם</p>
         <div style="text-align:center;margin-top:14px;">
             <span style="font-size:13px;color:var(--muted);">אין לך חשבון עדיין? </span>
             <button onclick="showRegister()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;">צור חשבון חדש</button>
@@ -799,8 +799,8 @@
     <button class="pricing-close-btn" onclick="closePricingModal()">✕</button>
     <div class="pricing-top">
       <h2>✦ בחר את המסלול שלך</h2>
-      <p>כל המסלולים כוללים חיוב חד-פעמי חודשי מחשבון Poninio Bank שלך</p>
-      <div class="pricing-bal">🏦 יתרת חשבון: <strong id="pm-bal">—</strong> &nbsp;|&nbsp; <span id="pm-uname">—</span></div>
+      <p>שדרג לפרמיום לשיחות ללא הגבלה ויכולות מתקדמות</p>
+      <div class="pricing-bal"><span id="pm-uname">—</span></div>
     </div>
     <div class="pricing-grid">
 
@@ -1175,8 +1175,7 @@ async function syncConversations() {
     ghWrite('db/ai_convs/' + currentUser + '.json', convList).catch(() => {});
 }
 
-/* ══════════════ BANK & AUTH ══════════════ */
-const BANK_KEY    = 'poninioBankAccounts';
+/* ══════════════ AUTH ══════════════ */
 const AI_AUTH_KEY = 'birgsolai_auth';
 const PREM_KEY    = 'birgsolai_premium';
 const FREE_LIMIT  = 150;
@@ -1195,29 +1194,7 @@ const TIERS = {
     elite: { name:'Birgsol Elite', badge:'👑 Elite', price:900, msgLimit:-1,  model:'openai-fast', icon:'👑' }
 };
 
-/* ── ברירת מחדל של חשבונות בנק (אם הבנק לא נפתח עדיין) ── */
-const DEFAULT_ACCOUNTS = {
-    "רות":          { password:"usto2015",  balance:15000,   creditLimit:12000,  creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:15000, type:"credit" }] },
-    "דוד":          { password:"usto2014",  balance:5000,    creditLimit:8000,   creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:5000, type:"credit" }] },
-    "המדינה":       { password:"poni5324",  balance:1000000, creditLimit:500000, creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:1000000, type:"credit" }] },
-    "פוניניו":      { password:"poni2021",  balance:2000000, creditLimit:50000,  creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:2000000, type:"credit" }] },
-    "בנימין הולאן": { password:"7337",      balance:5000,    creditLimit:5000,   creditUsed:0, loanBalance:0, loanStatus:"None", lastLoanCheck:0, lastCreditResetMonth:0, history:[{ date:new Date().toLocaleDateString('he-IL'), description:"יתרת פתיחה", amount:5000, type:"credit" }] }
-};
-
-/* ── load / init bank data ── */
-function getBankAccounts() {
-    const d = localStorage.getItem(BANK_KEY);
-    if (d) return JSON.parse(d);
-    // אתחל עם ברירת המחדל אם הבנק לא נפתח מעולם
-    const init = JSON.parse(JSON.stringify(DEFAULT_ACCOUNTS));
-    localStorage.setItem(BANK_KEY, JSON.stringify(init));
-    return init;
-}
-function saveBankAccounts(data) {
-    localStorage.setItem(BANK_KEY, JSON.stringify(data));
-}
-
-/* ── login — בודק ענן ראשון, אחר כך בנק ── */
+/* ── login — ענן בלבד ── */
 async function doLogin() {
     const user = document.getElementById('li-user').value.trim();
     const pass = document.getElementById('li-pass').value;
@@ -1228,35 +1205,25 @@ async function doLogin() {
 
     btn.textContent = '⏳ מתחבר...'; btn.disabled = true;
     try {
-        // 1. בדוק משתמשי ענן
         const cloudUsers = await ghRead('db/ai_users.json') || {};
-        if (cloudUsers[user]) {
-            const hashed = await hashPassword(pass);
-            if (cloudUsers[user].password !== hashed) {
-                err.textContent = '❌ סיסמה שגויה.'; err.style.display = 'block'; return;
-            }
-            await _finishLogin(user, true);
-            return;
-        }
-        // 2. חזרה לבנק (משתמשים ישנים)
-        const accounts = getBankAccounts();
-        const acct = accounts[user];
-        if (!acct) { err.textContent = '❌ שם המשתמש לא נמצא.'; err.style.display='block'; return; }
-        if (acct.password !== pass) { err.textContent = '❌ סיסמה שגויה.'; err.style.display='block'; return; }
-        await _finishLogin(user, false);
+        if (!cloudUsers[user]) { err.textContent = '❌ שם המשתמש לא נמצא. צור חשבון חדש.'; err.style.display='block'; return; }
+        const hashed = await hashPassword(pass);
+        if (cloudUsers[user].password !== hashed) { err.textContent = '❌ סיסמה שגויה.'; err.style.display='block'; return; }
+        await _finishLogin(user);
+    } catch(e) {
+        err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block';
     } finally {
         btn.textContent = 'כניסה לאזור האישי'; btn.disabled = false;
     }
 }
 
-async function _finishLogin(user, isCloud) {
+async function _finishLogin(user) {
     currentUser = user;
     localStorage.setItem(AI_AUTH_KEY, user);
     checkPremium();
     document.getElementById('login-screen').style.display = 'none';
     updateUserChip(); updateFreeBanner(); updateGreeting();
-    if (isCloud) { await loadConversationsCloud(); }
-    else         { loadHistoryFromStorage(); }
+    await loadConversationsCloud();
 }
 
 /* ── premium check ── */
@@ -1313,10 +1280,9 @@ function updateFreeBanner() {
 /* ── pricing modal ── */
 function openPricingModal() {
     if (!currentUser || isPremium) return;
-    const accounts = getBankAccounts();
-    const acct = accounts[currentUser];
     document.getElementById('pm-uname').textContent = currentUser;
-    document.getElementById('pm-bal').textContent   = acct ? acct.balance.toFixed(2) + ' )(' : '?';
+    const balEl = document.getElementById('pm-bal');
+    if (balEl) { const row = balEl.closest('.pm-bal-row, .pm-row, p, div'); if (row && row !== balEl) row.remove(); else balEl.textContent = ''; }
     document.getElementById('pricing-modal').classList.add('on');
 }
 function closePricingModal() {
@@ -1330,24 +1296,11 @@ function closePremiumModal() { closePricingModal(); }
 function doPurchaseTier(tierId) {
     if (!currentUser || !TIERS[tierId]) return;
     const tier = TIERS[tierId];
-    const accounts = getBankAccounts();
-    const acct = accounts[currentUser];
-    if (!acct) { alert('⚠️ לא נמצאו נתוני בנק.'); return; }
-    if (acct.balance < tier.price) {
-        alert(`❌ אין יתרה מספקת.\nיתרה: ${acct.balance.toFixed(2)} )(\nנדרש: ${tier.price} )(`); return;
-    }
-    if (!confirm(`לאשר רכישת ${tier.name} תמורת ${tier.price} )( ?`)) return;
-
-    // ניכוי מהרוכש
-    acct.balance -= tier.price;
-    const today = new Date().toLocaleDateString('he-IL');
-    acct.history.push({ date: today, description: `מנוי ${tier.name} חודשי`, amount: tier.price, type: 'debit' });
-    // זיכוי דוד
-    if (accounts['דוד'] && currentUser !== 'דוד') {
-        accounts['דוד'].balance += tier.price;
-        accounts['דוד'].history.push({ date: today, description: `תשלום ${tier.name} מ-${currentUser} · Birgsol AI`, amount: tier.price, type: 'credit' });
-    }
-    saveBankAccounts(accounts);
+    const code = prompt(`להפעלת ${tier.name} הזן קוד הפעלה:`);
+    if (!code) return;
+    // Admin codes (simple validation — in production use server-side)
+    const validCodes = { basic:'BIRG50', pro:'BIRG200', ultra:'BIRG450', elite:'BIRG900' };
+    if (code.toUpperCase() !== validCodes[tierId]) { alert('❌ קוד שגוי.'); return; }
 
     const expires = Date.now() + 30 * 24 * 60 * 60 * 1000;
     localStorage.setItem(PREM_KEY, JSON.stringify({ user: currentUser, tier: tierId, expires, msgLimit: tier.msgLimit }));
@@ -1356,10 +1309,9 @@ function doPurchaseTier(tierId) {
         freeLeft = tier.msgLimit;
         localStorage.setItem('birgsolai_free_' + currentUser, freeLeft);
     }
-
     closePricingModal();
     updateUserChip(); updateFreeBanner();
-    alert(`✅ ${tier.name} הופעל! נוכו ${tier.price} )( מחשבונך.`);
+    alert(`✅ ${tier.name} הופעל!`);
 }
 
 /* ── message counter ── */
@@ -1399,17 +1351,17 @@ function showForgot() {
     fpUsername = null; fpPassRevealed = false;
     document.getElementById('fp-user').focus();
 }
-function doForgot() {
+async function doForgot() {
     const user = document.getElementById('fp-user').value.trim();
     const err = document.getElementById('fp-err');
     err.style.display = 'none';
     if (!user) { err.textContent = '❌ יש להזין שם משתמש.'; err.style.display='block'; return; }
-    const accounts = getBankAccounts();
-    if (!accounts[user]) { err.textContent = '❌ שם המשתמש לא נמצא בבנק.'; err.style.display='block'; return; }
+    const cloudUsers = await ghRead('db/ai_users.json') || {};
+    if (!cloudUsers[user]) { err.textContent = '❌ שם המשתמש לא נמצא.'; err.style.display='block'; return; }
     fpUsername = user;
     fpPassRevealed = false;
-    document.getElementById('fp-current-pass').textContent = '••••••';
-    document.getElementById('fp-reveal-btn').textContent = '👁 הצג';
+    document.getElementById('fp-current-pass').textContent = '(מוצפנת — לא ניתן להצגה)';
+    document.getElementById('fp-reveal-btn').style.display = 'none';
     document.getElementById('fp-new-pass').value = '';
     document.getElementById('fp-new-pass2').value = '';
     document.getElementById('fp-err2').style.display = 'none';
@@ -1417,13 +1369,9 @@ function doForgot() {
     document.getElementById('forgot-step2').style.display = 'block';
 }
 function togglePassReveal() {
-    if (!fpUsername) return;
-    const accounts = getBankAccounts();
-    fpPassRevealed = !fpPassRevealed;
-    document.getElementById('fp-current-pass').textContent = fpPassRevealed ? accounts[fpUsername].password : '••••••';
-    document.getElementById('fp-reveal-btn').textContent = fpPassRevealed ? '🙈 הסתר' : '👁 הצג';
+    // Passwords are hashed — cannot be revealed
 }
-function doResetPass() {
+async function doResetPass() {
     const newPass  = document.getElementById('fp-new-pass').value;
     const newPass2 = document.getElementById('fp-new-pass2').value;
     const err = document.getElementById('fp-err2');
@@ -1431,12 +1379,17 @@ function doResetPass() {
     if (!newPass)           { err.textContent = '❌ יש להזין סיסמה חדשה.'; err.style.display='block'; return; }
     if (newPass.length < 4) { err.textContent = '❌ הסיסמה חייבת להכיל לפחות 4 תווים.'; err.style.display='block'; return; }
     if (newPass !== newPass2){ err.textContent = '❌ הסיסמאות אינן תואמות.'; err.style.display='block'; return; }
-    const accounts = getBankAccounts();
-    accounts[fpUsername].password = newPass;
-    saveBankAccounts(accounts);
-    alert(`✅ הסיסמה של "${fpUsername}" עודכנה בהצלחה!`);
-    showLogin();
-    document.getElementById('li-user').value = fpUsername;
+    try {
+        const cloudUsers = await ghRead('db/ai_users.json') || {};
+        if (!cloudUsers[fpUsername]) { err.textContent = '❌ משתמש לא נמצא.'; err.style.display='block'; return; }
+        cloudUsers[fpUsername].password = await hashPassword(newPass);
+        await ghWrite('db/ai_users.json', cloudUsers);
+        alert(`✅ הסיסמה של "${fpUsername}" עודכנה!`);
+        showLogin();
+        document.getElementById('li-user').value = fpUsername;
+    } catch(e) {
+        err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block';
+    }
 }
 async function doRegister() {
     const user  = document.getElementById('reg-user').value.trim();
@@ -1470,7 +1423,7 @@ async function doRegister() {
         document.getElementById('reg-pass2').value = '';
         document.getElementById('register-card').style.display = 'none';
         document.querySelector('#login-screen .login-card').style.display = 'block';
-        await _finishLogin(user, true);
+        await _finishLogin(user);
         alert(`✅ חשבון "${user}" נוצר! ברוך הבא ל-Birgsol AI 🎉`);
     } finally {
         btn.textContent = '✦ צור חשבון'; btn.disabled = false;
@@ -1513,20 +1466,26 @@ function startApp() {
 /* ── auto-login on load ── */
 window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(currentTheme);
-    const saved = localStorage.getItem(AI_AUTH_KEY);
-    if (!saved) return;
-
-    currentUser = saved;
-    checkPremium();
-    document.getElementById('login-screen').style.display = 'none';
-    updateUserChip(); updateFreeBanner(); updateGreeting();
-
-    // נסה לטעון מהענן (משתמש cloud), אחרת localStorage
-    const cloudUsers = await ghRead('db/ai_users.json').catch(() => null);
-    if (cloudUsers && cloudUsers[saved]) {
-        await loadConversationsCloud(); // ענן
+    const savedUser = localStorage.getItem(AI_AUTH_KEY);
+    if (savedUser) {
+        try {
+            const cloudUsers = await ghRead('db/ai_users.json') || {};
+            if (cloudUsers[savedUser]) {
+                await _finishLogin(savedUser);
+            } else {
+                // User no longer exists in cloud, clear local auth
+                localStorage.removeItem(AI_AUTH_KEY);
+                document.getElementById('login-screen').style.display = 'flex';
+            }
+        } catch {
+            // Offline fallback — trust localStorage
+            currentUser = savedUser;
+            checkPremium(); updateUserChip(); updateFreeBanner(); updateGreeting();
+            document.getElementById('login-screen').style.display = 'none';
+            loadConversationsCloud().catch(() => {});
+        }
     } else {
-        loadHistoryFromStorage(); // localStorage (משתמשי בנק ישנים)
+        document.getElementById('login-screen').style.display = 'flex';
     }
 });
 
