@@ -1822,50 +1822,81 @@ function downloadCode(btn, ext) {
     URL.revokeObjectURL(a.href);
 }
 
-/* ── CALL AI — POST with SSE streaming ── */
+/* ── CALL AI — POST streaming with GET fallback ── */
 async function callAI(messages, onChunk) {
-    // openai-large = GPT-4o full — best for code
-    const model = 'openai-large';
-    const res = await fetch('https://text.pollinations.ai/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            messages,
-            model,
-            stream: true,
-            private: true,
-            seed: Math.floor(Math.random() * 99999)
-        })
-    });
-    if (!res.ok) throw new Error('API ' + res.status);
+    // ── Primary: POST with SSE streaming ──
+    try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 90000);
 
-    const reader = res.body.getReader();
-    const dec    = new TextDecoder();
-    let buf = '', full = '', lastCall = 0;
+        const res = await fetch('https://text.pollinations.ai/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages,
+                model: 'openai-large',
+                stream: true,
+                private: true,
+                seed: Math.floor(Math.random() * 99999)
+            }),
+            signal: ctrl.signal
+        });
+        clearTimeout(timer);
 
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop(); // keep incomplete line
-        for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const raw = line.slice(6).trim();
-            if (raw === '[DONE]') continue;
-            try {
-                const j = JSON.parse(raw);
-                const chunk = j.choices?.[0]?.delta?.content;
-                if (chunk) {
-                    full += chunk;
-                    const now = Date.now();
-                    if (now - lastCall > 40) { lastCall = now; onChunk(full); }
-                }
-            } catch {}
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.body) throw new Error('no body');
+
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '', full = '', lastCall = 0;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const lines = buf.split('\n');
+            buf = lines.pop();
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const raw = line.slice(6).trim();
+                if (raw === '[DONE]') continue;
+                try {
+                    const j = JSON.parse(raw);
+                    const chunk = j.choices?.[0]?.delta?.content;
+                    if (chunk) {
+                        full += chunk;
+                        const now = Date.now();
+                        if (now - lastCall > 40) { lastCall = now; onChunk(full); }
+                    }
+                } catch {}
+            }
         }
+        onChunk(full);
+        if (!full) throw new Error('empty');
+        return full;
+
+    } catch (_) {
+        // ── Fallback: GET endpoint — always CORS-safe, no streaming ──
+        const sys  = messages.find(m => m.role === 'system')?.content || '';
+        const conv = messages.filter(m => m.role !== 'system').map(m => {
+            const role = m.role === 'assistant' ? 'Assistant' : 'User';
+            const text = typeof m.content === 'string'
+                ? m.content
+                : (m.content?.[0]?.text || '');
+            return `${role}: ${text}`;
+        }).join('\n');
+
+        const prompt = `${sys}\n\nConversation:\n${conv}`;
+        const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}` +
+            `?model=openai-large&private=true&seed=${Math.floor(Math.random()*99999)}`;
+
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('GET ' + r.status);
+        const text = await r.text();
+        if (!text) throw new Error('empty GET');
+        onChunk(text);
+        return text;
     }
-    onChunk(full); // final flush
-    return full;
 }
 
 /* ── SEND ── */
