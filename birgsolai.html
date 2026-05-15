@@ -1587,34 +1587,46 @@ async function generateImage(prompt, reuseRow) {
     }
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
-    // ── 2. Build a rich English Flux prompt ──
+    // ── 2. Build Flux prompt — skip translation if already English ──
     setTimeout(() => { if (skelBar) skelBar.style.width = '30%'; }, 200);
+    const QUALITY = ', photorealistic, ultra-detailed, 8k resolution, sharp focus, professional photography, studio lighting';
     let engPrompt = prompt;
-    try {
-        const r = await fetch('https://text.pollinations.ai/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                messages: [{ role: 'system', content:
-                    `You are an expert Flux/Stable Diffusion prompt engineer.
-Your job: convert any image request into a highly detailed English image generation prompt.
 
+    // Detect language: if >60% of letters are ASCII → already English
+    const allLetters  = (prompt.match(/\p{L}/gu) || []).length;
+    const asciiLetter = (prompt.match(/[a-zA-Z]/g) || []).length;
+    const alreadyEng  = allLetters === 0 || asciiLetter / allLetters > 0.6;
+
+    if (alreadyEng) {
+        // English — just boost quality keywords, no translation needed
+        engPrompt = prompt + QUALITY;
+    } else {
+        // Hebrew / other — translate + enhance
+        try {
+            const r = await fetch('https://text.pollinations.ai/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [{ role: 'system', content:
+                        `You are an expert Flux/Stable Diffusion prompt engineer.
+Convert the image request to a detailed English image generation prompt.
 Rules:
-1. PRESERVE all technical/brand/product names exactly as-is (Smartwatch → smartwatch, iPhone, Tesla, etc.)
-2. Add specific VISUAL details: colors, materials, lighting, perspective, style
-3. Add quality boosters at the end: photorealistic, ultra-detailed, 8k, sharp focus, studio lighting
-4. If it's a product → add: product photography, white background OR realistic environment
-5. Output ONLY the final prompt — no explanation, no quotes, no extra text
-6. Max 120 words`
-                }, { role: 'user', content: `Image request: "${prompt}"` }],
-                model: 'openai-large',
-                private: true
-            }),
-            signal: AbortSignal.timeout(10000)
-        });
-        const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
-        if (t && t.length > 8 && t.length < 700) engPrompt = t;
-    } catch {}
+1. PRESERVE technical/brand/product names exactly (Smartwatch, iPhone, Tesla…)
+2. Add visual details: colors, materials, lighting, perspective, style
+3. Append at end: photorealistic, ultra-detailed, 8k, sharp focus, studio lighting
+4. Output ONLY the prompt — no explanation, no quotes
+5. Max 120 words`
+                    }, { role: 'user', content: `Image request: "${prompt}"` }],
+                    model: 'openai-large',
+                    private: true
+                }),
+                signal: AbortSignal.timeout(10000)
+            });
+            const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
+            if (t && t.length > 8 && t.length < 700) engPrompt = t;
+            else engPrompt = prompt + QUALITY;
+        } catch { engPrompt = prompt + QUALITY; }
+    }
 
     if (skelTxt) skelTxt.textContent = 'מייצר תמונה…';
     if (skelBar) skelBar.style.width = '55%';
