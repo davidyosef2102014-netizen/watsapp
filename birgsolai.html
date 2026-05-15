@@ -220,6 +220,10 @@
         .ai-img-caption { font-size:12px; color:var(--muted); margin-top:6px; }
         .img-gen-btn { background:none; border:none; cursor:pointer; width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; transition:background .15s; }
         .img-gen-btn:hover { background:var(--surf2); }
+        /* streaming cursor */
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        .stream-cursor { display:inline-block; width:2px; height:1.1em; background:var(--blue); margin-right:2px; vertical-align:text-bottom; animation:blink .7s infinite; border-radius:1px; }
+        .stream-raw { white-space:pre-wrap; font-size:15.5px; line-height:1.78; color:var(--text); font-family:inherit; }
 
         /* action buttons (Gemini style — appear on hover) */
         .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
@@ -1285,24 +1289,35 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ── PERSONA ── */
-const PERSONA = `אתה Birgsol AI Code — סוכן AI מתקדם שנבנה ע"י דוד יוסף זאבי ורות זאבי.
-אתה פועל כמו Claude של Anthropic — חכם, מדויק, ומסוגל לבצע משימות מורכבות צעד אחר צעד.
+const PERSONA = `You are Birgsol AI Code — an elite software engineering AI and autonomous agent, built by David Yosef Zevi and Ruth Zevi. You operate at the level of Claude Sonnet from Anthropic combined with GitHub Copilot.
 
-יכולות הליבה שלך:
-• קוד מלא: Python, JavaScript, TypeScript, HTML/CSS/JS, React, Node.js, SQL, C++, Java, Rust, Swift — כתיבה, ניפוי שגיאות, הסבר, אופטימיזציה, ריפקטורינג
-• סוכן: פירוק משימות מורכבות לצעדים, חשיבה שלב-שלב, מתן תכניות פעולה ברורות
-• מתמטיקה: אלגברה, חשבון, סטטיסטיקה, לוגיקה
-• מדעים, היסטוריה, כלכלה, כתיבה יצירתית
-• יצירת תמונות: כשמבקשים תמונה, תאר אותה בפירוט מקסימלי באנגלית לצורך יצירה
+=== CODE MASTERY ===
+- Write COMPLETE, PRODUCTION-READY code — NEVER truncate, NEVER write "// add the rest here" or "// ..."
+- Languages: Python, JavaScript, TypeScript, HTML/CSS/JS, React, Vue, Node.js, Express, SQL, C++, Java, Rust, Swift, Go, PHP, Bash
+- ALWAYS include: error handling, edge cases, meaningful variable names, comments on complex logic
+- For UI/HTML: write beautiful, modern, fully responsive designs with smooth animations
+- After every code block: add a concise "**How to use:**" section
+- For debugging requests: identify the ROOT CAUSE first, explain WHY it fails, then provide the complete fixed code
 
-כללי תגובה:
-• חשוב צעד-אחר-צעד לפני תשובה — כתוב "🤔 חושב..." ואז פרט
-• כשכותב קוד — כתוב קוד שעובד, מלא, מתועד, עם הסבר
-• השתמש ב-Markdown מלא: כותרות, רשימות, טבלאות, בלוקי קוד עם שפה
-• כשמשימה מורכבת — חלק לשלבים ממוספרים
-• ענה בעברית אלא אם כותבים אליך בשפה אחרת
+=== AGENT BEHAVIOR ===
+For complex or multi-part tasks:
+1. Start with "**📋 Plan:**" — numbered steps of what you'll build
+2. Execute EACH step completely, in order
+3. At the end: "**✅ Done — here's a summary of what was built**"
 
-מידע פנימי: מדינת פוניניו בפרדס חנה הוקמה ב-2021 ע"י דוד, רות ומאיר חיים זאבי.`;
+For ambiguous requests: state your assumptions clearly, then proceed.
+If you realize mid-way that your approach has issues: say so and correct course immediately.
+Self-verify your code mentally before outputting it.
+
+=== RESPONSE FORMAT ===
+- Full Markdown always: ## headers, **bold**, \`inline code\`, tables, numbered/bulleted lists
+- Code blocks ALWAYS tagged: \`\`\`python, \`\`\`javascript, \`\`\`html, \`\`\`css, etc.
+- For step-by-step tasks: use "### Step 1:", "### Step 2:", etc.
+- Be thorough and precise — no filler phrases like "Great question!" or "Certainly!"
+- DEFAULT language: Hebrew (עברית) — switch to the user's language if they write in English or another language
+
+=== INTERNAL INFO ===
+The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.`;
 
 let hist = [], fileUrl = "", busy = false, isFirstMsg = true;
 
@@ -1570,15 +1585,61 @@ function downloadCode(btn, ext) {
     URL.revokeObjectURL(a.href);
 }
 
+/* ── CALL AI — POST with SSE streaming ── */
+async function callAI(messages, onChunk) {
+    // openai-large = GPT-4o full — best for code
+    const model = 'openai-large';
+    const res = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            messages,
+            model,
+            stream: true,
+            private: true,
+            seed: Math.floor(Math.random() * 99999)
+        })
+    });
+    if (!res.ok) throw new Error('API ' + res.status);
+
+    const reader = res.body.getReader();
+    const dec    = new TextDecoder();
+    let buf = '', full = '', lastCall = 0;
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop(); // keep incomplete line
+        for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') continue;
+            try {
+                const j = JSON.parse(raw);
+                const chunk = j.choices?.[0]?.delta?.content;
+                if (chunk) {
+                    full += chunk;
+                    const now = Date.now();
+                    if (now - lastCall > 40) { lastCall = now; onChunk(full); }
+                }
+            } catch {}
+        }
+    }
+    onChunk(full); // final flush
+    return full;
+}
+
 /* ── SEND ── */
 async function send() {
     if (busy) return;
     const inp = document.getElementById('userInput');
-    const q = inp.value.trim();
+    const q   = inp.value.trim();
     if (!q && !fileUrl) return;
     if (!consumeFreeMsg()) return;
 
-    // בדיקה: האם זו בקשה ליצירת תמונה?
+    // Image generation shortcut
     if (isImageRequest(q) && !fileUrl) {
         addMsg('user', q);
         inp.value = ''; inp.style.height = 'auto'; updateBtn();
@@ -1593,26 +1654,63 @@ async function send() {
     addMsg('user', q, img);
     inp.value = ''; inp.style.height = 'auto';
     clearFile(); busy = true; updateBtn();
-    showTyping();
 
+    // Build messages for OpenAI-compatible API
+    const messages = [{ role: 'system', content: PERSONA }];
+    hist.slice(-14).forEach(m => {
+        // images are already consumed in UI — send text-only history
+        const content = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
+        messages.push({ role: m.role, content });
+    });
+    if (img) {
+        messages.push({ role: 'user', content: [
+            { type: 'text', text: q || 'מה בתמונה?' },
+            { type: 'image_url', image_url: { url: img } }
+        ]});
+    } else {
+        messages.push({ role: 'user', content: q });
+    }
+
+    // Create streaming AI message row
+    showChat();
+    const cw = document.getElementById('chat-window');
+    const row = document.createElement('div');
+    row.className = 'msg-row ai';
+    const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
+    const body = document.createElement('div'); body.className = 'ai-body';
+    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'Birgsol AI Code';
+    const txt  = document.createElement('div'); txt.className = 'ai-txt';
+    // show blinking cursor immediately
+    txt.innerHTML = '<span class="stream-cursor"></span>';
+    body.appendChild(nm); body.appendChild(txt);
+    row.appendChild(ava); row.appendChild(body);
+    cw.appendChild(row);
+    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+
+    let fullText = '';
     try {
-        const ctx = hist.slice(-12)
-            .map(m => `${m.role === 'assistant' ? 'assistant' : 'user'}: ${m.content}`)
-            .join('\n');
-        const prompt = `${PERSONA}\n\nהיסטוריה:\n${ctx}\n\nמשתמש: ${q}`;
-        const model = (TIERS[currentTier] || {}).model || 'openai';
-        let url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${model}&seed=${Math.floor(Math.random()*99999)}&private=true`;
-        if (img) url += `&image=${encodeURIComponent(img)}`;
+        fullText = await callAI(messages, (partial) => {
+            // live raw text while streaming
+            txt.innerHTML = '<span class="stream-raw">' +
+                partial.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+                '</span><span class="stream-cursor"></span>';
+            cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+        });
 
-        const res = await fetch(url);
-        const txt = await res.text();
-        hideTyping();
-        const msgEl = addMsg('ai', txt, null, true);
-        if (msgEl) enhanceCodeBlocks(msgEl.querySelector('.ai-txt'));
+        // Final: render as Markdown
+        txt.innerHTML = marked.parse(fullText);
+        enhanceCodeBlocks(txt);
+
+        // Add copy button
+        const acts = document.createElement('div'); acts.className = 'ai-acts';
+        acts.innerHTML = '<button class="ai-act" onclick="copyIt(this)">📋 העתק</button>';
+        body.appendChild(acts);
+
+        hist.push({ role: 'assistant', content: fullText });
         if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
-    } catch {
-        hideTyping();
-        addMsg('ai', '⚠️ משהו השתבש בחיבור. נסה שוב!');
+        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    } catch (e) {
+        txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
     }
     busy = false; updateBtn();
 }
