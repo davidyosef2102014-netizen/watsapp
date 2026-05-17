@@ -1474,6 +1474,10 @@ function startApp() {
     const splash = document.getElementById('splash');
     splash.classList.add('hide');
     setTimeout(() => splash.style.display = 'none', 700);
+    // אם המשתמש לא מחובר — הצג מסך כניסה
+    if (!currentUser) {
+        document.getElementById('login-screen').style.display = 'flex';
+    }
 }
 
 /* ── auto-login on load ── */
