@@ -693,8 +693,8 @@
     <div class="sp-ring"></div>
     <div class="sp-logo">✦</div>
     <div class="sp-title">BIRGSOL AI 3.0</div>
-    <div class="sp-sub">סוכן AI · קוד · תמונות</div>
-    <button class="sp-btn" onclick="startApp()">התחל</button>
+    <div class="sp-sub" id="sp-sub">סוכן AI · קוד · תמונות</div>
+    <button class="sp-btn" id="sp-btn" onclick="startApp()">התחל</button>
     <div class="sp-footer">נוצר ע"י דוד יוסף זאבי · 2025</div>
 </div>
 
@@ -1196,7 +1196,7 @@ async function syncConversations() {
 /* ══════════════ AUTH ══════════════ */
 const AI_AUTH_KEY = 'birgsolai_auth';
 const PREM_KEY    = 'birgsolai_premium';
-const FREE_LIMIT  = 150;
+const FREE_LIMIT  = 9999;
 const PREM_COST   = 200;
 
 let currentUser = null;
@@ -1291,11 +1291,9 @@ function updateUserChip() {
     }
 }
 function updateFreeBanner() {
+    // No limits — banner always hidden
     const banner = document.getElementById('free-banner');
-    const t = TIERS[currentTier];
-    if (isPremium && t && t.msgLimit === -1) { banner.style.display = 'none'; return; }
-    banner.style.display = 'flex';
-    document.getElementById('msgs-left').textContent = freeLeft;
+    if (banner) banner.style.display = 'none';
 }
 
 /* ── pricing modal ── */
@@ -1337,13 +1335,7 @@ function doPurchaseTier(tierId) {
 
 /* ── message counter ── */
 function consumeFreeMsg() {
-    const t = TIERS[currentTier];
-    if (isPremium && t && t.msgLimit === -1) return true; // unlimited
-    if (freeLeft <= 0) { openPricingModal(); return false; }
-    freeLeft--;
-    localStorage.setItem('birgsolai_free_' + currentUser, freeLeft);
-    updateFreeBanner();
-    return true;
+    return true; // הכל ללא הגבלה
 }
 
 /* ── register ── */
@@ -1489,23 +1481,27 @@ window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(currentTheme);
     const savedUser = localStorage.getItem(AI_AUTH_KEY);
     if (savedUser) {
-        try {
-            const cloudUsers = await ghRead('db/ai_users.json') || {};
-            if (cloudUsers[savedUser]) {
-                await _finishLogin(savedUser);
-            } else {
-                // User no longer exists in cloud, clear local auth
+        // ── כניסה מיידית מ-localStorage — לא ממתינים לענן ──
+        // הצג "מתחבר..." על הספלאש
+        const spSub = document.getElementById('sp-sub');
+        const spBtn = document.getElementById('sp-btn');
+        if (spSub) spSub.textContent = `מתחבר כ-${savedUser}…`;
+        if (spBtn) spBtn.style.display = 'none';
+        currentUser = savedUser;
+        checkPremium(); updateUserChip(); updateFreeBanner(); updateGreeting();
+        const sp = document.getElementById('splash');
+        if (sp) { sp.classList.add('hide'); setTimeout(() => sp.style.display = 'none', 700); }
+        document.getElementById('login-screen').style.display = 'none';
+        // טוען שיחות מהענן ברקע
+        loadConversationsCloud().catch(() => {});
+        // אימות ברקע — אם המשתמש נמחק מהענן, מתנתק בשקט
+        ghRead('db/ai_users.json').then(cloudUsers => {
+            if (cloudUsers && !cloudUsers[savedUser]) {
+                // נמחק מהענן — התנתקות נקייה
                 localStorage.removeItem(AI_AUTH_KEY);
-                startApp(); // הסתר splash
-                document.getElementById('login-screen').style.display = 'flex';
+                location.reload();
             }
-        } catch {
-            // Offline fallback — trust localStorage
-            currentUser = savedUser;
-            checkPremium(); updateUserChip(); updateFreeBanner(); updateGreeting();
-            document.getElementById('login-screen').style.display = 'none';
-            loadConversationsCloud().catch(() => {});
-        }
+        }).catch(() => { /* אופליין — נשאר מחובר */ });
     } else {
         startApp(); // הסתר splash
         document.getElementById('login-screen').style.display = 'flex';
@@ -2174,14 +2170,52 @@ function downloadCode(btn, ext) {
     URL.revokeObjectURL(a.href);
 }
 
-/* ── CALL AI — POST streaming with GET fallback ── */
+/* ── CALL AI — robust POST with retry + GET fallback ── */
 async function callAI(messages, onChunk) {
-    // ── בדוק אם יש תמונה בהודעות ──
+    // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
         m.content.some(c => c.type === 'image_url'));
 
-    // ── אם יש תמונה — POST בלי streaming (vision לא עובד עם SSE) ──
+    // ── Vision path — POST no-stream, 2 attempts ──
     if (hasImage) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                const res = await fetch('https://text.pollinations.ai/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages, model: 'openai', stream: false, private: true }),
+                    signal: AbortSignal.timeout(50000)
+                });
+                if (!res.ok) throw new Error('vision HTTP ' + res.status);
+                let text = (await res.text()).trim();
+                if (!text) throw new Error('vision empty');
+                if (text.startsWith('{') || text.startsWith('[')) {
+                    try {
+                        const j = JSON.parse(text);
+                        const ex = j?.choices?.[0]?.message?.content || j?.content || j?.text || '';
+                        if (ex) text = ex;
+                    } catch {}
+                }
+                if (!text) throw new Error('vision empty after parse');
+                // typewriter for vision too
+                const words = text.split(' ');
+                let shown = '';
+                for (let i = 0; i < words.length; i++) {
+                    shown += (i === 0 ? '' : ' ') + words[i];
+                    onChunk(shown);
+                    if (i % 8 === 7) await new Promise(r => setTimeout(r, 25));
+                }
+                onChunk(text);
+                return text;
+            } catch(e) {
+                if (attempt === 1) throw e;
+                await new Promise(r => setTimeout(r, 1500)); // wait before retry
+            }
+        }
+    }
+
+    // ── Text path — POST no-stream, 3 attempts, then GET fallback ──
+    for (let attempt = 0; attempt < 3; attempt++) {
         try {
             const res = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
@@ -2190,73 +2224,64 @@ async function callAI(messages, onChunk) {
                     messages,
                     model: 'openai',
                     stream: false,
-                    private: true
+                    private: true,
+                    seed: Math.floor(Math.random() * 99999)
                 }),
-                signal: AbortSignal.timeout(45000)
+                signal: AbortSignal.timeout(65000)
             });
-            if (!res.ok) throw new Error('vision HTTP ' + res.status);
-            const text = (await res.text()).trim();
-            if (!text) throw new Error('vision empty');
-            onChunk(text);
-            return text;
-        } catch(e) {
-            throw e; // אל תחזור לגרסת GET — היא לא תומכת בתמונות
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            let full = (await res.text()).trim();
+            if (!full) throw new Error('empty');
+            // אם Pollinations החזיר JSON במקום טקסט — חלץ את ה-content
+            if (full.startsWith('{') || full.startsWith('[')) {
+                try {
+                    const j = JSON.parse(full);
+                    const extracted = j?.choices?.[0]?.message?.content
+                        || j?.content || j?.text || j?.response || '';
+                    if (extracted) full = extracted;
+                } catch {}
+            }
+            if (!full) throw new Error('empty after parse');
+
+            // typewriter word-by-word
+            const words = full.split(' ');
+            let shown = '';
+            for (let i = 0; i < words.length; i++) {
+                shown += (i === 0 ? '' : ' ') + words[i];
+                onChunk(shown);
+                if (i % 6 === 5) await new Promise(r => setTimeout(r, 30));
+            }
+            onChunk(full);
+            return full;
+
+        } catch (e) {
+            if (attempt < 2) {
+                await new Promise(r => setTimeout(r, 1200 * (attempt + 1))); // backoff
+                continue;
+            }
+            // All POST attempts failed — GET fallback
         }
     }
 
-    // ── Primary: POST ללא streaming (אמין יותר — streaming נותן reasoning chunks) ──
-    try {
-        const res = await fetch('https://text.pollinations.ai/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                messages,
-                model: 'openai',
-                stream: false,
-                private: true,
-                seed: Math.floor(Math.random() * 99999)
-            }),
-            signal: AbortSignal.timeout(60000)
-        });
-
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const full = (await res.text()).trim();
-        if (!full) throw new Error('empty');
-
-        // אפקט הקלדה מדומה — מילה-מילה
-        const words = full.split(' ');
-        let shown = '';
-        for (let i = 0; i < words.length; i++) {
-            shown += (i === 0 ? '' : ' ') + words[i];
-            onChunk(shown);
-            if (i % 6 === 5) await new Promise(r => setTimeout(r, 30)); // pause every 6 words
-        }
-        onChunk(full);
-        return full;
-
-    } catch (_) {
-        // ── Fallback: GET endpoint — always CORS-safe, no streaming ──
-        const sys  = messages.find(m => m.role === 'system')?.content || '';
-        const conv = messages.filter(m => m.role !== 'system').map(m => {
-            const role = m.role === 'assistant' ? 'Assistant' : 'User';
-            const text = typeof m.content === 'string'
-                ? m.content
-                : (m.content?.[0]?.text || '');
-            return `${role}: ${text}`;
-        }).join('\n');
-
-        // Trim system prompt to avoid URL-too-long 404s
-        const shortSys = sys.substring(0, 300);
-        const prompt = `${shortSys}\n\nConversation:\n${conv}`;
-        const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}` +
-            `?model=openai&private=true&seed=${Math.floor(Math.random()*99999)}`;
-
-        const r = await fetch(url);
-        if (!r.ok) throw new Error('GET ' + r.status);
-        const text = await r.text();
-        if (!text) throw new Error('empty GET');
-        onChunk(text);
-        return text;
+    // ── GET fallback ──
+    const sys  = messages.find(m => m.role === 'system')?.content || '';
+    const conv = messages.filter(m => m.role !== 'system').map(m => {
+        const role = m.role === 'assistant' ? 'Assistant' : 'User';
+        const text = typeof m.content === 'string'
+            ? m.content
+            : (m.content?.[0]?.text || '');
+        return `${role}: ${text}`;
+    }).join('\n');
+    const shortSys = sys.substring(0, 300);
+    const prompt = `${shortSys}\n\nConversation:\n${conv}`;
+    const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}` +
+        `?model=openai&private=true&seed=${Math.floor(Math.random()*99999)}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(45000) });
+    if (!r.ok) throw new Error('GET ' + r.status);
+    const text = await r.text();
+    if (!text) throw new Error('empty GET');
+    onChunk(text);
+    return text;
     }
 }
 
@@ -2266,9 +2291,8 @@ async function send() {
     const inp = document.getElementById('userInput');
     const q   = inp.value.trim();
     if (!q && !fileUrl) return;
-    if (!consumeFreeMsg()) return;
 
-    // Image generation shortcut — always in image mode, or when asked
+    // Image generation — free, unlimited, no quota used
     if ((currentMode === 'image' || isImageRequest(q)) && !fileUrl) {
         addMsg('user', q);
         inp.value = ''; inp.style.height = 'auto'; updateBtn();
@@ -2278,6 +2302,8 @@ async function send() {
         hideTyping();
         return;
     }
+
+    if (!consumeFreeMsg()) return;
 
     const img = fileUrl;
     addMsg('user', q, img);
