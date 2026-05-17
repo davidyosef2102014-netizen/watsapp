@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Birgsol AI Code</title>
+    <title>BIRGSOL AI 3.0</title>
     <link href="https://fonts.bunny.net/css2?family=assistant:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link id="hljs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
     <style>
@@ -216,7 +216,7 @@
         .code-preview { width:100%; min-height:180px; border:none; border-top:1px solid var(--border); border-radius:0 0 12px 12px; background:#fff; display:none; }
         .code-preview.on { display:block; }
         .ai-img-wrap { margin:12px 0; }
-        .ai-gen-img { max-width:100%; border-radius:14px; display:block; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+        .ai-gen-img { width:100%; max-width:800px; border-radius:16px; display:block; box-shadow:0 4px 32px rgba(0,0,0,.5); }
         .ai-img-caption { font-size:12px; color:var(--muted); margin-top:6px; }
         .img-gen-btn { background:none; border:none; cursor:pointer; width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; transition:background .15s; }
         .img-gen-btn:hover { background:var(--surf2); }
@@ -224,6 +224,13 @@
         .mic-btn:hover { background:var(--surf2); }
         .mic-btn.recording { background:rgba(220,50,50,.18); animation:micPulse 1s ease-in-out infinite; }
         @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(220,50,50,.5)} 50%{box-shadow:0 0 0 6px rgba(220,50,50,0)} }
+        /* mode selector */
+        .mode-row { display:flex; gap:6px; padding:0 8px 10px; }
+        .mode-pill { flex:1; padding:7px 4px; border-radius:50px; border:1px solid var(--border);
+            background:none; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer;
+            font-family:inherit; transition:all .18s; text-align:center; }
+        .mode-pill.active { background:linear-gradient(135deg,#4285F4,#C58AF9); color:#fff; border-color:transparent; }
+        .mode-pill:hover:not(.active) { background:var(--surf2); color:var(--text); }
         /* streaming cursor */
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         .stream-cursor { display:inline-block; width:2px; height:1.1em; background:var(--blue); margin-right:2px; vertical-align:text-bottom; animation:blink .7s infinite; border-radius:1px; }
@@ -234,7 +241,7 @@
         .agent-step b { color:var(--text); }
         /* image generation */
         .img-skeleton {
-            width:100%; max-width:520px; height:280px; border-radius:14px;
+            width:100%; max-width:800px; height:380px; border-radius:14px;
             background:linear-gradient(90deg,var(--surf2) 25%,var(--surf) 50%,var(--surf2) 75%);
             background-size:200% 100%;
             animation:shimmer 1.6s infinite;
@@ -685,7 +692,7 @@
     <div class="sp-ring"></div>
     <div class="sp-ring"></div>
     <div class="sp-logo">✦</div>
-    <div class="sp-title">Birgsol AI Code</div>
+    <div class="sp-title">BIRGSOL AI 3.0</div>
     <div class="sp-sub">סוכן AI · קוד · תמונות</div>
     <button class="sp-btn" onclick="startApp()">התחל</button>
     <div class="sp-footer">נוצר ע"י דוד יוסף זאבי · 2025</div>
@@ -696,7 +703,7 @@
     <div class="login-card">
         <div class="login-logo">
             <div class="l-star">✦</div>
-            <h1>Birgsol AI Code</h1>
+            <h1>BIRGSOL AI 3.0</h1>
             <p>התחבר עם חשבון Birgsol AI שלך</p>
         </div>
         <div class="login-field">
@@ -911,11 +918,17 @@
     <div class="sb-head">
         <div class="sb-brand">
             <div class="sb-star">✦</div>
-            <span class="sb-name">Birgsol AI Code</span>
+            <span class="sb-name">BIRGSOL AI 3.0</span>
         </div>
         <button class="new-btn" onclick="startNew()">
             <span>✏️</span> שיחה חדשה
         </button>
+    </div>
+    <div class="sb-label">מצב AI</div>
+    <div class="mode-row">
+        <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')">💬 שיחה</button>
+        <button class="mode-pill" id="mode-code" onclick="setMode('code')">💻 קוד</button>
+        <button class="mode-pill" id="mode-image" onclick="setMode('image')">🎨 תמונות</button>
     </div>
     <div class="sb-label">שיחות אחרונות</div>
     <div class="sb-body" id="hist-list">
@@ -924,7 +937,7 @@
     <div class="sb-foot">
         <div class="live-row" style="margin-bottom:10px;">
             <div class="dot"></div>
-            <span>Birgsol AI Code · GPT-4o</span>
+            <span>BIRGSOL AI 3.0 · GPT-4o</span>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">נוצר ע"י דוד יוסף זאבי</div>
         <button onclick="doLogout()" style="width:100%;padding:9px;background:rgba(220,50,50,.12);border:1px solid rgba(220,50,50,.25);border-radius:50px;color:#ff8a80;font-size:13px;cursor:pointer;font-family:inherit;transition:background .15s;">
@@ -942,11 +955,11 @@
         </div>
         <div class="tb-logo">
             <div class="tb-star">✦</div>
-            <span class="tb-name">Birgsol AI Code</span>
+            <span class="tb-name">BIRGSOL AI 3.0</span>
         </div>
         <div class="tb-left">
             <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="החלף ערכת נושא" style="font-size:18px;">☀️</button>
-            <span class="ver-pill">2.0</span>
+            <span class="ver-pill">3.0</span>
             <div class="user-chip" onclick="openPremiumModal()" id="user-chip">
                 <div class="user-dot" id="user-dot">?</div>
                 <span id="user-label">—</span>
@@ -1499,51 +1512,90 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-/* ── PERSONA ── */
-const PERSONA = `You are Birgsol AI Code — an elite software engineering AI and autonomous agent, built by David Yosef Zevi and Ruth Zevi. You operate at the level of Claude Sonnet from Anthropic combined with GitHub Copilot.
+/* ══════════════ AI MODES ══════════════ */
+let currentMode = localStorage.getItem('birgsol_mode') || 'normal';
+
+const PERSONA_NORMAL = `You are BIRGSOL AI 3.0 — a smart, friendly general-purpose AI and autonomous agent, built by David Yosef Zevi and Ruth Zevi. You combine the power of ChatGPT, Claude, and GitHub Copilot.
+
+=== CAPABILITIES ===
+- Answer any question: science, history, math, philosophy, current events, cooking, travel, relationships
+- Write complete, production-ready code in any language when asked
+- Generate images when asked (user asks to "draw" / "create image" / "צור תמונה")
+- Help with creative writing, brainstorming, analysis, translation
+- Search the web for current information
+
+=== RESPONSE FORMAT ===
+- Full Markdown: headers, bold, lists, code blocks tagged with language
+- DEFAULT language: Hebrew (עברית) — switch to user's language if they write in English
+- Be warm, helpful, and thorough — no empty filler phrases
+
+=== WEB AGENT TOOLS ===
+You have REAL internet access. Write tool calls on their own line:
+[SEARCH: your search query]
+[BROWSE: https://full-url.com]
+Use [SEARCH] for current info, news, prices. Use [BROWSE] to read a URL. Up to 4 tool calls per answer.
+NEVER invent search results.
+
+=== INTERNAL INFO ===
+The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.`;
+
+const PERSONA_CODE = `You are BIRGSOL AI 3.0 Code Mode — an elite software engineering AI and autonomous agent, built by David Yosef Zevi and Ruth Zevi. You operate at the level of Claude Sonnet from Anthropic combined with GitHub Copilot.
 
 === CODE MASTERY ===
-- Write COMPLETE, PRODUCTION-READY code — NEVER truncate, NEVER write "// add the rest here" or "// ..."
+- Write COMPLETE, PRODUCTION-READY code — NEVER truncate, NEVER write "// add the rest here"
 - Languages: Python, JavaScript, TypeScript, HTML/CSS/JS, React, Vue, Node.js, Express, SQL, C++, Java, Rust, Swift, Go, PHP, Bash
 - ALWAYS include: error handling, edge cases, meaningful variable names, comments on complex logic
 - For UI/HTML: write beautiful, modern, fully responsive designs with smooth animations
 - After every code block: add a concise "**How to use:**" section
-- For debugging requests: identify the ROOT CAUSE first, explain WHY it fails, then provide the complete fixed code
+- For debugging: identify ROOT CAUSE first, explain WHY it fails, then provide the complete fixed code
 
 === AGENT BEHAVIOR ===
-For complex or multi-part tasks:
-1. Start with "**📋 Plan:**" — numbered steps of what you'll build
-2. Execute EACH step completely, in order
-3. At the end: "**✅ Done — here's a summary of what was built**"
-
-For ambiguous requests: state your assumptions clearly, then proceed.
-If you realize mid-way that your approach has issues: say so and correct course immediately.
-Self-verify your code mentally before outputting it.
+For complex tasks:
+1. Start with "**📋 Plan:**" — numbered steps
+2. Execute EACH step completely
+3. End with "**✅ Done — summary of what was built**"
 
 === RESPONSE FORMAT ===
-- Full Markdown always: ## headers, **bold**, \`inline code\`, tables, numbered/bulleted lists
-- Code blocks ALWAYS tagged: \`\`\`python, \`\`\`javascript, \`\`\`html, \`\`\`css, etc.
-- For step-by-step tasks: use "### Step 1:", "### Step 2:", etc.
-- Be thorough and precise — no filler phrases like "Great question!" or "Certainly!"
-- DEFAULT language: Hebrew (עברית) — switch to the user's language if they write in English or another language
+- Full Markdown always: ## headers, **bold**, code blocks ALWAYS tagged with language
+- DEFAULT language: Hebrew (עברית) — switch if user writes in English
 
 === WEB AGENT TOOLS ===
-You have REAL internet access. Use these tools whenever you need current information:
-
-Write tool calls on their own line, exactly like this:
-[SEARCH: your search query]
-[BROWSE: https://full-url.com]
-
-When to use:
-- [SEARCH] — news, current events, prices, weather, sports, any recent facts, "מה קורה ב...", "מה השעה/מחיר של...", any question about today's world
-- [BROWSE] — after a search gives you a URL you want to read in full; read articles, pages, docs
-- You may use up to 4 tool calls per answer
-- After each tool result is inserted, continue reasoning and answering
-- NEVER invent search results — only use what tools actually return
-- If tools return nothing useful, say so honestly
+[SEARCH: query] and [BROWSE: url] available. Up to 4 per answer.
 
 === INTERNAL INFO ===
-The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.`;
+The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Zevi. Currency: )(.`;
+
+const PERSONA_IMAGE = `You are BIRGSOL AI 3.0 Image Mode — a creative AI image generation assistant built by David Yosef Zevi and Ruth Zevi.
+
+Your specialty is generating beautiful, detailed images. When a user sends any message:
+- Treat it as an image generation request
+- Describe what you're generating
+- The system will automatically create the image
+
+=== RESPONSE FORMAT ===
+- Brief description in Hebrew of what you're generating
+- Be enthusiastic and creative
+- DEFAULT language: Hebrew (עברית)`;
+
+function getPersona() {
+    if (currentMode === 'code') return PERSONA_CODE;
+    if (currentMode === 'image') return PERSONA_IMAGE;
+    return PERSONA_NORMAL;
+}
+
+function setMode(mode) {
+    currentMode = mode;
+    localStorage.setItem('birgsol_mode', mode);
+    ['normal','code','image'].forEach(m => {
+        const btn = document.getElementById('mode-' + m);
+        if (btn) btn.classList.toggle('active', m === mode);
+    });
+    // Update topbar indicator
+    const modeNames = { normal:'💬', code:'💻', image:'🎨' };
+    const pill = document.querySelector('.ver-pill');
+    if (pill) pill.textContent = '3.0 ' + (modeNames[mode] || '');
+    startNew(); // start fresh conversation in new mode
+}
 
 let hist = [], fileUrl = "", busy = false, isFirstMsg = true;
 
@@ -1820,7 +1872,7 @@ async function generateImage(prompt, reuseRow) {
         row = document.createElement('div'); row.className = 'msg-row ai';
         const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
         bodyEl = document.createElement('div'); bodyEl.className = 'ai-body';
-        const nm = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'Birgsol AI Code';
+        const nm = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.0';
         const txtDiv = document.createElement('div'); txtDiv.className = 'ai-txt';
         wrapEl = document.createElement('div'); wrapEl.className = 'ai-img-wrap';
         actsEl = document.createElement('div'); actsEl.className = 'ai-acts';
@@ -1907,7 +1959,7 @@ Rules:
 
     // ── 3. Build image URL and load ──
     const seed = Math.floor(Math.random() * 999999);
-    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=768&height=512&nologo=true&model=flux&seed=${seed}&enhance=false`;
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=768&nologo=true&model=flux&seed=${seed}&enhance=false`;
 
     // Simulate progress during image generation (Flux takes 20-60s)
     let prog = 55;
@@ -1917,11 +1969,14 @@ Rules:
     }, 1200);
 
     const img = new Image();
-    await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve; // resolve anyway, handle below
-        img.src = imgUrl;
-    });
+    await Promise.race([
+        new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+            img.src = imgUrl;
+        }),
+        new Promise(resolve => setTimeout(resolve, 120000))
+    ]);
     clearInterval(progIv);
     if (skelBar) skelBar.style.width = '100%';
 
@@ -2213,8 +2268,8 @@ async function send() {
     if (!q && !fileUrl) return;
     if (!consumeFreeMsg()) return;
 
-    // Image generation shortcut
-    if (isImageRequest(q) && !fileUrl) {
+    // Image generation shortcut — always in image mode, or when asked
+    if ((currentMode === 'image' || isImageRequest(q)) && !fileUrl) {
         addMsg('user', q);
         inp.value = ''; inp.style.height = 'auto'; updateBtn();
         if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
@@ -2230,7 +2285,7 @@ async function send() {
     clearFile(); busy = true; updateBtn();
 
     // Build messages for OpenAI-compatible API
-    const messages = [{ role: 'system', content: PERSONA }];
+    const messages = [{ role: 'system', content: getPersona() }];
     hist.slice(-14).forEach(m => {
         const content = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
         messages.push({ role: m.role, content });
@@ -2250,7 +2305,7 @@ async function send() {
     const row  = document.createElement('div'); row.className = 'msg-row ai';
     const ava  = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
     const body = document.createElement('div'); body.className = 'ai-body';
-    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'Birgsol AI Code';
+    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.0';
     // Agent status bar (hidden until tools are used)
     const status = document.createElement('div'); status.className = 'agent-status'; status.style.display = 'none';
     const txt  = document.createElement('div'); txt.className = 'ai-txt';
@@ -2271,8 +2326,12 @@ async function send() {
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
 
         // Render as Markdown
-        txt.innerHTML = marked.parse(cleanText || fullText);
-        enhanceCodeBlocks(txt);
+        try {
+            txt.innerHTML = marked.parse(cleanText || fullText);
+            enhanceCodeBlocks(txt);
+        } catch(renderErr) {
+            // Keep whatever the typewriter already showed
+        }
 
         // Copy button
         const acts = document.createElement('div'); acts.className = 'ai-acts';
@@ -2284,7 +2343,9 @@ async function send() {
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
         saveConversation(); // שמור שיחה מלאה ב-localStorage
     } catch (e) {
-        txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
+        if (!fullText) {
+            txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
+        }
     }
     busy = false; updateBtn();
 }
