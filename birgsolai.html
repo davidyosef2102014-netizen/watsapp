@@ -220,6 +220,10 @@
         .ai-img-caption { font-size:12px; color:var(--muted); margin-top:6px; }
         .img-gen-btn { background:none; border:none; cursor:pointer; width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; transition:background .15s; }
         .img-gen-btn:hover { background:var(--surf2); }
+        .mic-btn { background:none; border:none; cursor:pointer; width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; transition:background .15s; }
+        .mic-btn:hover { background:var(--surf2); }
+        .mic-btn.recording { background:rgba(220,50,50,.18); animation:micPulse 1s ease-in-out infinite; }
+        @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(220,50,50,.5)} 50%{box-shadow:0 0 0 6px rgba(220,50,50,0)} }
         /* streaming cursor */
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         .stream-cursor { display:inline-block; width:2px; height:1.1em; background:var(--blue); margin-right:2px; vertical-align:text-bottom; animation:blink .7s infinite; border-radius:1px; }
@@ -1005,6 +1009,7 @@
                     <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
+                    <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלטת קול">🎤</button>
                     <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI">🎨</button>
                     <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
                 </div>
@@ -1218,6 +1223,9 @@ async function doLogin() {
 }
 
 async function _finishLogin(user) {
+    // הסתר splash אם עדיין גלוי
+    const sp = document.getElementById('splash');
+    if (sp && sp.style.display !== 'none') { sp.classList.add('hide'); setTimeout(() => sp.style.display='none', 700); }
     currentUser = user;
     localStorage.setItem(AI_AUTH_KEY, user);
     checkPremium();
@@ -1475,6 +1483,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             } else {
                 // User no longer exists in cloud, clear local auth
                 localStorage.removeItem(AI_AUTH_KEY);
+                startApp(); // הסתר splash
                 document.getElementById('login-screen').style.display = 'flex';
             }
         } catch {
@@ -1485,6 +1494,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             loadConversationsCloud().catch(() => {});
         }
     } else {
+        startApp(); // הסתר splash
         document.getElementById('login-screen').style.display = 'flex';
     }
 });
@@ -1606,6 +1616,52 @@ function updateBtn() {
 }
 function handleKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+}
+
+/* ── voice recording ── */
+let _voiceRec = null;
+let _voiceActive = false;
+function toggleVoice() {
+    if (_voiceActive) { _stopVoice(); return; }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('הדפדפן שלך לא תומך בהקלטת קול. נסה Chrome.'); return; }
+    _voiceRec = new SR();
+    _voiceRec.lang = 'he-IL';
+    _voiceRec.interimResults = true;
+    _voiceRec.continuous = false;
+    _voiceActive = true;
+    const btn = document.getElementById('micBtn');
+    const ta  = document.getElementById('userInput');
+    btn.classList.add('recording');
+    btn.title = 'עצור הקלטה';
+    const savedPlaceholder = ta.placeholder;
+    ta.placeholder = '🎙 מקשיב...';
+    let finalTranscript = '';
+    _voiceRec.onresult = e => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            const t = e.results[i][0].transcript;
+            if (e.results[i].isFinal) finalTranscript += t;
+            else interim = t;
+        }
+        ta.value = finalTranscript + interim;
+        autoResize(ta); updateBtn();
+    };
+    _voiceRec.onerror = () => _stopVoice();
+    _voiceRec.onend = () => {
+        _voiceActive = false;
+        btn.classList.remove('recording');
+        btn.title = 'הקלטת קול';
+        ta.placeholder = savedPlaceholder;
+        autoResize(ta); updateBtn();
+    };
+    _voiceRec.start();
+}
+function _stopVoice() {
+    if (_voiceRec) { try { _voiceRec.stop(); } catch(e) {} _voiceRec = null; }
+    _voiceActive = false;
+    const btn = document.getElementById('micBtn');
+    if (btn) { btn.classList.remove('recording'); btn.title = 'הקלטת קול'; }
 }
 
 /* ── file ── */
