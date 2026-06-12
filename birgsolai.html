@@ -2173,8 +2173,8 @@ Rules:
                         { role: 'system', content: _sysImg },
                         { role: 'user', content: `Image request: "${prompt}"` }
                     ],
-                    model: 'openai-large',
-                    private: true
+                    model: 'openai',
+                    stream: false
                 }),
                 signal: AbortSignal.timeout(12000)
             });
@@ -2422,7 +2422,7 @@ async function callAI(messages, onChunk) {
                 const res = await fetch('https://text.pollinations.ai/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages, model: 'openai-large', stream: false, private: true }),
+                    body: JSON.stringify({ messages, model: 'openai', stream: false }),
                     signal: AbortSignal.timeout(50000)
                 });
                 if (!res.ok) throw new Error('vision HTTP ' + res.status);
@@ -2453,74 +2453,80 @@ async function callAI(messages, onChunk) {
         }
     }
 
-    // ── Text path — POST no-stream, 3 attempts, then GET fallback ──
-    for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-            const res = await fetch('https://text.pollinations.ai/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages,
-                    model: 'openai-large',
-                    stream: false,
-                    private: true,
-                    seed: Math.floor(Math.random() * 99999)
-                }),
-                signal: AbortSignal.timeout(65000)
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            let full = (await res.text()).trim();
-            if (!full) throw new Error('empty');
-            // אם Pollinations החזיר JSON במקום טקסט — חלץ את ה-content
-            if (full.startsWith('{') || full.startsWith('[')) {
-                try {
-                    const j = JSON.parse(full);
-                    const extracted = j?.choices?.[0]?.message?.content
-                        || j?.content || j?.text || j?.response || '';
-                    if (extracted) full = extracted;
-                } catch {}
-            }
-            if (!full) throw new Error('empty after parse');
-
-            // typewriter word-by-word
-            const words = full.split(' ');
-            let shown = '';
-            for (let i = 0; i < words.length; i++) {
-                shown += (i === 0 ? '' : ' ') + words[i];
-                onChunk(shown);
-                if (i % 6 === 5) await new Promise(r => setTimeout(r, 30));
-            }
-            onChunk(full);
-            return full;
-
-        } catch (e) {
-            if (attempt < 2) {
-                await new Promise(r => setTimeout(r, 1200 * (attempt + 1))); // backoff
-                continue;
-            }
-            // All POST attempts failed — GET fallback
+    // ── helpers ──
+    async function _typewrite(full) {
+        const words = full.split(' ');
+        let shown = '';
+        for (let i = 0; i < words.length; i++) {
+            shown += (i === 0 ? '' : ' ') + words[i];
+            onChunk(shown);
+            if (i % 8 === 7) await new Promise(r => setTimeout(r, 20));
         }
+        onChunk(full);
+    }
+    function _extractText(raw) {
+        const t = raw.trim();
+        if (!t) return '';
+        if (t.startsWith('{') || t.startsWith('[')) {
+            try {
+                const j = JSON.parse(t);
+                return j?.choices?.[0]?.message?.content
+                    || j?.content || j?.text || j?.response || t;
+            } catch {}
+        }
+        return t;
     }
 
-    // ── GET fallback ──
-    const sys  = messages.find(m => m.role === 'system')?.content || '';
-    const conv = messages.filter(m => m.role !== 'system').map(m => {
+    // ── GET first — simplest, most reliable anonymous ──
+    const _sys  = messages.find(m => m.role === 'system')?.content || '';
+    const _conv = messages.filter(m => m.role !== 'system').map(m => {
         const role = m.role === 'assistant' ? 'Assistant' : 'User';
         const text = typeof m.content === 'string'
             ? m.content
             : (m.content?.[0]?.text || '');
         return `${role}: ${text}`;
     }).join('\n');
-    const shortSys = sys.substring(0, 300);
-    const prompt = `${shortSys}\n\nConversation:\n${conv}`;
-    const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}` +
-        `?model=openai-large&private=true&seed=${Math.floor(Math.random()*99999)}`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(45000) });
-    if (!r.ok) throw new Error('GET ' + r.status);
-    const text = await r.text();
-    if (!text) throw new Error('empty GET');
-    onChunk(text);
-    return text;
+    const _prompt = (_sys.substring(0, 250) + '\n\n' + _conv).trim();
+    const _getUrl = `https://text.pollinations.ai/${encodeURIComponent(_prompt)}` +
+        `?model=openai&seed=${Math.floor(Math.random()*99999)}`;
+
+    for (let ga = 0; ga < 2; ga++) {
+        try {
+            const gr = await fetch(_getUrl, { signal: AbortSignal.timeout(50000) });
+            if (!gr.ok) throw new Error('GET ' + gr.status);
+            const gText = _extractText(await gr.text());
+            if (!gText) throw new Error('empty');
+            await _typewrite(gText);
+            return gText;
+        } catch (e) {
+            if (ga === 0) { await new Promise(r => setTimeout(r, 2000)); continue; }
+        }
+    }
+
+    // ── POST fallback ──
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const res = await fetch('https://text.pollinations.ai/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages,
+                    model: 'openai',
+                    stream: false,
+                    seed: Math.floor(Math.random() * 99999)
+                }),
+                signal: AbortSignal.timeout(55000)
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const full = _extractText(await res.text());
+            if (!full) throw new Error('empty');
+            await _typewrite(full);
+            return full;
+        } catch (e) {
+            if (attempt < 1) { await new Promise(r => setTimeout(r, 2000)); continue; }
+            throw e;
+        }
+    }
 }
 
 /* ── SEND ── */
