@@ -2189,27 +2189,22 @@ Rules:
 
     // ── 3. Build image URL and load ──
     const seed = Math.floor(Math.random() * 999999);
-    // gptimage = DALL-E 3 quality via Pollinations; flux-realism as fallback
-    const primaryModel  = 'gptimage';
-    const fallbackModel = _isProduct ? 'flux-realism' : 'flux';
-    const _buildUrl = (model) => {
-        if (model === 'gptimage') {
-            return `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=gptimage&seed=${seed}`;
-        }
-        return `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=${model}&seed=${seed}&enhance=true`;
-    };
+    const primaryModel  = _isProduct ? 'flux-realism' : 'flux';
+    const fallbackModel = 'turbo';
+    const _buildUrl = (model) =>
+        `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=${model}&seed=${seed}&enhance=true`;
+
     let imgUrl = _buildUrl(primaryModel);
     let _usedFallback = false;
 
-    // Simulate progress (gptimage ~10-30s, flux ~20-60s)
     let prog = 55;
     const progIv = setInterval(() => {
-        prog = Math.min(prog + (Math.random() * 4), 90);
+        prog = Math.min(prog + (Math.random() * 3), 90);
         if (skelBar) skelBar.style.width = prog + '%';
-    }, 1000);
+    }, 1200);
 
     const img = new Image();
-    // Try primary model; if it fails within 90s switch to fallback
+    img.crossOrigin = 'anonymous';
     await new Promise((resolve) => {
         let done = false;
         const finish = () => { if (!done) { done = true; resolve(); } };
@@ -2222,11 +2217,12 @@ Rules:
             img.onerror = finish;
             img.onload = finish;
             img.src = imgUrl;
+            setTimeout(finish, 60000);
         };
         img.onload = finish;
         img.onerror = tryFallback;
         img.src = imgUrl;
-        setTimeout(() => { if (!done) tryFallback(); }, 90000); // 90s timeout → fallback
+        setTimeout(() => { if (!done) tryFallback(); }, 45000); // 45s → fallback
     });
     clearInterval(progIv);
     if (skelBar) skelBar.style.width = '100%';
