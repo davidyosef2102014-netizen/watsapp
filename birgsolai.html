@@ -1808,6 +1808,10 @@ _renderer.code = function({ text, lang }) {
 marked.use({ renderer: _renderer, breaks: true, gfm: true });
 
 /* ── theme ── */
+if (!localStorage.getItem('birgsol_gemini_reset')) {
+    localStorage.setItem('birgsol_theme', 'light');
+    localStorage.setItem('birgsol_gemini_reset', '1');
+}
 let currentTheme = localStorage.getItem('birgsol_theme') || 'light';
 function applyTheme(t) {
     currentTheme = t;
