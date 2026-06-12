@@ -1734,12 +1734,33 @@ function _stopVoice() {
 function previewFile() {
     const f = document.getElementById('fi').files[0];
     if (!f) return;
-    const r = new FileReader();
-    r.onload = e => {
-        fileUrl = e.target.result;
-        document.getElementById('thumb').src = fileUrl;
-        document.getElementById('img-prev').classList.add('on');
-        updateBtn();
+    const reader = new FileReader();
+    reader.onload = e => {
+        const original = e.target.result;
+        // Compress to max 768px, JPEG 0.85 — required for vision API size limits
+        const tmpImg = new Image();
+        tmpImg.onload = () => {
+            const MAX = 768;
+            let w = tmpImg.width, h = tmpImg.height;
+            if (w > MAX || h > MAX) {
+                if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                else       { w = Math.round(w * MAX / h); h = MAX; }
+            }
+            const cv = document.createElement('canvas');
+            cv.width = w; cv.height = h;
+            cv.getContext('2d').drawImage(tmpImg, 0, 0, w, h);
+            fileUrl = cv.toDataURL('image/jpeg', 0.85);
+            document.getElementById('thumb').src = fileUrl;
+            document.getElementById('img-prev').classList.add('on');
+            updateBtn();
+        };
+        tmpImg.onerror = () => {
+            fileUrl = original;
+            document.getElementById('thumb').src = original;
+            document.getElementById('img-prev').classList.add('on');
+            updateBtn();
+        };
+        tmpImg.src = original;
     };
     r.readAsDataURL(f);
 }
@@ -1992,25 +2013,45 @@ Rules:
 
     // ── 3. Build image URL and load ──
     const seed = Math.floor(Math.random() * 999999);
-    const imgModel = _isProduct ? 'flux-realism' : 'flux';
-    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=${imgModel}&seed=${seed}&enhance=true`;
+    // gptimage = DALL-E 3 quality via Pollinations; flux-realism as fallback
+    const primaryModel  = 'gptimage';
+    const fallbackModel = _isProduct ? 'flux-realism' : 'flux';
+    const _buildUrl = (model) => {
+        if (model === 'gptimage') {
+            return `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=gptimage&seed=${seed}`;
+        }
+        return `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=${model}&seed=${seed}&enhance=true`;
+    };
+    let imgUrl = _buildUrl(primaryModel);
+    let _usedFallback = false;
 
-    // Simulate progress during image generation (Flux takes 20-60s)
+    // Simulate progress (gptimage ~10-30s, flux ~20-60s)
     let prog = 55;
     const progIv = setInterval(() => {
-        prog = Math.min(prog + (Math.random() * 3), 90);
+        prog = Math.min(prog + (Math.random() * 4), 90);
         if (skelBar) skelBar.style.width = prog + '%';
-    }, 1200);
+    }, 1000);
 
     const img = new Image();
-    await Promise.race([
-        new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
+    // Try primary model; if it fails within 90s switch to fallback
+    await new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
+        const tryFallback = () => {
+            if (_usedFallback) { finish(); return; }
+            _usedFallback = true;
+            imgUrl = _buildUrl(fallbackModel);
+            if (skelTxt) skelTxt.textContent = 'מנסה מנוע חלופי…';
+            prog = 55; if (skelBar) skelBar.style.width = prog + '%';
+            img.onerror = finish;
+            img.onload = finish;
             img.src = imgUrl;
-        }),
-        new Promise(resolve => setTimeout(resolve, 120000))
-    ]);
+        };
+        img.onload = finish;
+        img.onerror = tryFallback;
+        img.src = imgUrl;
+        setTimeout(() => { if (!done) tryFallback(); }, 90000); // 90s timeout → fallback
+    });
     clearInterval(progIv);
     if (skelBar) skelBar.style.width = '100%';
 
