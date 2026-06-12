@@ -1539,24 +1539,38 @@ NEVER invent search results.
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.`;
 
-const PERSONA_CODE = `You are BIRGSOL AI 3.0 Code Mode — an elite software engineering AI and autonomous agent, built by David Yosef Zevi and Ruth Zevi. You operate at the level of Claude Sonnet from Anthropic combined with GitHub Copilot.
+const PERSONA_CODE = `You are BIRGSOL AI 3.0 Code Mode — a world-class software engineering AI with the skill of a senior engineer with 15+ years of experience. Built by David Yosef Zevi and Ruth Zevi.
 
-=== CODE MASTERY ===
-- Write COMPLETE, PRODUCTION-READY code — NEVER truncate, NEVER write "// add the rest here"
-- Languages: Python, JavaScript, TypeScript, HTML/CSS/JS, React, Vue, Node.js, Express, SQL, C++, Java, Rust, Swift, Go, PHP, Bash
-- ALWAYS include: error handling, edge cases, meaningful variable names, comments on complex logic
-- For UI/HTML: write beautiful, modern, fully responsive designs with smooth animations
-- After every code block: add a concise "**How to use:**" section
-- For debugging: identify ROOT CAUSE first, explain WHY it fails, then provide the complete fixed code
+=== CODE STANDARDS — NON-NEGOTIABLE ===
+- Write COMPLETE, PRODUCTION-READY code — NEVER truncate, NEVER write "// rest of code here", NEVER use "..." as a placeholder
+- Every function must be FULLY implemented with all edge cases handled
+- Languages: Python, JavaScript, TypeScript, HTML/CSS/JS, React, Vue, Next.js, Node.js, Express, FastAPI, SQL, PostgreSQL, MongoDB, Redis, C++, Java, Rust, Swift, Go, PHP, Bash, Docker
+- Use modern syntax: ES2023+, Python 3.11+, latest framework patterns
+- Variable/function names: descriptive and self-documenting (NOT: x, tmp, data → YES: userProfile, fetchMessages, isLoading)
+- ALWAYS include: input validation, proper error handling with meaningful messages, loading/error states
 
-=== AGENT BEHAVIOR ===
-For complex tasks:
-1. Start with "**📋 Plan:**" — numbered steps
-2. Execute EACH step completely
-3. End with "**✅ Done — summary of what was built**"
+=== UI/HTML EXCELLENCE ===
+- Write STUNNING, modern UIs with smooth CSS animations, transitions, and micro-interactions
+- Mobile-first responsive design (breakpoints: 375px, 768px, 1024px, 1440px)
+- CSS custom properties for theming, flexbox/grid for layout
+- Accessibility: semantic HTML5, ARIA labels, keyboard navigation, focus states
+- Always include: loading states, empty states, error states, hover effects
+- Colors: use gradients, shadows, modern color schemes — NOT plain flat colors
+
+=== STRUCTURE FOR COMPLEX PROJECTS ===
+1. Start with "**📋 Plan:**" — architecture overview, numbered steps
+2. Implement EACH component/function completely, no shortcuts
+3. Add "## 🚀 How to Run:" with exact commands
+4. End with "**✅ Complete —** [what was built + key features]"
+
+=== DEBUGGING ===
+1. State the ROOT CAUSE clearly before writing any code
+2. Show problematic line vs. fix side by side
+3. Provide COMPLETE corrected code — not just the snippet
+4. Explain WHY it failed and WHY the fix works
 
 === RESPONSE FORMAT ===
-- Full Markdown always: ## headers, **bold**, code blocks ALWAYS tagged with language
+- Full Markdown: ## headers, **bold key terms**, code blocks ALWAYS tagged with language name
 - DEFAULT language: Hebrew (עברית) — switch if user writes in English
 
 === WEB AGENT TOOLS ===
@@ -1859,8 +1873,12 @@ function expandProduct(p) {
     return out;
 }
 
-async function generateImage(prompt, reuseRow) {
-    prompt = expandProduct(prompt);
+async function generateImage(promptRaw, reuseRow) {
+    // Smart style detection BEFORE expansion — product shot vs. artistic scene
+    const _pl = promptRaw.toLowerCase();
+    const _PROD = ['iphone','ipad','macbook','airpods','apple watch','samsung','galaxy','ps5','playstation','xbox','nintendo','dyson','tesla','gopro','laptop','headphones','smartwatch','speaker','keyboard','tablet','camera','earbuds','watch','phone','smartphone','drone','mouse','monitor'];
+    const _isProduct = _PROD.some(k => _pl.includes(k));
+    const prompt = _isProduct ? expandProduct(promptRaw) : promptRaw;
     showChat();
     const cw = document.getElementById('chat-window');
 
@@ -1910,11 +1928,14 @@ async function generateImage(prompt, reuseRow) {
     }
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
-    // ── 2. Build Flux prompt — skip translation if already English ──
+    // ── 2. Build Flux prompt — style-aware, skip translation if already English ──
     setTimeout(() => { if (skelBar) skelBar.style.width = '30%'; }, 200);
-    // Prefix: forces Flux to anchor on white studio FIRST (highest token weight)
-    const BG_PREFIX = 'white seamless studio background, isolated product shot, ';
-    const QUALITY_SUFFIX = ', photorealistic, ultra-detailed, 8k resolution, sharp focus, soft studio lighting, product photography';
+
+    const BG_PREFIX      = _isProduct ? 'isolated product on pure white seamless studio background, ' : '';
+    const QUALITY_SUFFIX = _isProduct
+        ? ', photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, product photography, commercial photography'
+        : ', photorealistic, ultra high quality, 8k UHD, dramatic lighting, cinematic, masterpiece, highly detailed, sharp';
+
     let engPrompt = prompt;
 
     // Detect language: if >60% of letters are ASCII → already English
@@ -1922,34 +1943,46 @@ async function generateImage(prompt, reuseRow) {
     const asciiLetter = (prompt.match(/[a-zA-Z]/g) || []).length;
     const alreadyEng  = allLetters === 0 || asciiLetter / allLetters > 0.6;
 
+    const _sysImg = _isProduct
+        ? `You are an expert Flux image generation prompt engineer specializing in product photography.
+Convert the image request to a detailed English Flux prompt.
+Rules:
+1. START with: "isolated product on pure white seamless studio background,"
+2. PRESERVE brand names exactly (iPhone, Tesla, Apple Watch, Samsung Galaxy, AirPods…)
+3. Add: materials, finish, color, camera angle, reflections, depth-of-field
+4. END with: "product photography, photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, commercial photography"
+5. Output ONLY the prompt — no explanation, no quotes. Max 120 words`
+        : `You are an expert Flux image generation prompt engineer specializing in photorealistic and artistic images.
+Convert the image request to a rich English Flux prompt.
+Rules:
+1. NO forced background — let the scene be natural and immersive
+2. Expand the scene: lighting (golden hour, neon, moonlight…), atmosphere, color palette, mood, time of day
+3. Scenes/places: architecture details, weather, people if relevant, sky
+4. People/characters: appearance, expression, clothing, pose, environment
+5. Nature/landscape: terrain, vegetation, sky, water, wildlife
+6. Art/abstract: style (oil painting, watercolor, vector…), colors, composition
+7. END with: "photorealistic, ultra high quality, 8k UHD, dramatic lighting, cinematic, masterpiece, highly detailed"
+8. Output ONLY the prompt — no explanation, no quotes. Max 150 words`;
+
     if (alreadyEng) {
-        // English — put BG anchor FIRST so Flux respects it
         engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
     } else {
-        // Hebrew / other — translate + enhance
         try {
             const r = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: [{ role: 'system', content:
-                        `You are an expert Flux image generation prompt engineer.
-Convert the image request to a detailed English image generation prompt.
-Rules:
-1. START the prompt with: "white seamless studio background, isolated product shot,"
-2. PRESERVE technical/brand/product names exactly (Smartwatch, iPhone, Tesla, Apple Watch…)
-3. Add visual details: colors, materials, finish, perspective, style
-4. END the prompt with: photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, product photography
-5. Output ONLY the prompt — no explanation, no quotes
-6. Max 120 words`
-                    }, { role: 'user', content: `Image request: "${prompt}"` }],
-                    model: 'openai',
+                    messages: [
+                        { role: 'system', content: _sysImg },
+                        { role: 'user', content: `Image request: "${prompt}"` }
+                    ],
+                    model: 'openai-large',
                     private: true
                 }),
-                signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(12000)
             });
             const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
-            if (t && t.length > 8 && t.length < 700) engPrompt = t;
+            if (t && t.length > 8 && t.length < 800) engPrompt = t;
             else engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
         } catch { engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX; }
     }
@@ -1959,7 +1992,8 @@ Rules:
 
     // ── 3. Build image URL and load ──
     const seed = Math.floor(Math.random() * 999999);
-    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=768&nologo=true&model=flux&seed=${seed}&enhance=false`;
+    const imgModel = _isProduct ? 'flux-realism' : 'flux';
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=${imgModel}&seed=${seed}&enhance=true`;
 
     // Simulate progress during image generation (Flux takes 20-60s)
     let prog = 55;
@@ -2187,7 +2221,7 @@ async function callAI(messages, onChunk) {
                 const res = await fetch('https://text.pollinations.ai/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages, model: 'openai', stream: false, private: true }),
+                    body: JSON.stringify({ messages, model: 'openai-large', stream: false, private: true }),
                     signal: AbortSignal.timeout(50000)
                 });
                 if (!res.ok) throw new Error('vision HTTP ' + res.status);
@@ -2226,7 +2260,7 @@ async function callAI(messages, onChunk) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages,
-                    model: 'openai',
+                    model: 'openai-large',
                     stream: false,
                     private: true,
                     seed: Math.floor(Math.random() * 99999)
@@ -2279,7 +2313,7 @@ async function callAI(messages, onChunk) {
     const shortSys = sys.substring(0, 300);
     const prompt = `${shortSys}\n\nConversation:\n${conv}`;
     const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}` +
-        `?model=openai&private=true&seed=${Math.floor(Math.random()*99999)}`;
+        `?model=openai-large&private=true&seed=${Math.floor(Math.random()*99999)}`;
     const r = await fetch(url, { signal: AbortSignal.timeout(45000) });
     if (!r.ok) throw new Error('GET ' + r.status);
     const text = await r.text();
