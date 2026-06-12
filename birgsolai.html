@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BIRGSOL AI 3.0</title>
+    <title>BIRGSOL AI 3.5</title>
     <link href="https://fonts.bunny.net/css2?family=assistant:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link id="hljs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
     <style>
@@ -682,6 +682,111 @@
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
             .input-area { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
         }
+
+        /* ══════════════ LIVE VOICE MODE ══════════════ */
+        #live-overlay {
+            display:none; position:fixed; inset:0; z-index:9998;
+            background:radial-gradient(ellipse at 50% 60%, #0d0d20 0%, #04040a 100%);
+            flex-direction:column; align-items:center; justify-content:center; gap:30px;
+        }
+        #live-overlay.on { display:flex; }
+
+        .live-header {
+            position:absolute; top:20px; left:50%; transform:translateX(-50%);
+            display:flex; align-items:center; gap:10px;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+            border-radius:50px; padding:7px 18px; white-space:nowrap;
+        }
+        .live-header-logo { font-size:15px; }
+        .live-header-name { font-size:13px; font-weight:700;
+            background:linear-gradient(to left,#4285F4,#C58AF9);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .live-header-info { font-size:11px; color:rgba(255,255,255,.35); border-right:1px solid rgba(255,255,255,.15); padding-right:10px; margin-right:4px; }
+
+        /* Orb container */
+        .live-orb-wrap { position:relative; width:220px; height:220px; display:flex; align-items:center; justify-content:center; }
+
+        /* Ripple rings */
+        .live-ring {
+            position:absolute; border-radius:50%; pointer-events:none;
+            border:1.5px solid rgba(138,180,248,.25);
+            animation:liveRingPulse 2.5s ease-out infinite;
+        }
+        .live-ring:nth-child(1){width:180px;height:180px;animation-delay:0s}
+        .live-ring:nth-child(2){width:210px;height:210px;animation-delay:.5s;opacity:.6}
+        .live-ring:nth-child(3){width:240px;height:240px;animation-delay:1s;opacity:.3}
+        @keyframes liveRingPulse{0%{transform:scale(.9);opacity:.8}100%{transform:scale(1.2);opacity:0}}
+
+        /* Main orb */
+        .live-orb {
+            width:150px; height:150px; border-radius:50%; position:relative; z-index:1; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:box-shadow .4s ease, background .4s ease;
+        }
+        .live-orb::before {
+            content:''; position:absolute; inset:-6px; border-radius:50%;
+            background:inherit; filter:blur(18px); opacity:.55; z-index:0;
+        }
+        .live-orb .live-orb-icon { position:relative; z-index:1; font-size:52px; }
+
+        /* State-based orb styles */
+        .live-orb.idle     { background:linear-gradient(135deg,#4285F4,#9C6ADE,#C58AF9); box-shadow:0 0 60px rgba(66,133,244,.45),0 0 30px rgba(197,138,249,.3); animation:orbIdle 4s ease-in-out infinite; }
+        .live-orb.listening{ background:linear-gradient(135deg,#1a73e8,#4285F4,#34a8ff); box-shadow:0 0 90px rgba(66,133,244,.8),0 0 50px rgba(66,133,244,.5); animation:orbListen 1s ease-in-out infinite; }
+        .live-orb.thinking { background:linear-gradient(135deg,#9C6ADE,#C58AF9,#a855f7); box-shadow:0 0 70px rgba(168,85,247,.7),0 0 40px rgba(197,138,249,.4); animation:orbThink 1.5s linear infinite; }
+        .live-orb.speaking { background:linear-gradient(135deg,#10b981,#34d399,#4285F4); box-shadow:0 0 90px rgba(52,211,153,.7),0 0 50px rgba(52,211,153,.4); animation:orbSpeak .7s ease-in-out infinite; }
+
+        @keyframes orbIdle    {0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+        @keyframes orbListen  {0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+        @keyframes orbThink   {0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(360deg)}}
+        @keyframes orbSpeak   {0%,100%{transform:scale(1)}25%{transform:scale(1.09)}75%{transform:scale(.95)}}
+
+        /* Sound bars (listening) */
+        .live-bars { display:flex; align-items:flex-end; justify-content:center; gap:5px; height:44px; opacity:0; transition:opacity .3s; }
+        .live-bars.on { opacity:1; }
+        .live-bar { width:5px; border-radius:3px; background:rgba(138,180,248,.8); animation:barBounce 1.1s ease-in-out infinite; }
+        .live-bar:nth-child(1){height:14px;animation-delay:0s}
+        .live-bar:nth-child(2){height:28px;animation-delay:.1s}
+        .live-bar:nth-child(3){height:20px;animation-delay:.2s}
+        .live-bar:nth-child(4){height:36px;animation-delay:.3s}
+        .live-bar:nth-child(5){height:24px;animation-delay:.4s}
+        .live-bar:nth-child(6){height:18px;animation-delay:.5s}
+        .live-bar:nth-child(7){height:32px;animation-delay:.6s}
+        @keyframes barBounce{0%,100%{transform:scaleY(.4);opacity:.5}50%{transform:scaleY(1.6);opacity:1}}
+
+        .live-status { font-size:1.15rem; font-weight:600; color:rgba(255,255,255,.8); letter-spacing:.3px; min-height:28px; text-align:center; }
+        .live-transcript {
+            max-width:500px; width:90vw; text-align:center; min-height:52px;
+            font-size:15.5px; color:rgba(255,255,255,.5); line-height:1.65;
+            background:rgba(255,255,255,.04); border-radius:16px; padding:12px 18px;
+            border:1px solid rgba(255,255,255,.07); transition:color .3s;
+        }
+        .live-transcript.ai-speaking { color:rgba(52,211,153,.8); }
+
+        .live-controls { display:flex; gap:12px; align-items:center; }
+        .live-end-btn {
+            padding:11px 30px; border-radius:50px;
+            background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15);
+            color:rgba(255,255,255,.65); font-size:14.5px; font-weight:600;
+            cursor:pointer; font-family:inherit; transition:all .2s;
+        }
+        .live-end-btn:hover { background:rgba(220,50,50,.2); border-color:rgba(220,50,50,.4); color:#ff8a80; }
+        .live-mute-btn {
+            width:44px; height:44px; border-radius:50%;
+            background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15);
+            color:rgba(255,255,255,.65); font-size:18px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; transition:all .2s;
+        }
+        .live-mute-btn:hover { background:rgba(255,255,255,.14); color:white; }
+        .live-mute-btn.muted { background:rgba(220,50,50,.2); border-color:rgba(220,50,50,.4); color:#ff8a80; }
+
+        /* Model info in sidebar */
+        .model-info-box {
+            background:rgba(138,180,248,.07); border:1px solid rgba(138,180,248,.15);
+            border-radius:12px; padding:10px 14px; margin-bottom:10px;
+        }
+        .mib-row { display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--muted); line-height:1.8; }
+        .mib-dot { width:6px; height:6px; border-radius:50%; background:#34d399; flex-shrink:0; }
+        .mib-dot.orange { background:#f59e0b; }
     </style>
 </head>
 <body>
@@ -692,7 +797,7 @@
     <div class="sp-ring"></div>
     <div class="sp-ring"></div>
     <div class="sp-logo">✦</div>
-    <div class="sp-title">BIRGSOL AI 3.0</div>
+    <div class="sp-title">BIRGSOL AI 3.5</div>
     <div class="sp-sub" id="sp-sub">סוכן AI · קוד · תמונות</div>
     <button class="sp-btn" id="sp-btn" onclick="startApp()">התחל</button>
     <div class="sp-footer">נוצר ע"י דוד יוסף זאבי · 2025</div>
@@ -703,7 +808,7 @@
     <div class="login-card">
         <div class="login-logo">
             <div class="l-star">✦</div>
-            <h1>BIRGSOL AI 3.0</h1>
+            <h1>BIRGSOL AI 3.5</h1>
             <p>התחבר עם חשבון Birgsol AI שלך</p>
         </div>
         <div class="login-field">
@@ -913,12 +1018,40 @@
 
 <div id="overlay" onclick="closeSidebar()"></div>
 
+<!-- ══ LIVE VOICE OVERLAY ══ -->
+<div id="live-overlay">
+    <div class="live-header">
+        <span class="live-header-logo">✦</span>
+        <span class="live-header-name">BIRGSOL AI 3.5</span>
+        <span class="live-header-info">GPT-4o · עדכון אפריל 2024 · 🌐 אינטרנט</span>
+    </div>
+    <div class="live-orb-wrap">
+        <div class="live-ring"></div>
+        <div class="live-ring"></div>
+        <div class="live-ring"></div>
+        <div class="live-orb idle" id="live-orb">
+            <span class="live-orb-icon" id="live-orb-icon">✦</span>
+        </div>
+    </div>
+    <div class="live-bars" id="live-bars">
+        <div class="live-bar"></div><div class="live-bar"></div><div class="live-bar"></div>
+        <div class="live-bar"></div><div class="live-bar"></div><div class="live-bar"></div>
+        <div class="live-bar"></div>
+    </div>
+    <div class="live-status" id="live-status">לחץ על הכדור להתחלה</div>
+    <div class="live-transcript" id="live-transcript">BIRGSOL AI 3.5 מוכן לשיחה קולית</div>
+    <div class="live-controls">
+        <button class="live-mute-btn" id="live-mute-btn" onclick="toggleLiveMute()" title="השתק מיקרופון">🎤</button>
+        <button class="live-end-btn" onclick="endLive()">✕ סיים שיחה</button>
+    </div>
+</div>
+
 <!-- ══ SIDEBAR ══ -->
 <aside id="sidebar">
     <div class="sb-head">
         <div class="sb-brand">
             <div class="sb-star">✦</div>
-            <span class="sb-name">BIRGSOL AI 3.0</span>
+            <span class="sb-name">BIRGSOL AI 3.5</span>
         </div>
         <button class="new-btn" onclick="startNew()">
             <span>✏️</span> שיחה חדשה
@@ -928,16 +1061,20 @@
     <div class="mode-row">
         <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')">💬 שיחה</button>
         <button class="mode-pill" id="mode-code" onclick="setMode('code')">💻 קוד</button>
-        <button class="mode-pill" id="mode-image" onclick="setMode('image')">🎨 תמונות</button>
+        <button class="mode-pill" id="mode-image" onclick="setMode('image')">🎨 תמונה</button>
+    </div>
+    <div style="padding:0 8px 10px;">
+        <button class="mode-pill" id="mode-live" onclick="startLive()" style="width:100%;background:linear-gradient(135deg,rgba(66,133,244,.18),rgba(197,138,249,.18));border-color:rgba(138,180,248,.3);color:var(--text);">🎙 מצב לייב — שיחה קולית</button>
     </div>
     <div class="sb-label">שיחות אחרונות</div>
     <div class="sb-body" id="hist-list">
         <div class="hist-item" style="color:var(--muted);font-style:italic;">אין שיחות עדיין...</div>
     </div>
     <div class="sb-foot">
-        <div class="live-row" style="margin-bottom:10px;">
-            <div class="dot"></div>
-            <span>BIRGSOL AI 3.0 · GPT-4o</span>
+        <div class="model-info-box">
+            <div class="mib-row"><div class="mib-dot"></div>GPT-4o · עדכון ידע: אפריל 2024</div>
+            <div class="mib-row"><div class="mib-dot"></div>🌐 גישת אינטרנט פעילה (חיפוש + גלישה)</div>
+            <div class="mib-row"><div class="mib-dot orange"></div>🎨 יצירת תמונות: DALL-E 3 + Flux</div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">נוצר ע"י דוד יוסף זאבי</div>
         <button onclick="doLogout()" style="width:100%;padding:9px;background:rgba(220,50,50,.12);border:1px solid rgba(220,50,50,.25);border-radius:50px;color:#ff8a80;font-size:13px;cursor:pointer;font-family:inherit;transition:background .15s;">
@@ -955,11 +1092,11 @@
         </div>
         <div class="tb-logo">
             <div class="tb-star">✦</div>
-            <span class="tb-name">BIRGSOL AI 3.0</span>
+            <span class="tb-name">BIRGSOL AI 3.5</span>
         </div>
         <div class="tb-left">
             <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="החלף ערכת נושא" style="font-size:18px;">☀️</button>
-            <span class="ver-pill">3.0</span>
+            <span class="ver-pill">3.5</span>
             <div class="user-chip" onclick="openPremiumModal()" id="user-chip">
                 <div class="user-dot" id="user-dot">?</div>
                 <span id="user-label">—</span>
@@ -1515,7 +1652,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 /* ══════════════ AI MODES ══════════════ */
 let currentMode = localStorage.getItem('birgsol_mode') || 'normal';
 
-const PERSONA_NORMAL = `You are BIRGSOL AI 3.0 — a smart, friendly general-purpose AI and autonomous agent, built by David Yosef Zevi and Ruth Zevi. You combine the power of ChatGPT, Claude, and GitHub Copilot.
+const PERSONA_NORMAL = `You are BIRGSOL AI 3.5 — a smart, friendly general-purpose AI and autonomous agent, built by David Yosef Zevi and Ruth Zevi. You combine the power of ChatGPT, Claude, and GitHub Copilot.
 
 === CAPABILITIES ===
 - Answer any question: science, history, math, philosophy, current events, cooking, travel, relationships
@@ -1539,7 +1676,7 @@ NEVER invent search results.
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.`;
 
-const PERSONA_CODE = `You are BIRGSOL AI 3.0 Code Mode — a world-class software engineering AI with the skill of a senior engineer with 15+ years of experience. Built by David Yosef Zevi and Ruth Zevi.
+const PERSONA_CODE = `You are BIRGSOL AI 3.5 Code Mode — a world-class software engineering AI with the skill of a senior engineer with 15+ years of experience. Built by David Yosef Zevi and Ruth Zevi.
 
 === CODE STANDARDS — NON-NEGOTIABLE ===
 - Write COMPLETE, PRODUCTION-READY code — NEVER truncate, NEVER write "// rest of code here", NEVER use "..." as a placeholder
@@ -1579,7 +1716,7 @@ const PERSONA_CODE = `You are BIRGSOL AI 3.0 Code Mode — a world-class softwar
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Zevi. Currency: )(.`;
 
-const PERSONA_IMAGE = `You are BIRGSOL AI 3.0 Image Mode — a creative AI image generation assistant built by David Yosef Zevi and Ruth Zevi.
+const PERSONA_IMAGE = `You are BIRGSOL AI 3.5 Image Mode — a creative AI image generation assistant built by David Yosef Zevi and Ruth Zevi.
 
 Your specialty is generating beautiful, detailed images. When a user sends any message:
 - Treat it as an image generation request
@@ -1607,7 +1744,7 @@ function setMode(mode) {
     // Update topbar indicator
     const modeNames = { normal:'💬', code:'💻', image:'🎨' };
     const pill = document.querySelector('.ver-pill');
-    if (pill) pill.textContent = '3.0 ' + (modeNames[mode] || '');
+    if (pill) pill.textContent = '3.5 ' + (modeNames[mode] || '');
     startNew(); // start fresh conversation in new mode
 }
 
@@ -1911,7 +2048,7 @@ async function generateImage(promptRaw, reuseRow) {
         row = document.createElement('div'); row.className = 'msg-row ai';
         const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
         bodyEl = document.createElement('div'); bodyEl.className = 'ai-body';
-        const nm = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.0';
+        const nm = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.5';
         const txtDiv = document.createElement('div'); txtDiv.className = 'ai-txt';
         wrapEl = document.createElement('div'); wrapEl.className = 'ai-img-wrap';
         actsEl = document.createElement('div'); actsEl.className = 'ai-acts';
@@ -2409,7 +2546,7 @@ async function send() {
     const row  = document.createElement('div'); row.className = 'msg-row ai';
     const ava  = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
     const body = document.createElement('div'); body.className = 'ai-body';
-    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.0';
+    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.5';
     // Agent status bar (hidden until tools are used)
     const status = document.createElement('div'); status.className = 'agent-status'; status.style.display = 'none';
     const txt  = document.createElement('div'); txt.className = 'ai-txt';
@@ -2466,6 +2603,185 @@ function startNew() {
     hist = []; isFirstMsg = true; currentConvId = null;
     closeSidebar(); updateGreeting(); renderConvList();
 }
+
+/* ══════════════════════════════════════════
+   LIVE VOICE MODE
+══════════════════════════════════════════ */
+let _liveActive  = false;
+let _liveMuted   = false;
+let _liveRec     = null;
+let _liveBusy    = false;
+let _liveStopped = false;
+
+function _setLiveState(state) {
+    const orb    = document.getElementById('live-orb');
+    const icon   = document.getElementById('live-orb-icon');
+    const status = document.getElementById('live-status');
+    const bars   = document.getElementById('live-bars');
+    const trans  = document.getElementById('live-transcript');
+    orb.className = 'live-orb ' + state;
+    bars.classList.remove('on');
+    trans.classList.remove('ai-speaking');
+    if (state === 'idle') {
+        icon.textContent = '✦'; status.textContent = 'לחץ על הכדור להתחלה';
+    } else if (state === 'listening') {
+        icon.textContent = '🎤'; status.textContent = 'מקשיב…';
+        bars.classList.add('on');
+    } else if (state === 'thinking') {
+        icon.textContent = '✦'; status.textContent = 'חושב…';
+    } else if (state === 'speaking') {
+        icon.textContent = '🔊'; status.textContent = 'מדבר…';
+        trans.classList.add('ai-speaking');
+    }
+}
+
+function startLive() {
+    closeSidebar();
+    document.getElementById('live-overlay').classList.add('on');
+    _liveActive = true; _liveStopped = false; _liveMuted = false;
+    document.getElementById('live-mute-btn').classList.remove('muted');
+    document.getElementById('live-mute-btn').textContent = '🎤';
+    _setLiveState('idle');
+    // Attach orb click to start first listen
+    document.getElementById('live-orb').onclick = () => {
+        if (!_liveBusy && _liveActive) _liveLoop();
+    };
+}
+
+function endLive() {
+    _liveActive = false; _liveStopped = true;
+    if (_liveRec) { try { _liveRec.stop(); } catch(e) {} _liveRec = null; }
+    window.speechSynthesis.cancel();
+    document.getElementById('live-overlay').classList.remove('on');
+    _setLiveState('idle');
+}
+
+function toggleLiveMute() {
+    _liveMuted = !_liveMuted;
+    const btn = document.getElementById('live-mute-btn');
+    btn.classList.toggle('muted', _liveMuted);
+    btn.textContent = _liveMuted ? '🔇' : '🎤';
+    if (_liveMuted && _liveRec) { try { _liveRec.stop(); } catch(e) {} }
+}
+
+async function _liveLoop() {
+    if (!_liveActive || _liveStopped || _liveBusy) return;
+    _liveBusy = true;
+
+    // ── 1. Listen ──
+    const transcript = await _liveListenOnce();
+    if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
+    if (!transcript.trim()) { _liveBusy = false; _setLiveState('idle'); return; }
+
+    document.getElementById('live-transcript').textContent = '👤 ' + transcript;
+
+    // ── 2. Think ──
+    _setLiveState('thinking');
+    const messages = [
+        { role:'system', content: getPersona() +
+          '\n\nIMPORTANT — LIVE VOICE MODE: Give SHORT, natural conversational answers (2-4 sentences). NO markdown, NO asterisks, NO bullet points, NO code blocks — speak like a human. Hebrew by default unless user writes English.' },
+        ...hist.slice(-8).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
+        { role:'user', content: transcript }
+    ];
+    let reply = '';
+    try {
+        reply = await callAI(messages, () => {});
+        reply = reply
+            .replace(/```[\s\S]*?```/g, 'קוד')
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+            .replace(/\*(.*?)\*/g, '$1')
+            .replace(/#{1,6}\s/g, '')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/\[.*?\]/g, '')
+            .trim();
+        if (!reply) reply = 'מצטער, לא הצלחתי לקבל תשובה. נסה שוב.';
+    } catch(e) { reply = 'הייתה שגיאת חיבור. נסה שוב.'; }
+
+    hist.push({ role:'user',      content: transcript });
+    hist.push({ role:'assistant', content: reply });
+    saveConversation();
+
+    // ── 3. Speak ──
+    if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
+    _setLiveState('speaking');
+    document.getElementById('live-transcript').textContent = '✦ ' + reply;
+
+    await _liveSpeakText(reply);
+
+    // ── 4. Loop back ──
+    _liveBusy = false;
+    if (_liveActive && !_liveStopped && !_liveMuted) {
+        _liveLoop();
+    } else {
+        _setLiveState('idle');
+    }
+}
+
+function _liveListenOnce() {
+    return new Promise((resolve) => {
+        if (_liveMuted || _liveStopped) { resolve(''); return; }
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+            document.getElementById('live-status').textContent = '⚠️ הדפדפן לא תומך בזיהוי קול';
+            resolve(''); return;
+        }
+        _setLiveState('listening');
+        const rec = new SR();
+        _liveRec = rec;
+        rec.lang = 'he-IL';
+        rec.interimResults = true;
+        rec.continuous = false;
+        rec.maxAlternatives = 1;
+        let final = '';
+        rec.onresult = e => {
+            let interim = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+                if (e.results[i].isFinal) final += e.results[i][0].transcript;
+                else interim = e.results[i][0].transcript;
+            }
+            const shown = final || interim;
+            if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
+        };
+        rec.onerror = () => { _liveRec = null; resolve(final); };
+        rec.onend  = () => { _liveRec = null; resolve(final); };
+        try { rec.start(); } catch(e) { resolve(''); }
+    });
+}
+
+function _liveSpeakText(text) {
+    return new Promise((resolve) => {
+        window.speechSynthesis.cancel();
+        if (!text || _liveStopped) { resolve(); return; }
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = 'he-IL';
+        utt.rate = 1.05;
+        utt.pitch = 1.0;
+        utt.volume = 1.0;
+        // Pick best Hebrew voice available
+        const voices = window.speechSynthesis.getVoices();
+        const heVoice = voices.find(v => v.lang.startsWith('he') && v.localService) ||
+                        voices.find(v => v.lang.startsWith('he')) ||
+                        voices.find(v => v.lang.startsWith('ar')) || // Arabic fallback
+                        null;
+        if (heVoice) utt.voice = heVoice;
+        utt.onend   = resolve;
+        utt.onerror = resolve;
+        window.speechSynthesis.speak(utt);
+        // Chrome bug: synthesis stops after 15s on long text — keepalive
+        const keepAlive = setInterval(() => {
+            if (!window.speechSynthesis.speaking) { clearInterval(keepAlive); return; }
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+        }, 10000);
+        utt.onend = () => { clearInterval(keepAlive); resolve(); };
+    });
+}
+
+// Also allow clicking orb to start after first time
+document.addEventListener('DOMContentLoaded', () => {
+    const orb = document.getElementById('live-orb');
+    if (orb) orb.onclick = () => { if (_liveActive && !_liveBusy) _liveLoop(); };
+});
 </script>
 </body>
 </html>
