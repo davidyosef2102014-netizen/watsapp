@@ -2188,16 +2188,14 @@ Rules:
     if (skelBar) skelBar.style.width = '55%';
 
     // ── 3. Build image URL and load ──
+    // Free tier: only width/height up to 512 + seed work without a token.
+    // model=, nologo=true, 1024px all require a paid token → 402.
     const seed = Math.floor(Math.random() * 999999);
-    // Truncate prompt to avoid URL length issues (max ~300 chars)
-    const safePrompt = engPrompt.slice(0, 300);
+    const safePrompt = engPrompt.slice(0, 250);
+    const _buildUrl = () =>
+        `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=512&height=512&seed=${seed}`;
 
-    const models = ['flux', 'flux-realism', 'turbo'];
-    let modelIdx = 0;
-    const _buildUrl = (model) =>
-        `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=1024&height=1024&nologo=true&model=${model}&seed=${seed}`;
-
-    let imgUrl = _buildUrl(models[0]);
+    let imgUrl = _buildUrl();
 
     let prog = 55;
     const progIv = setInterval(() => {
@@ -2209,21 +2207,10 @@ Rules:
     await new Promise((resolve) => {
         let done = false;
         const finish = () => { if (!done) { done = true; resolve(); } };
-        const tryNext = () => {
-            modelIdx++;
-            if (modelIdx >= models.length) { finish(); return; }
-            imgUrl = _buildUrl(models[modelIdx]);
-            if (skelTxt) skelTxt.textContent = `מנסה מנוע ${modelIdx + 1}/${models.length}…`;
-            prog = 50; if (skelBar) skelBar.style.width = prog + '%';
-            img.onerror = tryNext;
-            img.onload = finish;
-            img.src = imgUrl;
-            setTimeout(tryNext, 50000);
-        };
         img.onload = finish;
-        img.onerror = tryNext;
+        img.onerror = finish;
         img.src = imgUrl;
-        setTimeout(tryNext, 45000); // 45s → try next model
+        setTimeout(finish, 60000); // 60s max
     });
     clearInterval(progIv);
     if (skelBar) skelBar.style.width = '100%';
