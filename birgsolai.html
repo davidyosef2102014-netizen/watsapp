@@ -2782,38 +2782,40 @@ async function _liveSpeakText(text) {
         }
         if (_liveStopped) { resolve(); return; }
 
-        const utt = new SpeechSynthesisUtterance(text);
-        utt.rate = 1.05; utt.pitch = 1.0; utt.volume = 1.0;
-
-        // Best Hebrew voice → any local → default (DON'T force he-IL if no Hebrew voice — causes silent failure)
-        const heVoice = voices.find(v => v.lang.startsWith('he') && v.localService) ||
-                        voices.find(v => v.lang.startsWith('he'));
-        if (heVoice) {
-            utt.voice = heVoice; utt.lang = heVoice.lang;
-        } else {
-            // No Hebrew TTS installed — use whatever default voice exists; skip lang so browser doesn't fail silently
-            const def = voices.find(v => v.default) || voices[0];
-            if (def) utt.voice = def;
-        }
-
         let done = false;
         let keepAlive;
-        const finish = () => {
-            if (done) return; done = true;
-            clearInterval(keepAlive); resolve();
-        };
-        utt.onend  = finish;
-        utt.onerror = (e) => { console.warn('TTS:', e.error); finish(); };
+        const finish = () => { if (done) return; done = true; clearInterval(keepAlive); resolve(); };
 
         // Chrome 14-second bug workaround
         keepAlive = setInterval(() => {
             if (!window.speechSynthesis.speaking) { clearInterval(keepAlive); return; }
-            window.speechSynthesis.pause();
-            window.speechSynthesis.resume();
+            window.speechSynthesis.pause(); window.speechSynthesis.resume();
         }, 10000);
+        setTimeout(finish, 45000);
 
-        window.speechSynthesis.speak(utt);
-        setTimeout(finish, 45000); // safety: never hang forever
+        function _speak(voice) {
+            const utt = new SpeechSynthesisUtterance(text);
+            utt.rate = 1.05; utt.pitch = 1.0; utt.volume = 1.0;
+            if (voice) { utt.voice = voice; utt.lang = voice.lang; }
+            utt.onend = finish;
+            utt.onerror = (e) => {
+                if (done) return;
+                // if chosen voice failed, retry with system default
+                if (voice) {
+                    window.speechSynthesis.cancel();
+                    _speak(null);
+                } else {
+                    finish();
+                }
+            };
+            window.speechSynthesis.speak(utt);
+        }
+
+        // Prefer local Hebrew → any Hebrew → local default → any default
+        const heLocal = voices.find(v => v.lang.startsWith('he') && v.localService);
+        const heAny   = voices.find(v => v.lang.startsWith('he'));
+        const defVoice = voices.find(v => v.localService && v.default) || voices.find(v => v.localService) || voices[0];
+        _speak(heLocal || heAny || defVoice || null);
     });
 }
 
