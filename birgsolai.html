@@ -2193,67 +2193,92 @@ Rules:
     if (skelTxt) skelTxt.textContent = 'מייצר תמונה…';
     if (skelBar) skelBar.style.width = '55%';
 
-    // ── 3. Build image URL and load ──
-    // Free tier: only width/height up to 512 + seed work without a token.
-    // model=, nologo=true, 1024px all require a paid token → 402.
-    const safePrompt = engPrompt.slice(0, 250);
-    const _buildUrl = () =>
-        `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}`;
+    // ── 3. Generate via AI Horde (free, CORS-friendly, community GPU) ──
+    const safePrompt = engPrompt.slice(0, 500);
+    let imgUrl = null;
 
-    let imgUrl = _buildUrl();
+    try {
+        if (skelTxt) skelTxt.textContent = 'שולח לתור…';
+        // Submit job
+        const jobRes = await fetch('https://stablehorde.net/api/v2/generate/async', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': '0000000000', 'Client-Agent': 'birgsolai:1:anon' },
+            body: JSON.stringify({
+                prompt: safePrompt,
+                params: { width: 512, height: 512, steps: 25, cfg_scale: 7, sampler_name: 'k_euler_a', n: 1 },
+                models: ['Deliberate'],
+                r2: true, shared: false
+            })
+        });
+        if (!jobRes.ok) throw new Error('submit ' + jobRes.status);
+        const { id } = await jobRes.json();
+        if (!id) throw new Error('no job id');
 
-    let prog = 55;
-    const progIv = setInterval(() => {
-        prog = Math.min(prog + (Math.random() * 3), 90);
-        if (skelBar) skelBar.style.width = prog + '%';
-    }, 1200);
+        // Poll until done (max 120s)
+        let prog = 55, waited = 0;
+        const progIv = setInterval(() => {
+            prog = Math.min(prog + 1, 92);
+            if (skelBar) skelBar.style.width = prog + '%';
+        }, 1000);
 
-    const img = new Image();
-    await new Promise((resolve) => {
-        let done = false;
-        const finish = () => { if (!done) { done = true; resolve(); } };
-        img.onload = finish;
-        img.onerror = finish;
-        img.src = imgUrl;
-        setTimeout(finish, 60000); // 60s max
-    });
-    clearInterval(progIv);
-    if (skelBar) skelBar.style.width = '100%';
+        while (waited < 120000) {
+            await new Promise(r => setTimeout(r, 3000));
+            waited += 3000;
+            const chk = await fetch(`https://stablehorde.net/api/v2/generate/check/${id}`, { headers: { 'Client-Agent': 'birgsolai:1:anon' } });
+            const st = await chk.json();
+            if (skelTxt) skelTxt.textContent = `מייצר תמונה… (${Math.round(waited/1000)}ש׳)`;
+            if (st.faulted) throw new Error('horde faulted');
+            if (st.done) break;
+        }
 
-    // ── 4. Show result ──
-    await new Promise(r => setTimeout(r, 200)); // let bar finish
+        clearInterval(progIv);
+        if (skelBar) skelBar.style.width = '98%';
 
-    if (img.naturalWidth > 0) {
-        // Success
-        img.className = 'ai-gen-img';
-        img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
-        const cap = document.createElement('div');
-        cap.className = 'ai-img-caption';
-        cap.textContent = '🎨 ' + (engPrompt.length > 90 ? engPrompt.slice(0,90)+'…' : engPrompt);
-        if (skelEl) skelEl.remove();
-        wrapEl.appendChild(img); wrapEl.appendChild(cap);
-        requestAnimationFrame(() => { img.style.opacity = '1'; });
+        // Get result
+        const statRes = await fetch(`https://stablehorde.net/api/v2/generate/status/${id}`, { headers: { 'Client-Agent': 'birgsolai:1:anon' } });
+        const statData = await statRes.json();
+        const gen = statData?.generations?.[0];
+        if (!gen?.img) throw new Error('no image in response');
+        imgUrl = gen.img;
 
-        // Action buttons
-        const dlA = document.createElement('a');
-        dlA.className = 'ai-act'; dlA.href = imgUrl;
-        dlA.download = 'birgsol-image.jpg'; dlA.textContent = '⬇ הורד';
-        dlA.style.textDecoration = 'none';
-        const openBtn = document.createElement('button');
-        openBtn.className = 'ai-act'; openBtn.textContent = '🔗 פתח';
-        openBtn.onclick = () => window.open(imgUrl,'_blank');
-        const regenBtn = document.createElement('button');
-        regenBtn.className = 'ai-act'; regenBtn.textContent = '🔄 עוד אחת';
-        regenBtn.onclick = () => generateImage(prompt, null); // new row
-        if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
-    } else {
-        // Error
-        if (skelEl) { skelEl.innerHTML = '<div style="font-size:28px">⚠️</div><div>לא הצלחתי ליצור תמונה</div>'; skelEl.style.animation='none'; }
+    } catch (err) {
+        if (skelEl) { skelEl.innerHTML = '<div style="font-size:28px">⚠️</div><div>לא הצלחתי ליצור תמונה</div>'; skelEl.style.animation = 'none'; }
         const retryBtn = document.createElement('button');
         retryBtn.className = 'ai-act'; retryBtn.textContent = '🔄 נסה שוב';
         retryBtn.onclick = () => generateImage(prompt, null);
-        if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(retryBtn); }
+        if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(retryBtn); }
+        hist.push({ role: 'assistant', content: `[שגיאה ביצירת תמונה: ${prompt}]` });
+        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+        saveConversation();
+        return;
     }
+
+    if (skelBar) skelBar.style.width = '100%';
+    await new Promise(r => setTimeout(r, 200));
+
+    // ── 4. Show result ──
+    const img = new Image();
+    img.className = 'ai-gen-img';
+    img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
+    img.src = imgUrl;
+    img.onload = () => requestAnimationFrame(() => { img.style.opacity = '1'; });
+    const cap = document.createElement('div');
+    cap.className = 'ai-img-caption';
+    cap.textContent = '🎨 ' + (engPrompt.length > 90 ? engPrompt.slice(0, 90) + '…' : engPrompt);
+    if (skelEl) skelEl.remove();
+    wrapEl.appendChild(img); wrapEl.appendChild(cap);
+
+    const dlA = document.createElement('a');
+    dlA.className = 'ai-act'; dlA.href = imgUrl;
+    dlA.download = 'birgsol-image.jpg'; dlA.textContent = '⬇ הורד';
+    dlA.style.textDecoration = 'none';
+    const openBtn = document.createElement('button');
+    openBtn.className = 'ai-act'; openBtn.textContent = '🔗 פתח';
+    openBtn.onclick = () => window.open(imgUrl, '_blank');
+    const regenBtn = document.createElement('button');
+    regenBtn.className = 'ai-act'; regenBtn.textContent = '🔄 עוד אחת';
+    regenBtn.onclick = () => generateImage(prompt, null);
+    if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
 
     hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
