@@ -2107,11 +2107,6 @@ async function generateImage(promptRaw, reuseRow) {
 
     // ── 2. Build Flux prompt ──
 
-    const BG_PREFIX      = _isProduct ? 'isolated product on pure white seamless studio background, ' : '';
-    const QUALITY_SUFFIX = _isProduct
-        ? ', photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, product photography, commercial photography'
-        : ', photorealistic, ultra high quality, 8k UHD, dramatic lighting, cinematic, masterpiece, highly detailed, sharp';
-
     let engPrompt = prompt;
 
     // Detect language: if >60% of letters are ASCII → already English
@@ -2120,28 +2115,11 @@ async function generateImage(promptRaw, reuseRow) {
     const alreadyEng  = allLetters === 0 || asciiLetter / allLetters > 0.6;
 
     const _sysImg = _isProduct
-        ? `You are an expert Flux image generation prompt engineer specializing in product photography.
-Convert the image request to a detailed English Flux prompt.
-Rules:
-1. START with: "isolated product on pure white seamless studio background,"
-2. PRESERVE brand names exactly (iPhone, Tesla, Apple Watch, Samsung Galaxy, AirPods…)
-3. Add: materials, finish, color, camera angle, reflections, depth-of-field
-4. END with: "product photography, photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, commercial photography"
-5. Output ONLY the prompt — no explanation, no quotes. Max 120 words`
-        : `You are an expert Flux image generation prompt engineer specializing in photorealistic and artistic images.
-Convert the image request to a rich English Flux prompt.
-Rules:
-1. NO forced background — let the scene be natural and immersive
-2. Expand the scene: lighting (golden hour, neon, moonlight…), atmosphere, color palette, mood, time of day
-3. Scenes/places: architecture details, weather, people if relevant, sky
-4. People/characters: appearance, expression, clothing, pose, environment
-5. Nature/landscape: terrain, vegetation, sky, water, wildlife
-6. Art/abstract: style (oil painting, watercolor, vector…), colors, composition
-7. END with: "photorealistic, ultra high quality, 8k UHD, dramatic lighting, cinematic, masterpiece, highly detailed"
-8. Output ONLY the prompt — no explanation, no quotes. Max 150 words`;
+        ? `Translate this image request to English. Output a short Stable Diffusion prompt (max 20 words). Start with "product on white background,". Output ONLY the prompt, no quotes.`
+        : `Translate this image request to English. Output a short clear Stable Diffusion prompt (max 20 words). Be literal and accurate — describe exactly what was requested. Output ONLY the prompt, no quotes.`;
 
     if (alreadyEng) {
-        engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
+        engPrompt = prompt;
     } else {
         try {
             const ctrl = new AbortController();
@@ -2164,9 +2142,9 @@ Rules:
             } finally { clearTimeout(_t); }
             const raw = (await r.json())?.choices?.[0]?.message?.content || '';
             const t = raw.trim().replace(/^["']+|["']+$/g, '');
-            if (t && t.length > 8 && t.length < 800) engPrompt = t;
-            else engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
-        } catch { engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX; }
+            if (t && t.length > 4 && t.length < 300) engPrompt = t;
+            else engPrompt = prompt;
+        } catch { engPrompt = prompt; }
     }
 
     // ── 3. Generate via AI Horde ──
@@ -2179,7 +2157,7 @@ Rules:
             headers: { 'Content-Type': 'application/json', 'apikey': '0000000000', 'Client-Agent': 'birgsolai:1:anon' },
             body: JSON.stringify({
                 prompt: safePrompt,
-                params: { width: 512, height: 512, steps: 25, cfg_scale: 7, sampler_name: 'k_euler_a', n: 1 },
+                params: { width: 512, height: 512, steps: 25, cfg_scale: 7, sampler_name: 'k_euler_a', n: 1, negative_prompt: 'ugly, blurry, bad anatomy, watermark, text, logo, extra limbs' },
                 models: ['Deliberate'], r2: true, shared: false
             })
         });
