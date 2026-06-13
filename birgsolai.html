@@ -278,6 +278,12 @@
         }
         @keyframes shimmer { 0%{background-position:250% 0} 100%{background-position:-250% 0} }
         .img-skel-icon,.img-skel-txt,.img-skel-prog,.img-skel-bar { display:none; }
+        .img-skel-caption {
+            font-size: 12px; color: var(--text2); opacity: 0.6;
+            margin-top: 8px; text-align: center; letter-spacing: 0.3px;
+            animation: captionPulse 2s ease-in-out infinite;
+        }
+        @keyframes captionPulse { 0%,100%{opacity:.4} 50%{opacity:.85} }
 
         /* action buttons (Gemini style — appear on hover) */
         .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
@@ -2088,7 +2094,9 @@ async function generateImage(promptRaw, reuseRow) {
         actsEl = document.createElement('div'); actsEl.className = 'ai-acts';
 
         skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
+        const capEl = document.createElement('div'); capEl.className = 'img-skel-caption'; capEl.textContent = 'יוצר תמונה...';
         wrapEl.appendChild(skelEl);
+        wrapEl.appendChild(capEl);
         txtDiv.appendChild(wrapEl);
         bodyEl.appendChild(nm); bodyEl.appendChild(txtDiv); bodyEl.appendChild(actsEl);
         row.appendChild(ava); row.appendChild(bodyEl);
@@ -2182,6 +2190,7 @@ async function generateImage(promptRaw, reuseRow) {
 
     } catch {
         if (skelEl) { skelEl.style.animation = 'none'; skelEl.style.background = 'var(--surf2)'; }
+        if (wrapEl) wrapEl.querySelectorAll('.img-skel-caption').forEach(el => el.remove());
         const retryBtn = document.createElement('button');
         retryBtn.className = 'ai-act'; retryBtn.textContent = '🔄 נסה שוב';
         retryBtn.onclick = () => generateImage(prompt, null);
@@ -2203,6 +2212,7 @@ async function generateImage(promptRaw, reuseRow) {
     cap.className = 'ai-img-caption';
     cap.textContent = '🎨 ' + (engPrompt.length > 90 ? engPrompt.slice(0, 90) + '…' : engPrompt);
     if (skelEl) skelEl.remove();
+    wrapEl.querySelectorAll('.img-skel-caption').forEach(el => el.remove());
     wrapEl.appendChild(img); wrapEl.appendChild(cap);
 
     const dlA = document.createElement('a');
