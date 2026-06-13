@@ -2095,8 +2095,8 @@ async function generateImage(promptRaw, reuseRow) {
 
         skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
         const capEl = document.createElement('div'); capEl.className = 'img-skel-caption'; capEl.textContent = 'יוצר תמונה...';
-        wrapEl.appendChild(skelEl);
         wrapEl.appendChild(capEl);
+        wrapEl.appendChild(skelEl);
         txtDiv.appendChild(wrapEl);
         bodyEl.appendChild(nm); bodyEl.appendChild(txtDiv); bodyEl.appendChild(actsEl);
         row.appendChild(ava); row.appendChild(bodyEl);
