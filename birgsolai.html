@@ -2477,34 +2477,8 @@ async function callAI(messages, onChunk) {
         return t;
     }
 
-    // ── GET first — simplest, most reliable anonymous ──
-    const _sys  = messages.find(m => m.role === 'system')?.content || '';
-    const _conv = messages.filter(m => m.role !== 'system').map(m => {
-        const role = m.role === 'assistant' ? 'Assistant' : 'User';
-        const text = typeof m.content === 'string'
-            ? m.content
-            : (m.content?.[0]?.text || '');
-        return `${role}: ${text}`;
-    }).join('\n');
-    const _prompt = (_sys.substring(0, 250) + '\n\n' + _conv).trim();
-    const _getUrl = `https://text.pollinations.ai/${encodeURIComponent(_prompt)}` +
-        `?model=openai&seed=${Math.floor(Math.random()*99999)}`;
-
-    for (let ga = 0; ga < 2; ga++) {
-        try {
-            const gr = await fetch(_getUrl, { signal: AbortSignal.timeout(50000) });
-            if (!gr.ok) throw new Error('GET ' + gr.status);
-            const gText = _extractText(await gr.text());
-            if (!gText) throw new Error('empty');
-            await _typewrite(gText);
-            return gText;
-        } catch (e) {
-            if (ga === 0) { await new Promise(r => setTimeout(r, 2000)); continue; }
-        }
-    }
-
-    // ── POST fallback ──
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // ── POST first (JSON body — no URL-length limit) ──
+    for (let attempt = 0; attempt < 3; attempt++) {
         try {
             const res = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
@@ -2515,7 +2489,7 @@ async function callAI(messages, onChunk) {
                     stream: false,
                     seed: Math.floor(Math.random() * 99999)
                 }),
-                signal: AbortSignal.timeout(55000)
+                signal: AbortSignal.timeout(60000)
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const full = _extractText(await res.text());
@@ -2523,10 +2497,26 @@ async function callAI(messages, onChunk) {
             await _typewrite(full);
             return full;
         } catch (e) {
-            if (attempt < 1) { await new Promise(r => setTimeout(r, 2000)); continue; }
-            throw e;
+            if (attempt < 2) {
+                await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                continue;
+            }
         }
     }
+
+    // ── GET fallback — last user message only (short URL) ──
+    const _lastUser = [...messages].reverse().find(m => m.role === 'user');
+    const _q = typeof _lastUser?.content === 'string'
+        ? _lastUser.content
+        : (_lastUser?.content?.[0]?.text || '');
+    const _getUrl = `https://text.pollinations.ai/${encodeURIComponent(_q.slice(0, 300))}` +
+        `?model=openai&seed=${Math.floor(Math.random()*99999)}`;
+    const gr = await fetch(_getUrl, { signal: AbortSignal.timeout(50000) });
+    if (!gr.ok) throw new Error('GET ' + gr.status);
+    const gText = _extractText(await gr.text());
+    if (!gText) throw new Error('empty GET');
+    await _typewrite(gText);
+    return gText;
 }
 
 /* ── SEND ── */
