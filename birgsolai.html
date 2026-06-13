@@ -2409,114 +2409,118 @@ function downloadCode(btn, ext) {
     URL.revokeObjectURL(a.href);
 }
 
-/* ── CALL AI — robust POST with retry + GET fallback ── */
+/* ── CALL AI ── */
 async function callAI(messages, onChunk) {
-    // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
         m.content.some(c => c.type === 'image_url'));
 
-    // ── Vision path — POST no-stream, 2 attempts ──
+    // ── Vision: POST non-streaming (image payload can't go in URL) ──
     if (hasImage) {
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), 50000);
                 const res = await fetch('https://text.pollinations.ai/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ messages, model: 'openai', stream: false }),
-                    signal: AbortSignal.timeout(50000)
+                    signal: ctrl.signal
                 });
-                if (!res.ok) throw new Error('vision HTTP ' + res.status);
+                clearTimeout(t);
+                if (res.status === 429) throw Object.assign(new Error('429'), { is429: true });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 let text = (await res.text()).trim();
-                if (!text) throw new Error('vision empty');
                 if (text.startsWith('{') || text.startsWith('[')) {
-                    try {
-                        const j = JSON.parse(text);
-                        const ex = j?.choices?.[0]?.message?.content || j?.content || j?.text || '';
-                        if (ex) text = ex;
-                    } catch {}
+                    try { const j = JSON.parse(text); text = j?.choices?.[0]?.message?.content || j?.content || j?.text || text; } catch {}
                 }
-                if (!text) throw new Error('vision empty after parse');
-                // typewriter for vision too
-                const words = text.split(' ');
-                let shown = '';
+                if (!text) throw new Error('empty');
+                const words = text.split(' '); let shown = '';
                 for (let i = 0; i < words.length; i++) {
-                    shown += (i === 0 ? '' : ' ') + words[i];
-                    onChunk(shown);
+                    shown += (i === 0 ? '' : ' ') + words[i]; onChunk(shown);
                     if (i % 8 === 7) await new Promise(r => setTimeout(r, 25));
                 }
-                onChunk(text);
-                return text;
-            } catch(e) {
+                onChunk(text); return text;
+            } catch (e) {
                 if (attempt === 1) throw e;
-                await new Promise(r => setTimeout(r, 1500)); // wait before retry
+                await new Promise(r => setTimeout(r, e.is429 ? 10000 : 1500));
             }
         }
     }
 
-    // ── helpers ──
-    async function _typewrite(full) {
-        const words = full.split(' ');
-        let shown = '';
-        for (let i = 0; i < words.length; i++) {
-            shown += (i === 0 ? '' : ' ') + words[i];
-            onChunk(shown);
-            if (i % 8 === 7) await new Promise(r => setTimeout(r, 20));
-        }
-        onChunk(full);
-    }
-    function _extractText(raw) {
-        const t = raw.trim();
-        if (!t) return '';
-        if (t.startsWith('{') || t.startsWith('[')) {
-            try {
-                const j = JSON.parse(t);
-                return j?.choices?.[0]?.message?.content
-                    || j?.content || j?.text || j?.response || t;
-            } catch {}
-        }
-        return t;
-    }
-
-    // ── POST first (JSON body — no URL-length limit) ──
-    for (let attempt = 0; attempt < 3; attempt++) {
+    // ── Text: streaming POST (1 connection, tokens arrive in real-time) ──
+    for (let attempt = 0; attempt < 2; attempt++) {
         try {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 65000);
             const res = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages,
-                    model: 'openai',
-                    stream: false,
+                    messages, model: 'openai', stream: true,
                     seed: Math.floor(Math.random() * 99999)
                 }),
-                signal: AbortSignal.timeout(60000)
+                signal: ctrl.signal
             });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const full = _extractText(await res.text());
-            if (!full) throw new Error('empty');
-            await _typewrite(full);
-            return full;
-        } catch (e) {
-            if (attempt < 2) {
-                await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
-                continue;
+            clearTimeout(t);
+
+            if (res.status === 429) {
+                if (attempt === 0) {
+                    onChunk('⏳ השרת עמוס, ממתין 15 שניות...');
+                    await new Promise(r => setTimeout(r, 15000));
+                    onChunk('');
+                    continue;
+                }
+                throw new Error('429: שרת עמוס. נסה שוב בעוד כמה שניות.');
             }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            if (!res.body) throw new Error('no-body');
+
+            // Read Server-Sent Events
+            const reader = res.body.getReader();
+            const dec = new TextDecoder();
+            let full = '', buf = '';
+            const st = setTimeout(() => reader.cancel(), 60000);
+            try {
+                outer: while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buf += dec.decode(value, { stream: true });
+                    const lines = buf.split('\n'); buf = lines.pop() || '';
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const d = line.slice(6).trim();
+                        if (d === '[DONE]') break outer;
+                        try {
+                            const tok = JSON.parse(d)?.choices?.[0]?.delta?.content || '';
+                            if (tok) { full += tok; onChunk(full); }
+                        } catch {}
+                    }
+                }
+            } finally { clearTimeout(st); }
+
+            if (!full) throw new Error('empty-stream');
+            return full;
+
+        } catch (e) {
+            if (attempt === 0 && !e.message.startsWith('429')) {
+                await new Promise(r => setTimeout(r, 2000)); continue;
+            }
+            if (e.message.startsWith('429')) throw e; // bubble up friendly msg
         }
     }
 
-    // ── GET fallback — last user message only (short URL) ──
-    const _lastUser = [...messages].reverse().find(m => m.role === 'user');
-    const _q = typeof _lastUser?.content === 'string'
-        ? _lastUser.content
-        : (_lastUser?.content?.[0]?.text || '');
-    const _getUrl = `https://text.pollinations.ai/${encodeURIComponent(_q.slice(0, 300))}` +
-        `?model=openai&seed=${Math.floor(Math.random()*99999)}`;
-    const gr = await fetch(_getUrl, { signal: AbortSignal.timeout(50000) });
-    if (!gr.ok) throw new Error('GET ' + gr.status);
-    const gText = _extractText(await gr.text());
-    if (!gText) throw new Error('empty GET');
-    await _typewrite(gText);
-    return gText;
+    // ── GET fallback: only last user message, no history ──
+    const _last = [...messages].reverse().find(m => m.role === 'user');
+    const _q = (typeof _last?.content === 'string' ? _last.content : (_last?.content?.[0]?.text || '')).slice(0, 250);
+    const _url = `https://text.pollinations.ai/${encodeURIComponent(_q)}?seed=${Math.floor(Math.random()*99999)}`;
+    const ctrl2 = new AbortController();
+    const t2 = setTimeout(() => ctrl2.abort(), 50000);
+    const gr = await fetch(_url, { signal: ctrl2.signal });
+    clearTimeout(t2);
+    if (!gr.ok) throw new Error(gr.status === 429 ? '429: שרת עמוס. נסה שוב.' : 'HTTP ' + gr.status);
+    const gt = (await gr.text()).trim();
+    if (!gt) throw new Error('empty');
+    onChunk(gt); return gt;
 }
 
 /* ── SEND ── */
@@ -2604,7 +2608,9 @@ async function send() {
         saveConversation(); // שמור שיחה מלאה ב-localStorage
     } catch (e) {
         if (!fullText) {
-            txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
+            const msg = (e?.message || '');
+            const display = msg.startsWith('429') ? '⏳ ' + msg : '⚠️ שגיאת חיבור (' + (msg || 'unknown') + ') — נסה שוב.';
+            txt.innerHTML = `<span style="color:#ff8a80">${display}</span>`;
         }
     }
     busy = false; updateBtn();
