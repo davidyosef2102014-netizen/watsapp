@@ -2165,20 +2165,26 @@ Rules:
         engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
     } else {
         try {
-            const r = await fetch('https://text.pollinations.ai/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: [
-                        { role: 'system', content: _sysImg },
-                        { role: 'user', content: `Image request: "${prompt}"` }
-                    ],
-                    model: 'openai',
-                    stream: false
-                }),
-                signal: AbortSignal.timeout(12000)
-            });
-            const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
+            const ctrl = new AbortController();
+            const _t = setTimeout(() => ctrl.abort(), 15000);
+            let r;
+            try {
+                r = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GH_TOKEN },
+                    body: JSON.stringify({
+                        messages: [
+                            { role: 'system', content: _sysImg },
+                            { role: 'user', content: `Image request: "${prompt}"` }
+                        ],
+                        model: 'gpt-4o-mini',
+                        stream: false
+                    }),
+                    signal: ctrl.signal
+                });
+            } finally { clearTimeout(_t); }
+            const raw = (await r.json())?.choices?.[0]?.message?.content || '';
+            const t = raw.trim().replace(/^["']+|["']+$/g, '');
             if (t && t.length > 8 && t.length < 800) engPrompt = t;
             else engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
         } catch { engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX; }
@@ -2414,21 +2420,22 @@ async function callAI(messages, onChunk) {
     const hasImage = messages.some(m => Array.isArray(m.content) &&
         m.content.some(c => c.type === 'image_url'));
 
-    // ── Vision: POST non-streaming (image payload can't go in URL) ──
+    // ── Vision: GitHub Models supports image_url natively ──
     if (hasImage) {
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
                 const ctrl = new AbortController();
-                const t = setTimeout(() => ctrl.abort(), 50000);
-                const res = await fetch('https://text.pollinations.ai/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages, model: 'openai', stream: false }),
-                    signal: ctrl.signal
-                });
-                clearTimeout(t);
-                if (res.status === 429) throw Object.assign(new Error('429'), { is429: true });
-                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const t = setTimeout(() => ctrl.abort(), 45000);
+                let res;
+                try {
+                    res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GH_TOKEN },
+                        body: JSON.stringify({ messages, model: 'gpt-4o-mini', stream: false }),
+                        signal: ctrl.signal
+                    });
+                } finally { clearTimeout(t); }
+                if (!res.ok) throw new Error('GH vision ' + res.status);
                 let text = (await res.text()).trim();
                 if (text.startsWith('{') || text.startsWith('[')) {
                     try { const j = JSON.parse(text); text = j?.choices?.[0]?.message?.content || j?.content || j?.text || text; } catch {}
@@ -2442,13 +2449,13 @@ async function callAI(messages, onChunk) {
                 onChunk(text); return text;
             } catch (e) {
                 if (attempt === 1) throw e;
-                await new Promise(r => setTimeout(r, e.is429 ? 10000 : 1500));
+                await new Promise(r => setTimeout(r, 1500));
             }
         }
     }
 
-    // ── Text: POST non-streaming, smart 429 handling ──
-    function _parse(raw) {
+    // ── helpers ──
+    function _parseJSON(raw) {
         const t = raw.trim();
         if (!t) return '';
         if (t.startsWith('{') || t.startsWith('[')) {
@@ -2468,36 +2475,34 @@ async function callAI(messages, onChunk) {
         onChunk(full);
     }
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    // ── Primary: GitHub Models API (gpt-4o-mini, 15 RPM free) ──
+    for (let attempt = 0; attempt < 2; attempt++) {
         try {
             const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 60000);
+            const timer = setTimeout(() => ctrl.abort(), 45000);
             let res;
-            try { res = await fetch('https://text.pollinations.ai/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages, model: 'openai', stream: false, seed: Math.floor(Math.random()*99999) }),
-                signal: ctrl.signal
-            }); } finally { clearTimeout(timer); }
-
-            if (res.status === 429) {
-                // Queue full — wait for the slot to free, then retry
-                onChunk('⏳ השרת עמוס...');
-                await new Promise(r => setTimeout(r, 20000 + attempt * 10000));
-                onChunk('');
-                continue;
-            }
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const full = _parse(await res.text());
+            try {
+                res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + GH_TOKEN
+                    },
+                    body: JSON.stringify({ messages, model: 'gpt-4o-mini', stream: false }),
+                    signal: ctrl.signal
+                });
+            } finally { clearTimeout(timer); }
+            if (!res.ok) throw new Error('GH ' + res.status);
+            const full = _parseJSON(await res.text());
             if (!full) throw new Error('empty');
             await _typewrite(full);
             return full;
         } catch (e) {
-            if (attempt < 2) { await new Promise(r => setTimeout(r, 2000)); continue; }
+            if (attempt === 0) { await new Promise(r => setTimeout(r, 1500)); continue; }
         }
     }
 
-    // ── GET fallback: only last user message, short URL ──
+    // ── Fallback: Pollinations GET (short prompt only) ──
     const _last = [...messages].reverse().find(m => m.role === 'user');
     const _q = (typeof _last?.content === 'string' ? _last.content : (_last?.content?.[0]?.text || '')).slice(0, 250);
     const _url = `https://text.pollinations.ai/${encodeURIComponent(_q)}?seed=${Math.floor(Math.random()*99999)}`;
@@ -2505,9 +2510,9 @@ async function callAI(messages, onChunk) {
     const t2 = setTimeout(() => ctrl2.abort(), 50000);
     let gr;
     try { gr = await fetch(_url, { signal: ctrl2.signal }); } finally { clearTimeout(t2); }
-    if (!gr.ok) throw new Error(gr.status === 429 ? '429: שרת עמוס – נסה שוב בעוד 30 שניות' : 'HTTP ' + gr.status);
-    const gt = _parse(await gr.text());
-    if (!gt) throw new Error('GET empty');
+    if (!gr.ok) throw new Error('Pollinations ' + gr.status);
+    const gt = _parseJSON(await gr.text());
+    if (!gt) throw new Error('empty fallback');
     await _typewrite(gt); return gt;
 }
 
