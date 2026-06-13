@@ -2196,10 +2196,9 @@ Rules:
     // ── 3. Build image URL and load ──
     // Free tier: only width/height up to 512 + seed work without a token.
     // model=, nologo=true, 1024px all require a paid token → 402.
-    const seed = Math.floor(Math.random() * 999999);
     const safePrompt = engPrompt.slice(0, 250);
     const _buildUrl = () =>
-        `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=512&height=512&seed=${seed}`;
+        `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}`;
 
     let imgUrl = _buildUrl();
 
@@ -2689,7 +2688,12 @@ async function _liveLoop() {
     // ── 1. Listen ──
     const transcript = await _liveListenOnce();
     if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
-    if (!transcript.trim()) { _liveBusy = false; _setLiveState('idle'); return; }
+    if (!transcript.trim()) {
+        _liveBusy = false;
+        if (_liveActive && !_liveStopped) setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 300);
+        else _setLiveState('idle');
+        return;
+    }
 
     document.getElementById('live-transcript').textContent = '👤 ' + transcript;
 
@@ -2750,19 +2754,25 @@ function _liveListenOnce() {
         rec.interimResults = true;
         rec.continuous = false;
         rec.maxAlternatives = 1;
-        let final = '';
+        let final = '', gotSpeech = false;
+
+        // Force-stop after 9s of silence
+        const silenceTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 9000);
+
         rec.onresult = e => {
+            clearTimeout(silenceTimer);
             let interim = '';
             for (let i = e.resultIndex; i < e.results.length; i++) {
-                if (e.results[i].isFinal) final += e.results[i][0].transcript;
+                if (e.results[i].isFinal) { final += e.results[i][0].transcript; gotSpeech = true; }
                 else interim = e.results[i][0].transcript;
             }
             const shown = final || interim;
             if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
         };
-        rec.onerror = () => { _liveRec = null; resolve(final); };
-        rec.onend  = () => { _liveRec = null; resolve(final); };
-        try { rec.start(); } catch(e) { resolve(''); }
+        const done = (result) => { clearTimeout(silenceTimer); _liveRec = null; resolve(result); };
+        rec.onerror = () => done(final);
+        rec.onend  = () => done(final);
+        try { rec.start(); } catch(e) { clearTimeout(silenceTimer); resolve(''); }
     });
 }
 
