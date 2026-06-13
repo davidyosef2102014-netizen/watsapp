@@ -270,19 +270,14 @@
         .agent-step b { color:var(--text); }
         /* image generation */
         .img-skeleton {
-            width:100%; max-width:800px; height:380px; border-radius:14px;
-            background:linear-gradient(90deg,var(--surf2) 25%,rgba(255,255,255,.9) 50%,var(--surf2) 75%);
-            background-size:200% 100%;
-            animation:shimmer 1.6s infinite;
-            display:flex; align-items:center; justify-content:center;
-            flex-direction:column; gap:10px; color:var(--muted); font-size:14px; font-weight:600;
+            width:100%; max-width:512px; height:512px; border-radius:16px;
+            background:linear-gradient(110deg,var(--surf2) 30%,rgba(200,210,255,.55) 50%,var(--surf2) 70%);
+            background-size:250% 100%;
+            animation:shimmer 1.8s ease-in-out infinite;
             border: 1px solid var(--border);
         }
-        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        .img-skel-icon { font-size:36px; animation:sparkle 2s ease-in-out infinite; }
-        .img-skel-txt  { font-size:13px; }
-        .img-skel-prog { width:160px; height:4px; background:var(--surf); border-radius:2px; overflow:hidden; }
-        .img-skel-bar  { height:100%; width:0%; background:linear-gradient(to right,var(--blue),var(--purple)); border-radius:2px; transition:width .8s ease; }
+        @keyframes shimmer { 0%{background-position:250% 0} 100%{background-position:-250% 0} }
+        .img-skel-icon,.img-skel-txt,.img-skel-prog,.img-skel-bar { display:none; }
 
         /* action buttons (Gemini style — appear on hover) */
         .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
@@ -2081,7 +2076,7 @@ async function generateImage(promptRaw, reuseRow) {
 
     // ── 1. Show skeleton immediately ──
     let row = reuseRow;
-    let skelEl, skelTxt, skelBar, wrapEl, actsEl, bodyEl;
+    let skelEl, wrapEl, actsEl, bodyEl;
 
     if (!row) {
         row = document.createElement('div'); row.className = 'msg-row ai';
@@ -2092,15 +2087,8 @@ async function generateImage(promptRaw, reuseRow) {
         wrapEl = document.createElement('div'); wrapEl.className = 'ai-img-wrap';
         actsEl = document.createElement('div'); actsEl.className = 'ai-acts';
 
-        skelEl  = document.createElement('div');  skelEl.className = 'img-skeleton';
-        skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'מתרגם לאנגלית…';
-        const skelIcon = document.createElement('div'); skelIcon.className = 'img-skel-icon'; skelIcon.textContent = '🎨';
-        const skelProg = document.createElement('div'); skelProg.className = 'img-skel-prog';
-        skelBar = document.createElement('div');  skelBar.className = 'img-skel-bar';
-        skelProg.appendChild(skelBar);
-        skelEl.appendChild(skelIcon); skelEl.appendChild(skelTxt); skelEl.appendChild(skelProg);
+        skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
         wrapEl.appendChild(skelEl);
-
         txtDiv.appendChild(wrapEl);
         bodyEl.appendChild(nm); bodyEl.appendChild(txtDiv); bodyEl.appendChild(actsEl);
         row.appendChild(ava); row.appendChild(bodyEl);
@@ -2109,24 +2097,15 @@ async function generateImage(promptRaw, reuseRow) {
         bodyEl = row.querySelector('.ai-body');
         wrapEl = row.querySelector('.ai-img-wrap');
         actsEl = row.querySelector('.ai-acts');
-        skelEl  = wrapEl.querySelector('.img-skeleton');
-        skelTxt = wrapEl.querySelector('.img-skel-txt');
-        skelBar = wrapEl.querySelector('.img-skel-bar');
+        skelEl = wrapEl.querySelector('.img-skeleton');
         if (!skelEl) {
             skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
-            skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'מתרגם לאנגלית…';
-            const si = document.createElement('div'); si.className='img-skel-icon'; si.textContent='🎨';
-            const sp = document.createElement('div'); sp.className='img-skel-prog';
-            skelBar = document.createElement('div'); skelBar.className='img-skel-bar';
-            sp.appendChild(skelBar); skelEl.appendChild(si); skelEl.appendChild(skelTxt); skelEl.appendChild(sp);
             wrapEl.prepend(skelEl);
         }
-        skelEl.style.display = 'flex'; skelTxt.textContent = 'מתרגם לאנגלית…'; skelBar.style.width = '0%';
     }
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
-    // ── 2. Build Flux prompt — style-aware, skip translation if already English ──
-    setTimeout(() => { if (skelBar) skelBar.style.width = '30%'; }, 200);
+    // ── 2. Build Flux prompt ──
 
     const BG_PREFIX      = _isProduct ? 'isolated product on pure white seamless studio background, ' : '';
     const QUALITY_SUFFIX = _isProduct
@@ -2190,71 +2169,51 @@ Rules:
         } catch { engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX; }
     }
 
-    if (skelTxt) skelTxt.textContent = 'מייצר תמונה…';
-    if (skelBar) skelBar.style.width = '55%';
-
-    // ── 3. Generate via AI Horde (free, CORS-friendly, community GPU) ──
+    // ── 3. Generate via AI Horde ──
     const safePrompt = engPrompt.slice(0, 500);
     let imgUrl = null;
 
     try {
-        if (skelTxt) skelTxt.textContent = 'שולח לתור…';
-        // Submit job
         const jobRes = await fetch('https://stablehorde.net/api/v2/generate/async', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': '0000000000', 'Client-Agent': 'birgsolai:1:anon' },
             body: JSON.stringify({
                 prompt: safePrompt,
                 params: { width: 512, height: 512, steps: 25, cfg_scale: 7, sampler_name: 'k_euler_a', n: 1 },
-                models: ['Deliberate'],
-                r2: true, shared: false
+                models: ['Deliberate'], r2: true, shared: false
             })
         });
         if (!jobRes.ok) throw new Error('submit ' + jobRes.status);
         const { id } = await jobRes.json();
-        if (!id) throw new Error('no job id');
+        if (!id) throw new Error('no id');
 
-        // Poll until done (max 120s)
-        let prog = 55, waited = 0;
-        const progIv = setInterval(() => {
-            prog = Math.min(prog + 1, 92);
-            if (skelBar) skelBar.style.width = prog + '%';
-        }, 1000);
-
+        let waited = 0;
         while (waited < 120000) {
             await new Promise(r => setTimeout(r, 3000));
             waited += 3000;
             const chk = await fetch(`https://stablehorde.net/api/v2/generate/check/${id}`, { headers: { 'Client-Agent': 'birgsolai:1:anon' } });
             const st = await chk.json();
-            if (skelTxt) skelTxt.textContent = `מייצר תמונה… (${Math.round(waited/1000)}ש׳)`;
-            if (st.faulted) throw new Error('horde faulted');
+            if (st.faulted) throw new Error('faulted');
             if (st.done) break;
         }
 
-        clearInterval(progIv);
-        if (skelBar) skelBar.style.width = '98%';
-
-        // Get result
         const statRes = await fetch(`https://stablehorde.net/api/v2/generate/status/${id}`, { headers: { 'Client-Agent': 'birgsolai:1:anon' } });
-        const statData = await statRes.json();
-        const gen = statData?.generations?.[0];
-        if (!gen?.img) throw new Error('no image in response');
+        const gen = (await statRes.json())?.generations?.[0];
+        if (!gen?.img) throw new Error('no img');
         imgUrl = gen.img;
 
-    } catch (err) {
-        if (skelEl) { skelEl.innerHTML = '<div style="font-size:28px">⚠️</div><div>לא הצלחתי ליצור תמונה</div>'; skelEl.style.animation = 'none'; }
+    } catch {
+        if (skelEl) { skelEl.style.animation = 'none'; skelEl.style.background = 'var(--surf2)'; }
         const retryBtn = document.createElement('button');
         retryBtn.className = 'ai-act'; retryBtn.textContent = '🔄 נסה שוב';
         retryBtn.onclick = () => generateImage(prompt, null);
         if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(retryBtn); }
-        hist.push({ role: 'assistant', content: `[שגיאה ביצירת תמונה: ${prompt}]` });
+        hist.push({ role: 'assistant', content: `[שגיאה: ${prompt}]` });
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
-        saveConversation();
-        return;
+        saveConversation(); return;
     }
 
-    if (skelBar) skelBar.style.width = '100%';
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 100));
 
     // ── 4. Show result ──
     const img = new Image();
