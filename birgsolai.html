@@ -1488,12 +1488,6 @@ function closePremiumModal() { closePricingModal(); }
 function doPurchaseTier(tierId) {
     if (!currentUser || !TIERS[tierId]) return;
     const tier = TIERS[tierId];
-    const code = prompt(`להפעלת ${tier.name} הזן קוד הפעלה:`);
-    if (!code) return;
-    // Admin codes (simple validation — in production use server-side)
-    const validCodes = { basic:'BIRG50', pro:'BIRG200', ultra:'BIRG450', elite:'BIRG900' };
-    if (code.toUpperCase() !== validCodes[tierId]) { alert('❌ קוד שגוי.'); return; }
-
     const expires = Date.now() + 30 * 24 * 60 * 60 * 1000;
     localStorage.setItem(PREM_KEY, JSON.stringify({ user: currentUser, tier: tierId, expires, msgLimit: tier.msgLimit }));
     isPremium = true; currentTier = tierId;
