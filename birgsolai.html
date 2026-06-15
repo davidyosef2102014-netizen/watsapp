@@ -279,6 +279,14 @@
         }
         @keyframes shimmer { 0%{background-position:250% 0} 100%{background-position:-250% 0} }
         .img-skel-icon,.img-skel-txt,.img-skel-prog,.img-skel-bar { display:none; }
+        .style-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+        .style-chip {
+            background: var(--surf2); border: 1.5px solid var(--border);
+            border-radius: 20px; padding: 9px 18px;
+            font-size: 14px; cursor: pointer; font-family: inherit;
+            color: var(--text); transition: all .15s;
+        }
+        .style-chip:hover, .style-chip:active { background: var(--blue); color: #fff; border-color: var(--blue); }
         .img-skel-caption {
             font-size: 12px; color: var(--text2); opacity: 0.6;
             margin-top: 8px; text-align: center; letter-spacing: 0.3px;
@@ -2067,14 +2075,45 @@ function expandProduct(p) {
     return out;
 }
 
+function _askImageStyle(cw) {
+    return new Promise(resolve => {
+        const styles = [
+            { label: '📸 ריאליסטי',   model: 'flux-realism', suffix: 'photorealistic, realistic photograph, highly detailed' },
+            { label: '🎨 ציור',        model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors' },
+            { label: '✏️ קריקטורה',    model: 'flux',         suffix: 'cartoon illustration, colorful cartoon, flat design' },
+            { label: '🌸 אנימה',       model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime' },
+        ];
+        const row = document.createElement('div'); row.className = 'msg-row ai';
+        const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
+        const body = document.createElement('div'); body.className = 'ai-body';
+        const nm = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.5';
+        const txt = document.createElement('div'); txt.className = 'ai-txt';
+        const q = document.createElement('div'); q.textContent = 'איזה סגנון לתמונה?';
+        const grid = document.createElement('div'); grid.className = 'style-chips';
+        styles.forEach(s => {
+            const btn = document.createElement('button'); btn.className = 'style-chip'; btn.textContent = s.label;
+            btn.onclick = () => { row.remove(); resolve(s); };
+            grid.appendChild(btn);
+        });
+        txt.appendChild(q); txt.appendChild(grid);
+        body.appendChild(nm); body.appendChild(txt);
+        row.appendChild(ava); row.appendChild(body);
+        cw.appendChild(row);
+        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    });
+}
+
 async function generateImage(promptRaw, reuseRow) {
-    // Smart style detection BEFORE expansion — product shot vs. artistic scene
     const _pl = promptRaw.toLowerCase();
     const _PROD = ['iphone','ipad','macbook','airpods','apple watch','samsung','galaxy','ps5','playstation','xbox','nintendo','dyson','tesla','gopro','laptop','headphones','smartwatch','speaker','keyboard','tablet','camera','earbuds','watch','phone','smartphone','drone','mouse','monitor'];
     const _isProduct = _PROD.some(k => _pl.includes(k));
     const prompt = _isProduct ? expandProduct(promptRaw) : promptRaw;
     showChat();
     const cw = document.getElementById('chat-window');
+
+    // ── 0. Ask style (skip if reusing existing row) ──
+    let imgStyle = { label: 'ריאליסטי', model: 'flux-realism', suffix: 'photorealistic, realistic photograph, highly detailed' };
+    if (!reuseRow) imgStyle = await _askImageStyle(cw);
 
     // ── 1. Show skeleton immediately ──
     let row = reuseRow;
@@ -2154,7 +2193,8 @@ async function generateImage(promptRaw, reuseRow) {
     // ── 3. Generate via Pollinations (no polling, works on mobile) ──
     const safePrompt = engPrompt.slice(0, 400);
     const seed = Math.floor(Math.random() * 999999);
-    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=512&height=512&seed=${seed}&nologo=true`;
+    const styledPrompt = safePrompt + ', ' + imgStyle.suffix;
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=512&height=512&seed=${seed}&nologo=true&model=${imgStyle.model}`;
 
     // ── 4. Show result ──
     const img = new Image();
