@@ -2798,15 +2798,23 @@ function _liveListenOnce() {
         _liveRec = rec;
         rec.lang = 'he-IL';
         rec.interimResults = true;
-        rec.continuous = false;
+        rec.continuous = true;
         rec.maxAlternatives = 1;
-        let final = '', interim = '';
-        let autoStopTimer = null;
-        const done = () => {
-            clearTimeout(autoStopTimer);
-            _liveRec = null;
-            resolve(final || interim); // use interim as fallback if browser didn't finalize
+
+        let final = '', interim = '', resolved = false;
+        let silenceTimer = null;
+        const maxTimer = setTimeout(() => finish(), 12000); // absolute max 12s
+
+        const finish = () => {
+            if (resolved) return;
+            resolved = true;
+            clearTimeout(silenceTimer);
+            clearTimeout(maxTimer);
+            try { rec.stop(); } catch(e) {}
+            // wait 300ms for browser to flush final result
+            setTimeout(() => { _liveRec = null; resolve(final || interim); }, 300);
         };
+
         rec.onresult = e => {
             for (let i = e.resultIndex; i < e.results.length; i++) {
                 if (e.results[i].isFinal) { final += e.results[i][0].transcript; interim = ''; }
@@ -2814,12 +2822,13 @@ function _liveListenOnce() {
             }
             const shown = final || interim;
             if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
-            // restart silence timer on every result
-            clearTimeout(autoStopTimer);
-            autoStopTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 1800);
+            clearTimeout(silenceTimer);
+            silenceTimer = setTimeout(finish, 1800); // 1.8s silence → stop
         };
-        rec.onerror = () => done();
-        rec.onend  = () => done();
+
+        rec.onerror = () => { if (!resolved) { resolved = true; clearTimeout(silenceTimer); clearTimeout(maxTimer); _liveRec = null; resolve(final || interim); } };
+        rec.onend   = () => { if (!resolved) { resolved = true; clearTimeout(silenceTimer); clearTimeout(maxTimer); _liveRec = null; resolve(final || interim); } };
+
         try { rec.start(); } catch(e) { resolve(''); }
     });
 }
