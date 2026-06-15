@@ -33,8 +33,9 @@
             z-index: 500;
         }
         @media (max-width: 900px) {
-            #sidebar { position: fixed; right: 0; transform: translateX(100%); }
-            #sidebar.open { transform: translateX(0); box-shadow: -4px 0 20px rgba(0,0,0,.15); }
+            #sidebar { position: fixed; right: 0; transform: translateX(100%); pointer-events: none; }
+            #sidebar.open { transform: translateX(0); box-shadow: -4px 0 20px rgba(0,0,0,.15); pointer-events: auto; }
+            .icon-btn { width: 44px; height: 44px; }
         }
 
         .sb-head { padding: 16px 14px 12px; }
@@ -1096,6 +1097,7 @@
         <div class="sb-brand">
             <div class="sb-star">✦</div>
             <span class="sb-name">BIRGSOL AI</span>
+            <button class="icon-btn" onclick="closeSidebar()" style="margin-right:auto;font-size:16px;" title="סגור">✕</button>
         </div>
         <button class="new-btn" onclick="startNew()">
             <span>✏️</span> שיחה חדשה
@@ -2149,40 +2151,39 @@ async function generateImage(promptRaw, reuseRow) {
         } catch { engPrompt = prompt; }
     }
 
-    // ── 3. Generate via AI Horde ──
-    const safePrompt = engPrompt.slice(0, 500);
-    let imgUrl = null;
+    // ── 3. Generate via Pollinations (no polling, works on mobile) ──
+    const safePrompt = engPrompt.slice(0, 400);
+    const seed = Math.floor(Math.random() * 999999);
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=512&height=512&seed=${seed}&nologo=true`;
 
-    try {
-        const jobRes = await fetch('https://stablehorde.net/api/v2/generate/async', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': '0000000000', 'Client-Agent': 'birgsolai:1:anon' },
-            body: JSON.stringify({
-                prompt: safePrompt,
-                params: { width: 512, height: 512, steps: 25, cfg_scale: 7, sampler_name: 'k_euler_a', n: 1, negative_prompt: 'ugly, blurry, bad anatomy, watermark, text, logo, extra limbs' },
-                models: ['Deliberate'], r2: true, shared: false
-            })
-        });
-        if (!jobRes.ok) throw new Error('submit ' + jobRes.status);
-        const { id } = await jobRes.json();
-        if (!id) throw new Error('no id');
-
-        let waited = 0;
-        while (waited < 120000) {
-            await new Promise(r => setTimeout(r, 3000));
-            waited += 3000;
-            const chk = await fetch(`https://stablehorde.net/api/v2/generate/check/${id}`, { headers: { 'Client-Agent': 'birgsolai:1:anon' } });
-            const st = await chk.json();
-            if (st.faulted) throw new Error('faulted');
-            if (st.done) break;
-        }
-
-        const statRes = await fetch(`https://stablehorde.net/api/v2/generate/status/${id}`, { headers: { 'Client-Agent': 'birgsolai:1:anon' } });
-        const gen = (await statRes.json())?.generations?.[0];
-        if (!gen?.img) throw new Error('no img');
-        imgUrl = gen.img;
-
-    } catch {
+    // ── 4. Show result ──
+    const img = new Image();
+    img.className = 'ai-gen-img';
+    img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
+    const cap = document.createElement('div');
+    cap.className = 'ai-img-caption';
+    cap.textContent = '🎨 ' + (engPrompt.length > 90 ? engPrompt.slice(0, 90) + '…' : engPrompt);
+    img.onload = () => {
+        if (skelEl) skelEl.remove();
+        wrapEl.querySelectorAll('.img-skel-caption').forEach(el => el.remove());
+        wrapEl.appendChild(img); wrapEl.appendChild(cap);
+        requestAnimationFrame(() => { img.style.opacity = '1'; });
+        const dlA = document.createElement('a');
+        dlA.className = 'ai-act'; dlA.href = imgUrl;
+        dlA.download = 'birgsol-image.jpg'; dlA.textContent = '⬇ הורד';
+        dlA.style.textDecoration = 'none';
+        const openBtn = document.createElement('button');
+        openBtn.className = 'ai-act'; openBtn.textContent = '🔗 פתח';
+        openBtn.onclick = () => window.open(imgUrl, '_blank');
+        const regenBtn = document.createElement('button');
+        regenBtn.className = 'ai-act'; regenBtn.textContent = '🔄 עוד אחת';
+        regenBtn.onclick = () => generateImage(prompt, null);
+        if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
+        hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
+        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+        saveConversation();
+    };
+    img.onerror = () => {
         if (skelEl) { skelEl.style.animation = 'none'; skelEl.style.background = 'var(--surf2)'; }
         if (wrapEl) wrapEl.querySelectorAll('.img-skel-caption').forEach(el => el.remove());
         const retryBtn = document.createElement('button');
@@ -2191,39 +2192,9 @@ async function generateImage(promptRaw, reuseRow) {
         if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(retryBtn); }
         hist.push({ role: 'assistant', content: `[שגיאה: ${prompt}]` });
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
-        saveConversation(); return;
-    }
-
-    await new Promise(r => setTimeout(r, 100));
-
-    // ── 4. Show result ──
-    const img = new Image();
-    img.className = 'ai-gen-img';
-    img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
+        saveConversation();
+    };
     img.src = imgUrl;
-    img.onload = () => requestAnimationFrame(() => { img.style.opacity = '1'; });
-    const cap = document.createElement('div');
-    cap.className = 'ai-img-caption';
-    cap.textContent = '🎨 ' + (engPrompt.length > 90 ? engPrompt.slice(0, 90) + '…' : engPrompt);
-    if (skelEl) skelEl.remove();
-    wrapEl.querySelectorAll('.img-skel-caption').forEach(el => el.remove());
-    wrapEl.appendChild(img); wrapEl.appendChild(cap);
-
-    const dlA = document.createElement('a');
-    dlA.className = 'ai-act'; dlA.href = imgUrl;
-    dlA.download = 'birgsol-image.jpg'; dlA.textContent = '⬇ הורד';
-    dlA.style.textDecoration = 'none';
-    const openBtn = document.createElement('button');
-    openBtn.className = 'ai-act'; openBtn.textContent = '🔗 פתח';
-    openBtn.onclick = () => window.open(imgUrl, '_blank');
-    const regenBtn = document.createElement('button');
-    regenBtn.className = 'ai-act'; regenBtn.textContent = '🔄 עוד אחת';
-    regenBtn.onclick = () => generateImage(prompt, null);
-    if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
-
-    hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
-    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
-    saveConversation();
 }
 
 function triggerImageGen() {
@@ -2619,6 +2590,8 @@ function _setLiveState(state) {
 }
 
 function startLive() {
+    // Unlock speech synthesis on mobile — must be called in user-gesture context
+    try { const _u = new SpeechSynthesisUtterance(''); _u.volume = 0; window.speechSynthesis.speak(_u); window.speechSynthesis.cancel(); } catch(e) {}
     closeSidebar();
     document.getElementById('live-overlay').classList.add('on');
     _liveActive = true; _liveStopped = false; _liveMuted = false;
@@ -2721,12 +2694,14 @@ function _liveListenOnce() {
         rec.continuous = false;
         rec.maxAlternatives = 1;
         let final = '', gotSpeech = false;
+        let autoStopTimer = null;
 
-        // Force-stop after 9s of silence
+        // Force-stop after 9s if no speech at all
         const silenceTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 9000);
 
         rec.onresult = e => {
             clearTimeout(silenceTimer);
+            clearTimeout(autoStopTimer);
             let interim = '';
             for (let i = e.resultIndex; i < e.results.length; i++) {
                 if (e.results[i].isFinal) { final += e.results[i][0].transcript; gotSpeech = true; }
@@ -2734,8 +2709,10 @@ function _liveListenOnce() {
             }
             const shown = final || interim;
             if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
+            // Auto-stop 1.2s after user finishes speaking
+            if (gotSpeech) autoStopTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 1200);
         };
-        const done = (result) => { clearTimeout(silenceTimer); _liveRec = null; resolve(result); };
+        const done = (result) => { clearTimeout(silenceTimer); clearTimeout(autoStopTimer); _liveRec = null; resolve(result); };
         rec.onerror = () => done(final);
         rec.onend  = () => done(final);
         try { rec.start(); } catch(e) { clearTimeout(silenceTimer); resolve(''); }
