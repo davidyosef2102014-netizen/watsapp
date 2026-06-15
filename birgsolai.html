@@ -84,6 +84,7 @@
         }
         .tb-right { display: flex; align-items: center; gap: 4px; }
         .tb-left  { display: flex; align-items: center; gap: 8px; }
+        .ic { display:inline-block; vertical-align:-3px; width:16px; height:16px; flex-shrink:0; }
         .icon-btn {
             background: none; border: none; cursor: pointer;
             width: 40px; height: 40px; border-radius: 50%;
@@ -279,7 +280,8 @@
             border: 1px solid var(--border);
         }
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        .img-skel-icon { font-size:36px; animation:sparkle 2s ease-in-out infinite; }
+        .img-skel-icon { font-size:36px; animation:sparkle 2s ease-in-out infinite; display:flex; align-items:center; justify-content:center; }
+        .img-skel-icon .ic { width:36px; height:36px; }
         .img-skel-txt  { font-size:13px; }
         .img-skel-prog { width:160px; height:4px; background:var(--surf); border-radius:2px; overflow:hidden; }
         .img-skel-bar  { height:100%; width:0%; background:linear-gradient(to right,var(--blue),var(--purple)); border-radius:2px; transition:width .8s ease; }
@@ -866,7 +868,7 @@
         <button class="login-btn" onclick="doLogin()">כניסה לאזור האישי</button>
         <div id="li-err" class="login-err"></div>
 
-        <p class="login-bank-note">☁️ שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם</p>
+        <p class="login-bank-note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם</p>
         <div style="text-align:center;margin-top:14px;">
             <span style="font-size:13px;color:var(--muted);">אין לך חשבון עדיין? </span>
             <button onclick="showRegister()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;">צור חשבון חדש</button>
@@ -898,7 +900,7 @@
                 <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">הסיסמה הנוכחית שלך:</div>
                 <div style="display:flex;align-items:center;gap:10px;">
                     <code id="fp-current-pass" style="font-size:17px;letter-spacing:3px;color:var(--blue);flex:1;font-family:monospace;">••••••</code>
-                    <button onclick="togglePassReveal()" id="fp-reveal-btn" style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;cursor:pointer;color:var(--muted);font-size:12px;font-family:inherit;transition:background .15s;">👁 הצג</button>
+                    <button onclick="togglePassReveal()" id="fp-reveal-btn" style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;cursor:pointer;color:var(--muted);font-size:12px;font-family:inherit;transition:background .15s;"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> הצג</button>
                 </div>
             </div>
             <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:14px;">— או הגדר סיסמה חדשה —</div>
@@ -1084,7 +1086,7 @@
     <div class="live-status" id="live-status">לחץ על הכדור להתחלה</div>
     <div class="live-transcript" id="live-transcript">BIRGSOL AI 3.5 מוכן לשיחה קולית</div>
     <div class="live-controls">
-        <button class="live-mute-btn" id="live-mute-btn" onclick="toggleLiveMute()" title="השתק מיקרופון">🎤</button>
+        <button class="live-mute-btn" id="live-mute-btn" onclick="toggleLiveMute()" title="השתק מיקרופון"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
         <button class="live-end-btn" onclick="endLive()">✕ סיים שיחה</button>
     </div>
 </div>
@@ -1097,16 +1099,16 @@
             <span class="sb-name">BIRGSOL AI</span>
         </div>
         <button class="new-btn" onclick="startNew()">
-            <span>✏️</span> שיחה חדשה
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> שיחה חדשה
         </button>
     </div>
     <div class="mode-row">
-        <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')">💬 שיחה</button>
-        <button class="mode-pill" id="mode-code" onclick="setMode('code')">💻 קוד</button>
-        <button class="mode-pill" id="mode-image" onclick="setMode('image')">🎨 תמונה</button>
+        <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> שיחה</button>
+        <button class="mode-pill" id="mode-code" onclick="setMode('code')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> קוד</button>
+        <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> תמונה</button>
     </div>
     <div class="live-chip-row">
-        <button class="live-chip" onclick="startLive()"><span class="live-chip-dot"></span>🎙 לייב</button>
+        <button class="live-chip" onclick="startLive()"><span class="live-chip-dot"></span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> לייב</button>
     </div>
     <div class="sb-sect-label">שיחות</div>
     <div class="sb-body" id="hist-list">
@@ -1123,14 +1125,14 @@
 
     <div class="topbar">
         <div class="tb-right">
-            <button class="icon-btn" onclick="toggleSidebar()">☰</button>
+            <button class="icon-btn" onclick="toggleSidebar()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
         </div>
         <div class="tb-logo">
             <div class="tb-star">✦</div>
             <span class="tb-name">BIRGSOL AI 3.5</span>
         </div>
         <div class="tb-left">
-            <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="החלף ערכת נושא" style="font-size:18px;">☀️</button>
+            <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="החלף ערכת נושא"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button>
             <span class="ver-pill">3.5</span>
             <div class="user-chip" onclick="openPremiumModal()" id="user-chip">
                 <div class="user-dot" id="user-dot">?</div>
@@ -1146,22 +1148,22 @@
         <div class="gem-sub">איך אוכל לעזור לך היום?</div>
         <div class="sug-grid">
             <div class="sug-card" onclick="sendSug('כתוב לי אפלקציית todo list ב-HTML/CSS/JS מלאה ועם עיצוב יפה')">
-                <div class="sug-icon">💻</div>
+                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
                 <div class="sug-title">קוד מלא</div>
                 <div class="sug-desc">HTML, Python, JS, React ועוד</div>
             </div>
             <div class="sug-card" onclick="sendSug('צור תמונה של עיר עתידנית מרהיבה בשקיעה')">
-                <div class="sug-icon">🎨</div>
+                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></div>
                 <div class="sug-title">יצירת תמונה</div>
                 <div class="sug-desc">AI image generation בחינם</div>
             </div>
             <div class="sug-card" onclick="sendSug('הסבר לי צעד אחר צעד איך עובד Neural Network')">
-                <div class="sug-icon">🧠</div>
+                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg></div>
                 <div class="sug-title">הסברים ולמידה</div>
                 <div class="sug-desc">מדע, היסטוריה, מתמטיקה</div>
             </div>
             <div class="sug-card" onclick="sendSug('עזור לי לנפות שגיאה בקוד שלי — אסביר את הבעיה')">
-                <div class="sug-icon">🐛</div>
+                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></div>
                 <div class="sug-title">Debug סוכן</div>
                 <div class="sug-desc">ניפוי שגיאות, אופטימיזציה</div>
             </div>
@@ -1194,8 +1196,8 @@
                     <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
-                    <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלטת קול">🎤</button>
-                    <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI">🎨</button>
+                    <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלטת קול"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+                    <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></button>
                     <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
                 </div>
             </div>
@@ -1208,6 +1210,28 @@
 <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 <script>
+/* ── SVG Outline Icons ── */
+const IC = {
+  mic:      `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
+  micOff:   `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
+  palette:  `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
+  pencil:   `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
+  chat:     `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+  code:     `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
+  copy:     `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+  download: `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+  extLink:  `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+  refresh:  `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`,
+  menu:     `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
+  sun:      `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+  moon:     `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+  eye:      `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  cloud:    `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>`,
+  speaker:  `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`,
+  brain:    `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>`,
+  bug:      `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg>`,
+};
+
 /* ══════════════ שיחות — שמירה מלאה ב-localStorage ══════════════ */
 let currentConvId = null;
 let convList = [];   // [{id, title, messages, updatedAt}]
@@ -1236,7 +1260,7 @@ function renderConvList() {
     }
     list.innerHTML = convList.map(c => `
         <div class="conv-item ${c.id === currentConvId ? 'active' : ''}" onclick="openConversation('${c.id}')">
-            <span class="ci-icon">💬</span>
+            <span class="ci-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
             <span class="ci-title">${escHtml(c.title || 'שיחה')}</span>
         </div>
     `).join('');
@@ -1777,9 +1801,8 @@ function setMode(mode) {
         if (btn) btn.classList.toggle('active', m === mode);
     });
     // Update topbar indicator
-    const modeNames = { normal:'💬', code:'💻', image:'🎨' };
     const pill = document.querySelector('.ver-pill');
-    if (pill) pill.textContent = '3.5 ' + (modeNames[mode] || '');
+    if (pill) pill.textContent = '3.5';
     startNew(); // start fresh conversation in new mode
 }
 
@@ -1818,11 +1841,11 @@ function applyTheme(t) {
     if (t === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
         document.getElementById('hljs-css').href = 'https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css';
-        document.getElementById('theme-btn').textContent = '☀️';
+        document.getElementById('theme-btn').innerHTML = IC.sun;
     } else {
         document.documentElement.removeAttribute('data-theme');
         document.getElementById('hljs-css').href = 'https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css';
-        document.getElementById('theme-btn').textContent = '🌙';
+        document.getElementById('theme-btn').innerHTML = IC.moon;
     }
     localStorage.setItem('birgsol_theme', t);
 }
@@ -1833,7 +1856,7 @@ function copyCode(btn) {
     const code = btn.closest('.code-block').querySelector('code').textContent;
     navigator.clipboard.writeText(code).then(() => {
         btn.textContent = '✅ הועתק';
-        setTimeout(() => btn.textContent = '📋 העתק', 2000);
+        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; }, 2000);
     });
 }
 
@@ -1974,7 +1997,7 @@ function addMsg(role, text, img = null, md = false) {
                 <div class="ai-name">Birgsol AI</div>
                 <div class="ai-txt">${content}</div>
                 <div class="ai-acts">
-                    <button class="ai-act" onclick="copyIt(this)">📋 העתק</button>
+                    <button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>
                 </div>
             </div>`;
     }
@@ -2009,7 +2032,7 @@ function enhanceCodeBlocks(el) {
         const lang = (code.className.match(/language-(\w+)/) || [])[1] || 'code';
         const wrapper = document.createElement('div');
         wrapper.className = 'code-block';
-        wrapper.innerHTML = `<div class="code-header"><span class="code-lang">${lang}</span><button class="code-copy" onclick="copyCode(this)">📋 העתק</button></div>`;
+        wrapper.innerHTML = `<div class="code-header"><span class="code-lang">${lang}</span><button class="code-copy" onclick="copyCode(this)">${IC.copy} העתק</button></div>`;
         pre.parentNode.insertBefore(wrapper, pre);
         wrapper.appendChild(pre);
     });
@@ -2018,7 +2041,7 @@ function copyCode(btn) {
     const code = btn.closest('.code-block').querySelector('code').innerText;
     navigator.clipboard.writeText(code).then(() => {
         btn.textContent = '✅ הועתק';
-        setTimeout(() => btn.textContent = '📋 העתק', 2000);
+        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; }, 2000);
     });
 }
 
@@ -2027,7 +2050,7 @@ function copyIt(btn) {
     const t = btn.closest('.ai-body').querySelector('.ai-txt').innerText;
     navigator.clipboard.writeText(t).then(() => {
         btn.textContent = '✅ הועתק';
-        setTimeout(() => btn.textContent = '📋 העתק', 2000);
+        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; }, 2000);
     });
 }
 
@@ -2094,7 +2117,7 @@ async function generateImage(promptRaw, reuseRow) {
 
         skelEl  = document.createElement('div');  skelEl.className = 'img-skeleton';
         skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'מתרגם לאנגלית…';
-        const skelIcon = document.createElement('div'); skelIcon.className = 'img-skel-icon'; skelIcon.textContent = '🎨';
+        const skelIcon = document.createElement('div'); skelIcon.className = 'img-skel-icon'; skelIcon.innerHTML = IC.palette;
         const skelProg = document.createElement('div'); skelProg.className = 'img-skel-prog';
         skelBar = document.createElement('div');  skelBar.className = 'img-skel-bar';
         skelProg.appendChild(skelBar);
@@ -2115,7 +2138,7 @@ async function generateImage(promptRaw, reuseRow) {
         if (!skelEl) {
             skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
             skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'מתרגם לאנגלית…';
-            const si = document.createElement('div'); si.className='img-skel-icon'; si.textContent='🎨';
+            const si = document.createElement('div'); si.className='img-skel-icon'; si.innerHTML=IC.palette;
             const sp = document.createElement('div'); sp.className='img-skel-prog';
             skelBar = document.createElement('div'); skelBar.className='img-skel-bar';
             sp.appendChild(skelBar); skelEl.appendChild(si); skelEl.appendChild(skelTxt); skelEl.appendChild(sp);
@@ -2240,7 +2263,7 @@ Rules:
         img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
         const cap = document.createElement('div');
         cap.className = 'ai-img-caption';
-        cap.textContent = '🎨 ' + (engPrompt.length > 90 ? engPrompt.slice(0,90)+'…' : engPrompt);
+        cap.textContent = engPrompt.length > 90 ? engPrompt.slice(0,90)+'…' : engPrompt;
         if (skelEl) skelEl.remove();
         wrapEl.appendChild(img); wrapEl.appendChild(cap);
         requestAnimationFrame(() => { img.style.opacity = '1'; });
@@ -2248,20 +2271,20 @@ Rules:
         // Action buttons
         const dlA = document.createElement('a');
         dlA.className = 'ai-act'; dlA.href = imgUrl;
-        dlA.download = 'birgsol-image.jpg'; dlA.textContent = '⬇ הורד';
+        dlA.download = 'birgsol-image.jpg'; dlA.innerHTML = IC.download + ' הורד';
         dlA.style.textDecoration = 'none';
         const openBtn = document.createElement('button');
-        openBtn.className = 'ai-act'; openBtn.textContent = '🔗 פתח';
+        openBtn.className = 'ai-act'; openBtn.innerHTML = IC.extLink + ' פתח';
         openBtn.onclick = () => window.open(imgUrl,'_blank');
         const regenBtn = document.createElement('button');
-        regenBtn.className = 'ai-act'; regenBtn.textContent = '🔄 עוד אחת';
+        regenBtn.className = 'ai-act'; regenBtn.innerHTML = IC.refresh + ' עוד אחת';
         regenBtn.onclick = () => generateImage(prompt, null); // new row
         if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
     } else {
         // Error
         if (skelEl) { skelEl.innerHTML = '<div style="font-size:28px">⚠️</div><div>לא הצלחתי ליצור תמונה</div>'; skelEl.style.animation='none'; }
         const retryBtn = document.createElement('button');
-        retryBtn.className = 'ai-act'; retryBtn.textContent = '🔄 נסה שוב';
+        retryBtn.className = 'ai-act'; retryBtn.innerHTML = IC.refresh + ' נסה שוב';
         retryBtn.onclick = () => generateImage(prompt, null);
         if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(retryBtn); }
     }
@@ -2615,7 +2638,7 @@ async function send() {
 
         // Copy button
         const acts = document.createElement('div'); acts.className = 'ai-acts';
-        acts.innerHTML = '<button class="ai-act" onclick="copyIt(this)">📋 העתק</button>';
+        acts.innerHTML = `<button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>`;
         body.appendChild(acts);
 
         hist.push({ role: 'assistant', content: cleanText || fullText });
@@ -2664,12 +2687,12 @@ function _setLiveState(state) {
     if (state === 'idle') {
         icon.textContent = '✦'; status.textContent = 'לחץ על הכדור להתחלה';
     } else if (state === 'listening') {
-        icon.textContent = '🎤'; status.textContent = 'מקשיב…';
+        icon.innerHTML = IC.mic; status.textContent = 'מקשיב…';
         bars.classList.add('on');
     } else if (state === 'thinking') {
         icon.textContent = '✦'; status.textContent = 'חושב…';
     } else if (state === 'speaking') {
-        icon.textContent = '🔊'; status.textContent = 'מדבר…';
+        icon.innerHTML = IC.speaker; status.textContent = 'מדבר…';
         trans.classList.add('ai-speaking');
     }
 }
@@ -2679,7 +2702,7 @@ function startLive() {
     document.getElementById('live-overlay').classList.add('on');
     _liveActive = true; _liveStopped = false; _liveMuted = false;
     document.getElementById('live-mute-btn').classList.remove('muted');
-    document.getElementById('live-mute-btn').textContent = '🎤';
+    document.getElementById('live-mute-btn').innerHTML = IC.mic;
     _setLiveState('idle');
     document.getElementById('live-orb').onclick = () => {
         if (!_liveBusy && _liveActive) _liveLoop();
@@ -2699,7 +2722,7 @@ function toggleLiveMute() {
     _liveMuted = !_liveMuted;
     const btn = document.getElementById('live-mute-btn');
     btn.classList.toggle('muted', _liveMuted);
-    btn.textContent = _liveMuted ? '🔇' : '🎤';
+    btn.innerHTML = _liveMuted ? IC.micOff : IC.mic;
     if (_liveMuted && _liveRec) { try { _liveRec.stop(); } catch(e) {} }
 }
 
