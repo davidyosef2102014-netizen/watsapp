@@ -8,33 +8,20 @@
     <link id="hljs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
     <style>
         :root {
-            --bg:       transparent;
-            --surf:     rgba(255,255,255,0.13);
-            --surf2:    rgba(255,255,255,0.09);
-            --border:   rgba(255,255,255,0.22);
-            --blue:     #90c8ff;
-            --purple:   #d4a8ff;
-            --text:     rgba(255,255,255,0.96);
-            --muted:    rgba(255,255,255,0.55);
-            --text2:    rgba(255,255,255,0.72);
-            /* Liquid Glass core */
-            --lg-blur:  blur(40px) saturate(3.0) brightness(1.06);
-            --lg-bg:    rgba(255,255,255,0.13);
-            --lg-border:rgba(255,255,255,0.28);
-            --lg-spec:  inset 0 1.5px 0 rgba(255,255,255,0.70), inset 0 -0.5px 0 rgba(255,255,255,0.12), inset 1px 0 0 rgba(255,255,255,0.18), inset -1px 0 0 rgba(255,255,255,0.12);
-            --lg-shadow:0 12px 40px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.14);
+            --bg:       #eef2fb;
+            --surf:     #ffffff;
+            --surf2:    #f1f3f4;
+            --border:   rgba(0,0,0,0.08);
+            --blue:     #4285F4;
+            --purple:   #9C6ADE;
+            --text:     #202124;
+            --muted:    #5f6368;
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         html, body { width: 100%; height: 100%; overflow: hidden; color: var(--text); font-family: 'Assistant', sans-serif; }
-
-        /* ── Vivid wallpaper (glass needs rich color to look good) ── */
-        html {
-            background: linear-gradient(160deg, #0e0e12 0%, #0a0a0f 100%);
-            background-attachment: fixed;
-        }
-
-        body { display: flex; background: transparent; position: relative; z-index: 1; }
+        html { background: linear-gradient(155deg, #e8f0fe 0%, #f8f9ff 55%, #ddeeff 100%); }
+        body { display: flex; background: transparent; }
 
         /* ══════════════ SIDEBAR ══════════════ */
         #sidebar {
@@ -707,192 +694,28 @@
         .user-chip:hover { background: var(--surf2); }
         .user-dot { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #4285F4, #C58AF9); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: white; }
 
-        /* ══════════════ LIQUID GLASS ══════════════ */
-
-        /* Helper: every glass surface */
-        .lg, #sidebar, .topbar, .pill, .login-card, #live-overlay,
-        .tier-card, .sug-card, .user-bub, .style-chip, .mode-pill.active,
-        .new-btn, .live-chip, .user-chip, #free-banner, .agent-step {
-            backdrop-filter: var(--lg-blur);
-            -webkit-backdrop-filter: var(--lg-blur);
-        }
-
-
-
-        #sidebar {
-            background: rgba(255,255,255,0.09);
-            border-left: 1px solid rgba(255,255,255,0.22);
-            box-shadow: var(--lg-spec), var(--lg-shadow), -8px 0 48px rgba(0,0,0,0.30);
-            position: relative; overflow: hidden;
-        }
-        @media (max-width:900px) {
-            #sidebar.open { box-shadow: -4px 0 40px rgba(0,0,0,0.35), inset 1px 0 0 rgba(255,255,255,0.18); }
-        }
-        .topbar {
-            background: rgba(255,255,255,0.08);
-            border-bottom: 1px solid rgba(255,255,255,0.18);
-            box-shadow: var(--lg-spec), 0 4px 24px rgba(0,0,0,0.20);
-            position: relative; overflow: hidden;
-        }
-        .new-btn {
-            background: rgba(255,255,255,0.10);
-            border: 1px solid rgba(255,255,255,0.22);
-            box-shadow: var(--lg-spec);
-        }
-        .new-btn:hover { background: rgba(255,255,255,0.17); border-color: rgba(255,255,255,0.35); box-shadow: var(--lg-spec), 0 4px 16px rgba(0,0,0,0.2); }
-        .mode-pill.active {
-            background: rgba(255,255,255,0.18);
-            box-shadow: var(--lg-spec), 0 2px 12px rgba(0,0,0,0.25);
-        }
-        .mode-pill:hover:not(.active) { background: rgba(255,255,255,0.10); }
-        .live-chip {
-            background: rgba(66,133,244,0.18);
-            border: 1px solid rgba(100,160,255,0.35);
-            box-shadow: var(--lg-spec);
-        }
-        .live-chip:hover { background: rgba(66,133,244,0.28); border-color: rgba(100,160,255,0.55); box-shadow: var(--lg-spec), 0 4px 18px rgba(66,133,244,0.22); }
-        .hist-item:hover, .conv-item:hover { background: rgba(255,255,255,0.08); color: var(--text); }
-        .conv-item.active { background: rgba(126,184,255,0.18); }
-        .user-chip {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.16);
-            backdrop-filter: blur(10px);
-        }
-        .user-chip:hover { background: rgba(255,255,255,0.14); }
-        .icon-btn:hover { background: rgba(255,255,255,0.12); }
-        .sb-logout-btn {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.14);
-        }
-        .sb-logout-btn:hover { background: rgba(220,50,50,0.18); border-color: rgba(220,80,80,0.35); }
-
-        /* Glass pills & input */
-        .pill {
-            background: rgba(255,255,255,0.11);
-            border: 1px solid rgba(255,255,255,0.26);
-            box-shadow: var(--lg-spec), var(--lg-shadow);
-            position: relative; overflow: hidden;
-        }
-        .pill:focus-within {
-            border-color: rgba(126,184,255,0.60);
-            box-shadow: var(--lg-spec), var(--lg-shadow), 0 0 0 3px rgba(126,184,255,0.18);
-        }
-        .p-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
-        .input-area { background: linear-gradient(to top, rgba(8,6,24,0.75) 60%, transparent); }
-
-        /* Glass chat bubbles */
-        .user-bub {
-            background: rgba(100,150,255,0.20);
-            border: 1px solid rgba(126,184,255,0.32);
-            box-shadow: var(--lg-spec), 0 4px 20px rgba(0,0,0,0.22);
-        }
-
-        /* Glass suggestion cards */
-        .sug-card {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.18);
-            box-shadow: var(--lg-spec), 0 4px 18px rgba(0,0,0,0.18);
-        }
-        .sug-card:hover {
-            background: rgba(255,255,255,0.14);
-            border-color: rgba(126,184,255,0.40);
-            box-shadow: var(--lg-spec), 0 10px 34px rgba(0,0,0,0.24);
-            transform: translateY(-3px);
-        }
-
-        /* Glass action buttons */
-        .ai-act:hover { background: rgba(255,255,255,0.12); color: var(--text); }
-        .style-chip {
-            background: rgba(255,255,255,0.10);
-            border: 1px solid rgba(255,255,255,0.22);
-            box-shadow: var(--lg-spec);
-        }
-        .style-chip:hover, .style-chip:active {
-            background: rgba(100,150,255,0.30);
-            border-color: rgba(126,184,255,0.55);
-            box-shadow: var(--lg-spec), 0 6px 20px rgba(66,133,244,0.28);
-            color: #fff;
-        }
-
-        /* Glass image skeleton */
-        .img-skeleton {
-            background: linear-gradient(110deg, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.06) 70%);
-            border: 1px solid rgba(255,255,255,0.12);
-        }
-
-        /* Glass agent step */
-        .agent-step {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.14);
-            box-shadow: var(--lg-spec);
-        }
-
-        /* Glass free banner */
-        #free-banner {
-            background: rgba(66,133,244,0.12);
-            border: 1px solid rgba(126,184,255,0.28);
-            box-shadow: var(--lg-spec);
-        }
-
-        /* Glass login */
-        #login-screen {
-            background: linear-gradient(160deg, #0e0e12 0%, #0a0a0f 100%);
-        }
-        .login-card {
-            background: rgba(255,255,255,0.10);
-            border: 1px solid rgba(255,255,255,0.26);
-            box-shadow: var(--lg-spec), 0 32px 80px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.25);
-            position: relative; overflow: hidden;
-        }
-        .login-field input {
-            background: rgba(255,255,255,0.09);
-            border-color: rgba(255,255,255,0.20);
-            color: rgba(255,255,255,0.92);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
-        }
-        .login-field input::placeholder { color: rgba(255,255,255,0.42); }
-        .login-field input:focus { border-color: rgba(126,184,255,0.60); box-shadow: 0 0 0 3px rgba(126,184,255,0.15), inset 0 1px 0 rgba(255,255,255,0.14); }
-        .google-login-btn {
-            background: rgba(255,255,255,0.11);
-            border: 1px solid rgba(255,255,255,0.24);
-            color: var(--text);
-            box-shadow: var(--lg-spec);
-        }
-        .google-login-btn:hover { background: rgba(255,255,255,0.18); box-shadow: var(--lg-spec), 0 4px 16px rgba(0,0,0,0.2); }
-
-        /* Glass pricing */
-        #pricing-modal { background: rgba(0,0,0,0.72); backdrop-filter: blur(20px) saturate(2.0); -webkit-backdrop-filter: blur(20px) saturate(2.0); }
-        .tier-card {
-            background: rgba(255,255,255,0.09);
-            border: 1px solid rgba(255,255,255,0.20);
-            box-shadow: var(--lg-spec), var(--lg-shadow);
-            position: relative; overflow: hidden;
-        }
-        .pricing-close-btn { background: rgba(255,255,255,0.11); border-color: rgba(255,255,255,0.22); box-shadow: var(--lg-spec); }
-        .pricing-close-btn:hover { background: rgba(255,255,255,0.20); }
-        .pricing-bal { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.16); }
-
-        /* Glass live overlay */
-        #live-overlay {
-            background: rgba(8,6,24,0.78) !important;
-            backdrop-filter: blur(40px) saturate(3.0) brightness(1.06) !important;
-            -webkit-backdrop-filter: blur(40px) saturate(3.0) brightness(1.06) !important;
-        }
-
-        /* Dark mode: deeper glass */
-        [data-theme="dark"] {
-            --surf: rgba(255,255,255,0.06);
-            --surf2: rgba(255,255,255,0.05);
-            --border: rgba(255,255,255,0.12);
-        }
-        [data-theme="dark"] html {
-            background: linear-gradient(160deg, #0a0a0d 0%, #070709 100%);
-            background-attachment: fixed;
-        }
+        /* ══════════════ DARK THEME ══════════════ */
+        [data-theme="dark"] { --bg:#131314;--surf:#1E1F20;--surf2:#28292B;--border:rgba(255,255,255,0.08);--blue:#8AB4F8;--purple:#C58AF9;--text:#E8EAED;--muted:#9AA0A6; }
+        [data-theme="dark"] html { background: #131314; }
+        [data-theme="dark"] body { background: #131314; }
+        [data-theme="dark"] #login-screen { background: #131314; }
+        [data-theme="dark"] .login-card { background: #1E1F20; box-shadow: 0 16px 64px rgba(0,0,0,.6); }
+        [data-theme="dark"] .login-field input { background: #28292B; }
+        [data-theme="dark"] .google-login-btn { background: #28292B; }
+        [data-theme="dark"] .google-login-btn:hover { background: #1E1F20; border-color: rgba(255,255,255,.2); }
+        [data-theme="dark"] .pill { box-shadow: 0 2px 16px rgba(0,0,0,.35); }
         [data-theme="dark"] .ai-txt code { background: rgba(255,255,255,.1); color: #e8eaed; }
-        [data-theme="dark"] .code-block { background: rgba(0,0,0,0.5); border-color: rgba(255,255,255,.08); }
+        [data-theme="dark"] .code-block { background: #0B0C0E; border-color: rgba(255,255,255,.08); }
+        [data-theme="dark"] .code-header { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); }
+        [data-theme="dark"] .code-lang { color: #9AA0A6; }
+        [data-theme="dark"] .code-copy { color: #9AA0A6; }
+        [data-theme="dark"] .code-copy:hover { background: #28292B; color: #E8EAED; }
+        [data-theme="dark"] .input-area { background: linear-gradient(to top, #131314 78%, transparent); }
         [data-theme="dark"] #chat-window::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); }
         [data-theme="dark"] * { scrollbar-color: rgba(255,255,255,.08) transparent; }
+        [data-theme="dark"] #sidebar { border-left: 1px solid rgba(255,255,255,.08); }
+        [data-theme="dark"] .sug-card { background: #1E1F20; }
+        [data-theme="dark"] .sug-card:hover { border-color: rgba(138,180,248,.45); background: rgba(138,180,248,.05); }
         [data-theme="dark"] .live-chip { color: rgba(255,255,255,.55); border-color: rgba(138,180,248,.2); }
         [data-theme="dark"] .live-chip:hover { color: rgba(255,255,255,.9); border-color: rgba(138,180,248,.45); }
         [data-theme="dark"] .icon-btn:hover { background: #28292B; }
