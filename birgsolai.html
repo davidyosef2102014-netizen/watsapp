@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BIRGSOL AI 3.5 v4</title>
+    <title>BIRGSOL AI 3.5</title>
     <link href="https://fonts.bunny.net/css2?family=assistant:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link id="hljs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
     <style>
@@ -33,9 +33,8 @@
             z-index: 500;
         }
         @media (max-width: 900px) {
-            #sidebar { position: fixed; right: 0; transform: translateX(100%); pointer-events: none; }
-            #sidebar.open { transform: translateX(0); box-shadow: -4px 0 20px rgba(0,0,0,.15); pointer-events: auto; }
-            .icon-btn { width: 44px; height: 44px; }
+            #sidebar { position: fixed; right: 0; transform: translateX(100%); }
+            #sidebar.open { transform: translateX(0); box-shadow: -4px 0 20px rgba(0,0,0,.15); }
         }
 
         .sb-head { padding: 16px 14px 12px; }
@@ -271,33 +270,19 @@
         .agent-step b { color:var(--text); }
         /* image generation */
         .img-skeleton {
-            width:100%; max-width:512px; height:512px; border-radius:16px;
-            background:linear-gradient(110deg,var(--surf2) 30%,rgba(200,210,255,.55) 50%,var(--surf2) 70%);
-            background-size:250% 100%;
-            animation:shimmer 1.8s ease-in-out infinite;
+            width:100%; max-width:800px; height:380px; border-radius:14px;
+            background:linear-gradient(90deg,var(--surf2) 25%,rgba(255,255,255,.9) 50%,var(--surf2) 75%);
+            background-size:200% 100%;
+            animation:shimmer 1.6s infinite;
+            display:flex; align-items:center; justify-content:center;
+            flex-direction:column; gap:10px; color:var(--muted); font-size:14px; font-weight:600;
             border: 1px solid var(--border);
         }
-        @keyframes shimmer { 0%{background-position:250% 0} 100%{background-position:-250% 0} }
-        .img-skel-icon,.img-skel-txt,.img-skel-prog,.img-skel-bar { display:none; }
-        .style-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-        .style-chip {
-            background: var(--surf2); border: 1.5px solid var(--border);
-            border-radius: 20px; padding: 9px 18px;
-            font-size: 14px; cursor: pointer; font-family: inherit;
-            color: var(--text); transition: all .15s;
-        }
-        .style-chip:hover, .style-chip:active { background: var(--blue); color: #fff; border-color: var(--blue); }
-        .img-skel-caption {
-            font-size: 12px; color: var(--text2); opacity: 0.6;
-            margin-top: 8px; text-align: center; letter-spacing: 0.3px;
-            animation: captionPulse 2s ease-in-out infinite;
-        }
-        @keyframes captionPulse { 0%,100%{opacity:.4} 50%{opacity:.85} }
-        /* SVG icon alignment */
-        svg.ic { display:inline-block; vertical-align:middle; flex-shrink:0; }
-        .style-chip svg.ic, .mode-pill svg.ic, .live-chip svg.ic,
-        .new-btn svg.ic, .img-gen-btn svg.ic { margin-left:5px; }
-        .ai-act svg.ic, .code-copy svg.ic, .code-run svg.ic, .code-dl svg.ic { margin-left:4px; }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        .img-skel-icon { font-size:36px; animation:sparkle 2s ease-in-out infinite; }
+        .img-skel-txt  { font-size:13px; }
+        .img-skel-prog { width:160px; height:4px; background:var(--surf); border-radius:2px; overflow:hidden; }
+        .img-skel-bar  { height:100%; width:0%; background:linear-gradient(to right,var(--blue),var(--purple)); border-radius:2px; transition:width .8s ease; }
 
         /* action buttons (Gemini style — appear on hover) */
         .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
@@ -1110,19 +1095,18 @@
         <div class="sb-brand">
             <div class="sb-star">✦</div>
             <span class="sb-name">BIRGSOL AI</span>
-            <button class="icon-btn" onclick="closeSidebar()" style="margin-right:auto;font-size:16px;" title="סגור">✕</button>
         </div>
         <button class="new-btn" onclick="startNew()">
-            <svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> שיחה חדשה
+            <span>✏️</span> שיחה חדשה
         </button>
     </div>
     <div class="mode-row">
-        <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')" style="display:flex;align-items:center;gap:5px"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg> שיחה</button>
-        <button class="mode-pill" id="mode-code" onclick="setMode('code')" style="display:flex;align-items:center;gap:5px"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> קוד</button>
-        <button class="mode-pill" id="mode-image" onclick="setMode('image')" style="display:flex;align-items:center;gap:5px"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> תמונה</button>
+        <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')">💬 שיחה</button>
+        <button class="mode-pill" id="mode-code" onclick="setMode('code')">💻 קוד</button>
+        <button class="mode-pill" id="mode-image" onclick="setMode('image')">🎨 תמונה</button>
     </div>
     <div class="live-chip-row">
-        <button class="live-chip" onclick="startLive()" style="display:flex;align-items:center;gap:5px"><span class="live-chip-dot"></span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg> לייב</button>
+        <button class="live-chip" onclick="startLive()"><span class="live-chip-dot"></span>🎙 לייב</button>
     </div>
     <div class="sb-sect-label">שיחות</div>
     <div class="sb-body" id="hist-list">
@@ -1211,7 +1195,7 @@
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
                     <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלטת קול">🎤</button>
-                    <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></button>
+                    <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI">🎨</button>
                     <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
                 </div>
             </div>
@@ -1299,24 +1283,6 @@ function renderMsgOnly(role, text) {
 }
 
 /* ══════════════ CLOUD SYNC — GitHub כ-backend ══════════════ */
-/* ── SVG outline icons ── */
-const IC = {
-  camera:   `<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
-  palette:  `<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
-  pencil:   `<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
-  sparkles: `<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4M19 17v4M3 5h4M17 19h4"/></svg>`,
-  chat:     `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>`,
-  code:     `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
-  image:    `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
-  mic:      `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`,
-  pen:      `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
-  copy:     `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`,
-  download: `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
-  extLink:  `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>`,
-  refresh:  `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`,
-  play:     `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
-};
-
 const GH_OWNER = 'davidyosef2102014-netizen';
 const GH_REPO  = 'watsapp';
 const GH_TOKEN = ['ghp_iIaTa8EvDW2','A7SfC6u9bzWbDf','zrRNA0IDtff'].join('');
@@ -1521,6 +1487,12 @@ function closePremiumModal() { closePricingModal(); }
 function doPurchaseTier(tierId) {
     if (!currentUser || !TIERS[tierId]) return;
     const tier = TIERS[tierId];
+    const code = prompt(`להפעלת ${tier.name} הזן קוד הפעלה:`);
+    if (!code) return;
+    // Admin codes (simple validation — in production use server-side)
+    const validCodes = { basic:'BIRG50', pro:'BIRG200', ultra:'BIRG450', elite:'BIRG900' };
+    if (code.toUpperCase() !== validCodes[tierId]) { alert('❌ קוד שגוי.'); return; }
+
     const expires = Date.now() + 30 * 24 * 60 * 60 * 1000;
     localStorage.setItem(PREM_KEY, JSON.stringify({ user: currentUser, tier: tierId, expires, msgLimit: tier.msgLimit }));
     isPremium = true; currentTier = tierId;
@@ -1822,15 +1794,12 @@ _renderer.code = function({ text, lang }) {
     const ext = { html:'html', javascript:'js', js:'js', typescript:'ts', ts:'ts',
                   python:'py', css:'css', json:'json', sql:'sql',
                   java:'java', cpp:'cpp', c:'c', rust:'rs', swift:'swift' }[language.toLowerCase()] || 'txt';
-    const _icRun = `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
-    const _icDl  = `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`;
-    const _icCp  = `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
-    const runBtn  = runnable ? `<button class="code-run" onclick="runCode(this,'${language}')" style="display:flex;align-items:center;gap:4px">${_icRun} הרץ</button>` : '';
-    const dlBtn   = `<button class="code-dl"  onclick="downloadCode(this,'${ext}')" style="display:flex;align-items:center;gap:4px">${_icDl} הורד</button>`;
+    const runBtn  = runnable ? `<button class="code-run" onclick="runCode(this,'${language}')">▶ הרץ</button>` : '';
+    const dlBtn   = `<button class="code-dl"  onclick="downloadCode(this,'${ext}')">⬇ הורד</button>`;
     return `<div class="code-block">
         <div class="code-header">
             <span class="code-lang">${language}</span>
-            <div class="code-header-btns">${runBtn}${dlBtn}<button class="code-copy" onclick="copyCode(this)" style="display:flex;align-items:center;gap:4px">${_icCp} העתק</button></div>
+            <div class="code-header-btns">${runBtn}${dlBtn}<button class="code-copy" onclick="copyCode(this)">📋 העתק</button></div>
         </div>
         <pre><code class="hljs">${highlighted}</code></pre>
         <iframe class="code-preview" sandbox="allow-scripts allow-forms"></iframe>
@@ -1864,7 +1833,7 @@ function copyCode(btn) {
     const code = btn.closest('.code-block').querySelector('code').textContent;
     navigator.clipboard.writeText(code).then(() => {
         btn.textContent = '✅ הועתק';
-        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; btn.style.cssText += ';display:flex;align-items:center;gap:4px'; }, 2000);
+        setTimeout(() => btn.textContent = '📋 העתק', 2000);
     });
 }
 
@@ -2005,7 +1974,7 @@ function addMsg(role, text, img = null, md = false) {
                 <div class="ai-name">Birgsol AI</div>
                 <div class="ai-txt">${content}</div>
                 <div class="ai-acts">
-                    <button class="ai-act" onclick="copyIt(this)" style="display:flex;align-items:center;gap:4px">${IC.copy} העתק</button>
+                    <button class="ai-act" onclick="copyIt(this)">📋 העתק</button>
                 </div>
             </div>`;
     }
@@ -2040,7 +2009,7 @@ function enhanceCodeBlocks(el) {
         const lang = (code.className.match(/language-(\w+)/) || [])[1] || 'code';
         const wrapper = document.createElement('div');
         wrapper.className = 'code-block';
-        wrapper.innerHTML = `<div class="code-header"><span class="code-lang">${lang}</span><button class="code-copy" onclick="copyCode(this)" style="display:flex;align-items:center;gap:4px">${IC.copy} העתק</button></div>`;
+        wrapper.innerHTML = `<div class="code-header"><span class="code-lang">${lang}</span><button class="code-copy" onclick="copyCode(this)">📋 העתק</button></div>`;
         pre.parentNode.insertBefore(wrapper, pre);
         wrapper.appendChild(pre);
     });
@@ -2049,7 +2018,7 @@ function copyCode(btn) {
     const code = btn.closest('.code-block').querySelector('code').innerText;
     navigator.clipboard.writeText(code).then(() => {
         btn.textContent = '✅ הועתק';
-        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; btn.style.cssText += ';display:flex;align-items:center;gap:4px'; }, 2000);
+        setTimeout(() => btn.textContent = '📋 העתק', 2000);
     });
 }
 
@@ -2058,7 +2027,7 @@ function copyIt(btn) {
     const t = btn.closest('.ai-body').querySelector('.ai-txt').innerText;
     navigator.clipboard.writeText(t).then(() => {
         btn.textContent = '✅ הועתק';
-        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; btn.style.cssText += ';display:flex;align-items:center;gap:4px'; }, 2000);
+        setTimeout(() => btn.textContent = '📋 העתק', 2000);
     });
 }
 
@@ -2101,35 +2070,8 @@ function expandProduct(p) {
     return out;
 }
 
-function _askImageStyle(cw) {
-    return new Promise(resolve => {
-        const styles = [
-            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'flux-realism', suffix: 'photorealistic, realistic photograph, highly detailed' },
-            { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors' },
-            { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful cartoon, flat design' },
-            { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime' },
-        ];
-        const row = document.createElement('div'); row.className = 'msg-row ai';
-        const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
-        const body = document.createElement('div'); body.className = 'ai-body';
-        const nm = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.5';
-        const txt = document.createElement('div'); txt.className = 'ai-txt';
-        const q = document.createElement('div'); q.textContent = 'איזה סגנון לתמונה?';
-        const grid = document.createElement('div'); grid.className = 'style-chips';
-        styles.forEach(s => {
-            const btn = document.createElement('button'); btn.className = 'style-chip'; btn.innerHTML = s.label;
-            btn.onclick = () => { row.remove(); resolve(s); };
-            grid.appendChild(btn);
-        });
-        txt.appendChild(q); txt.appendChild(grid);
-        body.appendChild(nm); body.appendChild(txt);
-        row.appendChild(ava); row.appendChild(body);
-        cw.appendChild(row);
-        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
-    });
-}
-
 async function generateImage(promptRaw, reuseRow) {
+    // Smart style detection BEFORE expansion — product shot vs. artistic scene
     const _pl = promptRaw.toLowerCase();
     const _PROD = ['iphone','ipad','macbook','airpods','apple watch','samsung','galaxy','ps5','playstation','xbox','nintendo','dyson','tesla','gopro','laptop','headphones','smartwatch','speaker','keyboard','tablet','camera','earbuds','watch','phone','smartphone','drone','mouse','monitor'];
     const _isProduct = _PROD.some(k => _pl.includes(k));
@@ -2137,13 +2079,9 @@ async function generateImage(promptRaw, reuseRow) {
     showChat();
     const cw = document.getElementById('chat-window');
 
-    // ── 0. Ask style (skip if reusing existing row) ──
-    let imgStyle = { label: 'ריאליסטי', model: 'flux-realism', suffix: 'photorealistic, realistic photograph, highly detailed' };
-    if (!reuseRow) imgStyle = await _askImageStyle(cw);
-
     // ── 1. Show skeleton immediately ──
     let row = reuseRow;
-    let skelEl, wrapEl, actsEl, bodyEl;
+    let skelEl, skelTxt, skelBar, wrapEl, actsEl, bodyEl;
 
     if (!row) {
         row = document.createElement('div'); row.className = 'msg-row ai';
@@ -2154,10 +2092,15 @@ async function generateImage(promptRaw, reuseRow) {
         wrapEl = document.createElement('div'); wrapEl.className = 'ai-img-wrap';
         actsEl = document.createElement('div'); actsEl.className = 'ai-acts';
 
-        skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
-        const capEl = document.createElement('div'); capEl.className = 'img-skel-caption'; capEl.textContent = 'יוצר תמונה...';
-        wrapEl.appendChild(capEl);
+        skelEl  = document.createElement('div');  skelEl.className = 'img-skeleton';
+        skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'מתרגם לאנגלית…';
+        const skelIcon = document.createElement('div'); skelIcon.className = 'img-skel-icon'; skelIcon.textContent = '🎨';
+        const skelProg = document.createElement('div'); skelProg.className = 'img-skel-prog';
+        skelBar = document.createElement('div');  skelBar.className = 'img-skel-bar';
+        skelProg.appendChild(skelBar);
+        skelEl.appendChild(skelIcon); skelEl.appendChild(skelTxt); skelEl.appendChild(skelProg);
         wrapEl.appendChild(skelEl);
+
         txtDiv.appendChild(wrapEl);
         bodyEl.appendChild(nm); bodyEl.appendChild(txtDiv); bodyEl.appendChild(actsEl);
         row.appendChild(ava); row.appendChild(bodyEl);
@@ -2166,15 +2109,29 @@ async function generateImage(promptRaw, reuseRow) {
         bodyEl = row.querySelector('.ai-body');
         wrapEl = row.querySelector('.ai-img-wrap');
         actsEl = row.querySelector('.ai-acts');
-        skelEl = wrapEl.querySelector('.img-skeleton');
+        skelEl  = wrapEl.querySelector('.img-skeleton');
+        skelTxt = wrapEl.querySelector('.img-skel-txt');
+        skelBar = wrapEl.querySelector('.img-skel-bar');
         if (!skelEl) {
             skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
+            skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'מתרגם לאנגלית…';
+            const si = document.createElement('div'); si.className='img-skel-icon'; si.textContent='🎨';
+            const sp = document.createElement('div'); sp.className='img-skel-prog';
+            skelBar = document.createElement('div'); skelBar.className='img-skel-bar';
+            sp.appendChild(skelBar); skelEl.appendChild(si); skelEl.appendChild(skelTxt); skelEl.appendChild(sp);
             wrapEl.prepend(skelEl);
         }
+        skelEl.style.display = 'flex'; skelTxt.textContent = 'מתרגם לאנגלית…'; skelBar.style.width = '0%';
     }
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
-    // ── 2. Build Flux prompt ──
+    // ── 2. Build Flux prompt — style-aware, skip translation if already English ──
+    setTimeout(() => { if (skelBar) skelBar.style.width = '30%'; }, 200);
+
+    const BG_PREFIX      = _isProduct ? 'isolated product on pure white seamless studio background, ' : '';
+    const QUALITY_SUFFIX = _isProduct
+        ? ', photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, product photography, commercial photography'
+        : ', photorealistic, ultra high quality, 8k UHD, dramatic lighting, cinematic, masterpiece, highly detailed, sharp';
 
     let engPrompt = prompt;
 
@@ -2184,85 +2141,134 @@ async function generateImage(promptRaw, reuseRow) {
     const alreadyEng  = allLetters === 0 || asciiLetter / allLetters > 0.6;
 
     const _sysImg = _isProduct
-        ? `Translate this image request to English. Output a short Stable Diffusion prompt (max 20 words). Start with "product on white background,". Output ONLY the prompt, no quotes.`
-        : `Translate this image request to English. Output a short clear Stable Diffusion prompt (max 20 words). Be literal and accurate — describe exactly what was requested. Output ONLY the prompt, no quotes.`;
+        ? `You are an expert Flux image generation prompt engineer specializing in product photography.
+Convert the image request to a detailed English Flux prompt.
+Rules:
+1. START with: "isolated product on pure white seamless studio background,"
+2. PRESERVE brand names exactly (iPhone, Tesla, Apple Watch, Samsung Galaxy, AirPods…)
+3. Add: materials, finish, color, camera angle, reflections, depth-of-field
+4. END with: "product photography, photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, commercial photography"
+5. Output ONLY the prompt — no explanation, no quotes. Max 120 words`
+        : `You are an expert Flux image generation prompt engineer specializing in photorealistic and artistic images.
+Convert the image request to a rich English Flux prompt.
+Rules:
+1. NO forced background — let the scene be natural and immersive
+2. Expand the scene: lighting (golden hour, neon, moonlight…), atmosphere, color palette, mood, time of day
+3. Scenes/places: architecture details, weather, people if relevant, sky
+4. People/characters: appearance, expression, clothing, pose, environment
+5. Nature/landscape: terrain, vegetation, sky, water, wildlife
+6. Art/abstract: style (oil painting, watercolor, vector…), colors, composition
+7. END with: "photorealistic, ultra high quality, 8k UHD, dramatic lighting, cinematic, masterpiece, highly detailed"
+8. Output ONLY the prompt — no explanation, no quotes. Max 150 words`;
 
     if (alreadyEng) {
-        engPrompt = prompt;
+        engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
     } else {
         try {
-            const ctrl = new AbortController();
-            const _t = setTimeout(() => ctrl.abort(), 15000);
-            let r;
-            try {
-                r = await fetch('https://models.inference.ai.azure.com/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GH_TOKEN },
-                    body: JSON.stringify({
-                        messages: [
-                            { role: 'system', content: _sysImg },
-                            { role: 'user', content: `Image request: "${prompt}"` }
-                        ],
-                        model: 'gpt-4o-mini',
-                        stream: false
-                    }),
-                    signal: ctrl.signal
-                });
-            } finally { clearTimeout(_t); }
-            const raw = (await r.json())?.choices?.[0]?.message?.content || '';
-            const t = raw.trim().replace(/^["']+|["']+$/g, '');
-            if (t && t.length > 4 && t.length < 300) engPrompt = t;
-            else engPrompt = prompt;
-        } catch { engPrompt = prompt; }
+            const r = await fetch('https://text.pollinations.ai/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [
+                        { role: 'system', content: _sysImg },
+                        { role: 'user', content: `Image request: "${prompt}"` }
+                    ],
+                    model: 'openai-large',
+                    private: true
+                }),
+                signal: AbortSignal.timeout(12000)
+            });
+            const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
+            if (t && t.length > 8 && t.length < 800) engPrompt = t;
+            else engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
+        } catch { engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX; }
     }
 
-    // ── 3. Generate via Pollinations (no polling, works on mobile) ──
-    const safePrompt = engPrompt.slice(0, 400);
+    if (skelTxt) skelTxt.textContent = 'מייצר תמונה…';
+    if (skelBar) skelBar.style.width = '55%';
+
+    // ── 3. Build image URL and load ──
     const seed = Math.floor(Math.random() * 999999);
-    const styledPrompt = safePrompt + ', ' + imgStyle.suffix;
-    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=512&height=512&seed=${seed}&nologo=true&model=${imgStyle.model}`;
+    // gptimage = DALL-E 3 quality via Pollinations; flux-realism as fallback
+    const primaryModel  = 'gptimage';
+    const fallbackModel = _isProduct ? 'flux-realism' : 'flux';
+    const _buildUrl = (model) => {
+        if (model === 'gptimage') {
+            return `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=gptimage&seed=${seed}`;
+        }
+        return `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=${model}&seed=${seed}&enhance=true`;
+    };
+    let imgUrl = _buildUrl(primaryModel);
+    let _usedFallback = false;
+
+    // Simulate progress (gptimage ~10-30s, flux ~20-60s)
+    let prog = 55;
+    const progIv = setInterval(() => {
+        prog = Math.min(prog + (Math.random() * 4), 90);
+        if (skelBar) skelBar.style.width = prog + '%';
+    }, 1000);
+
+    const img = new Image();
+    // Try primary model; if it fails within 90s switch to fallback
+    await new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
+        const tryFallback = () => {
+            if (_usedFallback) { finish(); return; }
+            _usedFallback = true;
+            imgUrl = _buildUrl(fallbackModel);
+            if (skelTxt) skelTxt.textContent = 'מנסה מנוע חלופי…';
+            prog = 55; if (skelBar) skelBar.style.width = prog + '%';
+            img.onerror = finish;
+            img.onload = finish;
+            img.src = imgUrl;
+        };
+        img.onload = finish;
+        img.onerror = tryFallback;
+        img.src = imgUrl;
+        setTimeout(() => { if (!done) tryFallback(); }, 90000); // 90s timeout → fallback
+    });
+    clearInterval(progIv);
+    if (skelBar) skelBar.style.width = '100%';
 
     // ── 4. Show result ──
-    const img = new Image();
-    img.className = 'ai-gen-img';
-    img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
-    const cap = document.createElement('div');
-    cap.className = 'ai-img-caption';
-    cap.textContent = (engPrompt.length > 90 ? engPrompt.slice(0, 90) + '…' : engPrompt);
-    img.onload = () => {
+    await new Promise(r => setTimeout(r, 200)); // let bar finish
+
+    if (img.naturalWidth > 0) {
+        // Success
+        img.className = 'ai-gen-img';
+        img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
+        const cap = document.createElement('div');
+        cap.className = 'ai-img-caption';
+        cap.textContent = '🎨 ' + (engPrompt.length > 90 ? engPrompt.slice(0,90)+'…' : engPrompt);
         if (skelEl) skelEl.remove();
-        wrapEl.querySelectorAll('.img-skel-caption').forEach(el => el.remove());
         wrapEl.appendChild(img); wrapEl.appendChild(cap);
         requestAnimationFrame(() => { img.style.opacity = '1'; });
+
+        // Action buttons
         const dlA = document.createElement('a');
         dlA.className = 'ai-act'; dlA.href = imgUrl;
-        dlA.download = 'birgsol-image.jpg'; dlA.innerHTML = IC.download + ' הורד';
-        dlA.style.cssText = 'text-decoration:none;display:flex;align-items:center;gap:4px';
+        dlA.download = 'birgsol-image.jpg'; dlA.textContent = '⬇ הורד';
+        dlA.style.textDecoration = 'none';
         const openBtn = document.createElement('button');
-        openBtn.className = 'ai-act'; openBtn.innerHTML = IC.extLink + ' פתח';
-        openBtn.style.cssText = 'display:flex;align-items:center;gap:4px';
-        openBtn.onclick = () => window.open(imgUrl, '_blank');
+        openBtn.className = 'ai-act'; openBtn.textContent = '🔗 פתח';
+        openBtn.onclick = () => window.open(imgUrl,'_blank');
         const regenBtn = document.createElement('button');
-        regenBtn.className = 'ai-act'; regenBtn.innerHTML = IC.refresh + ' עוד אחת';
-        regenBtn.style.cssText = 'display:flex;align-items:center;gap:4px';
-        regenBtn.onclick = () => generateImage(prompt, null);
-        if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
-        hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
-        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
-        saveConversation();
-    };
-    img.onerror = () => {
-        if (skelEl) { skelEl.style.animation = 'none'; skelEl.style.background = 'var(--surf2)'; }
-        if (wrapEl) wrapEl.querySelectorAll('.img-skel-caption').forEach(el => el.remove());
+        regenBtn.className = 'ai-act'; regenBtn.textContent = '🔄 עוד אחת';
+        regenBtn.onclick = () => generateImage(prompt, null); // new row
+        if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
+    } else {
+        // Error
+        if (skelEl) { skelEl.innerHTML = '<div style="font-size:28px">⚠️</div><div>לא הצלחתי ליצור תמונה</div>'; skelEl.style.animation='none'; }
         const retryBtn = document.createElement('button');
-        retryBtn.className = 'ai-act'; retryBtn.innerHTML = IC.refresh + ' נסה שוב'; retryBtn.style.cssText = 'display:flex;align-items:center;gap:4px';
+        retryBtn.className = 'ai-act'; retryBtn.textContent = '🔄 נסה שוב';
         retryBtn.onclick = () => generateImage(prompt, null);
-        if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(retryBtn); }
-        hist.push({ role: 'assistant', content: `[שגיאה: ${prompt}]` });
-        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
-        saveConversation();
-    };
-    img.src = imgUrl;
+        if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(retryBtn); }
+    }
+
+    hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
+    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    saveConversation();
 }
 
 function triggerImageGen() {
@@ -2395,7 +2401,7 @@ function runCode(btn, lang) {
     const block = btn.closest('.code-block');
     const code  = block.querySelector('code').innerText;
     const frame = block.querySelector('.code-preview');
-    if (frame.classList.contains('on')) { frame.classList.remove('on'); btn.innerHTML = IC.play + ' הרץ'; return; }
+    if (frame.classList.contains('on')) { frame.classList.remove('on'); btn.textContent='▶ הרץ'; return; }
 
     const lw = lang.toLowerCase();
     let html = code;
@@ -2419,105 +2425,118 @@ function downloadCode(btn, ext) {
     URL.revokeObjectURL(a.href);
 }
 
-/* ── CALL AI ── */
+/* ── CALL AI — robust POST with retry + GET fallback ── */
 async function callAI(messages, onChunk) {
+    // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
         m.content.some(c => c.type === 'image_url'));
 
-    // ── Vision: GitHub Models supports image_url natively ──
+    // ── Vision path — POST no-stream, 2 attempts ──
     if (hasImage) {
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
-                const ctrl = new AbortController();
-                const t = setTimeout(() => ctrl.abort(), 45000);
-                let res;
-                try {
-                    res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GH_TOKEN },
-                        body: JSON.stringify({ messages, model: 'gpt-4o-mini', stream: false }),
-                        signal: ctrl.signal
-                    });
-                } finally { clearTimeout(t); }
-                if (!res.ok) throw new Error('GH vision ' + res.status);
+                const res = await fetch('https://text.pollinations.ai/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages, model: 'openai-large', stream: false, private: true }),
+                    signal: AbortSignal.timeout(50000)
+                });
+                if (!res.ok) throw new Error('vision HTTP ' + res.status);
                 let text = (await res.text()).trim();
+                if (!text) throw new Error('vision empty');
                 if (text.startsWith('{') || text.startsWith('[')) {
-                    try { const j = JSON.parse(text); text = j?.choices?.[0]?.message?.content || j?.content || j?.text || text; } catch {}
+                    try {
+                        const j = JSON.parse(text);
+                        const ex = j?.choices?.[0]?.message?.content || j?.content || j?.text || '';
+                        if (ex) text = ex;
+                    } catch {}
                 }
-                if (!text) throw new Error('empty');
-                const words = text.split(' '); let shown = '';
+                if (!text) throw new Error('vision empty after parse');
+                // typewriter for vision too
+                const words = text.split(' ');
+                let shown = '';
                 for (let i = 0; i < words.length; i++) {
-                    shown += (i === 0 ? '' : ' ') + words[i]; onChunk(shown);
+                    shown += (i === 0 ? '' : ' ') + words[i];
+                    onChunk(shown);
                     if (i % 8 === 7) await new Promise(r => setTimeout(r, 25));
                 }
-                onChunk(text); return text;
-            } catch (e) {
+                onChunk(text);
+                return text;
+            } catch(e) {
                 if (attempt === 1) throw e;
-                await new Promise(r => setTimeout(r, 1500));
+                await new Promise(r => setTimeout(r, 1500)); // wait before retry
             }
         }
     }
 
-    // ── helpers ──
-    function _parseJSON(raw) {
-        const t = raw.trim();
-        if (!t) return '';
-        if (t.startsWith('{') || t.startsWith('[')) {
-            try {
-                const j = JSON.parse(t);
-                return j?.choices?.[0]?.message?.content || j?.content || j?.text || j?.response || t;
-            } catch {}
-        }
-        return t;
-    }
-    async function _typewrite(full) {
-        const words = full.split(' '); let shown = '';
-        for (let i = 0; i < words.length; i++) {
-            shown += (i === 0 ? '' : ' ') + words[i]; onChunk(shown);
-            if (i % 8 === 7) await new Promise(r => setTimeout(r, 20));
-        }
-        onChunk(full);
-    }
-
-    // ── Primary: GitHub Models API (gpt-4o-mini, 15 RPM free) ──
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // ── Text path — POST no-stream, 3 attempts, then GET fallback ──
+    for (let attempt = 0; attempt < 3; attempt++) {
         try {
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 45000);
-            let res;
-            try {
-                res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + GH_TOKEN
-                    },
-                    body: JSON.stringify({ messages, model: 'gpt-4o-mini', stream: false }),
-                    signal: ctrl.signal
-                });
-            } finally { clearTimeout(timer); }
-            if (!res.ok) throw new Error('GH ' + res.status);
-            const full = _parseJSON(await res.text());
+            const res = await fetch('https://text.pollinations.ai/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages,
+                    model: 'openai-large',
+                    stream: false,
+                    private: true,
+                    seed: Math.floor(Math.random() * 99999)
+                }),
+                signal: AbortSignal.timeout(65000)
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            let full = (await res.text()).trim();
             if (!full) throw new Error('empty');
-            await _typewrite(full);
+            // אם Pollinations החזיר JSON במקום טקסט — חלץ את ה-content
+            if (full.startsWith('{') || full.startsWith('[')) {
+                try {
+                    const j = JSON.parse(full);
+                    const extracted = j?.choices?.[0]?.message?.content
+                        || j?.content || j?.text || j?.response || '';
+                    if (extracted) full = extracted;
+                } catch {}
+            }
+            if (!full) throw new Error('empty after parse');
+
+            // typewriter word-by-word
+            const words = full.split(' ');
+            let shown = '';
+            for (let i = 0; i < words.length; i++) {
+                shown += (i === 0 ? '' : ' ') + words[i];
+                onChunk(shown);
+                if (i % 6 === 5) await new Promise(r => setTimeout(r, 30));
+            }
+            onChunk(full);
             return full;
+
         } catch (e) {
-            if (attempt === 0) { await new Promise(r => setTimeout(r, 1500)); continue; }
+            if (attempt < 2) {
+                await new Promise(r => setTimeout(r, 1200 * (attempt + 1))); // backoff
+                continue;
+            }
+            // All POST attempts failed — GET fallback
         }
     }
 
-    // ── Fallback: Pollinations GET (short prompt only) ──
-    const _last = [...messages].reverse().find(m => m.role === 'user');
-    const _q = (typeof _last?.content === 'string' ? _last.content : (_last?.content?.[0]?.text || '')).slice(0, 250);
-    const _url = `https://text.pollinations.ai/${encodeURIComponent(_q)}?seed=${Math.floor(Math.random()*99999)}`;
-    const ctrl2 = new AbortController();
-    const t2 = setTimeout(() => ctrl2.abort(), 50000);
-    let gr;
-    try { gr = await fetch(_url, { signal: ctrl2.signal }); } finally { clearTimeout(t2); }
-    if (!gr.ok) throw new Error('Pollinations ' + gr.status);
-    const gt = _parseJSON(await gr.text());
-    if (!gt) throw new Error('empty fallback');
-    await _typewrite(gt); return gt;
+    // ── GET fallback ──
+    const sys  = messages.find(m => m.role === 'system')?.content || '';
+    const conv = messages.filter(m => m.role !== 'system').map(m => {
+        const role = m.role === 'assistant' ? 'Assistant' : 'User';
+        const text = typeof m.content === 'string'
+            ? m.content
+            : (m.content?.[0]?.text || '');
+        return `${role}: ${text}`;
+    }).join('\n');
+    const shortSys = sys.substring(0, 300);
+    const prompt = `${shortSys}\n\nConversation:\n${conv}`;
+    const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}` +
+        `?model=openai-large&private=true&seed=${Math.floor(Math.random()*99999)}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(45000) });
+    if (!r.ok) throw new Error('GET ' + r.status);
+    const text = await r.text();
+    if (!text) throw new Error('empty GET');
+    onChunk(text);
+    return text;
 }
 
 /* ── SEND ── */
@@ -2596,7 +2615,7 @@ async function send() {
 
         // Copy button
         const acts = document.createElement('div'); acts.className = 'ai-acts';
-        acts.innerHTML = `<button class="ai-act" onclick="copyIt(this)" style="display:flex;align-items:center;gap:4px">${IC.copy} העתק</button>`;
+        acts.innerHTML = '<button class="ai-act" onclick="copyIt(this)">📋 העתק</button>';
         body.appendChild(acts);
 
         hist.push({ role: 'assistant', content: cleanText || fullText });
@@ -2605,9 +2624,7 @@ async function send() {
         saveConversation(); // שמור שיחה מלאה ב-localStorage
     } catch (e) {
         if (!fullText) {
-            const msg = (e?.message || '');
-            const display = msg.startsWith('429') ? '⏳ ' + msg : '⚠️ שגיאת חיבור (' + (msg || 'unknown') + ') — נסה שוב.';
-            txt.innerHTML = `<span style="color:#ff8a80">${display}</span>`;
+            txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
         }
     }
     busy = false; updateBtn();
@@ -2658,8 +2675,6 @@ function _setLiveState(state) {
 }
 
 function startLive() {
-    // Unlock speech synthesis on mobile — must be called in user-gesture context
-    try { const _u = new SpeechSynthesisUtterance(''); _u.volume = 0; window.speechSynthesis.speak(_u); window.speechSynthesis.cancel(); } catch(e) {}
     closeSidebar();
     document.getElementById('live-overlay').classList.add('on');
     _liveActive = true; _liveStopped = false; _liveMuted = false;
@@ -2695,12 +2710,7 @@ async function _liveLoop() {
     // ── 1. Listen ──
     const transcript = await _liveListenOnce();
     if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
-    if (!transcript.trim()) {
-        _liveBusy = false;
-        if (_liveActive && !_liveStopped) setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 300);
-        else _setLiveState('idle');
-        return;
-    }
+    if (!transcript.trim()) { _liveBusy = false; _setLiveState('idle'); return; }
 
     document.getElementById('live-transcript').textContent = '👤 ' + transcript;
 
@@ -2761,29 +2771,19 @@ function _liveListenOnce() {
         rec.interimResults = true;
         rec.continuous = false;
         rec.maxAlternatives = 1;
-        let final = '', gotSpeech = false;
-        let autoStopTimer = null;
-
-        // Force-stop after 9s if no speech at all
-        const silenceTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 9000);
-
+        let final = '';
         rec.onresult = e => {
-            clearTimeout(silenceTimer);
-            clearTimeout(autoStopTimer);
             let interim = '';
             for (let i = e.resultIndex; i < e.results.length; i++) {
-                if (e.results[i].isFinal) { final += e.results[i][0].transcript; gotSpeech = true; }
+                if (e.results[i].isFinal) final += e.results[i][0].transcript;
                 else interim = e.results[i][0].transcript;
             }
             const shown = final || interim;
             if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
-            // Auto-stop 1.2s after user finishes speaking
-            if (gotSpeech) autoStopTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 1200);
         };
-        const done = (result) => { clearTimeout(silenceTimer); clearTimeout(autoStopTimer); _liveRec = null; resolve(result); };
-        rec.onerror = () => done(final);
-        rec.onend  = () => done(final);
-        try { rec.start(); } catch(e) { clearTimeout(silenceTimer); resolve(''); }
+        rec.onerror = () => { _liveRec = null; resolve(final); };
+        rec.onend  = () => { _liveRec = null; resolve(final); };
+        try { rec.start(); } catch(e) { resolve(''); }
     });
 }
 
@@ -2803,40 +2803,38 @@ async function _liveSpeakText(text) {
         }
         if (_liveStopped) { resolve(); return; }
 
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.rate = 1.05; utt.pitch = 1.0; utt.volume = 1.0;
+
+        // Best Hebrew voice → any local → default (DON'T force he-IL if no Hebrew voice — causes silent failure)
+        const heVoice = voices.find(v => v.lang.startsWith('he') && v.localService) ||
+                        voices.find(v => v.lang.startsWith('he'));
+        if (heVoice) {
+            utt.voice = heVoice; utt.lang = heVoice.lang;
+        } else {
+            // No Hebrew TTS installed — use whatever default voice exists; skip lang so browser doesn't fail silently
+            const def = voices.find(v => v.default) || voices[0];
+            if (def) utt.voice = def;
+        }
+
         let done = false;
         let keepAlive;
-        const finish = () => { if (done) return; done = true; clearInterval(keepAlive); resolve(); };
+        const finish = () => {
+            if (done) return; done = true;
+            clearInterval(keepAlive); resolve();
+        };
+        utt.onend  = finish;
+        utt.onerror = (e) => { console.warn('TTS:', e.error); finish(); };
 
         // Chrome 14-second bug workaround
         keepAlive = setInterval(() => {
             if (!window.speechSynthesis.speaking) { clearInterval(keepAlive); return; }
-            window.speechSynthesis.pause(); window.speechSynthesis.resume();
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
         }, 10000);
-        setTimeout(finish, 45000);
 
-        function _speak(voice) {
-            const utt = new SpeechSynthesisUtterance(text);
-            utt.rate = 1.05; utt.pitch = 1.0; utt.volume = 1.0;
-            if (voice) { utt.voice = voice; utt.lang = voice.lang; }
-            utt.onend = finish;
-            utt.onerror = (e) => {
-                if (done) return;
-                // if chosen voice failed, retry with system default
-                if (voice) {
-                    window.speechSynthesis.cancel();
-                    _speak(null);
-                } else {
-                    finish();
-                }
-            };
-            window.speechSynthesis.speak(utt);
-        }
-
-        // Prefer local Hebrew → any Hebrew → local default → any default
-        const heLocal = voices.find(v => v.lang.startsWith('he') && v.localService);
-        const heAny   = voices.find(v => v.lang.startsWith('he'));
-        const defVoice = voices.find(v => v.localService && v.default) || voices.find(v => v.localService) || voices[0];
-        _speak(heLocal || heAny || defVoice || null);
+        window.speechSynthesis.speak(utt);
+        setTimeout(finish, 45000); // safety: never hang forever
     });
 }
 
