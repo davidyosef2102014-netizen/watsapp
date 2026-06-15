@@ -2800,23 +2800,26 @@ function _liveListenOnce() {
         rec.interimResults = true;
         rec.continuous = false;
         rec.maxAlternatives = 1;
-        let final = '';
+        let final = '', interim = '';
         let autoStopTimer = null;
-        const done = (result) => { clearTimeout(autoStopTimer); _liveRec = null; resolve(result); };
+        const done = () => {
+            clearTimeout(autoStopTimer);
+            _liveRec = null;
+            resolve(final || interim); // use interim as fallback if browser didn't finalize
+        };
         rec.onresult = e => {
-            let interim = '';
             for (let i = e.resultIndex; i < e.results.length; i++) {
-                if (e.results[i].isFinal) final += e.results[i][0].transcript;
+                if (e.results[i].isFinal) { final += e.results[i][0].transcript; interim = ''; }
                 else interim = e.results[i][0].transcript;
             }
             const shown = final || interim;
             if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
-            // reset silence timer on every result (interim or final)
+            // restart silence timer on every result
             clearTimeout(autoStopTimer);
-            autoStopTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 1500);
+            autoStopTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 1800);
         };
-        rec.onerror = () => done(final);
-        rec.onend  = () => done(final);
+        rec.onerror = () => done();
+        rec.onend  = () => done();
         try { rec.start(); } catch(e) { resolve(''); }
     });
 }
