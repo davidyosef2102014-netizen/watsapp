@@ -2691,12 +2691,12 @@ function _setLiveState(state) {
     if (state === 'idle') {
         icon.textContent = '✦'; status.textContent = 'לחץ על הכדור להתחלה';
     } else if (state === 'listening') {
-        icon.innerHTML = IC.mic; status.textContent = 'מקשיב…';
+        icon.textContent = '🎤'; status.textContent = 'מקשיב…';
         bars.classList.add('on');
     } else if (state === 'thinking') {
         icon.textContent = '✦'; status.textContent = 'חושב…';
     } else if (state === 'speaking') {
-        icon.innerHTML = IC.speaker; status.textContent = 'מדבר…';
+        icon.textContent = '🔊'; status.textContent = 'מדבר…';
         trans.classList.add('ai-speaking');
     }
 }
@@ -2811,9 +2811,9 @@ function _liveListenOnce() {
             }
             const shown = final || interim;
             if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
-            // auto-stop 1.2s after user stops talking
+            // reset silence timer on every result (interim or final)
             clearTimeout(autoStopTimer);
-            if (final) autoStopTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 1200);
+            autoStopTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 1500);
         };
         rec.onerror = () => done(final);
         rec.onend  = () => done(final);
