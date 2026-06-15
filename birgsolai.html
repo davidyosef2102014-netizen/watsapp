@@ -293,6 +293,11 @@
             animation: captionPulse 2s ease-in-out infinite;
         }
         @keyframes captionPulse { 0%,100%{opacity:.4} 50%{opacity:.85} }
+        /* SVG icon alignment */
+        svg.ic { display:inline-block; vertical-align:middle; flex-shrink:0; }
+        .style-chip svg.ic, .mode-pill svg.ic, .live-chip svg.ic,
+        .new-btn svg.ic, .img-gen-btn svg.ic { margin-left:5px; }
+        .ai-act svg.ic, .code-copy svg.ic, .code-run svg.ic, .code-dl svg.ic { margin-left:4px; }
 
         /* action buttons (Gemini style — appear on hover) */
         .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
@@ -1108,16 +1113,16 @@
             <button class="icon-btn" onclick="closeSidebar()" style="margin-right:auto;font-size:16px;" title="סגור">✕</button>
         </div>
         <button class="new-btn" onclick="startNew()">
-            <span>✏️</span> שיחה חדשה
+            <svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> שיחה חדשה
         </button>
     </div>
     <div class="mode-row">
-        <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')">💬 שיחה</button>
-        <button class="mode-pill" id="mode-code" onclick="setMode('code')">💻 קוד</button>
-        <button class="mode-pill" id="mode-image" onclick="setMode('image')">🎨 תמונה</button>
+        <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')" style="display:flex;align-items:center;gap:5px"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg> שיחה</button>
+        <button class="mode-pill" id="mode-code" onclick="setMode('code')" style="display:flex;align-items:center;gap:5px"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> קוד</button>
+        <button class="mode-pill" id="mode-image" onclick="setMode('image')" style="display:flex;align-items:center;gap:5px"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> תמונה</button>
     </div>
     <div class="live-chip-row">
-        <button class="live-chip" onclick="startLive()"><span class="live-chip-dot"></span>🎙 לייב</button>
+        <button class="live-chip" onclick="startLive()" style="display:flex;align-items:center;gap:5px"><span class="live-chip-dot"></span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg> לייב</button>
     </div>
     <div class="sb-sect-label">שיחות</div>
     <div class="sb-body" id="hist-list">
@@ -1206,7 +1211,7 @@
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
                     <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלטת קול">🎤</button>
-                    <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI">🎨</button>
+                    <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></button>
                     <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
                 </div>
             </div>
@@ -1294,6 +1299,24 @@ function renderMsgOnly(role, text) {
 }
 
 /* ══════════════ CLOUD SYNC — GitHub כ-backend ══════════════ */
+/* ── SVG outline icons ── */
+const IC = {
+  camera:   `<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+  palette:  `<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
+  pencil:   `<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
+  sparkles: `<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4M19 17v4M3 5h4M17 19h4"/></svg>`,
+  chat:     `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>`,
+  code:     `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
+  image:    `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
+  mic:      `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`,
+  pen:      `<svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  copy:     `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`,
+  download: `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+  extLink:  `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>`,
+  refresh:  `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`,
+  play:     `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+};
+
 const GH_OWNER = 'davidyosef2102014-netizen';
 const GH_REPO  = 'watsapp';
 const GH_TOKEN = ['ghp_iIaTa8EvDW2','A7SfC6u9bzWbDf','zrRNA0IDtff'].join('');
@@ -1799,12 +1822,15 @@ _renderer.code = function({ text, lang }) {
     const ext = { html:'html', javascript:'js', js:'js', typescript:'ts', ts:'ts',
                   python:'py', css:'css', json:'json', sql:'sql',
                   java:'java', cpp:'cpp', c:'c', rust:'rs', swift:'swift' }[language.toLowerCase()] || 'txt';
-    const runBtn  = runnable ? `<button class="code-run" onclick="runCode(this,'${language}')">▶ הרץ</button>` : '';
-    const dlBtn   = `<button class="code-dl"  onclick="downloadCode(this,'${ext}')">⬇ הורד</button>`;
+    const _icRun = `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+    const _icDl  = `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`;
+    const _icCp  = `<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
+    const runBtn  = runnable ? `<button class="code-run" onclick="runCode(this,'${language}')" style="display:flex;align-items:center;gap:4px">${_icRun} הרץ</button>` : '';
+    const dlBtn   = `<button class="code-dl"  onclick="downloadCode(this,'${ext}')" style="display:flex;align-items:center;gap:4px">${_icDl} הורד</button>`;
     return `<div class="code-block">
         <div class="code-header">
             <span class="code-lang">${language}</span>
-            <div class="code-header-btns">${runBtn}${dlBtn}<button class="code-copy" onclick="copyCode(this)">📋 העתק</button></div>
+            <div class="code-header-btns">${runBtn}${dlBtn}<button class="code-copy" onclick="copyCode(this)" style="display:flex;align-items:center;gap:4px">${_icCp} העתק</button></div>
         </div>
         <pre><code class="hljs">${highlighted}</code></pre>
         <iframe class="code-preview" sandbox="allow-scripts allow-forms"></iframe>
@@ -1838,7 +1864,7 @@ function copyCode(btn) {
     const code = btn.closest('.code-block').querySelector('code').textContent;
     navigator.clipboard.writeText(code).then(() => {
         btn.textContent = '✅ הועתק';
-        setTimeout(() => btn.textContent = '📋 העתק', 2000);
+        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; btn.style.cssText += ';display:flex;align-items:center;gap:4px'; }, 2000);
     });
 }
 
@@ -1979,7 +2005,7 @@ function addMsg(role, text, img = null, md = false) {
                 <div class="ai-name">Birgsol AI</div>
                 <div class="ai-txt">${content}</div>
                 <div class="ai-acts">
-                    <button class="ai-act" onclick="copyIt(this)">📋 העתק</button>
+                    <button class="ai-act" onclick="copyIt(this)" style="display:flex;align-items:center;gap:4px">${IC.copy} העתק</button>
                 </div>
             </div>`;
     }
@@ -2014,7 +2040,7 @@ function enhanceCodeBlocks(el) {
         const lang = (code.className.match(/language-(\w+)/) || [])[1] || 'code';
         const wrapper = document.createElement('div');
         wrapper.className = 'code-block';
-        wrapper.innerHTML = `<div class="code-header"><span class="code-lang">${lang}</span><button class="code-copy" onclick="copyCode(this)">📋 העתק</button></div>`;
+        wrapper.innerHTML = `<div class="code-header"><span class="code-lang">${lang}</span><button class="code-copy" onclick="copyCode(this)" style="display:flex;align-items:center;gap:4px">${IC.copy} העתק</button></div>`;
         pre.parentNode.insertBefore(wrapper, pre);
         wrapper.appendChild(pre);
     });
@@ -2023,7 +2049,7 @@ function copyCode(btn) {
     const code = btn.closest('.code-block').querySelector('code').innerText;
     navigator.clipboard.writeText(code).then(() => {
         btn.textContent = '✅ הועתק';
-        setTimeout(() => btn.textContent = '📋 העתק', 2000);
+        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; btn.style.cssText += ';display:flex;align-items:center;gap:4px'; }, 2000);
     });
 }
 
@@ -2032,7 +2058,7 @@ function copyIt(btn) {
     const t = btn.closest('.ai-body').querySelector('.ai-txt').innerText;
     navigator.clipboard.writeText(t).then(() => {
         btn.textContent = '✅ הועתק';
-        setTimeout(() => btn.textContent = '📋 העתק', 2000);
+        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; btn.style.cssText += ';display:flex;align-items:center;gap:4px'; }, 2000);
     });
 }
 
@@ -2078,10 +2104,10 @@ function expandProduct(p) {
 function _askImageStyle(cw) {
     return new Promise(resolve => {
         const styles = [
-            { label: '📸 ריאליסטי',   model: 'flux-realism', suffix: 'photorealistic, realistic photograph, highly detailed' },
-            { label: '🎨 ציור',        model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors' },
-            { label: '✏️ קריקטורה',    model: 'flux',         suffix: 'cartoon illustration, colorful cartoon, flat design' },
-            { label: '🌸 אנימה',       model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime' },
+            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'flux-realism', suffix: 'photorealistic, realistic photograph, highly detailed' },
+            { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors' },
+            { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful cartoon, flat design' },
+            { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime' },
         ];
         const row = document.createElement('div'); row.className = 'msg-row ai';
         const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
@@ -2091,7 +2117,7 @@ function _askImageStyle(cw) {
         const q = document.createElement('div'); q.textContent = 'איזה סגנון לתמונה?';
         const grid = document.createElement('div'); grid.className = 'style-chips';
         styles.forEach(s => {
-            const btn = document.createElement('button'); btn.className = 'style-chip'; btn.textContent = s.label;
+            const btn = document.createElement('button'); btn.className = 'style-chip'; btn.innerHTML = s.label;
             btn.onclick = () => { row.remove(); resolve(s); };
             grid.appendChild(btn);
         });
@@ -2202,7 +2228,7 @@ async function generateImage(promptRaw, reuseRow) {
     img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
     const cap = document.createElement('div');
     cap.className = 'ai-img-caption';
-    cap.textContent = '🎨 ' + (engPrompt.length > 90 ? engPrompt.slice(0, 90) + '…' : engPrompt);
+    cap.textContent = (engPrompt.length > 90 ? engPrompt.slice(0, 90) + '…' : engPrompt);
     img.onload = () => {
         if (skelEl) skelEl.remove();
         wrapEl.querySelectorAll('.img-skel-caption').forEach(el => el.remove());
@@ -2210,13 +2236,15 @@ async function generateImage(promptRaw, reuseRow) {
         requestAnimationFrame(() => { img.style.opacity = '1'; });
         const dlA = document.createElement('a');
         dlA.className = 'ai-act'; dlA.href = imgUrl;
-        dlA.download = 'birgsol-image.jpg'; dlA.textContent = '⬇ הורד';
-        dlA.style.textDecoration = 'none';
+        dlA.download = 'birgsol-image.jpg'; dlA.innerHTML = IC.download + ' הורד';
+        dlA.style.cssText = 'text-decoration:none;display:flex;align-items:center;gap:4px';
         const openBtn = document.createElement('button');
-        openBtn.className = 'ai-act'; openBtn.textContent = '🔗 פתח';
+        openBtn.className = 'ai-act'; openBtn.innerHTML = IC.extLink + ' פתח';
+        openBtn.style.cssText = 'display:flex;align-items:center;gap:4px';
         openBtn.onclick = () => window.open(imgUrl, '_blank');
         const regenBtn = document.createElement('button');
-        regenBtn.className = 'ai-act'; regenBtn.textContent = '🔄 עוד אחת';
+        regenBtn.className = 'ai-act'; regenBtn.innerHTML = IC.refresh + ' עוד אחת';
+        regenBtn.style.cssText = 'display:flex;align-items:center;gap:4px';
         regenBtn.onclick = () => generateImage(prompt, null);
         if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
         hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
@@ -2227,7 +2255,7 @@ async function generateImage(promptRaw, reuseRow) {
         if (skelEl) { skelEl.style.animation = 'none'; skelEl.style.background = 'var(--surf2)'; }
         if (wrapEl) wrapEl.querySelectorAll('.img-skel-caption').forEach(el => el.remove());
         const retryBtn = document.createElement('button');
-        retryBtn.className = 'ai-act'; retryBtn.textContent = '🔄 נסה שוב';
+        retryBtn.className = 'ai-act'; retryBtn.innerHTML = IC.refresh + ' נסה שוב'; retryBtn.style.cssText = 'display:flex;align-items:center;gap:4px';
         retryBtn.onclick = () => generateImage(prompt, null);
         if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(retryBtn); }
         hist.push({ role: 'assistant', content: `[שגיאה: ${prompt}]` });
@@ -2367,7 +2395,7 @@ function runCode(btn, lang) {
     const block = btn.closest('.code-block');
     const code  = block.querySelector('code').innerText;
     const frame = block.querySelector('.code-preview');
-    if (frame.classList.contains('on')) { frame.classList.remove('on'); btn.textContent='▶ הרץ'; return; }
+    if (frame.classList.contains('on')) { frame.classList.remove('on'); btn.innerHTML = IC.play + ' הרץ'; return; }
 
     const lw = lang.toLowerCase();
     let html = code;
@@ -2568,7 +2596,7 @@ async function send() {
 
         // Copy button
         const acts = document.createElement('div'); acts.className = 'ai-acts';
-        acts.innerHTML = '<button class="ai-act" onclick="copyIt(this)">📋 העתק</button>';
+        acts.innerHTML = `<button class="ai-act" onclick="copyIt(this)" style="display:flex;align-items:center;gap:4px">${IC.copy} העתק</button>`;
         body.appendChild(acts);
 
         hist.push({ role: 'assistant', content: cleanText || fullText });
