@@ -2703,6 +2703,8 @@ function _setLiveState(state) {
 
 function startLive() {
     closeSidebar();
+    // iOS TTS unlock — must call speak() inside a user gesture
+    try { const _u = new SpeechSynthesisUtterance(''); _u.volume = 0; window.speechSynthesis.speak(_u); window.speechSynthesis.cancel(); } catch(e) {}
     document.getElementById('live-overlay').classList.add('on');
     _liveActive = true; _liveStopped = false; _liveMuted = false;
     document.getElementById('live-mute-btn').classList.remove('muted');
@@ -2799,6 +2801,8 @@ function _liveListenOnce() {
         rec.continuous = false;
         rec.maxAlternatives = 1;
         let final = '';
+        let autoStopTimer = null;
+        const done = (result) => { clearTimeout(autoStopTimer); _liveRec = null; resolve(result); };
         rec.onresult = e => {
             let interim = '';
             for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -2807,9 +2811,12 @@ function _liveListenOnce() {
             }
             const shown = final || interim;
             if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
+            // auto-stop 1.2s after user stops talking
+            clearTimeout(autoStopTimer);
+            if (final) autoStopTimer = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 1200);
         };
-        rec.onerror = () => { _liveRec = null; resolve(final); };
-        rec.onend  = () => { _liveRec = null; resolve(final); };
+        rec.onerror = () => done(final);
+        rec.onend  = () => done(final);
         try { rec.start(); } catch(e) { resolve(''); }
     });
 }
