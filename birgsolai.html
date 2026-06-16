@@ -2668,8 +2668,10 @@ function _setLiveState(state) {
 
 function startLive() {
     closeSidebar();
-    // iOS TTS unlock — must call speak() inside a user gesture
-    try { const _u = new SpeechSynthesisUtterance(''); _u.volume = 0; window.speechSynthesis.speak(_u); window.speechSynthesis.cancel(); } catch(e) {}
+    // iOS TTS unlock — must call speak() inside a user gesture.
+    // NOTE: do NOT call cancel() right after speak() — on Chrome this is a known bug
+    // that jams the speech queue silently until the page is reloaded.
+    try { const _u = new SpeechSynthesisUtterance(' '); _u.volume = 0; window.speechSynthesis.speak(_u); } catch(e) {}
     document.getElementById('live-overlay').classList.add('on');
     _liveActive = true; _liveStopped = false; _liveMuted = false;
     document.getElementById('live-mute-btn').classList.remove('muted');
