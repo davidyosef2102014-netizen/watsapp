@@ -282,7 +282,7 @@
             border: 1px solid var(--border);
         }
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        .img-skel-txt { font-size:12px; color:var(--muted); margin-top:6px; }
+        .img-skel-txt { font-size:12px; color:var(--muted); text-align:center; margin-bottom:8px; }
         .style-picker { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
         .style-chip {
             display:flex; align-items:center; gap:6px;
@@ -2126,7 +2126,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
         skelEl  = document.createElement('div');  skelEl.className = 'img-skeleton';
         skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה…';
-        wrapEl.appendChild(skelEl); wrapEl.appendChild(skelTxt);
+        wrapEl.appendChild(skelTxt); wrapEl.appendChild(skelEl);
 
         txtDiv.appendChild(wrapEl);
         bodyEl.appendChild(nm); bodyEl.appendChild(txtDiv); bodyEl.appendChild(actsEl);
@@ -2141,7 +2141,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         if (!skelEl) {
             skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
             skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה…';
-            wrapEl.prepend(skelTxt); wrapEl.prepend(skelEl);
+            wrapEl.prepend(skelEl); wrapEl.prepend(skelTxt);
         }
         skelEl.style.display = 'flex'; skelTxt.textContent = 'יוצר תמונה…';
     }
