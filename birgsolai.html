@@ -2825,8 +2825,10 @@ async function _liveSpeakText(text) {
         utt.rate = 1.05; utt.pitch = 1.0; utt.volume = 1.0;
 
         // Best Hebrew voice → any local → default (DON'T force he-IL if no Hebrew voice — causes silent failure)
-        const heVoice = voices.find(v => v.lang.startsWith('he') && v.localService) ||
-                        voices.find(v => v.lang.startsWith('he'));
+        // Hebrew has two lang codes in the wild: modern 'he' and legacy ISO 639-1 'iw' — check both, plus voice name.
+        const _isHebrewVoice = v => /^(he|iw)/i.test(v.lang) || /hebrew|עברית/i.test(v.name);
+        const heVoice = voices.find(v => _isHebrewVoice(v) && v.localService) ||
+                        voices.find(v => _isHebrewVoice(v));
         if (heVoice) {
             utt.voice = heVoice; utt.lang = heVoice.lang;
         } else {
