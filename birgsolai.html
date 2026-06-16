@@ -2153,24 +2153,38 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
     const asciiLetter = (prompt.match(/[a-zA-Z]/g) || []).length;
     const alreadyEng  = allLetters === 0 || asciiLetter / allLetters > 0.6;
 
+    const _looksLikeError = (s) => !s || s.startsWith('{') || s.startsWith('[') || /turnstile|"error"/i.test(s);
+
     if (!alreadyEng) {
+        const transMessages = [
+            { role: 'system', content: 'Translate the following image description to simple, literal English. Output ONLY the translation, max 20 words, no explanation, no quotes.' },
+            { role: 'user', content: prompt }
+        ];
+        // Try GitHub Models first (reliable, no bot-check), then Pollinations as backup
         try {
-            const r = await fetch('https://text.pollinations.ai/', {
+            const r = await fetch('https://models.inference.ai.azure.com/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: [
-                        { role: 'system', content: 'Translate the following image description to simple, literal English. Output ONLY the translation, max 20 words, no explanation, no quotes.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    model: 'openai',
-                    private: true
-                }),
+                headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'gpt-4o-mini', messages: transMessages, temperature: 0.3, max_tokens: 60 }),
                 signal: AbortSignal.timeout(10000)
             });
-            const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
-            if (t && t.length > 2 && t.length < 300) engPrompt = t;
-        } catch { /* fall back to original prompt */ }
+            const j = await r.json();
+            const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, '');
+            if (t && !_looksLikeError(t) && t.length > 2 && t.length < 300) engPrompt = t;
+        } catch { /* fall through to Pollinations */ }
+
+        if (engPrompt === prompt) {
+            try {
+                const r = await fetch('https://text.pollinations.ai/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: transMessages, model: 'openai', private: true }),
+                    signal: AbortSignal.timeout(10000)
+                });
+                const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
+                if (t && !_looksLikeError(t) && t.length > 2 && t.length < 300) engPrompt = t;
+            } catch { /* fall back to original prompt */ }
+        }
     }
 
     // ── 3. Build Pollinations URL and load — no polling needed ──
@@ -2397,8 +2411,22 @@ async function callAI(messages, onChunk) {
     const hasImage = messages.some(m => Array.isArray(m.content) &&
         m.content.some(c => c.type === 'image_url'));
 
-    // ── Vision path — POST no-stream, 2 attempts ──
+    // ── Vision path — try GitHub Models first (no bot-check), then Pollinations ──
     if (hasImage) {
+        try {
+            const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 1, max_tokens: 2048 }),
+                signal: AbortSignal.timeout(25000)
+            });
+            if (res.ok) {
+                const j = await res.json();
+                const text = j?.choices?.[0]?.message?.content?.trim();
+                if (text) { await _typewriter(text, onChunk, 8); return text; }
+            }
+        } catch(e) { /* fall through to Pollinations */ }
+
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
                 const res = await fetch('https://text.pollinations.ai/', {
@@ -2413,11 +2441,13 @@ async function callAI(messages, onChunk) {
                 if (text.startsWith('{') || text.startsWith('[')) {
                     try {
                         const j = JSON.parse(text);
+                        if (j?.error) throw new Error('vision error: ' + j.error);
                         const ex = j?.choices?.[0]?.message?.content || j?.content || j?.text || '';
                         if (ex) text = ex;
-                    } catch {}
+                        else throw new Error('vision JSON had no content');
+                    } catch (e) { if (e.message?.startsWith('vision')) throw e; }
                 }
-                if (!text) throw new Error('vision empty after parse');
+                if (!text || /turnstile/i.test(text)) throw new Error('vision empty/blocked');
                 await _typewriter(text, onChunk, 8);
                 return text;
             } catch(e) {
@@ -2454,16 +2484,18 @@ async function callAI(messages, onChunk) {
         if (!res.ok) throw new Error('poll HTTP ' + res.status);
         let full = (await res.text()).trim();
         if (!full) throw new Error('poll empty');
-        // אם Pollinations החזיר JSON במקום טקסט — חלץ את ה-content
+        // אם Pollinations החזיר JSON במקום טקסט — חלץ את ה-content (או זהה שגיאת turnstile/bot-check)
         if (full.startsWith('{') || full.startsWith('[')) {
             try {
                 const j = JSON.parse(full);
+                if (j?.error) throw new Error('poll error: ' + j.error);
                 const extracted = j?.choices?.[0]?.message?.content
                     || j?.content || j?.text || j?.response || '';
                 if (extracted) full = extracted;
-            } catch {}
+                else throw new Error('poll JSON had no content');
+            } catch (e) { if (e.message?.startsWith('poll')) throw e; }
         }
-        if (!full) throw new Error('poll empty after parse');
+        if (!full || /turnstile/i.test(full)) throw new Error('poll empty/blocked');
         return full;
     };
 
