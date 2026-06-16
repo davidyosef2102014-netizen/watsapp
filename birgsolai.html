@@ -146,7 +146,7 @@
         @media (max-width: 520px) { .sug-grid { grid-template-columns: 1fr; } }
         .sug-card {
             background: rgba(255,255,255,.75); border: 1px solid var(--border);
-            border-radius: 14px; padding: 16px 18px;
+            border-radius: 14px; padding: 20px 18px 22px;
             cursor: pointer; text-align: right;
             transition: border-color .2s, background .2s, transform .2s;
             backdrop-filter: blur(8px);
@@ -333,7 +333,7 @@
         }
         .pill:focus-within { border-color: rgba(66,133,244,.4); box-shadow: 0 2px 16px rgba(66,133,244,.15); }
 
-        .pill-inner { display: flex; align-items: flex-end; gap: 2px; }
+        .pill-inner { display: flex; align-items: flex-end; gap: 6px; }
         .p-btn {
             background: none; border: none; cursor: pointer;
             width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
@@ -344,7 +344,7 @@
 
         textarea {
             flex: 1; border: none; outline: none;
-            padding: 9px 4px; font-size: 16px; resize: none;
+            padding: 9px 8px; font-size: 16px; resize: none;
             max-height: 140px; min-height: 38px;
             font-family: inherit; background: transparent;
             color: var(--text); line-height: 1.55; direction: rtl;
@@ -1790,9 +1790,15 @@ Use [SEARCH] for current info, news, prices. Use [BROWSE] to read a URL. Up to 4
 NEVER invent search results.
 
 === INTERNAL INFO ===
-The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.`;
+The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.
+
+=== IDENTITY QUESTIONS ===
+If the user asks who created you, who built you, who made you, or similar ("מי יצר אותך", "מי בנה אותך", "מי עומד מאחוריך" etc.), reply EXACTLY with this sentence (in Hebrew, verbatim, no additions): "אני מודל שפה שנוצר על ידי דוד יוסף זאבי הגאון ועל ידי חברת BIRGSOL ואני הושקתי לציבור בתאריך הראשון ביולי 2026"`;
 
 const PERSONA_CODE = `You are BIRGSOL AI 3.5 Code Mode — a world-class software engineering AI with the skill of a senior engineer with 15+ years of experience. Built by David Yosef Zevi and Ruth Zevi.
+
+=== IDENTITY QUESTIONS ===
+If the user asks who created you, who built you, who made you, or similar, reply EXACTLY with this sentence (in Hebrew, verbatim, no additions): "אני מודל שפה שנוצר על ידי דוד יוסף זאבי הגאון ועל ידי חברת BIRGSOL ואני הושקתי לציבור בתאריך הראשון ביולי 2026"
 
 === CODE STANDARDS — NON-NEGOTIABLE ===
 - Write COMPLETE, PRODUCTION-READY code — NEVER truncate, NEVER write "// rest of code here", NEVER use "..." as a placeholder
@@ -1842,7 +1848,10 @@ Your specialty is generating beautiful, detailed images. When a user sends any m
 === RESPONSE FORMAT ===
 - Brief description in Hebrew of what you're generating
 - Be enthusiastic and creative
-- DEFAULT language: Hebrew (עברית)`;
+- DEFAULT language: Hebrew (עברית)
+
+=== IDENTITY QUESTIONS ===
+If the user asks who created you, who built you, who made you, or similar, reply EXACTLY with this sentence (in Hebrew, verbatim, no additions): "אני מודל שפה שנוצר על ידי דוד יוסף זאבי הגאון ועל ידי חברת BIRGSOL ואני הושקתי לציבור בתאריך הראשון ביולי 2026"`;
 
 function getPersona() {
     if (currentMode === 'code') return PERSONA_CODE;
