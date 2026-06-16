@@ -2829,11 +2829,14 @@ async function _liveSpeakText(text) {
         const _isHebrewVoice = v => /^(he|iw)/i.test(v.lang) || /hebrew|עברית/i.test(v.name);
         const heVoice = voices.find(v => _isHebrewVoice(v) && v.localService) ||
                         voices.find(v => _isHebrewVoice(v));
+        console.log('TTS available voices:', voices.map(v => v.name + ' (' + v.lang + ')'));
         if (heVoice) {
+            console.log('TTS using Hebrew voice:', heVoice.name, heVoice.lang);
             utt.voice = heVoice; utt.lang = heVoice.lang;
         } else {
             // No Hebrew TTS installed — use whatever default voice exists; skip lang so browser doesn't fail silently
             const def = voices.find(v => v.default) || voices[0];
+            console.log('TTS no Hebrew voice found — using default:', def?.name, def?.lang);
             if (def) utt.voice = def;
         }
 
