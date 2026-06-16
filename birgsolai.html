@@ -2514,9 +2514,7 @@ async function send() {
         addMsg('user', q);
         inp.value = ''; inp.style.height = 'auto'; updateBtn();
         if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
-        showTyping();
         await generateImage(q);
-        hideTyping();
         return;
     }
 
