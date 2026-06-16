@@ -279,16 +279,10 @@
             background:linear-gradient(90deg,var(--surf2) 25%,rgba(255,255,255,.9) 50%,var(--surf2) 75%);
             background-size:200% 100%;
             animation:shimmer 1.6s infinite;
-            display:flex; align-items:center; justify-content:center;
-            flex-direction:column; gap:10px; color:var(--muted); font-size:14px; font-weight:600;
             border: 1px solid var(--border);
         }
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        .img-skel-icon { font-size:36px; animation:sparkle 2s ease-in-out infinite; display:flex; align-items:center; justify-content:center; }
-        .img-skel-icon .ic { width:36px; height:36px; }
-        .img-skel-txt  { font-size:13px; }
-        .img-skel-prog { width:160px; height:4px; background:var(--surf); border-radius:2px; overflow:hidden; }
-        .img-skel-bar  { height:100%; width:0%; background:linear-gradient(to right,var(--blue),var(--purple)); border-radius:2px; transition:width .8s ease; }
+        .img-skel-txt { font-size:12px; color:var(--muted); margin-top:6px; }
         .style-picker { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
         .style-chip {
             display:flex; align-items:center; gap:6px;
@@ -2132,9 +2126,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
         skelEl  = document.createElement('div');  skelEl.className = 'img-skeleton';
         skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה…';
-        const skelIcon = document.createElement('div'); skelIcon.className = 'img-skel-icon'; skelIcon.innerHTML = IC.palette;
-        skelEl.appendChild(skelIcon); skelEl.appendChild(skelTxt);
-        wrapEl.appendChild(skelEl);
+        wrapEl.appendChild(skelEl); wrapEl.appendChild(skelTxt);
 
         txtDiv.appendChild(wrapEl);
         bodyEl.appendChild(nm); bodyEl.appendChild(txtDiv); bodyEl.appendChild(actsEl);
@@ -2149,9 +2141,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         if (!skelEl) {
             skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
             skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה…';
-            const si = document.createElement('div'); si.className='img-skel-icon'; si.innerHTML=IC.palette;
-            skelEl.appendChild(si); skelEl.appendChild(skelTxt);
-            wrapEl.prepend(skelEl);
+            wrapEl.prepend(skelTxt); wrapEl.prepend(skelEl);
         }
         skelEl.style.display = 'flex'; skelTxt.textContent = 'יוצר תמונה…';
     }
@@ -2205,6 +2195,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         cap.className = 'ai-img-caption';
         cap.textContent = engPrompt.length > 90 ? engPrompt.slice(0,90)+'…' : engPrompt;
         if (skelEl) skelEl.remove();
+        if (skelTxt) skelTxt.remove();
         wrapEl.appendChild(img); wrapEl.appendChild(cap);
         requestAnimationFrame(() => { img.style.opacity = '1'; });
 
@@ -2222,7 +2213,8 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
     } else {
         // Error
-        if (skelEl) { skelEl.innerHTML = '<div style="font-size:28px">⚠️</div><div>לא הצלחתי ליצור תמונה</div>'; skelEl.style.animation='none'; }
+        if (skelEl) { skelEl.innerHTML = '<div style="font-size:28px">⚠️</div><div>לא הצלחתי ליצור תמונה</div>'; skelEl.style.cssText += 'animation:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:14px;font-weight:600;'; }
+        if (skelTxt) skelTxt.remove();
         const retryBtn = document.createElement('button');
         retryBtn.className = 'ai-act'; retryBtn.innerHTML = IC.refresh + ' נסה שוב';
         retryBtn.onclick = () => generateImage(prompt, null, imgStyle);
