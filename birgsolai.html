@@ -2401,21 +2401,6 @@ async function _typewriter(text, onChunk, step) {
 }
 
 async function callAI(messages, onChunk) {
-    // ── Primary: GitHub Models API (gpt-4o-mini) — instant, no shared queue ──
-    try {
-        const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 1, max_tokens: 2048 }),
-            signal: AbortSignal.timeout(25000)
-        });
-        if (res.ok) {
-            const j = await res.json();
-            const text = j?.choices?.[0]?.message?.content?.trim() || '';
-            if (text) { await _typewriter(text, onChunk, 6); return text; }
-        }
-    } catch(e) { /* fall through to Pollinations */ }
-
     // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
         m.content.some(c => c.type === 'image_url'));
@@ -2450,20 +2435,21 @@ async function callAI(messages, onChunk) {
         }
     }
 
-    // ── Text fallback path — POST no-stream, 2 attempts, then GET fallback ──
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // ── Text path — try fast model first, then heavier model, then GET fallback ──
+    const _models = ['openai', 'openai-large'];
+    for (const model of _models) {
         try {
             const res = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages,
-                    model: 'openai-large',
+                    model,
                     stream: false,
                     private: true,
                     seed: Math.floor(Math.random() * 99999)
                 }),
-                signal: AbortSignal.timeout(65000)
+                signal: AbortSignal.timeout(25000)
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             let full = (await res.text()).trim();
@@ -2483,11 +2469,7 @@ async function callAI(messages, onChunk) {
             return full;
 
         } catch (e) {
-            if (attempt < 1) {
-                await new Promise(r => setTimeout(r, 800)); // one quick retry
-                continue;
-            }
-            // POST attempts failed — GET fallback
+            continue; // try next model
         }
     }
 
