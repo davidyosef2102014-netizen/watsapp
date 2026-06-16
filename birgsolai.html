@@ -2830,14 +2830,15 @@ async function _liveSpeakText(text) {
         const heVoice = voices.find(v => _isHebrewVoice(v) && v.localService) ||
                         voices.find(v => _isHebrewVoice(v));
         const _voiceList = voices.map(v => v.name + ' (' + v.lang + ')').join(', ') || 'אין קולים בכלל';
+        const _transEl = document.getElementById('live-transcript');
         if (heVoice) {
             utt.voice = heVoice; utt.lang = heVoice.lang;
-            document.getElementById('live-status').textContent = 'קול: ' + heVoice.name;
+            _transEl.textContent += ' [קול: ' + heVoice.name + ']';
         } else {
             // No Hebrew TTS installed — use whatever default voice exists; skip lang so browser doesn't fail silently
             const def = voices.find(v => v.default) || voices[0];
             if (def) utt.voice = def;
-            document.getElementById('live-status').textContent = 'אין קול עברי! יש: ' + _voiceList;
+            _transEl.textContent += ' [אין קול עברי! יש: ' + _voiceList + ']';
         }
 
         let done = false;
