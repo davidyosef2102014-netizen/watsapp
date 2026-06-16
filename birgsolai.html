@@ -2389,7 +2389,33 @@ function downloadCode(btn, ext) {
 }
 
 /* ── CALL AI — robust POST with retry + GET fallback ── */
+async function _typewriter(text, onChunk, step) {
+    const words = text.split(' ');
+    let shown = '';
+    for (let i = 0; i < words.length; i++) {
+        shown += (i === 0 ? '' : ' ') + words[i];
+        onChunk(shown);
+        if (i % step === step - 1) await new Promise(r => setTimeout(r, 30));
+    }
+    onChunk(text);
+}
+
 async function callAI(messages, onChunk) {
+    // ── Primary: GitHub Models API (gpt-4o-mini) — instant, no shared queue ──
+    try {
+        const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 1, max_tokens: 2048 }),
+            signal: AbortSignal.timeout(25000)
+        });
+        if (res.ok) {
+            const j = await res.json();
+            const text = j?.choices?.[0]?.message?.content?.trim() || '';
+            if (text) { await _typewriter(text, onChunk, 6); return text; }
+        }
+    } catch(e) { /* fall through to Pollinations */ }
+
     // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
         m.content.some(c => c.type === 'image_url'));
@@ -2415,15 +2441,7 @@ async function callAI(messages, onChunk) {
                     } catch {}
                 }
                 if (!text) throw new Error('vision empty after parse');
-                // typewriter for vision too
-                const words = text.split(' ');
-                let shown = '';
-                for (let i = 0; i < words.length; i++) {
-                    shown += (i === 0 ? '' : ' ') + words[i];
-                    onChunk(shown);
-                    if (i % 8 === 7) await new Promise(r => setTimeout(r, 25));
-                }
-                onChunk(text);
+                await _typewriter(text, onChunk, 8);
                 return text;
             } catch(e) {
                 if (attempt === 1) throw e;
@@ -2432,8 +2450,8 @@ async function callAI(messages, onChunk) {
         }
     }
 
-    // ── Text path — POST no-stream, 3 attempts, then GET fallback ──
-    for (let attempt = 0; attempt < 3; attempt++) {
+    // ── Text fallback path — POST no-stream, 2 attempts, then GET fallback ──
+    for (let attempt = 0; attempt < 2; attempt++) {
         try {
             const res = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
@@ -2461,23 +2479,15 @@ async function callAI(messages, onChunk) {
             }
             if (!full) throw new Error('empty after parse');
 
-            // typewriter word-by-word
-            const words = full.split(' ');
-            let shown = '';
-            for (let i = 0; i < words.length; i++) {
-                shown += (i === 0 ? '' : ' ') + words[i];
-                onChunk(shown);
-                if (i % 6 === 5) await new Promise(r => setTimeout(r, 30));
-            }
-            onChunk(full);
+            await _typewriter(full, onChunk, 6);
             return full;
 
         } catch (e) {
-            if (attempt < 2) {
-                await new Promise(r => setTimeout(r, 1200 * (attempt + 1))); // backoff
+            if (attempt < 1) {
+                await new Promise(r => setTimeout(r, 800)); // one quick retry
                 continue;
             }
-            // All POST attempts failed — GET fallback
+            // POST attempts failed — GET fallback
         }
     }
 
