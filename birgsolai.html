@@ -2785,10 +2785,17 @@ function _liveListenOnce() {
             if (text) document.getElementById('live-transcript').textContent = '👤 ' + text;
         };
 
-        rec.onerror = () => end();
-        rec.onend   = () => end();
+        rec.onerror = (e) => {
+            console.warn('SpeechRecognition error:', e.error);
+            document.getElementById('live-transcript').textContent = '⚠️ שגיאת זיהוי קול: ' + e.error;
+            end();
+        };
+        rec.onend = () => end();
 
-        try { rec.start(); } catch(e) { resolve(''); }
+        try { rec.start(); } catch(e) {
+            document.getElementById('live-transcript').textContent = '⚠️ לא ניתן להתחיל הקלטה: ' + e.message;
+            resolve('');
+        }
     });
 }
 
