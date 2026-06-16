@@ -2766,7 +2766,7 @@ function _liveListenOnce() {
         rec.continuous = false;
         rec.maxAlternatives = 1;
 
-        let text = '', done = false;
+        let text = '', done = false, heardSound = false, resultCount = 0;
         // safety timeout: if no result after 10s, give up
         const maxTimer = setTimeout(() => end(), 10000);
 
@@ -2775,10 +2775,17 @@ function _liveListenOnce() {
             done = true;
             clearTimeout(maxTimer);
             _liveRec = null;
+            if (!text) {
+                const diag = !heardSound ? 'לא נשמע קול במיקרופון בכלל' : ('נשמע קול אך 0 תוצאות (resultCount=' + resultCount + ')');
+                document.getElementById('live-transcript').textContent = '⚠️ ' + diag;
+            }
             resolve(text);
         };
 
+        rec.onsoundstart = () => { heardSound = true; };
+        rec.onspeechstart = () => { heardSound = true; };
         rec.onresult = e => {
+            resultCount++;
             for (let i = e.resultIndex; i < e.results.length; i++) {
                 if (e.results[i].isFinal) text += e.results[i][0].transcript;
             }
