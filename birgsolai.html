@@ -289,6 +289,15 @@
         .img-skel-txt  { font-size:13px; }
         .img-skel-prog { width:160px; height:4px; background:var(--surf); border-radius:2px; overflow:hidden; }
         .img-skel-bar  { height:100%; width:0%; background:linear-gradient(to right,var(--blue),var(--purple)); border-radius:2px; transition:width .8s ease; }
+        .style-picker { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+        .style-chip {
+            display:flex; align-items:center; gap:6px;
+            background:var(--surf); border:1px solid var(--border); color:var(--text);
+            font-size:13.5px; font-weight:600; font-family:inherit; cursor:pointer;
+            padding:8px 16px; border-radius:50px; transition:background .15s, border-color .15s, transform .15s;
+        }
+        .style-chip:hover { background:var(--surf2); border-color:var(--blue); transform:translateY(-1px); }
+        .style-chip:active { transform:scale(.96); }
 
         /* action buttons (Gemini style — appear on hover) */
         .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
@@ -1217,6 +1226,8 @@
 /* ── SVG Outline Icons ── */
 const IC = {
   mic:      `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
+  camera:   `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+  sparkles: `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M5 5l2.5 2.5M16.5 16.5L19 19M3 12h4M17 12h4M5 19l2.5-2.5M16.5 7.5L19 5"/></svg>`,
   micOff:   `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
   palette:  `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
   pencil:   `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
@@ -2067,48 +2078,48 @@ function isImageRequest(q) {
     return IMG_KEYWORDS_HE.some(k => q.includes(k)) || IMG_KEYWORDS_EN.some(k => ql.includes(k));
 }
 
-// ── Product name expansion map ──
-const PRODUCT_MAP = [
-    [/\b(iphone|ipone|iphon|אייפון|אייפון)\b/i, 'Apple iPhone smartphone, sleek aluminum and glass design, premium build quality'],
-    [/\b(ipad|אייפד)\b/i, 'Apple iPad tablet, thin aluminum body, large display'],
-    [/\b(macbook|מקבוק)\b/i, 'Apple MacBook laptop, slim aluminum unibody, retina display'],
-    [/\b(airpods|אירפודס)\b/i, 'Apple AirPods wireless earbuds, white glossy finish, charging case'],
-    [/\b(apple watch|שעון אפל)\b/i, 'Apple Watch smartwatch, square display, aluminum case, sport band'],
-    [/\b(samsung galaxy|גלקסי)\b/i, 'Samsung Galaxy smartphone, modern Android design, glass back'],
-    [/\b(galaxy buds|גלקסי בודס)\b/i, 'Samsung Galaxy Buds wireless earbuds, compact bean-shaped design'],
-    [/\b(ps5|playstation 5|פלייסטיישן)\b/i, 'Sony PlayStation 5 gaming console, white futuristic design, disc drive'],
-    [/\b(xbox|אקסבוקס)\b/i, 'Microsoft Xbox Series X gaming console, black rectangular tower design'],
-    [/\b(nintendo switch|נינטנדו סוויץ)\b/i, 'Nintendo Switch gaming console, portable tablet with detachable Joy-Con controllers'],
-    [/\b(dyson|דייסון)\b/i, 'Dyson product, futuristic engineering design, premium build'],
-    [/\b(tesla|טסלה)\b/i, 'Tesla electric car, sleek aerodynamic body, minimalist design'],
-    [/\b(gopro|גופרו)\b/i, 'GoPro action camera, compact rugged waterproof body'],
-    [/\b(drone|רחפן)\b/i, 'DJI drone, quadcopter with camera gimbal, carbon fiber arms'],
-    [/\b(laptop|מחשב נייד)\b/i, 'laptop computer, slim modern design, keyboard and screen open'],
-    [/\b(headphones|אוזניות)\b/i, 'premium over-ear headphones, padded ear cups, adjustable headband'],
-    [/\b(smartwatch|שעון חכם)\b/i, 'smartwatch, square face with digital display, sport silicone band'],
-    [/\b(speaker|רמקול)\b/i, 'wireless bluetooth speaker, cylindrical design, premium finish'],
-    [/\b(keyboard|מקלדת)\b/i, 'mechanical keyboard, RGB backlit keys, compact design'],
-];
-function expandProduct(p) {
-    let out = p;
-    for (const [rx, desc] of PRODUCT_MAP) {
-        if (rx.test(out)) { out = out.replace(rx, desc); break; }
-    }
-    return out;
+/* ── Style picker: shows 4 buttons in chat, resolves with chosen style ── */
+function _askImageStyle() {
+    showChat();
+    const cw = document.getElementById('chat-window');
+    return new Promise(resolve => {
+        const styles = [
+            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'flux-realism', suffix: 'photorealistic, realistic photograph, highly detailed, sharp focus, 8k' },
+            { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors, brush strokes' },
+            { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful flat design, bold outlines' },
+            { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime illustration' },
+        ];
+        const row = document.createElement('div'); row.className = 'msg-row ai';
+        const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
+        const bodyEl = document.createElement('div'); bodyEl.className = 'ai-body';
+        const nm = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.5';
+        const txt = document.createElement('div'); txt.className = 'ai-txt'; txt.textContent = 'באיזה סגנון תרצה את התמונה?';
+        const picker = document.createElement('div'); picker.className = 'style-picker';
+        styles.forEach(s => {
+            const btn = document.createElement('button');
+            btn.className = 'style-chip'; btn.innerHTML = s.label;
+            btn.onclick = () => { row.remove(); resolve(s); };
+            picker.appendChild(btn);
+        });
+        bodyEl.appendChild(nm); bodyEl.appendChild(txt); bodyEl.appendChild(picker);
+        row.appendChild(ava); row.appendChild(bodyEl);
+        cw.appendChild(row);
+        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    });
 }
 
-async function generateImage(promptRaw, reuseRow) {
-    // Smart style detection BEFORE expansion — product shot vs. artistic scene
-    const _pl = promptRaw.toLowerCase();
-    const _PROD = ['iphone','ipad','macbook','airpods','apple watch','samsung','galaxy','ps5','playstation','xbox','nintendo','dyson','tesla','gopro','laptop','headphones','smartwatch','speaker','keyboard','tablet','camera','earbuds','watch','phone','smartphone','drone','mouse','monitor'];
-    const _isProduct = _PROD.some(k => _pl.includes(k));
-    const prompt = _isProduct ? expandProduct(promptRaw) : promptRaw;
+async function generateImage(promptRaw, reuseRow, imgStyle) {
     showChat();
     const cw = document.getElementById('chat-window');
 
+    // ── 0. Ask style first (skip if regenerating with a known style) ──
+    if (!imgStyle) imgStyle = await _askImageStyle();
+
+    const prompt = promptRaw;
+
     // ── 1. Show skeleton immediately ──
     let row = reuseRow;
-    let skelEl, skelTxt, skelBar, wrapEl, actsEl, bodyEl;
+    let skelEl, skelTxt, wrapEl, actsEl, bodyEl;
 
     if (!row) {
         row = document.createElement('div'); row.className = 'msg-row ai';
@@ -2120,12 +2131,9 @@ async function generateImage(promptRaw, reuseRow) {
         actsEl = document.createElement('div'); actsEl.className = 'ai-acts';
 
         skelEl  = document.createElement('div');  skelEl.className = 'img-skeleton';
-        skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'מתרגם לאנגלית…';
+        skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה…';
         const skelIcon = document.createElement('div'); skelIcon.className = 'img-skel-icon'; skelIcon.innerHTML = IC.palette;
-        const skelProg = document.createElement('div'); skelProg.className = 'img-skel-prog';
-        skelBar = document.createElement('div');  skelBar.className = 'img-skel-bar';
-        skelProg.appendChild(skelBar);
-        skelEl.appendChild(skelIcon); skelEl.appendChild(skelTxt); skelEl.appendChild(skelProg);
+        skelEl.appendChild(skelIcon); skelEl.appendChild(skelTxt);
         wrapEl.appendChild(skelEl);
 
         txtDiv.appendChild(wrapEl);
@@ -2138,131 +2146,59 @@ async function generateImage(promptRaw, reuseRow) {
         actsEl = row.querySelector('.ai-acts');
         skelEl  = wrapEl.querySelector('.img-skeleton');
         skelTxt = wrapEl.querySelector('.img-skel-txt');
-        skelBar = wrapEl.querySelector('.img-skel-bar');
         if (!skelEl) {
             skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
-            skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'מתרגם לאנגלית…';
+            skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה…';
             const si = document.createElement('div'); si.className='img-skel-icon'; si.innerHTML=IC.palette;
-            const sp = document.createElement('div'); sp.className='img-skel-prog';
-            skelBar = document.createElement('div'); skelBar.className='img-skel-bar';
-            sp.appendChild(skelBar); skelEl.appendChild(si); skelEl.appendChild(skelTxt); skelEl.appendChild(sp);
+            skelEl.appendChild(si); skelEl.appendChild(skelTxt);
             wrapEl.prepend(skelEl);
         }
-        skelEl.style.display = 'flex'; skelTxt.textContent = 'מתרגם לאנגלית…'; skelBar.style.width = '0%';
+        skelEl.style.display = 'flex'; skelTxt.textContent = 'יוצר תמונה…';
     }
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
-    // ── 2. Build Flux prompt — style-aware, skip translation if already English ──
-    setTimeout(() => { if (skelBar) skelBar.style.width = '30%'; }, 200);
-
-    const BG_PREFIX      = _isProduct ? 'isolated product on pure white seamless studio background, ' : '';
-    const QUALITY_SUFFIX = _isProduct
-        ? ', photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, product photography, commercial photography'
-        : ', photorealistic, ultra high quality, 8k UHD, dramatic lighting, cinematic, masterpiece, highly detailed, sharp';
-
+    // ── 2. Simple literal English translation (no Flux prompt engineering) ──
     let engPrompt = prompt;
-
-    // Detect language: if >60% of letters are ASCII → already English
     const allLetters  = (prompt.match(/\p{L}/gu) || []).length;
     const asciiLetter = (prompt.match(/[a-zA-Z]/g) || []).length;
     const alreadyEng  = allLetters === 0 || asciiLetter / allLetters > 0.6;
 
-    const _sysImg = _isProduct
-        ? `You are an expert Flux image generation prompt engineer specializing in product photography.
-Convert the image request to a detailed English Flux prompt.
-Rules:
-1. START with: "isolated product on pure white seamless studio background,"
-2. PRESERVE brand names exactly (iPhone, Tesla, Apple Watch, Samsung Galaxy, AirPods…)
-3. Add: materials, finish, color, camera angle, reflections, depth-of-field
-4. END with: "product photography, photorealistic, ultra-detailed, 8k, sharp focus, soft studio lighting, commercial photography"
-5. Output ONLY the prompt — no explanation, no quotes. Max 120 words`
-        : `You are an expert Flux image generation prompt engineer specializing in photorealistic and artistic images.
-Convert the image request to a rich English Flux prompt.
-Rules:
-1. NO forced background — let the scene be natural and immersive
-2. Expand the scene: lighting (golden hour, neon, moonlight…), atmosphere, color palette, mood, time of day
-3. Scenes/places: architecture details, weather, people if relevant, sky
-4. People/characters: appearance, expression, clothing, pose, environment
-5. Nature/landscape: terrain, vegetation, sky, water, wildlife
-6. Art/abstract: style (oil painting, watercolor, vector…), colors, composition
-7. END with: "photorealistic, ultra high quality, 8k UHD, dramatic lighting, cinematic, masterpiece, highly detailed"
-8. Output ONLY the prompt — no explanation, no quotes. Max 150 words`;
-
-    if (alreadyEng) {
-        engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
-    } else {
+    if (!alreadyEng) {
         try {
             const r = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: [
-                        { role: 'system', content: _sysImg },
-                        { role: 'user', content: `Image request: "${prompt}"` }
+                        { role: 'system', content: 'Translate the following image description to simple, literal English. Output ONLY the translation, max 20 words, no explanation, no quotes.' },
+                        { role: 'user', content: prompt }
                     ],
-                    model: 'openai-large',
+                    model: 'openai',
                     private: true
                 }),
-                signal: AbortSignal.timeout(12000)
+                signal: AbortSignal.timeout(10000)
             });
             const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
-            if (t && t.length > 8 && t.length < 800) engPrompt = t;
-            else engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX;
-        } catch { engPrompt = BG_PREFIX + prompt + QUALITY_SUFFIX; }
+            if (t && t.length > 2 && t.length < 300) engPrompt = t;
+        } catch { /* fall back to original prompt */ }
     }
 
-    if (skelTxt) skelTxt.textContent = 'מייצר תמונה…';
-    if (skelBar) skelBar.style.width = '55%';
-
-    // ── 3. Build image URL and load ──
+    // ── 3. Build Pollinations URL and load — no polling needed ──
+    const safePrompt = engPrompt.slice(0, 400);
     const seed = Math.floor(Math.random() * 999999);
-    // gptimage = DALL-E 3 quality via Pollinations; flux-realism as fallback
-    const primaryModel  = 'gptimage';
-    const fallbackModel = _isProduct ? 'flux-realism' : 'flux';
-    const _buildUrl = (model) => {
-        if (model === 'gptimage') {
-            return `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=gptimage&seed=${seed}`;
-        }
-        return `https://image.pollinations.ai/prompt/${encodeURIComponent(engPrompt)}?width=1024&height=1024&nologo=true&model=${model}&seed=${seed}&enhance=true`;
-    };
-    let imgUrl = _buildUrl(primaryModel);
-    let _usedFallback = false;
-
-    // Simulate progress (gptimage ~10-30s, flux ~20-60s)
-    let prog = 55;
-    const progIv = setInterval(() => {
-        prog = Math.min(prog + (Math.random() * 4), 90);
-        if (skelBar) skelBar.style.width = prog + '%';
-    }, 1000);
+    const styledPrompt = safePrompt + ', ' + imgStyle.suffix;
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=768&height=768&seed=${seed}&nologo=true&model=${imgStyle.model}`;
 
     const img = new Image();
-    // Try primary model; if it fails within 90s switch to fallback
-    await new Promise((resolve) => {
-        let done = false;
-        const finish = () => { if (!done) { done = true; resolve(); } };
-        const tryFallback = () => {
-            if (_usedFallback) { finish(); return; }
-            _usedFallback = true;
-            imgUrl = _buildUrl(fallbackModel);
-            if (skelTxt) skelTxt.textContent = 'מנסה מנוע חלופי…';
-            prog = 55; if (skelBar) skelBar.style.width = prog + '%';
-            img.onerror = finish;
-            img.onload = finish;
-            img.src = imgUrl;
-        };
-        img.onload = finish;
-        img.onerror = tryFallback;
+    const loaded = await new Promise((resolve) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
         img.src = imgUrl;
-        setTimeout(() => { if (!done) tryFallback(); }, 90000); // 90s timeout → fallback
+        setTimeout(() => resolve(img.naturalWidth > 0), 60000); // 60s safety timeout
     });
-    clearInterval(progIv);
-    if (skelBar) skelBar.style.width = '100%';
 
     // ── 4. Show result ──
-    await new Promise(r => setTimeout(r, 200)); // let bar finish
-
-    if (img.naturalWidth > 0) {
-        // Success
+    if (loaded && img.naturalWidth > 0) {
         img.className = 'ai-gen-img';
         img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
         const cap = document.createElement('div');
@@ -2282,14 +2218,14 @@ Rules:
         openBtn.onclick = () => window.open(imgUrl,'_blank');
         const regenBtn = document.createElement('button');
         regenBtn.className = 'ai-act'; regenBtn.innerHTML = IC.refresh + ' עוד אחת';
-        regenBtn.onclick = () => generateImage(prompt, null); // new row
+        regenBtn.onclick = () => generateImage(prompt, null, imgStyle); // same style, new row
         if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
     } else {
         // Error
         if (skelEl) { skelEl.innerHTML = '<div style="font-size:28px">⚠️</div><div>לא הצלחתי ליצור תמונה</div>'; skelEl.style.animation='none'; }
         const retryBtn = document.createElement('button');
         retryBtn.className = 'ai-act'; retryBtn.innerHTML = IC.refresh + ' נסה שוב';
-        retryBtn.onclick = () => generateImage(prompt, null);
+        retryBtn.onclick = () => generateImage(prompt, null, imgStyle);
         if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(retryBtn); }
     }
 
