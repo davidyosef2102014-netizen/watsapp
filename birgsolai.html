@@ -2762,12 +2762,12 @@ function _liveListenOnce() {
         const rec = new SR();
         _liveRec = rec;
         rec.lang = 'he-IL';
-        rec.interimResults = false; // final results only — most reliable on all devices
+        rec.interimResults = true; // Chrome sometimes never fires a final result — use interim as fallback
         rec.continuous = false;
         rec.maxAlternatives = 1;
 
-        let text = '', done = false, heardSound = false, resultCount = 0;
-        // safety timeout: if no result after 10s, give up
+        let final = '', interim = '', done = false;
+        // safety timeout: if nothing happens after 10s, give up
         const maxTimer = setTimeout(() => end(), 10000);
 
         const end = () => {
@@ -2775,26 +2775,23 @@ function _liveListenOnce() {
             done = true;
             clearTimeout(maxTimer);
             _liveRec = null;
-            if (!text) {
-                const diag = !heardSound ? 'לא נשמע קול במיקרופון בכלל' : ('נשמע קול אך 0 תוצאות (resultCount=' + resultCount + ')');
-                document.getElementById('live-transcript').textContent = '⚠️ ' + diag;
-            }
+            const text = (final || interim).trim();
+            if (!text) document.getElementById('live-transcript').textContent = '⚠️ לא הצלחתי לתפוס מה שאמרת, נסה שוב';
             resolve(text);
         };
 
-        rec.onsoundstart = () => { heardSound = true; };
-        rec.onspeechstart = () => { heardSound = true; };
         rec.onresult = e => {
-            resultCount++;
             for (let i = e.resultIndex; i < e.results.length; i++) {
-                if (e.results[i].isFinal) text += e.results[i][0].transcript;
+                if (e.results[i].isFinal) { final += e.results[i][0].transcript; interim = ''; }
+                else interim = e.results[i][0].transcript;
             }
-            if (text) document.getElementById('live-transcript').textContent = '👤 ' + text;
+            const shown = final || interim;
+            if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
         };
 
         rec.onerror = (e) => {
             console.warn('SpeechRecognition error:', e.error);
-            document.getElementById('live-transcript').textContent = '⚠️ שגיאת זיהוי קול: ' + e.error;
+            if (e.error !== 'no-speech') document.getElementById('live-transcript').textContent = '⚠️ שגיאת זיהוי קול: ' + e.error;
             end();
         };
         rec.onend = () => end();
