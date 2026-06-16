@@ -2435,42 +2435,57 @@ async function callAI(messages, onChunk) {
         }
     }
 
-    // ── Text path — try fast model first, then heavier model, then GET fallback ──
-    const _models = ['openai', 'openai-large'];
-    for (const model of _models) {
-        try {
-            const res = await fetch('https://text.pollinations.ai/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages,
-                    model,
-                    stream: false,
-                    private: true,
-                    seed: Math.floor(Math.random() * 99999)
-                }),
-                signal: AbortSignal.timeout(25000)
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            let full = (await res.text()).trim();
-            if (!full) throw new Error('empty');
-            // אם Pollinations החזיר JSON במקום טקסט — חלץ את ה-content
-            if (full.startsWith('{') || full.startsWith('[')) {
-                try {
-                    const j = JSON.parse(full);
-                    const extracted = j?.choices?.[0]?.message?.content
-                        || j?.content || j?.text || j?.response || '';
-                    if (extracted) full = extracted;
-                } catch {}
-            }
-            if (!full) throw new Error('empty after parse');
+    // ── Text path — race GitHub Models (gpt-4o-mini) against Pollinations, fastest wins ──
+    const _tryGitHub = async () => {
+        const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 1, max_tokens: 2048 }),
+            signal: AbortSignal.timeout(20000)
+        });
+        if (!res.ok) throw new Error('gh HTTP ' + res.status);
+        const j = await res.json();
+        const text = j?.choices?.[0]?.message?.content?.trim();
+        if (!text) throw new Error('gh empty');
+        return text;
+    };
+    const _tryPollinations = async (model) => {
+        const res = await fetch('https://text.pollinations.ai/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages, model, stream: false, private: true,
+                seed: Math.floor(Math.random() * 99999)
+            }),
+            signal: AbortSignal.timeout(25000)
+        });
+        if (!res.ok) throw new Error('poll HTTP ' + res.status);
+        let full = (await res.text()).trim();
+        if (!full) throw new Error('poll empty');
+        // אם Pollinations החזיר JSON במקום טקסט — חלץ את ה-content
+        if (full.startsWith('{') || full.startsWith('[')) {
+            try {
+                const j = JSON.parse(full);
+                const extracted = j?.choices?.[0]?.message?.content
+                    || j?.content || j?.text || j?.response || '';
+                if (extracted) full = extracted;
+            } catch {}
+        }
+        if (!full) throw new Error('poll empty after parse');
+        return full;
+    };
 
+    try {
+        const full = await Promise.any([_tryGitHub(), _tryPollinations('openai')]);
+        await _typewriter(full, onChunk, 6);
+        return full;
+    } catch (e) {
+        // both failed — one last try with the heavier Pollinations model
+        try {
+            const full = await _tryPollinations('openai-large');
             await _typewriter(full, onChunk, 6);
             return full;
-
-        } catch (e) {
-            continue; // try next model
-        }
+        } catch (e2) { /* fall through to GET fallback */ }
     }
 
     // ── GET fallback ──
