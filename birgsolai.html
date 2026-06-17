@@ -233,6 +233,26 @@
         .mic-btn:hover { background:var(--surf2); }
         .mic-btn.recording { background:rgba(220,50,50,.18); animation:micPulse 1s ease-in-out infinite; }
         @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(220,50,50,.5)} 50%{box-shadow:0 0 0 6px rgba(220,50,50,0)} }
+
+        /* voice pill button — inside input bar */
+        .voice-pill-btn {
+            display:inline-flex; align-items:center; gap:5px;
+            padding:6px 13px 6px 10px; border-radius:20px; flex-shrink:0;
+            background:var(--surf2); border:1px solid var(--border);
+            cursor:pointer; font-family:inherit; font-size:13px; font-weight:500;
+            color:var(--text); height:36px; white-space:nowrap; transition:all .18s;
+        }
+        .voice-pill-btn:hover { border-color:rgba(66,133,244,.45); color:var(--blue); }
+        .vpb-bars { display:flex; align-items:flex-end; gap:2.5px; height:15px; }
+        .vpb-bar {
+            width:2.5px; border-radius:2px; background:currentColor;
+            animation:lwb-wave .9s ease-in-out infinite alternate;
+            animation-delay:var(--d,0s); transform-origin:bottom;
+        }
+        .vpb-bar:nth-child(1){height:6px}
+        .vpb-bar:nth-child(2){height:12px}
+        .vpb-bar:nth-child(3){height:15px}
+        .vpb-bar:nth-child(4){height:9px}
         /* mode selector */
         .mode-row { display:flex; gap:4px; padding:4px 8px 6px; }
         .mode-pill {
@@ -1095,19 +1115,6 @@
         <button class="mode-pill" id="mode-code" onclick="setMode('code')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> קוד</button>
         <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> תמונה</button>
     </div>
-    <div class="live-chip-row">
-        <button class="live-wave-btn" onclick="startLive()">
-            <span class="lwb-bars">
-                <span class="lwb-bar" style="--d:0s"></span>
-                <span class="lwb-bar" style="--d:.13s"></span>
-                <span class="lwb-bar" style="--d:.26s"></span>
-                <span class="lwb-bar" style="--d:.13s"></span>
-                <span class="lwb-bar" style="--d:0s"></span>
-            </span>
-            <span class="lwb-label">מצב לייב</span>
-            <span class="lwb-live-dot"></span>
-        </button>
-    </div>
     <div class="sb-sect-label">שיחות</div>
     <div class="sb-body" id="hist-list">
         <div class="hist-item" style="color:var(--muted);font-style:italic;font-size:13px;">אין שיחות עדיין...</div>
@@ -1197,6 +1204,15 @@
                     <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלטת קול"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
                     <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></button>
                     <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
+                    <button class="voice-pill-btn" id="voicePillBtn" onclick="startLive()">
+                        <span class="vpb-bars">
+                            <span class="vpb-bar" style="--d:0s"></span>
+                            <span class="vpb-bar" style="--d:.12s"></span>
+                            <span class="vpb-bar" style="--d:.24s"></span>
+                            <span class="vpb-bar" style="--d:.12s"></span>
+                        </span>
+                        <span>לייב</span>
+                    </button>
                 </div>
             </div>
             <div class="foot-note">Birgsol AI עשוי לטעות. בדוק מידע חשוב.</div>
@@ -1913,6 +1929,8 @@ function autoResize(el) {
 function updateBtn() {
     const has = document.getElementById('userInput').value.trim() || fileUrl;
     document.getElementById('sendBtn').classList.toggle('on', !!has);
+    const vpb = document.getElementById('voicePillBtn');
+    if (vpb) vpb.style.display = has ? 'none' : '';
 }
 function handleKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
