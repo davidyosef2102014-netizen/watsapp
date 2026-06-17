@@ -511,6 +511,14 @@
         .conv-item.active { background:rgba(138,180,248,.12); }
         .conv-item .ci-icon { flex-shrink:0; font-size:15px; }
         .conv-item .ci-title { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+        .ci-del {
+            opacity:0; transition:opacity .15s; flex-shrink:0;
+            background:none; border:none; cursor:pointer;
+            color:var(--muted); padding:3px 6px; border-radius:6px;
+            font-size:13px; line-height:1; font-family:inherit;
+        }
+        .conv-item:hover .ci-del { opacity:1; }
+        .ci-del:hover { color:#ff8a80; background:rgba(220,50,50,.1); }
 
         /* ══════════════ FREE BANNER ══════════════ */
         #free-banner {
@@ -782,69 +790,14 @@
             -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
         .live-header-info { font-size:11px; color:rgba(255,255,255,.4); border-right:1px solid rgba(255,255,255,.15); padding-right:10px; margin-right:4px; }
 
-        /* Orb container */
-        .live-orb-wrap { position:relative; width:240px; height:240px; display:flex; align-items:center; justify-content:center; z-index:1; }
-
-        /* Ripple rings — softer, more numerous, organic */
-        .live-ring {
-            position:absolute; border-radius:50%; pointer-events:none;
-            border:1px solid rgba(180,200,255,.18);
-            animation:liveRingPulse 3s ease-out infinite;
-        }
-        .live-ring:nth-child(1){width:170px;height:170px;animation-delay:0s}
-        .live-ring:nth-child(2){width:200px;height:200px;animation-delay:.7s;opacity:.7}
-        .live-ring:nth-child(3){width:230px;height:230px;animation-delay:1.4s;opacity:.4}
-        @keyframes liveRingPulse{0%{transform:scale(.88);opacity:.7}100%{transform:scale(1.25);opacity:0}}
-
-        /* Main orb — soft blurred multi-layer glow, gently morphing like a liquid blob */
-        .live-orb {
-            width:148px; height:148px; border-radius:50%; position:relative; z-index:1; cursor:pointer;
+        /* Flowing wave — replaces old orb */
+        .live-wave-wrap {
+            position:relative; z-index:1;
+            width:380px; max-width:90vw; height:160px;
+            cursor:pointer;
             display:flex; align-items:center; justify-content:center;
-            transition:box-shadow .5s ease, background .5s ease;
-            animation: orbMorph 8s ease-in-out infinite;
         }
-        .live-orb::before {
-            content:''; position:absolute; inset:-10px; border-radius:50%;
-            background:inherit; filter:blur(26px); opacity:.65; z-index:0;
-        }
-        .live-orb::after {
-            content:''; position:absolute; inset:10px; border-radius:50%;
-            background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.55) 0%, transparent 55%);
-            z-index:1; pointer-events:none;
-        }
-        .live-orb .live-orb-icon { position:relative; z-index:2; font-size:50px; filter:drop-shadow(0 2px 8px rgba(0,0,0,.25)); }
-        @keyframes orbMorph {
-            0%,100% { border-radius:50%; }
-            25%     { border-radius:46% 54% 52% 48%; }
-            50%     { border-radius:54% 46% 48% 52%; }
-            75%     { border-radius:48% 52% 54% 46%; }
-        }
-
-        /* State-based orb styles — softer pastel Gemini-like gradients */
-        .live-orb.idle     { background:linear-gradient(135deg,#5b8def,#a78bfa,#e0a8f5); box-shadow:0 0 70px rgba(91,141,239,.4),0 0 36px rgba(167,139,250,.28); animation:orbMorph 8s ease-in-out infinite, orbIdle 4s ease-in-out infinite; }
-        .live-orb.listening{ background:linear-gradient(135deg,#3b82f6,#5b8def,#60a5fa); box-shadow:0 0 100px rgba(59,130,246,.7),0 0 55px rgba(59,130,246,.4); animation:orbMorph 4s ease-in-out infinite, orbListen 1s ease-in-out infinite; }
-        .live-orb.thinking { background:linear-gradient(135deg,#a78bfa,#e0a8f5,#c084fc); box-shadow:0 0 80px rgba(192,132,252,.6),0 0 44px rgba(224,168,245,.35); animation:orbMorph 2.2s ease-in-out infinite, orbThink 2.4s linear infinite; }
-        .live-orb.speaking { background:linear-gradient(135deg,#34d399,#5eead4,#5b8def); box-shadow:0 0 100px rgba(52,211,153,.6),0 0 55px rgba(52,211,153,.35); animation:orbMorph 3s ease-in-out infinite, orbSpeak .8s ease-in-out infinite; }
-
-        @keyframes orbIdle    {0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
-        @keyframes orbListen  {0%,100%{transform:scale(1)}50%{transform:scale(1.09)}}
-        @keyframes orbThink   {0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(360deg)}}
-        @keyframes orbSpeak   {0%,100%{transform:scale(1)}25%{transform:scale(1.08)}75%{transform:scale(.96)}}
-
-        /* Sound bars (listening) — more bars, smoother wave feel */
-        .live-bars { display:flex; align-items:center; justify-content:center; gap:4px; height:40px; opacity:0; transition:opacity .3s; z-index:1; }
-        .live-bars.on { opacity:1; }
-        .live-bar { width:4px; border-radius:4px; background:linear-gradient(to top,#5b8def,#a78bfa); animation:barBounce 1.2s ease-in-out infinite; }
-        .live-bar:nth-child(1){height:10px;animation-delay:0s}
-        .live-bar:nth-child(2){height:22px;animation-delay:.08s}
-        .live-bar:nth-child(3){height:16px;animation-delay:.16s}
-        .live-bar:nth-child(4){height:32px;animation-delay:.24s}
-        .live-bar:nth-child(5){height:38px;animation-delay:.32s}
-        .live-bar:nth-child(6){height:30px;animation-delay:.4s}
-        .live-bar:nth-child(7){height:20px;animation-delay:.48s}
-        .live-bar:nth-child(8){height:26px;animation-delay:.56s}
-        .live-bar:nth-child(9){height:14px;animation-delay:.64s}
-        @keyframes barBounce{0%,100%{transform:scaleY(.35);opacity:.55}50%{transform:scaleY(1.7);opacity:1}}
+        #live-wave-canvas { width:100%; height:100%; display:block; }
 
         .live-status { font-size:1.15rem; font-weight:600; color:rgba(255,255,255,.85); letter-spacing:.3px; min-height:28px; text-align:center; z-index:1; }
         .live-transcript {
@@ -1115,20 +1068,10 @@
         <span class="live-header-name">BIRGSOL AI 3.5</span>
         <span class="live-header-info">GPT-4o · עדכון אפריל 2024 · 🌐 אינטרנט</span>
     </div>
-    <div class="live-orb-wrap">
-        <div class="live-ring"></div>
-        <div class="live-ring"></div>
-        <div class="live-ring"></div>
-        <div class="live-orb idle" id="live-orb">
-            <span class="live-orb-icon" id="live-orb-icon">✦</span>
-        </div>
+    <div class="live-wave-wrap" id="live-wave-wrap">
+        <canvas id="live-wave-canvas" width="380" height="150"></canvas>
     </div>
-    <div class="live-bars" id="live-bars">
-        <div class="live-bar"></div><div class="live-bar"></div><div class="live-bar"></div>
-        <div class="live-bar"></div><div class="live-bar"></div><div class="live-bar"></div>
-        <div class="live-bar"></div><div class="live-bar"></div><div class="live-bar"></div>
-    </div>
-    <div class="live-status" id="live-status">לחץ על הכדור להתחלה</div>
+    <div class="live-status" id="live-status">לחץ על הגל להתחלה</div>
     <div class="live-transcript" id="live-transcript">BIRGSOL AI 3.5 מוכן לשיחה קולית</div>
     <div class="live-controls">
         <button class="live-mute-btn" id="live-mute-btn" onclick="toggleLiveMute()" title="השתק מיקרופון"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
@@ -1179,7 +1122,7 @@
         <div class="tb-left">
             <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="החלף ערכת נושא"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button>
             <span class="ver-pill">3.5</span>
-            <div class="user-chip" onclick="openPremiumModal()" id="user-chip">
+            <div class="user-chip" id="user-chip">
                 <div class="user-dot" id="user-dot">?</div>
                 <span id="user-label">—</span>
             </div>
@@ -1222,10 +1165,7 @@
     <div class="input-area">
         <div class="input-wrap">
             <!-- Free tier banner -->
-            <div id="free-banner" style="display:none">
-                <div class="banner-txt">נותרו לך <strong id="msgs-left">150</strong> הודעות חינמיות · שדרג לפרמיום ✦</div>
-                <button class="premium-btn" onclick="openPremiumModal()">שדרג עכשיו</button>
-            </div>
+            <div id="free-banner" style="display:none"></div>
 
             <div id="img-prev">
                 <div style="position:relative">
@@ -1236,8 +1176,8 @@
             </div>
             <div class="pill">
                 <div class="pill-inner">
-                    <button class="p-btn" onclick="document.getElementById('fi').click()" title="צרף תמונה">＋</button>
-                    <input type="file" id="fi" hidden accept="image/*" onchange="previewFile()">
+                    <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
+                    <input type="file" id="fi" style="display:none" accept="image/*" onchange="previewFile()">
                     <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
@@ -1309,8 +1249,17 @@ function renderConvList() {
         <div class="conv-item ${c.id === currentConvId ? 'active' : ''}" onclick="openConversation('${c.id}')">
             <span class="ci-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
             <span class="ci-title">${escHtml(c.title || 'שיחה')}</span>
+            <button class="ci-del" onclick="event.stopPropagation();deleteConversation('${c.id}')" title="מחק שיחה">✕</button>
         </div>
     `).join('');
+}
+
+async function deleteConversation(convId) {
+    convList = convList.filter(c => c.id !== convId);
+    if (currentConvId === convId) startNew();
+    localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
+    renderConvList();
+    ghWrite('db/ai_convs/' + currentUser + '.json', convList).catch(() => {});
 }
 
 function escHtml(s) {
@@ -1540,7 +1489,7 @@ function updateUserChip() {
         chip.onclick = null; chip.style.cursor = 'default';
     } else {
         label.innerHTML = currentUser;
-        chip.onclick = openPricingModal; chip.style.cursor = 'pointer';
+        chip.onclick = null; chip.style.cursor = 'default';
     }
 }
 function updateFreeBanner() {
@@ -1549,20 +1498,11 @@ function updateFreeBanner() {
     if (banner) banner.style.display = 'none';
 }
 
-/* ── pricing modal ── */
-function openPricingModal() {
-    if (!currentUser || isPremium) return;
-    document.getElementById('pm-uname').textContent = currentUser;
-    const balEl = document.getElementById('pm-bal');
-    if (balEl) { const row = balEl.closest('.pm-bal-row, .pm-row, p, div'); if (row && row !== balEl) row.remove(); else balEl.textContent = ''; }
-    document.getElementById('pricing-modal').classList.add('on');
-}
-function closePricingModal() {
-    document.getElementById('pricing-modal').classList.remove('on');
-}
-/* backward-compat aliases */
-function openPremiumModal() { openPricingModal(); }
-function closePremiumModal() { closePricingModal(); }
+/* ── pricing modal — disabled ── */
+function openPricingModal()  {}
+function closePricingModal() {}
+function openPremiumModal()  {}
+function closePremiumModal() {}
 
 /* ── purchase tier ── */
 function doPurchaseTier(tierId) {
@@ -2708,26 +2648,53 @@ let _liveRec     = null;
 let _liveBusy    = false;
 let _liveStopped = false;
 
+/* ══ WAVE ANIMATION ══ */
+let _waveState = 'idle', _waveAnimId = null, _waveT = 0;
+const _waveCfg = {
+    idle:      { amp:14, speed:0.7,  waves:[[0,'#5b8def',.70],[1.3,'#a78bfa',.44],[2.5,'#c084fc',.22]] },
+    listening: { amp:44, speed:3.0,  waves:[[0,'#3b82f6',.82],[0.9,'#60a5fa',.52],[1.8,'#93c5fd',.28]] },
+    thinking:  { amp:22, speed:1.55, waves:[[0,'#a78bfa',.76],[1.1,'#e0a8f5',.48],[2.2,'#c084fc',.24]] },
+    speaking:  { amp:52, speed:4.6,  waves:[[0,'#34d399',.82],[0.8,'#5eead4',.54],[1.6,'#6ee7b7',.28]] },
+};
+function _waveFrame() {
+    _waveT += 0.018;
+    const cv = document.getElementById('live-wave-canvas');
+    if (!cv) { _waveAnimId = null; return; }
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    const cfg = _waveCfg[_waveState] || _waveCfg.idle;
+    cfg.waves.forEach(([ph, color, alpha]) => {
+        ctx.beginPath();
+        for (let x = 0; x <= W; x++) {
+            const y = H/2 + cfg.amp * Math.sin((x/W)*Math.PI*3 + _waveT*cfg.speed + ph);
+            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        const g = ctx.createLinearGradient(0,0,W,0);
+        g.addColorStop(0,   'rgba(0,0,0,0)');
+        g.addColorStop(0.1, color);
+        g.addColorStop(0.9, color);
+        g.addColorStop(1,   'rgba(0,0,0,0)');
+        ctx.strokeStyle = g;
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = alpha;
+        ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+    _waveAnimId = requestAnimationFrame(_waveFrame);
+}
+function _startWave() { if (!_waveAnimId) _waveFrame(); }
+function _stopWave()  { if (_waveAnimId) { cancelAnimationFrame(_waveAnimId); _waveAnimId = null; } }
+
 function _setLiveState(state) {
-    const orb    = document.getElementById('live-orb');
-    const icon   = document.getElementById('live-orb-icon');
+    _waveState = state;
     const status = document.getElementById('live-status');
-    const bars   = document.getElementById('live-bars');
     const trans  = document.getElementById('live-transcript');
-    orb.className = 'live-orb ' + state;
-    bars.classList.remove('on');
     trans.classList.remove('ai-speaking');
-    if (state === 'idle') {
-        icon.textContent = '✦'; status.textContent = 'לחץ על הכדור להתחלה';
-    } else if (state === 'listening') {
-        icon.textContent = '🎤'; status.textContent = 'מקשיב…';
-        bars.classList.add('on');
-    } else if (state === 'thinking') {
-        icon.textContent = '✦'; status.textContent = 'חושב…';
-    } else if (state === 'speaking') {
-        icon.textContent = '🔊'; status.textContent = 'מדבר…';
-        trans.classList.add('ai-speaking');
-    }
+    if (state === 'idle')      { status.textContent = 'לחץ על הגל להתחלה'; }
+    else if (state === 'listening') { status.textContent = 'מקשיב…'; }
+    else if (state === 'thinking')  { status.textContent = 'חושב…'; }
+    else if (state === 'speaking')  { status.textContent = 'מדבר…'; trans.classList.add('ai-speaking'); }
 }
 
 function startLive() {
@@ -2741,7 +2708,8 @@ function startLive() {
     document.getElementById('live-mute-btn').classList.remove('muted');
     document.getElementById('live-mute-btn').innerHTML = IC.mic;
     _setLiveState('idle');
-    document.getElementById('live-orb').onclick = () => {
+    _startWave();
+    document.getElementById('live-wave-wrap').onclick = () => {
         if (!_liveBusy && _liveActive) _liveLoop();
     };
     setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 800);
@@ -2753,6 +2721,7 @@ function endLive() {
     window.speechSynthesis.cancel();
     document.getElementById('live-overlay').classList.remove('on');
     _setLiveState('idle');
+    _stopWave();
 }
 
 function toggleLiveMute() {
@@ -2923,10 +2892,9 @@ async function _liveSpeakText(text) {
     });
 }
 
-// Also allow clicking orb to start after first time
 document.addEventListener('DOMContentLoaded', () => {
-    const orb = document.getElementById('live-orb');
-    if (orb) orb.onclick = () => { if (_liveActive && !_liveBusy) _liveLoop(); };
+    const ww = document.getElementById('live-wave-wrap');
+    if (ww) ww.onclick = () => { if (_liveActive && !_liveBusy) _liveLoop(); };
 });
 </script>
 </body>
