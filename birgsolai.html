@@ -234,25 +234,27 @@
         .mic-btn.recording { background:rgba(220,50,50,.18); animation:micPulse 1s ease-in-out infinite; }
         @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(220,50,50,.5)} 50%{box-shadow:0 0 0 6px rgba(220,50,50,0)} }
 
-        /* voice pill button — inside input bar */
+        /* voice pill button — inside input bar (ChatGPT style) */
         .voice-pill-btn {
-            display:inline-flex; align-items:center; gap:5px;
-            padding:6px 13px 6px 10px; border-radius:20px; flex-shrink:0;
-            background:var(--surf2); border:1px solid var(--border);
-            cursor:pointer; font-family:inherit; font-size:13px; font-weight:500;
-            color:var(--text); height:36px; white-space:nowrap; transition:all .18s;
+            display:inline-flex; align-items:center; gap:4px;
+            padding:5px 10px 5px 8px; border-radius:20px; flex-shrink:0;
+            background:rgba(0,0,0,.06); border:none;
+            cursor:pointer; font-family:inherit; font-size:13px; font-weight:400;
+            color:var(--text); height:32px; white-space:nowrap; transition:background .15s;
         }
-        .voice-pill-btn:hover { border-color:rgba(66,133,244,.45); color:var(--blue); }
-        .vpb-bars { display:flex; align-items:flex-end; gap:2.5px; height:15px; }
+        .voice-pill-btn:hover { background:rgba(0,0,0,.1); }
+        [data-theme="dark"] .voice-pill-btn { background:rgba(255,255,255,.1); }
+        [data-theme="dark"] .voice-pill-btn:hover { background:rgba(255,255,255,.16); }
+        .vpb-bars { display:flex; align-items:flex-end; gap:2px; height:14px; }
         .vpb-bar {
-            width:2.5px; border-radius:2px; background:currentColor;
+            width:2px; border-radius:2px; background:currentColor;
             animation:lwb-wave .9s ease-in-out infinite alternate;
             animation-delay:var(--d,0s); transform-origin:bottom;
         }
-        .vpb-bar:nth-child(1){height:6px}
-        .vpb-bar:nth-child(2){height:12px}
-        .vpb-bar:nth-child(3){height:15px}
-        .vpb-bar:nth-child(4){height:9px}
+        .vpb-bar:nth-child(1){height:5px}
+        .vpb-bar:nth-child(2){height:10px}
+        .vpb-bar:nth-child(3){height:14px}
+        .vpb-bar:nth-child(4){height:8px}
         /* mode selector */
         .mode-row { display:flex; gap:4px; padding:4px 8px 6px; }
         .mode-pill {
