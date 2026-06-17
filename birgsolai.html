@@ -756,25 +756,11 @@
             display:none; position:fixed; inset:0; z-index:9998;
             background:#0b0b14;
             flex-direction:column; align-items:center; justify-content:center; gap:34px;
-            overflow:hidden; padding-bottom:60px;
+            overflow:hidden;
         }
         #live-overlay.on { display:flex; }
 
-        /* Soft drifting aurora blobs in the background, Gemini-style */
-        .live-aurora {
-            position:absolute; inset:0; pointer-events:none; z-index:0;
-            background:
-                radial-gradient(ellipse 50% 40% at 20% 25%, rgba(66,133,244,.30) 0%, transparent 70%),
-                radial-gradient(ellipse 45% 38% at 80% 30%, rgba(197,138,249,.26) 0%, transparent 70%),
-                radial-gradient(ellipse 50% 45% at 50% 85%, rgba(52,211,153,.16) 0%, transparent 70%);
-            animation: liveAuroraDrift 14s ease-in-out infinite;
-            filter: blur(10px);
-        }
-        @keyframes liveAuroraDrift {
-            0%,100% { transform: translate(0,0) scale(1); }
-            33%     { transform: translate(3%,-4%) scale(1.08); }
-            66%     { transform: translate(-3%,3%) scale(0.96); }
-        }
+        /* aurora replaced by canvas glow */
 
         .live-header {
             position:absolute; top:22px; left:50%; transform:translateX(-50%); z-index:2;
@@ -790,12 +776,11 @@
             -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
         .live-header-info { font-size:11px; color:rgba(255,255,255,.4); border-right:1px solid rgba(255,255,255,.15); padding-right:10px; margin-right:4px; }
 
-        /* Flowing wave — fixed at bottom of live overlay */
-        .live-wave-wrap {
-            position:absolute; bottom:0; left:0; right:0; z-index:1;
-            height:110px; cursor:pointer;
+        /* Full-screen glow canvas — replaces aurora + wave */
+        #live-glow-canvas {
+            position:absolute; inset:0; z-index:0;
+            width:100%; height:100%; cursor:pointer;
         }
-        #live-wave-canvas { width:100%; height:100%; display:block; }
 
         .live-status { font-size:1.15rem; font-weight:600; color:rgba(255,255,255,.85); letter-spacing:.3px; min-height:28px; text-align:center; z-index:1; }
         .live-transcript {
@@ -1060,16 +1045,13 @@
 
 <!-- ══ LIVE VOICE OVERLAY ══ -->
 <div id="live-overlay">
-    <div class="live-aurora"></div>
+    <canvas id="live-glow-canvas"></canvas>
     <div class="live-header">
         <span class="live-header-logo">✦</span>
         <span class="live-header-name">BIRGSOL AI 3.5</span>
         <span class="live-header-info">GPT-4o · עדכון אפריל 2024 · 🌐 אינטרנט</span>
     </div>
-    <div class="live-wave-wrap" id="live-wave-wrap">
-        <canvas id="live-wave-canvas" width="800" height="110"></canvas>
-    </div>
-    <div class="live-status" id="live-status">לחץ על הגל להתחלה</div>
+    <div class="live-status" id="live-status">לחץ להתחלה</div>
     <div class="live-transcript" id="live-transcript">BIRGSOL AI 3.5 מוכן לשיחה קולית</div>
     <div class="live-controls">
         <button class="live-mute-btn" id="live-mute-btn" onclick="toggleLiveMute()" title="השתק מיקרופון"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
@@ -2659,39 +2641,37 @@ let _liveRec     = null;
 let _liveBusy    = false;
 let _liveStopped = false;
 
-/* ══ WAVE ANIMATION ══ */
+/* ══ GLOW ANIMATION (phone-call style ambient light) ══ */
 let _waveState = 'idle', _waveAnimId = null, _waveT = 0;
-const _waveCfg = {
-    idle:      { amp:14, speed:0.7,  waves:[[0,'#5b8def',.70],[1.3,'#a78bfa',.44],[2.5,'#c084fc',.22]] },
-    listening: { amp:44, speed:3.0,  waves:[[0,'#3b82f6',.82],[0.9,'#60a5fa',.52],[1.8,'#93c5fd',.28]] },
-    thinking:  { amp:22, speed:1.55, waves:[[0,'#a78bfa',.76],[1.1,'#e0a8f5',.48],[2.2,'#c084fc',.24]] },
-    speaking:  { amp:52, speed:4.6,  waves:[[0,'#34d399',.82],[0.8,'#5eead4',.54],[1.6,'#6ee7b7',.28]] },
+const _glowCfg = {
+    idle:      { blobs:[[0.5,0.62,0.55,[59,130,246],0.38],[0.48,0.68,0.38,[99,102,241],0.22]], speed:0.55 },
+    listening: { blobs:[[0.5,0.60,0.65,[37,99,235],0.55],[0.5,0.70,0.45,[96,165,250],0.35]], speed:1.4 },
+    thinking:  { blobs:[[0.5,0.62,0.55,[124,58,237],0.48],[0.5,0.68,0.40,[167,139,250],0.28]], speed:0.9 },
+    speaking:  { blobs:[[0.5,0.58,0.65,[16,185,129],0.55],[0.5,0.70,0.45,[52,211,153],0.32]], speed:2.2 },
 };
 function _waveFrame() {
-    _waveT += 0.018;
-    const cv = document.getElementById('live-wave-canvas');
+    _waveT += 0.016;
+    const cv = document.getElementById('live-glow-canvas');
     if (!cv) { _waveAnimId = null; return; }
+    cv.width  = cv.offsetWidth  || window.innerWidth;
+    cv.height = cv.offsetHeight || window.innerHeight;
     const ctx = cv.getContext('2d');
     const W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
-    const cfg = _waveCfg[_waveState] || _waveCfg.idle;
-    cfg.waves.forEach(([ph, color, alpha]) => {
-        ctx.beginPath();
-        for (let x = 0; x <= W; x++) {
-            const y = H/2 + cfg.amp * Math.sin((x/W)*Math.PI*3 + _waveT*cfg.speed + ph);
-            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        const g = ctx.createLinearGradient(0,0,W,0);
-        g.addColorStop(0,   'rgba(0,0,0,0)');
-        g.addColorStop(0.1, color);
-        g.addColorStop(0.9, color);
-        g.addColorStop(1,   'rgba(0,0,0,0)');
-        ctx.strokeStyle = g;
-        ctx.lineWidth = 3;
-        ctx.globalAlpha = alpha;
-        ctx.stroke();
+    const cfg = _glowCfg[_waveState] || _glowCfg.idle;
+    const pulse = 1 + Math.sin(_waveT * cfg.speed) * 0.12;
+    cfg.blobs.forEach(([bx, by, br, [r,g,b], alpha], i) => {
+        const drift = Math.sin(_waveT * cfg.speed * 0.7 + i) * 0.04;
+        const cx = W * (bx + drift);
+        const cy = H * (by + Math.cos(_waveT * cfg.speed * 0.5 + i) * 0.03);
+        const radius = Math.min(W, H) * br * pulse;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        grad.addColorStop(0,   `rgba(${r},${g},${b},${alpha})`);
+        grad.addColorStop(0.5, `rgba(${r},${g},${b},${alpha * 0.4})`);
+        grad.addColorStop(1,   `rgba(${r},${g},${b},0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
     });
-    ctx.globalAlpha = 1;
     _waveAnimId = requestAnimationFrame(_waveFrame);
 }
 function _startWave() { if (!_waveAnimId) _waveFrame(); }
@@ -2720,7 +2700,7 @@ function startLive() {
     document.getElementById('live-mute-btn').innerHTML = IC.mic;
     _setLiveState('idle');
     _startWave();
-    document.getElementById('live-wave-wrap').onclick = () => {
+    document.getElementById('live-glow-canvas').onclick = () => {
         if (!_liveBusy && _liveActive) _liveLoop();
     };
     setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 800);
@@ -2904,7 +2884,7 @@ async function _liveSpeakText(text) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const ww = document.getElementById('live-wave-wrap');
+    const ww = document.getElementById('live-glow-canvas');
     if (ww) ww.onclick = () => { if (_liveActive && !_liveBusy) _liveLoop(); };
 });
 </script>
