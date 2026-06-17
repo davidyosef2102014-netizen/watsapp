@@ -2653,8 +2653,9 @@ function _waveFrame() {
     _waveT += 0.016;
     const cv = document.getElementById('live-glow-canvas');
     if (!cv) { _waveAnimId = null; return; }
-    cv.width  = cv.offsetWidth  || window.innerWidth;
-    cv.height = cv.offsetHeight || window.innerHeight;
+    const nw = cv.offsetWidth || window.innerWidth;
+    const nh = cv.offsetHeight || window.innerHeight;
+    if (cv.width !== nw || cv.height !== nh) { cv.width = nw; cv.height = nh; }
     const ctx = cv.getContext('2d');
     const W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
@@ -2730,7 +2731,15 @@ async function _liveLoop() {
     // ── 1. Listen ──
     const transcript = await _liveListenOnce();
     if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
-    if (!transcript.trim()) { _liveBusy = false; _setLiveState('idle'); return; }
+    if (!transcript.trim()) {
+        _liveBusy = false;
+        if (_liveActive && !_liveStopped && !_liveMuted) {
+            setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 600);
+        } else {
+            _setLiveState('idle');
+        }
+        return;
+    }
 
     document.getElementById('live-transcript').textContent = '👤 ' + transcript;
 
