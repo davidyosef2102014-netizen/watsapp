@@ -1165,7 +1165,10 @@
     <div class="input-area">
         <div class="input-wrap">
             <!-- Free tier banner -->
-            <div id="free-banner" style="display:none"></div>
+            <div id="free-banner" style="display:none">
+                <div class="banner-txt">נותרו לך <strong id="msgs-left">150</strong> הודעות חינמיות · שדרג לפרמיום ✦</div>
+                <button class="premium-btn" onclick="openPremiumModal()">שדרג עכשיו</button>
+            </div>
 
             <div id="img-prev">
                 <div style="position:relative">
@@ -1489,7 +1492,7 @@ function updateUserChip() {
         chip.onclick = null; chip.style.cursor = 'default';
     } else {
         label.innerHTML = currentUser;
-        chip.onclick = null; chip.style.cursor = 'default';
+        chip.onclick = openPricingModal; chip.style.cursor = 'pointer';
     }
 }
 function updateFreeBanner() {
@@ -1498,11 +1501,20 @@ function updateFreeBanner() {
     if (banner) banner.style.display = 'none';
 }
 
-/* ── pricing modal — disabled ── */
-function openPricingModal()  {}
-function closePricingModal() {}
-function openPremiumModal()  {}
-function closePremiumModal() {}
+/* ── pricing modal ── */
+function openPricingModal() {
+    if (!currentUser || isPremium) return;
+    const unEl = document.getElementById('pm-uname');
+    if (unEl) unEl.textContent = currentUser;
+    const balEl = document.getElementById('pm-bal');
+    if (balEl) { const row = balEl.closest('.pm-bal-row, .pm-row, p, div'); if (row && row !== balEl) row.remove(); else balEl.textContent = ''; }
+    document.getElementById('pricing-modal').classList.add('on');
+}
+function closePricingModal() {
+    document.getElementById('pricing-modal').classList.remove('on');
+}
+function openPremiumModal()  { openPricingModal(); }
+function closePremiumModal() { closePricingModal(); }
 
 /* ── purchase tier ── */
 function doPurchaseTier(tierId) {
