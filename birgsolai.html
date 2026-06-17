@@ -243,17 +243,38 @@
         .mode-pill.active { background:var(--surf2); color:var(--text); font-weight:600; }
         .mode-pill:hover:not(.active) { background:rgba(0,0,0,.05); color:var(--text); }
 
-        /* live chip */
-        .live-chip-row { padding:2px 8px 10px; }
-        .live-chip {
-            display:inline-flex; align-items:center; gap:5px;
-            padding:4px 11px 4px 8px; border-radius:20px; cursor:pointer;
-            background:rgba(66,133,244,.08); border:1px solid rgba(66,133,244,.2);
-            color:var(--blue); font-size:11px; font-weight:600;
-            font-family:inherit; transition:all .15s;
+        /* live wave button */
+        .live-chip-row { padding:4px 10px 12px; }
+        .live-wave-btn {
+            display:flex; align-items:center; gap:10px;
+            padding:11px 16px; border-radius:14px; cursor:pointer; width:100%;
+            background:linear-gradient(135deg,#0d0d1f 0%,#13132b 100%);
+            border:1px solid rgba(99,102,241,.4);
+            color:white; font-size:13px; font-weight:600;
+            font-family:inherit; transition:all .22s;
+            box-shadow:0 2px 14px rgba(99,102,241,.18), inset 0 1px 0 rgba(255,255,255,.06);
         }
-        .live-chip:hover { background:rgba(66,133,244,.15); border-color:rgba(66,133,244,.4); color:#2a6dd9; }
-        .live-chip-dot { width:5px; height:5px; border-radius:50%; background:#34d399; animation:pulse 2s infinite; flex-shrink:0; }
+        .live-wave-btn:hover {
+            border-color:rgba(99,102,241,.75);
+            box-shadow:0 4px 22px rgba(99,102,241,.35);
+            transform:translateY(-1px);
+        }
+        .lwb-bars { display:flex; align-items:flex-end; gap:3px; height:20px; flex-shrink:0; }
+        .lwb-bar {
+            width:3px; border-radius:3px;
+            background:linear-gradient(to top,#6366f1,#60a5fa);
+            animation:lwb-wave .9s ease-in-out infinite alternate;
+            animation-delay:var(--d,0s);
+            transform-origin:bottom;
+        }
+        .lwb-bar:nth-child(1){height:7px}
+        .lwb-bar:nth-child(2){height:13px}
+        .lwb-bar:nth-child(3){height:20px}
+        .lwb-bar:nth-child(4){height:13px}
+        .lwb-bar:nth-child(5){height:7px}
+        @keyframes lwb-wave { from{transform:scaleY(.3)} to{transform:scaleY(1)} }
+        .lwb-label { flex:1; text-align:right; }
+        .lwb-live-dot { width:6px; height:6px; border-radius:50%; background:#34d399; animation:pulse 2s infinite; flex-shrink:0; }
 
         /* sidebar labels & footer */
         .sb-sect-label { font-size:10.5px; color:var(--muted); padding:10px 16px 4px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; opacity:.5; }
@@ -718,8 +739,7 @@
         [data-theme="dark"] #sidebar { border-left: 1px solid rgba(255,255,255,.08); }
         [data-theme="dark"] .sug-card { background: #1E1F20; }
         [data-theme="dark"] .sug-card:hover { border-color: rgba(138,180,248,.45); background: rgba(138,180,248,.05); }
-        [data-theme="dark"] .live-chip { color: rgba(255,255,255,.55); border-color: rgba(138,180,248,.2); }
-        [data-theme="dark"] .live-chip:hover { color: rgba(255,255,255,.9); border-color: rgba(138,180,248,.45); }
+        [data-theme="dark"] .live-wave-btn { background:linear-gradient(135deg,#0a0a1a 0%,#10102a 100%); }
         [data-theme="dark"] .icon-btn:hover { background: #28292B; }
         [data-theme="dark"] .g-user-chip .g-logout:hover { background: rgba(255,255,255,.08); }
         [data-theme="dark"] .login-err { color: #ff8a80; background: rgba(220,50,50,.15); border-color: rgba(220,50,50,.3); }
@@ -1076,7 +1096,17 @@
         <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> תמונה</button>
     </div>
     <div class="live-chip-row">
-        <button class="live-chip" onclick="startLive()"><span class="live-chip-dot"></span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> לייב</button>
+        <button class="live-wave-btn" onclick="startLive()">
+            <span class="lwb-bars">
+                <span class="lwb-bar" style="--d:0s"></span>
+                <span class="lwb-bar" style="--d:.13s"></span>
+                <span class="lwb-bar" style="--d:.26s"></span>
+                <span class="lwb-bar" style="--d:.13s"></span>
+                <span class="lwb-bar" style="--d:0s"></span>
+            </span>
+            <span class="lwb-label">מצב לייב</span>
+            <span class="lwb-live-dot"></span>
+        </button>
     </div>
     <div class="sb-sect-label">שיחות</div>
     <div class="sb-body" id="hist-list">
