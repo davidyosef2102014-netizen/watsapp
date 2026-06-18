@@ -1926,16 +1926,10 @@ function copyCode(btn) {
 
 /* ── sidebar ── */
 function toggleSidebar() {
-    const sb = document.getElementById('sidebar');
-    if (getComputedStyle(sb).position === 'fixed') {
-        sb.classList.toggle('open');
-        document.getElementById('overlay').classList.toggle('on');
-    } else {
-        sb.classList.toggle('closed');
-    }
+    document.getElementById('sidebar').classList.toggle('closed');
 }
 function closeSidebar() {
-    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar').classList.add('closed');
     document.getElementById('overlay').classList.remove('on');
 }
 
