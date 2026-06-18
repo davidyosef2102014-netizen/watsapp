@@ -826,14 +826,12 @@
 
         .live-status { font-size:1.15rem; font-weight:600; color:rgba(255,255,255,.85); letter-spacing:.3px; min-height:28px; text-align:center; z-index:1; }
         .live-transcript {
-            max-width:520px; width:90vw; text-align:center; min-height:52px;
-            font-size:15.5px; color:rgba(255,255,255,.55); line-height:1.65;
-            background:rgba(255,255,255,.06); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-            border-radius:18px; padding:14px 20px;
-            border:1px solid rgba(255,255,255,.10); transition:color .3s;
-            box-shadow:0 8px 32px rgba(0,0,0,.2); z-index:1;
+            max-width:560px; width:90vw; text-align:center; min-height:52px;
+            font-size:18px; color:rgba(255,255,255,.75); line-height:1.7;
+            transition:color .3s; z-index:1;
+            text-shadow:0 2px 16px rgba(0,0,0,.6);
         }
-        .live-transcript.ai-speaking { color:rgba(94,234,212,.9); }
+        .live-transcript.ai-speaking { color:rgba(94,234,212,.95); text-shadow:0 0 24px rgba(94,234,212,.35),0 2px 16px rgba(0,0,0,.6); }
 
         .live-controls { display:flex; gap:12px; align-items:center; z-index:1; }
         .live-end-btn {
@@ -853,6 +851,15 @@
         }
         .live-mute-btn:hover { background:rgba(255,255,255,.16); color:white; }
         .live-mute-btn.muted { background:rgba(220,50,50,.22); border-color:rgba(220,50,50,.4); color:#ff8a80; }
+        .live-sidebar-btn {
+            position:absolute; top:22px; right:22px; z-index:3;
+            width:42px; height:42px; border-radius:50%;
+            background:rgba(255,255,255,.08); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+            border:1px solid rgba(255,255,255,.16);
+            color:rgba(255,255,255,.7); cursor:pointer;
+            display:flex; align-items:center; justify-content:center; transition:all .2s;
+        }
+        .live-sidebar-btn:hover { background:rgba(255,255,255,.16); color:white; }
 
     </style>
 </head>
@@ -1088,6 +1095,7 @@
 <!-- ══ LIVE VOICE OVERLAY ══ -->
 <div id="live-overlay">
     <canvas id="live-glow-canvas"></canvas>
+    <button class="live-sidebar-btn" onclick="toggleSidebar()" title="תפריט"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <div class="live-header">
         <span class="live-header-logo">✦</span>
         <span class="live-header-name">BIRGSOL AI 3.5</span>
