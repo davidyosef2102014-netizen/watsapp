@@ -1927,7 +1927,7 @@ function copyCode(btn) {
 /* ── sidebar ── */
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
-    if (window.innerWidth <= 900) {
+    if (getComputedStyle(sb).position === 'fixed') {
         sb.classList.toggle('open');
         document.getElementById('overlay').classList.toggle('on');
     } else {
