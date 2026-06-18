@@ -1984,14 +1984,25 @@ function _stopVoice() {
     if (btn) { btn.classList.remove('recording'); btn.title = 'הקלטת קול'; }
 }
 
-/* ── file ── */
-function previewFile() {
-    const f = document.getElementById('fi').files[0];
-    if (!f) return;
+/* ── paste image from clipboard ── */
+document.addEventListener('paste', function(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            const blob = item.getAsFile();
+            if (!blob) continue;
+            _loadImageBlob(blob);
+            break;
+        }
+    }
+});
+
+function _loadImageBlob(blob) {
     const reader = new FileReader();
     reader.onload = e => {
         const original = e.target.result;
-        // Compress to max 768px, JPEG 0.85 — required for vision API size limits
         const tmpImg = new Image();
         tmpImg.onload = () => {
             const MAX = 512;
@@ -2016,7 +2027,14 @@ function previewFile() {
         };
         tmpImg.src = original;
     };
-    reader.readAsDataURL(f);
+    reader.readAsDataURL(blob);
+}
+
+/* ── file ── */
+function previewFile() {
+    const f = document.getElementById('fi').files[0];
+    if (!f) return;
+    _loadImageBlob(f);
 }
 function clearFile() {
     fileUrl = "";
