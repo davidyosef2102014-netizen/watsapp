@@ -1986,18 +1986,29 @@ function _stopVoice() {
 
 /* ── paste image from clipboard ── */
 document.addEventListener('paste', function(e) {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of items) {
-        if (item.type.startsWith('image/')) {
-            e.preventDefault();
-            const blob = item.getAsFile();
-            if (!blob) continue;
-            _loadImageBlob(blob);
-            break;
+    const cd = e.clipboardData;
+    if (!cd) return;
+    // Try items (screenshots, copied images from browser/apps)
+    if (cd.items) {
+        for (const item of cd.items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const blob = item.getAsFile();
+                if (blob) { _loadImageBlob(blob); return; }
+            }
         }
     }
-});
+    // Try files (file copy from Explorer)
+    if (cd.files && cd.files.length) {
+        for (const file of cd.files) {
+            if (file.type.startsWith('image/')) {
+                e.preventDefault();
+                _loadImageBlob(file);
+                return;
+            }
+        }
+    }
+}, true);
 
 function _loadImageBlob(blob) {
     const reader = new FileReader();
