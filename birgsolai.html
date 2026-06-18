@@ -1936,6 +1936,20 @@ function updateBtn() {
 }
 function handleKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    // Ctrl+V — try to read image directly from clipboard API (more reliable than paste event)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        if (navigator.clipboard && navigator.clipboard.read) {
+            navigator.clipboard.read().then(items => {
+                for (const item of items) {
+                    const imgType = item.types.find(t => t.startsWith('image/'));
+                    if (imgType) {
+                        item.getType(imgType).then(blob => _loadImageBlob(blob));
+                        break;
+                    }
+                }
+            }).catch(() => {}); // ignore if no permission — paste event handles it as backup
+        }
+    }
 }
 
 /* ── voice recording ── */
