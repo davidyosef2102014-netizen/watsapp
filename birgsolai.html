@@ -2170,6 +2170,12 @@ function isImageRequest(q) {
     const ql = q.toLowerCase();
     return IMG_KEYWORDS_HE.some(k => q.includes(k)) || IMG_KEYWORDS_EN.some(k => ql.includes(k));
 }
+function isImageEditRequest(q) {
+    if (!q) return false;
+    const kw = ['הפוך','שנה','ערוך','תצבע','צבע','תהפוך','make it','change','turn it','color','recolor','modify',
+        'לוורוד','לאדום','לכחול','לירוק','ללבן','לשחור','לצהוב','לכתום','ללילך','לסגול','לאפור','לכסף','לזהב'];
+    return kw.some(k => q.includes(k));
+}
 
 /* ── Style picker: shows 4 buttons in chat, resolves with chosen style ── */
 function _askImageStyle() {
@@ -2337,6 +2343,87 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
     hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
     saveConversation();
+}
+
+async function editImage(imgDataUrl, instruction) {
+    showChat();
+    const cw = document.getElementById('chat-window');
+
+    // Build response row with skeleton (generateImage will reuse it)
+    const row = document.createElement('div'); row.className = 'msg-row ai';
+    const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
+    const bodyEl = document.createElement('div'); bodyEl.className = 'ai-body';
+    const nm = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.5';
+    const txtDiv = document.createElement('div'); txtDiv.className = 'ai-txt';
+    const wrapEl = document.createElement('div'); wrapEl.className = 'ai-img-wrap';
+    const actsEl = document.createElement('div'); actsEl.className = 'ai-acts';
+    const skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'מנתח תמונה…';
+    const skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
+    wrapEl.appendChild(skelTxt); wrapEl.appendChild(skelEl);
+    txtDiv.appendChild(wrapEl);
+    bodyEl.appendChild(nm); bodyEl.appendChild(txtDiv); bodyEl.appendChild(actsEl);
+    row.appendChild(ava); row.appendChild(bodyEl);
+    cw.appendChild(row);
+    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+
+    // Step 1: describe image with GPT-4o vision
+    let description = '';
+    try {
+        const r = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'gpt-4o',
+                messages: [
+                    { role: 'system', content: 'Describe the image in detail for image generation re-creation. Be specific about object type, shape, materials, colors, background, style. Output ONLY the description in English, max 60 words, no explanation.' },
+                    { role: 'user', content: [
+                        { type: 'image_url', image_url: { url: imgDataUrl } },
+                        { type: 'text', text: 'Describe this image precisely for re-generation.' }
+                    ]}
+                ],
+                max_tokens: 130
+            }),
+            signal: AbortSignal.timeout(15000)
+        });
+        const j = await r.json();
+        description = j?.choices?.[0]?.message?.content?.trim() || '';
+    } catch(e) {}
+
+    if (!description) {
+        skelTxt.textContent = '⚠️ לא הצלחתי לנתח את התמונה.';
+        skelEl.style.display = 'none';
+        return;
+    }
+
+    // Step 2: translate instruction to English if needed
+    let engInstruction = instruction;
+    const allL = (instruction.match(/\p{L}/gu) || []).length;
+    const ascL = (instruction.match(/[a-zA-Z]/g) || []).length;
+    if (allL > 0 && ascL / allL < 0.6) {
+        try {
+            const r = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [
+                        { role: 'system', content: 'Translate to English. Output ONLY the translation, no explanation.' },
+                        { role: 'user', content: instruction }
+                    ],
+                    max_tokens: 60
+                }),
+                signal: AbortSignal.timeout(8000)
+            });
+            const j = await r.json();
+            const t = j?.choices?.[0]?.message?.content?.trim();
+            if (t && t.length > 0) engInstruction = t;
+        } catch {}
+    }
+
+    // Step 3: generate with Pollinations (always photorealistic for edits)
+    const finalPrompt = description + '. Change: ' + engInstruction;
+    const imgStyle = { model: 'flux-realism', suffix: 'photorealistic, product photography, highly detailed, sharp focus, 8k' };
+    await generateImage(finalPrompt, row, imgStyle);
 }
 
 function triggerImageGen() {
@@ -2681,6 +2768,19 @@ async function send() {
         inp.value = ''; inp.style.height = 'auto'; updateBtn();
         if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
         await generateImage(q);
+        return;
+    }
+
+    // Image editing — uploaded image + transformation request
+    if (fileUrl && q && isImageEditRequest(q)) {
+        if (!consumeFreeMsg()) return;
+        const imgToEdit = fileUrl;
+        addMsg('user', q, imgToEdit);
+        inp.value = ''; inp.style.height = 'auto';
+        clearFile(); busy = true; updateBtn();
+        if (isFirstMsg) { addToHistory(q); isFirstMsg = false; }
+        await editImage(imgToEdit, q);
+        busy = false; updateBtn();
         return;
     }
 
