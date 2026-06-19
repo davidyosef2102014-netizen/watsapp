@@ -2489,49 +2489,22 @@ function triggerImageGen() {
 
 /* ══════════════ WEB AGENT TOOLS ══════════════ */
 
-/* DuckDuckGo Instant Answer + Jina fallback */
+/* DuckDuckGo Instant Answer search */
 async function webSearch(query) {
     let out = '';
 
-    // 1. Wikipedia Hebrew search — free, no blocks, great for Hebrew topics
     try {
-        const wikiSearch = await fetch(
-            `https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=4`,
+        const ddg = await fetch(
+            `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`,
             { signal: AbortSignal.timeout(8000) }
         );
-        const wd = await wikiSearch.json();
-        const results = wd?.query?.search || [];
-        if (results.length) {
-            out += '**ויקיפדיה:**\n';
-            results.forEach(r => {
-                const snippet = r.snippet?.replace(/<[^>]+>/g,'').replace(/&quot;/g,'"').replace(/&#039;/g,"'") || '';
-                out += `• **${r.title}**: ${snippet}\n`;
-            });
-            // Also fetch full summary of the top result
-            try {
-                const top = results[0].title;
-                const sumR = await fetch(`https://he.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(top)}`, { signal: AbortSignal.timeout(6000) });
-                const sumD = await sumR.json();
-                if (sumD.extract) out += `\n**${top} (פירוט):** ${sumD.extract}\n`;
-            } catch {}
-        }
+        const d = await ddg.json();
+        if (d.Answer)       out += `**תשובה:** ${d.Answer}\n\n`;
+        if (d.AbstractText) out += `${d.AbstractText}\n`;
+        (d.RelatedTopics||[]).slice(0,5).forEach((t,i) => {
+            if (t.Text) out += `${i+1}. ${t.Text}\n`;
+        });
     } catch {}
-
-    // 2. DuckDuckGo instant answers API (no HTML, rarely blocked)
-    if (!out.trim()) {
-        try {
-            const ddg = await fetch(
-                `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`,
-                { signal: AbortSignal.timeout(8000) }
-            );
-            const d = await ddg.json();
-            if (d.Answer)       out += `**תשובה:** ${d.Answer}\n\n`;
-            if (d.AbstractText) out += `${d.AbstractText}\n`;
-            (d.RelatedTopics||[]).slice(0,5).forEach((t,i) => {
-                if (t.Text) out += `${i+1}. ${t.Text}\n`;
-            });
-        } catch {}
-    }
 
     return out.trim() || '❌ לא נמצאו תוצאות.';
 }
