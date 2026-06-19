@@ -475,6 +475,9 @@
             background: rgba(220,50,50,.08); border: 1px solid rgba(220,50,50,.2);
             color: #c0392b; font-size: 13.5px; text-align: center; display: none;
         }
+        .lang-picker { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+        .lang-opt { padding:5px 11px; border-radius:20px; border:1.5px solid var(--border); background:var(--surf); cursor:pointer; font-size:12.5px; font-family:inherit; color:var(--text); transition:all .15s; }
+        .lang-opt.active { border-color:var(--blue); background:rgba(66,133,244,.1); color:var(--blue); font-weight:600; }
         .login-bank-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 18px; }
         .login-bank-note span { color: var(--blue); }
 
@@ -975,6 +978,17 @@
             <label>אימות סיסמה</label>
             <input type="password" id="reg-pass2" placeholder="הזן שוב את הסיסמה" autocomplete="new-password"
                 onkeydown="if(event.key==='Enter')doRegister()">
+        </div>
+        <div class="login-field">
+            <label>שפת AI</label>
+            <div class="lang-picker" id="reg-lang-picker">
+                <button class="lang-opt active" data-lang="he" onclick="pickRegLang(this)">🇮🇱 עברית</button>
+                <button class="lang-opt" data-lang="en" onclick="pickRegLang(this)">🇺🇸 English</button>
+                <button class="lang-opt" data-lang="ar" onclick="pickRegLang(this)">🇸🇦 عربية</button>
+                <button class="lang-opt" data-lang="ru" onclick="pickRegLang(this)">🇷🇺 Русский</button>
+                <button class="lang-opt" data-lang="zh" onclick="pickRegLang(this)">🇨🇳 中文</button>
+                <button class="lang-opt" data-lang="fr" onclick="pickRegLang(this)">🇫🇷 Français</button>
+            </div>
         </div>
         <button class="login-btn" id="reg-btn" onclick="doRegister()">✦ צור חשבון</button>
         <div id="reg-err" class="login-err"></div>
@@ -1668,7 +1682,8 @@ async function doRegister() {
         }
         // צור משתמש חדש בענן
         const hashed = await hashPassword(pass);
-        cloudUsers[user] = { password: hashed, createdAt: Date.now() };
+        cloudUsers[user] = { password: hashed, createdAt: Date.now(), lang: _regLang };
+        localStorage.setItem('birgsol_lang', _regLang);
         const ok = await ghWrite('db/ai_users.json', cloudUsers);
         if (!ok) { err.textContent = '❌ שגיאת חיבור. נסה שוב.'; err.style.display='block'; return; }
 
@@ -1853,14 +1868,24 @@ Your specialty is generating beautiful, detailed images. When a user sends any m
 === IDENTITY QUESTIONS ===
 If the user asks who created you, who built you, who made you, or similar, reply EXACTLY with this sentence (in Hebrew, verbatim, no additions): "אני מודל שפה שנוצר על ידי דוד יוסף זאבי הגאון וחברת BIRGSOL ואני הושקתי לציבור בתאריך הראשון ביולי 2026"`;
 
+let _regLang = 'he';
+function pickRegLang(btn) {
+    document.querySelectorAll('#reg-lang-picker .lang-opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _regLang = btn.dataset.lang;
+}
+const LANG_NAMES = { he:'Hebrew (עברית)', en:'English', ar:'Arabic (العربية)', ru:'Russian (Русский)', zh:'Chinese (中文)', fr:'French (Français)' };
+
 function getPersona() {
     const now = new Date();
     const dateStr = now.toLocaleDateString('he-IL', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
     const timeStr = now.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
-    const dateLine = `📅 התאריך והשעה הנוכחיים: ${dateStr}, ${timeStr}. השתמש בזה כשנשאלים על זמן/תאריך.\n\n`;
-    if (currentMode === 'code') return dateLine + PERSONA_CODE;
-    if (currentMode === 'image') return dateLine + PERSONA_IMAGE;
-    return dateLine + PERSONA_NORMAL;
+    const dateLine = `📅 Today is ${dateStr}, ${timeStr}.\n`;
+    const lang = localStorage.getItem('birgsol_lang') || 'he';
+    const langLine = `🌐 ALWAYS respond in ${LANG_NAMES[lang] || 'Hebrew'} — this is the user's chosen language. Do not switch languages unless the user explicitly asks.\n\n`;
+    if (currentMode === 'code') return dateLine + langLine + PERSONA_CODE;
+    if (currentMode === 'image') return dateLine + langLine + PERSONA_IMAGE;
+    return dateLine + langLine + PERSONA_NORMAL;
 }
 
 function setMode(mode) {
