@@ -2489,27 +2489,18 @@ function triggerImageGen() {
 
 /* ══════════════ WEB AGENT TOOLS ══════════════ */
 
-/* DuckDuckGo + Wikipedia combined search — parallel */
+/* DuckDuckGo instant answers search */
 async function webSearch(query) {
-    const [ddgResult, wikiResult] = await Promise.allSettled([
-        fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`, { signal: AbortSignal.timeout(5000) })
-            .then(r => r.json()).catch(() => null),
-        fetch(`https://he.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(5000) })
-            .then(r => r.json()).catch(() => null)
-    ]);
-
     let out = '';
-
-    const d = ddgResult.value;
-    if (d) {
+    try {
+        const d = await fetch(
+            `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`,
+            { signal: AbortSignal.timeout(5000) }
+        ).then(r => r.json());
         if (d.Answer)       out += `${d.Answer}\n\n`;
         if (d.AbstractText) out += `${d.AbstractText}\n`;
         (d.RelatedTopics||[]).slice(0,4).forEach(t => { if (t.Text) out += `• ${t.Text}\n`; });
-    }
-
-    const w = wikiResult.value;
-    if (w?.extract) out += `\n${w.extract}\n`;
-
+    } catch {}
     return out.trim() || '❌ לא נמצאו תוצאות.';
 }
 
