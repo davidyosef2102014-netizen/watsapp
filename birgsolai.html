@@ -2489,39 +2489,26 @@ function triggerImageGen() {
 
 /* ══════════════ WEB AGENT TOOLS ══════════════ */
 
-/* DuckDuckGo + Wikipedia combined search */
+/* DuckDuckGo + Wikipedia combined search — parallel */
 async function webSearch(query) {
+    const [ddgResult, wikiResult] = await Promise.allSettled([
+        fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`, { signal: AbortSignal.timeout(5000) })
+            .then(r => r.json()).catch(() => null),
+        fetch(`https://he.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(5000) })
+            .then(r => r.json()).catch(() => null)
+    ]);
+
     let out = '';
 
-    // DuckDuckGo instant answers
-    try {
-        const ddg = await fetch(
-            `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`,
-            { signal: AbortSignal.timeout(8000) }
-        );
-        const d = await ddg.json();
-        if (d.Answer)       out += `**תשובה:** ${d.Answer}\n\n`;
+    const d = ddgResult.value;
+    if (d) {
+        if (d.Answer)       out += `${d.Answer}\n\n`;
         if (d.AbstractText) out += `${d.AbstractText}\n`;
-        (d.RelatedTopics||[]).slice(0,5).forEach((t,i) => {
-            if (t.Text) out += `${i+1}. ${t.Text}\n`;
-        });
-    } catch {}
+        (d.RelatedTopics||[]).slice(0,4).forEach(t => { if (t.Text) out += `• ${t.Text}\n`; });
+    }
 
-    // Wikipedia Hebrew — additional context
-    try {
-        const wikiSearch = await fetch(
-            `https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=3`,
-            { signal: AbortSignal.timeout(8000) }
-        );
-        const wd = await wikiSearch.json();
-        const results = wd?.query?.search || [];
-        if (results.length) {
-            const top = results[0].title;
-            const sumR = await fetch(`https://he.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(top)}`, { signal: AbortSignal.timeout(6000) });
-            const sumD = await sumR.json();
-            if (sumD.extract) out += `\n${sumD.extract}\n`;
-        }
-    } catch {}
+    const w = wikiResult.value;
+    if (w?.extract) out += `\n${w.extract}\n`;
 
     return out.trim() || '❌ לא נמצאו תוצאות.';
 }
