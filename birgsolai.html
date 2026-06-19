@@ -314,10 +314,11 @@
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         .stream-cursor { display:inline-block; width:2px; height:1.1em; background:var(--blue); margin-right:2px; vertical-align:text-bottom; animation:blink .7s infinite; border-radius:1px; }
         .stream-raw { white-space:pre-wrap; font-size:15.5px; line-height:1.78; color:var(--text); font-family:inherit; }
-        /* agent status bar */
-        .agent-status { margin:6px 0 10px; display:flex; flex-direction:column; gap:4px; }
-        .agent-step { font-size:12.5px; color:var(--muted); background:var(--surf2); border-radius:8px; padding:5px 10px; display:flex; align-items:center; gap:6px; animation:fadeUp .2s ease; }
-        .agent-step b { color:var(--text); }
+        /* agent status bar — tiny inline indicator */
+        .agent-status { margin:2px 0 6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:0; }
+        .agent-step { font-size:11px; color:var(--muted); display:inline-flex; align-items:center; gap:4px; opacity:.8; animation:fadeUp .15s ease; }
+        .agent-step-dot { width:5px; height:5px; border-radius:50%; background:var(--blue); animation:blink .8s infinite; flex-shrink:0; }
+        .agent-step b { color:var(--muted); font-weight:500; }
         /* image generation */
         .img-skeleton {
             width:100%; max-width:800px; height:380px; border-radius:14px;
@@ -2494,18 +2495,19 @@ const RE_BROWSE = /\[BROWSE:\s*(https?:\/\/[^\]\s]+)\]/gi;
 async function executeTool(match, type, statusEl) {
     if (type === 'search') {
         const q = match[1].trim();
-        statusEl.innerHTML += `<div class="agent-step">🔍 <b>מחפש:</b> ${esc2(q)}…</div>`;
+        statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
+        statusEl.style.display = 'flex';
         const result = await webSearch(q);
-        statusEl.querySelector('.agent-step:last-child').innerHTML =
-            `✅ <b>חיפוש:</b> "${esc2(q)}"`;
+        statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
         return `\n\n---\n**🔍 תוצאות חיפוש: "${q}"**\n${result}\n---\n`;
     }
     if (type === 'browse') {
         const url = match[1].trim();
-        statusEl.innerHTML += `<div class="agent-step">🌐 <b>קורא:</b> ${esc2(url)}…</div>`;
+        const short = url.replace(/^https?:\/\//,'').slice(0,40);
+        statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(short)}</b></span>`;
+        statusEl.style.display = 'flex';
         const result = await webBrowse(url);
-        statusEl.querySelector('.agent-step:last-child').innerHTML =
-            `✅ <b>קרא:</b> ${esc2(url.slice(0,60))}`;
+        statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(short)}</b></span>`;
         return `\n\n---\n**🌐 תוכן הדף: ${url}**\n${result}\n---\n`;
     }
     return '';
