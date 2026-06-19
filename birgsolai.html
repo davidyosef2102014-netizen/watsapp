@@ -39,9 +39,8 @@
         }
         #sidebar.closed { width: 0; border-left-width: 0; }
         @media (max-width: 900px) {
-            #sidebar { position: fixed; right: 0; width: 260px; overflow: visible; transform: translateX(100%); }
-            #sidebar.open { transform: translateX(0); box-shadow: -4px 0 20px rgba(0,0,0,.15); }
-            #sidebar.closed { width: 260px; border-left: 1px solid var(--border); }
+            #sidebar { position: fixed; right: 0; width: 0; border-left-width: 0; overflow: hidden; }
+            #sidebar.open { width: 260px; border-left: 1px solid var(--border); box-shadow: -4px 0 20px rgba(0,0,0,.15); }
         }
 
         .sb-head { padding: 16px 14px 12px; }
@@ -1931,9 +1930,7 @@ function copyCode(btn) {
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
     if (getComputedStyle(sb).position === 'fixed') {
-        const isOpen = sb.classList.contains('open');
-        sb.classList.toggle('open', !isOpen);
-        document.getElementById('overlay').classList.toggle('on', !isOpen);
+        sb.classList.toggle('open');
     } else {
         sb.classList.toggle('closed');
     }
