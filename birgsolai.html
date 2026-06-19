@@ -2489,10 +2489,11 @@ function triggerImageGen() {
 
 /* ══════════════ WEB AGENT TOOLS ══════════════ */
 
-/* DuckDuckGo Instant Answer search */
+/* DuckDuckGo + Wikipedia combined search */
 async function webSearch(query) {
     let out = '';
 
+    // DuckDuckGo instant answers
     try {
         const ddg = await fetch(
             `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`,
@@ -2504,6 +2505,22 @@ async function webSearch(query) {
         (d.RelatedTopics||[]).slice(0,5).forEach((t,i) => {
             if (t.Text) out += `${i+1}. ${t.Text}\n`;
         });
+    } catch {}
+
+    // Wikipedia Hebrew — additional context
+    try {
+        const wikiSearch = await fetch(
+            `https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=3`,
+            { signal: AbortSignal.timeout(8000) }
+        );
+        const wd = await wikiSearch.json();
+        const results = wd?.query?.search || [];
+        if (results.length) {
+            const top = results[0].title;
+            const sumR = await fetch(`https://he.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(top)}`, { signal: AbortSignal.timeout(6000) });
+            const sumD = await sumR.json();
+            if (sumD.extract) out += `\n${sumD.extract}\n`;
+        }
     } catch {}
 
     return out.trim() || '❌ לא נמצאו תוצאות.';
