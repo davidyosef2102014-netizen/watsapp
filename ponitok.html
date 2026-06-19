@@ -68,6 +68,10 @@
     .post-author{font-weight:700;font-size:15px}
     .post-time{font-size:12px;color:var(--text2);margin-top:2px}
     .post-body{padding:0 16px 12px;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+    .post-img{width:100%;max-height:480px;object-fit:cover;display:block;cursor:pointer}
+    .img-preview-wrap{position:relative;margin-top:10px}
+    .img-preview-wrap img{width:100%;max-height:300px;object-fit:cover;border-radius:10px}
+    .img-preview-remove{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
     .post-stats{display:flex;justify-content:space-between;padding:6px 16px;font-size:13px;color:var(--text2);border-top:1px solid var(--border)}
     .post-footer{display:flex;border-top:1px solid var(--border)}
     .post-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:none;border:none;color:var(--text2);cursor:pointer;padding:10px 6px;font-size:14px;font-weight:600;transition:background .15s}
@@ -175,10 +179,15 @@
         </div>
         <div id="cp-extra" class="hidden">
           <textarea class="cp-textarea" id="cp-text" placeholder="מה חדש, פוני? 🐴" rows="3"></textarea>
+          <div id="img-preview-wrap" class="img-preview-wrap hidden">
+            <img id="img-preview" src="" alt="תצוגה מקדימה">
+            <button class="img-preview-remove" onclick="removeSelectedImg()">✕</button>
+          </div>
           <button class="cp-submit" onclick="publishPost()">🚀 פרסם פוסט</button>
         </div>
+        <input type="file" id="img-input" accept="image/*" style="display:none" onchange="handleImgSelect(this)">
         <div class="cp-actions">
-          <button class="cp-action photo" onclick="showToast('בקרוב!')"><i class="fas fa-image"></i> תמונה</button>
+          <button class="cp-action photo" onclick="document.getElementById('cp-extra').classList.remove('hidden');document.getElementById('img-input').click()"><i class="fas fa-image"></i> תמונה</button>
           <button class="cp-action video" onclick="showToast('בקרוב!')"><i class="fas fa-video"></i> וידאו</button>
           <button class="cp-action feel" onclick="showToast('בקרוב!')"><i class="fas fa-smile"></i> תחושה</button>
         </div>
@@ -274,6 +283,7 @@ function setConn(state) {
 // ===== GLOBALS =====
 let currentUser = null;
 let allPosts = {};
+let selectedImg = null;
 let allUsers = {};
 let chatWith = null;
 let chatListeners = [];
@@ -409,7 +419,8 @@ function buildPost(p) {
         <div class="post-time"><i class="fas fa-globe-americas"></i> ${t}</div>
       </div>
     </div>
-    <div class="post-body">${esc(p.text)}</div>
+    ${p.text ? `<div class="post-body">${esc(p.text)}</div>` : ''}
+    ${p.img ? `<img class="post-img" src="${p.img}" alt="תמונה" onclick="this.style.maxHeight=this.style.maxHeight?'':'none'">` : ''}
     <div class="post-stats">
       <span><i class="fas fa-thumbs-up" style="color:var(--orange)"></i> ${likeCount}</span>
       <span id="cc-${p.id}">0 תגובות</span>
@@ -437,15 +448,47 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#create-post')) document.getElementById('cp-extra').classList.add('hidden');
 });
 
+function handleImgSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 900;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      selectedImg = canvas.toDataURL('image/jpeg', 0.75);
+      document.getElementById('img-preview').src = selectedImg;
+      document.getElementById('img-preview-wrap').classList.remove('hidden');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function removeSelectedImg() {
+  selectedImg = null;
+  document.getElementById('img-preview-wrap').classList.add('hidden');
+  document.getElementById('img-preview').src = '';
+}
+
 function publishPost() {
   const text = document.getElementById('cp-text').value.trim();
-  if (!text) { showToast('כתוב משהו קודם'); return; }
+  if (!text && !selectedImg) { showToast('כתוב משהו או בחר תמונה'); return; }
   const id = Date.now() + '_' + currentUser.username;
   const post = { id, author: currentUser.username, text, ts: Date.now(), likedBy: {} };
+  if (selectedImg) post.img = selectedImg;
   mqttPub(NS+'/posts/'+id, post);
   allPosts[id] = post;
   document.getElementById('cp-text').value = '';
   document.getElementById('cp-extra').classList.add('hidden');
+  removeSelectedImg();
   renderPosts();
   showToast('הפוסט פורסם! 🎉');
 }
