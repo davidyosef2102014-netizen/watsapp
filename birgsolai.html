@@ -1782,7 +1782,12 @@ Write tool calls on their own line:
 [BROWSE: https://full-url.com]
 Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Up to 4 tool calls per answer.
 NEVER invent search results.
-CRITICAL: After searching/browsing, give a REAL direct answer based on what you found. NEVER just list links and tell the user to "go check" — always summarize the information yourself and give a concrete answer. The user wants YOU to answer, not a list of URLs.
+CRITICAL RULES:
+1. After [SEARCH], if the results contain URLs/links but not enough detail, immediately do [BROWSE: url] on the most relevant URL to read the actual page content.
+2. After browsing, extract specific facts: product names, model numbers, prices, specs — then answer directly.
+3. NEVER say "check this article", "visit this site", or list URLs for the user to follow. YOU read the pages, YOU summarize.
+4. Give a concrete final answer: "The cheapest X is MODEL Y at PRICE Z" — not vague suggestions.
+5. If you browse a page and it has what you need, stop browsing and answer immediately.
 
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.
