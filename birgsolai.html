@@ -2884,15 +2884,24 @@ async function send() {
             'ספורט','ניקוד','תוצאה','ליגה','גביע','מזג אוויר','טמפרטורה',
             'שקל','דולר','אירו','price','cheapest','best','latest','buy'
         ];
-        if (searchTriggers.some(k => q.includes(k))) {
-            const preview = q.length > 38 ? q.slice(0,38)+'…' : q;
+        const newsQuery = q.replace(/^(תסביר לי על|ספר לי על|מה זה|מי זה|מה הוא|תגיד לי על|תאר לי את|תסביר|ספר|תגיד)\s*/i,'').trim();
+        const isMilitaryOrNews = ['מבצע','מלחמה','פיגוע','חדשות','התקפה','ירי','טיל','לחימה','כוחות','חיזבאלה','חמאס','צה"ל','רצח','הפגנה','שב"כ','מוסד'].some(k => q.includes(k));
+        if (searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews) {
+            const preview = (newsQuery||q).length > 38 ? (newsQuery||q).slice(0,38)+'…' : (newsQuery||q);
             status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(preview)}</b></span>`;
             status.style.display = 'flex';
-            const results = await webSearch(q);
+            // For news/military — also try Ynet directly
+            let results = await webSearch(newsQuery || q);
+            if (isMilitaryOrNews) {
+                try {
+                    const ynet = await webBrowse(`https://www.ynet.co.il/search?q=${encodeURIComponent(newsQuery||q)}`);
+                    if (ynet && ynet.length > 100) results += '\n\n[Ynet]:\n' + ynet.slice(0,2000);
+                } catch {}
+            }
             status.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(preview)}</b></span>`;
             const lastMsg = messages[messages.length - 1];
             if (lastMsg && typeof lastMsg.content === 'string') {
-                lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nענה ישירות עם שמות ומחירים ספציפיים מהמידע הנ"ל.`;
+                lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nאם המידע לעיל מכיל תשובה — ענה לפיו ישירות. אם לא מצאת מידע ספציפי על הנושא — כתוב בדיוק: "לא מצאתי מידע עדכני על זה." ואל תוסיף שום מידע נוסף מהאימון שלך.`;
             }
         }
     }
