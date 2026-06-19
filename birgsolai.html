@@ -2492,29 +2492,48 @@ function triggerImageGen() {
 /* DuckDuckGo Instant Answer + Jina fallback */
 async function webSearch(query) {
     let out = '';
+
+    // 1. Wikipedia Hebrew search — free, no blocks, great for Hebrew topics
     try {
-        const ddg = await fetch(
-            `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`,
+        const wikiSearch = await fetch(
+            `https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=4`,
             { signal: AbortSignal.timeout(8000) }
         );
-        const d = await ddg.json();
-        if (d.Answer)       out += `**תשובה ישירה:** ${d.Answer}\n\n`;
-        if (d.AbstractText) out += `${d.AbstractText}\n**מקור:** ${d.AbstractURL||''}\n\n`;
-        (d.RelatedTopics||[]).slice(0,6).forEach((t,i) => {
-            if (t.Text) out += `${i+1}. ${t.Text}${t.FirstURL?' 🔗 '+t.FirstURL:''}\n`;
-        });
+        const wd = await wikiSearch.json();
+        const results = wd?.query?.search || [];
+        if (results.length) {
+            out += '**ויקיפדיה:**\n';
+            results.forEach(r => {
+                const snippet = r.snippet?.replace(/<[^>]+>/g,'').replace(/&quot;/g,'"').replace(/&#039;/g,"'") || '';
+                out += `• **${r.title}**: ${snippet}\n`;
+            });
+            // Also fetch full summary of the top result
+            try {
+                const top = results[0].title;
+                const sumR = await fetch(`https://he.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(top)}`, { signal: AbortSignal.timeout(6000) });
+                const sumD = await sumR.json();
+                if (sumD.extract) out += `\n**${top} (פירוט):** ${sumD.extract}\n`;
+            } catch {}
+        }
     } catch {}
 
-    // Fallback: Jina reader on DuckDuckGo HTML search
+    // 2. DuckDuckGo instant answers API (no HTML, rarely blocked)
     if (!out.trim()) {
         try {
-            const jinaUrl = `https://r.jina.ai/https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-            const r = await fetch(jinaUrl, { signal: AbortSignal.timeout(12000) });
-            const t = await r.text();
-            out = t.replace(/\n{3,}/g,'\n\n').slice(0, 2500);
+            const ddg = await fetch(
+                `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`,
+                { signal: AbortSignal.timeout(8000) }
+            );
+            const d = await ddg.json();
+            if (d.Answer)       out += `**תשובה:** ${d.Answer}\n\n`;
+            if (d.AbstractText) out += `${d.AbstractText}\n`;
+            (d.RelatedTopics||[]).slice(0,5).forEach((t,i) => {
+                if (t.Text) out += `${i+1}. ${t.Text}\n`;
+            });
         } catch {}
     }
-    return out.trim() || '❌ אין תוצאות לחיפוש זה.';
+
+    return out.trim() || '❌ לא נמצאו תוצאות.';
 }
 
 /* Jina.ai reader — converts any URL to clean Markdown */
