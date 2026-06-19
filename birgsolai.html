@@ -2837,6 +2837,11 @@ async function send() {
         // Run agent loop — handles tool calls automatically
         fullText = await agentLoop(messages, txt, status, cw);
 
+        // Hide search indicator
+        status.style.transition = 'opacity .4s';
+        status.style.opacity = '0';
+        setTimeout(() => { status.style.display = 'none'; status.innerHTML = ''; status.style.opacity = ''; status.style.transition = ''; }, 420);
+
         // Final clean response: strip any leftover tool call lines
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
         const cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
