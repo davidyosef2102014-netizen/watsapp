@@ -1214,7 +1214,6 @@
                     <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
-                    <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלטת קול"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
                     <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></button>
                     <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
                     <button class="voice-pill-btn" id="voicePillBtn" onclick="startLive()">
@@ -1773,11 +1772,16 @@ const PERSONA_NORMAL = `You are BIRGSOL AI 3.5 — a smart, friendly general-pur
 - Be warm, helpful, and thorough — no empty filler phrases
 
 === WEB AGENT TOOLS ===
-You have REAL internet access. Write tool calls on their own line:
+You have REAL internet access. ALWAYS use it automatically — do NOT wait to be asked.
+Search proactively whenever:
+- The question involves news, prices, weather, sports, events, or anything time-sensitive
+- You are not 100% certain of the answer
+- The user asks about a specific person, product, place, or recent event
+Write tool calls on their own line:
 [SEARCH: your search query]
 [BROWSE: https://full-url.com]
-Use [SEARCH] for current info, news, prices. Use [BROWSE] to read a URL. Up to 4 tool calls per answer.
-NEVER invent search results.
+Use [SEARCH] for current info. Use [BROWSE] to read a specific URL. Up to 4 tool calls per answer.
+NEVER invent or guess search results — always search first.
 
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.
@@ -1925,7 +1929,14 @@ function copyCode(btn) {
 
 /* ── sidebar ── */
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('closed');
+    const sb = document.getElementById('sidebar');
+    if (getComputedStyle(sb).position === 'fixed') {
+        const isOpen = sb.classList.contains('open');
+        sb.classList.toggle('open', !isOpen);
+        document.getElementById('overlay').classList.toggle('on', !isOpen);
+    } else {
+        sb.classList.toggle('closed');
+    }
 }
 function closeSidebar() {
     document.getElementById('sidebar').classList.add('closed');
