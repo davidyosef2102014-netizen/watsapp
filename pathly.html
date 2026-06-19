@@ -626,6 +626,15 @@ function onPos(pos) {
       lastHeading = calcBearing(prevPos.lat, prevPos.lng, lat, lng);
     }
     map.setBearing(lastHeading);
+    // Counter-rotate the arrow element to cancel the map container's rotation,
+    // so the arrow always points toward the heading direction on screen.
+    if (userMark) {
+      const el = userMark.getElement();
+      if (el) {
+        const arrowEl = el.querySelector('[data-arrow]');
+        if (arrowEl) arrowEl.style.transform = `rotate(${lastHeading}deg)`;
+      }
+    }
   }
   prevPos = { lat, lng };
   // Always set uPos so routing can use it
@@ -647,7 +656,6 @@ function onPos(pos) {
     if (autoC) map.setView([lat,lng],16);
   } else {
     userMark.setLatLng([lat,lng]);
-    // Arrow stays fixed pointing UP — map rotation handles direction (heading-up mode)
     if (autoC) map.panTo([lat,lng]);
   }
   updSpeed(speed||0);
