@@ -2814,7 +2814,7 @@ async function send() {
     if (!q && !fileUrl) return;
 
     // Image generation — free, unlimited, no quota used
-    if ((currentMode === 'image' || isImageRequest(q)) && !fileUrl) {
+    if (isImageRequest(q) && !fileUrl) {
         addMsg('user', q);
         inp.value = ''; inp.style.height = 'auto'; updateBtn();
         if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
