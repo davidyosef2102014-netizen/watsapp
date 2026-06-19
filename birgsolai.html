@@ -2849,6 +2849,28 @@ async function send() {
     cw.appendChild(row);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
+    // ── Auto-search: inject live results before AI call ──
+    if (!img && q) {
+        const searchTriggers = [
+            'כמה עולה','מחיר','מחירים','זול','יקר','לקנות','לרכוש','קנייה',
+            'מומלץ','מומלצים','הכי טוב','הכי זול','הכי יקר','בישראל',
+            'חנות','מבצע','הנחה','השוואה','2025','2026','עדכני','אחרון',
+            'ספורט','ניקוד','תוצאה','ליגה','גביע','מזג אוויר','טמפרטורה',
+            'שקל','דולר','אירו','price','cheapest','best','latest','buy'
+        ];
+        if (searchTriggers.some(k => q.includes(k))) {
+            const preview = q.length > 38 ? q.slice(0,38)+'…' : q;
+            status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(preview)}</b></span>`;
+            status.style.display = 'flex';
+            const results = await webSearch(q);
+            status.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(preview)}</b></span>`;
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg && typeof lastMsg.content === 'string') {
+                lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nענה ישירות עם שמות ומחירים ספציפיים מהמידע הנ"ל.`;
+            }
+        }
+    }
+
     let fullText = '';
     try {
         // Run agent loop — handles tool calls automatically
