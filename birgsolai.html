@@ -1935,14 +1935,21 @@ function copyCode(btn) {
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
     if (getComputedStyle(sb).position === 'fixed') {
+        const opening = !sb.classList.contains('open');
         sb.classList.toggle('open');
+        const ov = document.getElementById('overlay');
+        if (opening) { ov.style.background = 'transparent'; ov.classList.add('on'); }
+        else { ov.classList.remove('on'); ov.style.background = ''; }
     } else {
         sb.classList.toggle('closed');
     }
 }
 function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebar').classList.add('closed');
-    document.getElementById('overlay').classList.remove('on');
+    const ov = document.getElementById('overlay');
+    ov.classList.remove('on');
+    ov.style.background = '';
 }
 
 /* ── helpers ── */
