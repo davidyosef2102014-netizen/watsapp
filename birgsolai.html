@@ -2722,80 +2722,73 @@ async function callAI(messages, onChunk) {
         }
     }
 
-    // ── Text path — race GitHub Models (gpt-4o-mini) against Pollinations, fastest wins ──
+    // ── Text path — waterfall of 5 providers, each is auto-backup for the previous ──
     const _tryGitHub = async () => {
         const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 1, max_tokens: 2048 }),
-            signal: AbortSignal.timeout(20000)
+            signal: AbortSignal.timeout(18000)
         });
-        if (!res.ok) throw new Error('gh HTTP ' + res.status);
+        if (!res.ok) throw new Error('gh ' + res.status);
         const j = await res.json();
         const text = j?.choices?.[0]?.message?.content?.trim();
         if (!text) throw new Error('gh empty');
         return text;
     };
-    const _tryPollinations = async (model) => {
+    const _tryPoll = async (model, timeoutMs = 25000) => {
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                messages, model, stream: false, private: true,
-                seed: Math.floor(Math.random() * 99999)
-            }),
-            signal: AbortSignal.timeout(25000)
+            body: JSON.stringify({ messages, model, stream: false, private: true, seed: Math.floor(Math.random()*99999) }),
+            signal: AbortSignal.timeout(timeoutMs)
         });
-        if (!res.ok) throw new Error('poll HTTP ' + res.status);
+        if (!res.ok) throw new Error('poll ' + res.status);
         let full = (await res.text()).trim();
         if (!full) throw new Error('poll empty');
-        // אם Pollinations החזיר JSON במקום טקסט — חלץ את ה-content (או זהה שגיאת turnstile/bot-check)
         if (full.startsWith('{') || full.startsWith('[')) {
             try {
                 const j = JSON.parse(full);
-                if (j?.error) throw new Error('poll error: ' + j.error);
-                const extracted = j?.choices?.[0]?.message?.content
-                    || j?.content || j?.text || j?.response || '';
-                if (extracted) full = extracted;
-                else throw new Error('poll JSON had no content');
-            } catch (e) { if (e.message?.startsWith('poll')) throw e; }
+                if (j?.error) throw new Error('poll err');
+                full = j?.choices?.[0]?.message?.content || j?.content || j?.text || j?.response || '';
+                if (!full) throw new Error('poll no content');
+            } catch (e) { if (e.message.startsWith('poll')) throw e; }
         }
-        if (!full || /turnstile/i.test(full)) throw new Error('poll empty/blocked');
+        if (!full || /turnstile/i.test(full)) throw new Error('poll blocked');
         return full;
     };
+    const _tryGET = async () => {
+        const sys  = messages.find(m => m.role === 'system')?.content?.substring(0, 300) || '';
+        const conv = messages.filter(m => m.role !== 'system').map(m =>
+            `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '')}`
+        ).join('\n');
+        const url = `https://text.pollinations.ai/${encodeURIComponent(sys + '\n\n' + conv)}?model=openai-large&private=true&seed=${Math.floor(Math.random()*99999)}`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(40000) });
+        if (!r.ok) throw new Error('get ' + r.status);
+        const text = (await r.text()).trim();
+        if (!text) throw new Error('get empty');
+        return text;
+    };
 
-    try {
-        const full = await Promise.any([_tryGitHub(), _tryPollinations('openai')]);
-        await _typewriter(full, onChunk, 6);
-        return full;
-    } catch (e) {
-        // try mistral + openai-large in parallel
+    // providers in priority order — first available wins
+    const providers = [
+        { name: 'GitHub GPT-4o-mini', fn: _tryGitHub },
+        { name: 'Pollinations OpenAI', fn: () => _tryPoll('openai') },
+        { name: 'Pollinations Large',  fn: () => _tryPoll('openai-large') },
+        { name: 'Pollinations Mistral',fn: () => _tryPoll('mistral', 30000) },
+        { name: 'GET fallback',        fn: _tryGET },
+    ];
+
+    for (const p of providers) {
         try {
-            const full = await Promise.any([_tryPollinations('openai-large'), _tryPollinations('mistral')]);
+            const full = await p.fn();
             await _typewriter(full, onChunk, 6);
             return full;
-        } catch (e2) { /* fall through to GET fallback */ }
+        } catch (e) {
+            console.warn(`[AI] ${p.name} failed:`, e.message);
+        }
     }
-
-    // ── GET fallback ──
-    const sys  = messages.find(m => m.role === 'system')?.content || '';
-    const conv = messages.filter(m => m.role !== 'system').map(m => {
-        const role = m.role === 'assistant' ? 'Assistant' : 'User';
-        const text = typeof m.content === 'string'
-            ? m.content
-            : (m.content?.[0]?.text || '');
-        return `${role}: ${text}`;
-    }).join('\n');
-    const shortSys = sys.substring(0, 300);
-    const prompt = `${shortSys}\n\nConversation:\n${conv}`;
-    const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}` +
-        `?model=openai-large&private=true&seed=${Math.floor(Math.random()*99999)}`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(45000) });
-    if (!r.ok) throw new Error('GET ' + r.status);
-    const text = await r.text();
-    if (!text) throw new Error('empty GET');
-    onChunk(text);
-    return text;
+    throw new Error('all providers failed');
 }
 
 /* ── SEND ── */
