@@ -1787,11 +1787,8 @@ const PERSONA_NORMAL = `You are BIRGSOL AI 3.5 — a smart, friendly general-pur
 - Be warm, helpful, and thorough — no empty filler phrases
 
 === WEB AGENT TOOLS ===
-You have REAL internet access. ALWAYS answer from your own knowledge first — only search if the user explicitly asks for current info OR the answer truly requires live data:
-- News, sports scores, stock/crypto prices, weather forecasts
-- Events or releases from the past ~12 months
-- Prices of products, exchange rates
-DO NOT search for: date/time, math, general knowledge, history, coding help, or anything you can answer confidently. If you can give a good answer without searching — skip the search.
+You have REAL internet access. DEFAULT: answer from your own knowledge — do NOT search. Search ONLY when the question is specifically about something that changes daily and you cannot know it: breaking news today, live sports score, live stock price, today's weather. If you already know the answer, NEVER search. Searching is the exception, not the rule.
+- When searching IS needed: news, sports scores, stock/crypto prices, weather, recent events/releases, product prices
 Write tool calls on their own line:
 [SEARCH: your search query]
 [BROWSE: https://full-url.com]
@@ -2489,30 +2486,24 @@ function triggerImageGen() {
 
 /* ══════════════ WEB AGENT TOOLS ══════════════ */
 
-/* DuckDuckGo + Wikipedia search */
+/* DuckDuckGo + Wikipedia in parallel */
 async function webSearch(query) {
+    const wq = encodeURIComponent(query);
+    const [ddg, wiki] = await Promise.allSettled([
+        fetch(`https://api.duckduckgo.com/?q=${wq}&format=json&no_html=1&no_redirect=1`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()),
+        fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=${wq}&format=json&origin=*`, { signal: AbortSignal.timeout(5000) }).then(r => r.json())
+    ]);
     let out = '';
-    try {
-        const d = await fetch(
-            `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`,
-            { signal: AbortSignal.timeout(5000) }
-        ).then(r => r.json());
+    if (ddg.status === 'fulfilled') {
+        const d = ddg.value;
         if (d.Answer)       out += `${d.Answer}\n\n`;
         if (d.AbstractText) out += `${d.AbstractText}\n`;
         (d.RelatedTopics||[]).slice(0,3).forEach(t => { if (t.Text) out += `• ${t.Text}\n`; });
-    } catch {}
-    // Wikipedia — only if DuckDuckGo returned nothing useful
-    if (!out.trim()) {
-        try {
-            const wq = encodeURIComponent(query);
-            const w = await fetch(
-                `https://he.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=${wq}&format=json&origin=*`,
-                { signal: AbortSignal.timeout(4000) }
-            ).then(r => r.json());
-            const pages = Object.values(w?.query?.pages || {});
-            const p = pages[0];
-            if (p && p.extract && !p.missing) out += `[Wikipedia] ${p.extract.slice(0, 500)}\n`;
-        } catch {}
+    }
+    if (wiki.status === 'fulfilled') {
+        const pages = Object.values(wiki.value?.query?.pages || {});
+        const p = pages[0];
+        if (p && p.extract && !p.missing) out += `[Wikipedia] ${p.extract.slice(0, 500)}\n`;
     }
     return out.trim() || '❌ לא נמצאו תוצאות.';
 }
