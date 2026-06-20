@@ -1787,11 +1787,9 @@ const PERSONA_NORMAL = `You are BIRGSOL AI 3.5 — a smart, friendly general-pur
 - Be warm, helpful, and thorough — no empty filler phrases
 
 === WEB AGENT TOOLS ===
-You have REAL internet access. Use it automatically ONLY when the question truly requires current/live data:
-- News, sports scores, stock prices, weather forecasts
-- Events or releases from the past ~12 months
-- Prices of products, exchange rates
-DO NOT search for: current date/time (you already know it), math, general knowledge, history, coding help, or anything you can answer confidently.
+You have REAL internet access. Use it ONLY for truly live/breaking data you cannot know:
+- Today's breaking news, sports scores happening NOW, live stock/crypto prices, today's weather
+DO NOT search for: date/time, math, history, general knowledge, coding, product specs, anything from your training data. Less is more — only search when the answer MUST be live.
 Write tool calls on their own line:
 [SEARCH: your search query]
 [BROWSE: https://full-url.com]
@@ -2489,7 +2487,7 @@ function triggerImageGen() {
 
 /* ══════════════ WEB AGENT TOOLS ══════════════ */
 
-/* DuckDuckGo instant answers search */
+/* DuckDuckGo + Wikipedia search */
 async function webSearch(query) {
     let out = '';
     try {
@@ -2499,8 +2497,21 @@ async function webSearch(query) {
         ).then(r => r.json());
         if (d.Answer)       out += `${d.Answer}\n\n`;
         if (d.AbstractText) out += `${d.AbstractText}\n`;
-        (d.RelatedTopics||[]).slice(0,4).forEach(t => { if (t.Text) out += `• ${t.Text}\n`; });
+        (d.RelatedTopics||[]).slice(0,3).forEach(t => { if (t.Text) out += `• ${t.Text}\n`; });
     } catch {}
+    // Wikipedia — only if DuckDuckGo returned nothing useful
+    if (!out.trim()) {
+        try {
+            const wq = encodeURIComponent(query);
+            const w = await fetch(
+                `https://he.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=${wq}&format=json&origin=*`,
+                { signal: AbortSignal.timeout(4000) }
+            ).then(r => r.json());
+            const pages = Object.values(w?.query?.pages || {});
+            const p = pages[0];
+            if (p && p.extract && !p.missing) out += `[Wikipedia] ${p.extract.slice(0, 500)}\n`;
+        } catch {}
+    }
     return out.trim() || '❌ לא נמצאו תוצאות.';
 }
 
@@ -2765,9 +2776,9 @@ async function callAI(messages, onChunk) {
         await _typewriter(full, onChunk, 6);
         return full;
     } catch (e) {
-        // both failed — one last try with the heavier Pollinations model
+        // try mistral + openai-large in parallel
         try {
-            const full = await _tryPollinations('openai-large');
+            const full = await Promise.any([_tryPollinations('openai-large'), _tryPollinations('mistral')]);
             await _typewriter(full, onChunk, 6);
             return full;
         } catch (e2) { /* fall through to GET fallback */ }
