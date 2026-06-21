@@ -1333,6 +1333,7 @@ function openConversation(convId) {
     const found = convList.find(c => c.id === convId);
     if (!found) return;
     currentConvId = convId;
+    if (currentUser) localStorage.setItem('birgsol_open_conv_' + currentUser, currentConvId);
     hist = Array.isArray(found.messages) ? JSON.parse(JSON.stringify(found.messages)) : [];
     isFirstMsg = false;
 
@@ -1452,6 +1453,9 @@ async function syncConversations() {
     }
     if (convList.length > 50) convList = convList.slice(0, 50);
     localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
+    // שמור איזו שיחה פתוחה כרגע — כדי לשחזר אוטומטית אם הדף נטען מחדש
+    // (קורה למשל כשאנדרואיד סוגר את הטאב ברקע בזמן בחירת תמונה מהגלריה)
+    localStorage.setItem('birgsol_open_conv_' + currentUser, currentConvId);
     renderConvList();
     // העלה לענן ברקע (לא חוסם)
     ghWrite('db/ai_convs/' + currentUser + '.json', convList).catch(() => {});
@@ -1761,7 +1765,12 @@ window.addEventListener('DOMContentLoaded', async () => {
         const sp = document.getElementById('splash');
         if (sp) { sp.classList.add('hide'); setTimeout(() => sp.style.display = 'none', 700); }
         document.getElementById('login-screen').style.display = 'none';
-        // טוען שיחות מהענן ברקע
+        // שחזור מיידי מ-localStorage (לא ממתינים לענן) — חשוב כשהדף נטען מחדש
+        // עקב סגירת הטאב ע"י המערכת (למשל בזמן בחירת תמונה מהגלריה)
+        loadConversations();
+        const lastConvId = localStorage.getItem('birgsol_open_conv_' + savedUser);
+        if (lastConvId) openConversation(lastConvId);
+        // טוען שיחות מהענן ברקע (מעדכן convList, לא נוגע בשיחה הפתוחה)
         loadConversationsCloud().catch(() => {});
         // אימות ברקע — אם המשתמש נמחק מהענן, מתנתק בשקט
         ghRead('db/ai_users.json').then(cloudUsers => {
@@ -2961,6 +2970,7 @@ function startNew() {
     cw.innerHTML = ''; cw.style.display = 'none';
     document.getElementById('welcome').style.display = 'flex';
     hist = []; isFirstMsg = true; currentConvId = null;
+    if (currentUser) localStorage.removeItem('birgsol_open_conv_' + currentUser);
     closeSidebar(); updateGreeting(); renderConvList();
 }
 
