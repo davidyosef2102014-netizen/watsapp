@@ -1,0 +1,28 @@
+{
+  "name": "BIRGSOL AI",
+  "short_name": "BIRGSOL AI",
+  "description": "צ'אט AI חכם עם יצירת תמונות, חיפוש וניתוח קבצים",
+  "start_url": "/watsapp/birgsolai.html",
+  "scope": "/watsapp/",
+  "display": "standalone",
+  "background_color": "#eef2fb",
+  "theme_color": "#4285F4",
+  "orientation": "portrait-primary",
+  "lang": "he",
+  "dir": "rtl",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "birgsolai-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "birgsolai-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
