@@ -1806,11 +1806,13 @@ const PERSONA_NORMAL = `You are BIRGSOL AI 3.5 — a smart, friendly general-pur
 === WEB AGENT TOOLS ===
 You have REAL internet access. DEFAULT: answer from your own knowledge — do NOT search. Search ONLY when the question is specifically about something that changes daily and you cannot know it: breaking news today, live sports score, live stock price, today's weather. If you already know the answer, NEVER search. Searching is the exception, not the rule.
 - When searching IS needed: news, sports scores, stock/crypto prices, weather, recent events/releases, product prices
+- For "nearest/where is X near Y" questions about real-world businesses, shops, dealerships, restaurants etc. — ALWAYS use [MAPS], never [SEARCH] (general web search has no business/location data)
 Write tool calls on their own line:
 [SEARCH: your search query]
 [BROWSE: https://full-url.com]
-Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Up to 4 tool calls per answer.
-NEVER invent search results.
+[MAPS: business or brand, city/place]
+Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Use [MAPS] to find real businesses/shops near a place (format: "business name, location" e.g. "יונדאי, פרדס חנה" or "Hyundai, Pardes Hana"). Up to 4 tool calls per answer.
+NEVER invent search results, addresses, or business names.
 CRITICAL RULES:
 1. After [SEARCH], if the results contain URLs/links but not enough detail, immediately do [BROWSE: url] on the most relevant URL to read the actual page content.
 2. After browsing, extract specific facts: product names, model numbers, prices, specs — then answer directly.
@@ -1863,7 +1865,7 @@ If the user asks who created you, who built you, who made you, or similar, reply
 - DEFAULT language: Hebrew (עברית) — switch if user writes in English
 
 === WEB AGENT TOOLS ===
-[SEARCH: query] and [BROWSE: url] available. Up to 4 per answer.
+[SEARCH: query], [BROWSE: url], and [MAPS: business, city] available. Use [MAPS] for real-world business/location lookups. Up to 4 per answer.
 
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Zevi. Currency: )(.`;
@@ -2112,26 +2114,27 @@ document.addEventListener('drop', function(e) {
     }
 }, false);
 
-function _loadImageBlob(blob) {
+function _drawResized(img, w, h) {
+    const MAX = 512;
+    if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+    }
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    cv.getContext('2d').drawImage(img, 0, 0, w, h);
+    fileUrl = cv.toDataURL('image/jpeg', 0.80);
+    document.getElementById('thumb').src = fileUrl;
+    document.getElementById('img-prev').classList.add('on');
+    updateBtn();
+    if (img.close) img.close(); // release ImageBitmap memory
+}
+function _loadImageBlobLegacy(blob) {
     const reader = new FileReader();
     reader.onload = e => {
         const original = e.target.result;
         const tmpImg = new Image();
-        tmpImg.onload = () => {
-            const MAX = 512;
-            let w = tmpImg.width, h = tmpImg.height;
-            if (w > MAX || h > MAX) {
-                if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-                else       { w = Math.round(w * MAX / h); h = MAX; }
-            }
-            const cv = document.createElement('canvas');
-            cv.width = w; cv.height = h;
-            cv.getContext('2d').drawImage(tmpImg, 0, 0, w, h);
-            fileUrl = cv.toDataURL('image/jpeg', 0.80);
-            document.getElementById('thumb').src = fileUrl;
-            document.getElementById('img-prev').classList.add('on');
-            updateBtn();
-        };
+        tmpImg.onload = () => _drawResized(tmpImg, tmpImg.width, tmpImg.height);
         tmpImg.onerror = () => {
             fileUrl = original;
             document.getElementById('thumb').src = original;
@@ -2141,6 +2144,18 @@ function _loadImageBlob(blob) {
         tmpImg.src = original;
     };
     reader.readAsDataURL(blob);
+}
+function _loadImageBlob(blob) {
+    // createImageBitmap decodes straight from the file — no giant base64 string
+    // in memory first. Camera photos can be 5-15MB; on low-RAM phones the old
+    // FileReader+base64 path could exhaust memory and crash/reload the tab.
+    if (window.createImageBitmap) {
+        createImageBitmap(blob)
+            .then(bmp => _drawResized(bmp, bmp.width, bmp.height))
+            .catch(() => _loadImageBlobLegacy(blob));
+    } else {
+        _loadImageBlobLegacy(blob);
+    }
 }
 
 /* ── file ── */
@@ -2552,9 +2567,59 @@ async function webBrowse(url) {
     }
 }
 
+/* Maps/local-business search — OpenStreetMap (Nominatim geocode + Overpass POI search).
+   Query format: "<business or brand>, <city/place>" e.g. "יונדאי, פרדס חנה" */
+function _haversineKm(a,b,c,d) {
+    const R=6371, dA=(c-a)*Math.PI/180, dB=(d-b)*Math.PI/180;
+    const e = Math.sin(dA/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dB/2)**2;
+    return R*2*Math.atan2(Math.sqrt(e), Math.sqrt(1-e));
+}
+async function webMaps(query) {
+    let business = '', location = query;
+    const parts = query.split(/,|\s+near\s+|\s+ליד\s+|\s+ב/i).map(s=>s.trim()).filter(Boolean);
+    if (parts.length >= 2) { business = parts[0]; location = parts.slice(1).join(' '); }
+
+    try {
+        // 1. Geocode the location
+        const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(location)}`;
+        const geo = await fetch(geoUrl, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) }).then(r => r.json());
+        if (!geo || !geo.length) return '❌ לא הצלחתי לאתר את המיקום שצוין.';
+        const lat = parseFloat(geo[0].lat), lon = parseFloat(geo[0].lon);
+
+        // 2. Overpass — POIs within 30km: car shops, repair, or any shop/amenity matching the business name
+        const ql = `[out:json][timeout:15];(node(around:30000,${lat},${lon})["shop"];way(around:30000,${lat},${lon})["shop"];node(around:30000,${lat},${lon})["amenity"~"^(car_rental|car_wash|fuel)$"];);out center 200;`;
+        const ov = await fetch('https://overpass-api.de/api/interpreter', {
+            method: 'POST', body: 'data=' + encodeURIComponent(ql),
+            signal: AbortSignal.timeout(15000)
+        }).then(r => r.json());
+
+        let results = (ov.elements || []).map(el => {
+            const elat = el.lat ?? el.center?.lat, elon = el.lon ?? el.center?.lon;
+            const name = el.tags?.name || el.tags?.brand || '';
+            const addr = [el.tags?.['addr:street'], el.tags?.['addr:housenumber'], el.tags?.['addr:city']].filter(Boolean).join(' ');
+            const dist = (elat!=null && elon!=null) ? _haversineKm(lat,lon,elat,elon) : 999;
+            return { name, brand: el.tags?.brand||'', addr, dist, shop: el.tags?.shop||el.tags?.amenity||'' };
+        }).filter(r => r.name || r.brand);
+
+        if (business) {
+            const bl = business.toLowerCase();
+            const filtered = results.filter(r => (r.name+' '+r.brand+' '+r.shop).toLowerCase().includes(bl));
+            if (filtered.length) results = filtered;
+        }
+
+        results.sort((a,b) => a.dist - b.dist);
+        results = results.slice(0, 8);
+        if (!results.length) return `❌ לא נמצאו עסקים מתאימים ל"${business||query}" באזור ${location}.`;
+        return results.map(r => `• ${r.name||r.brand}${r.shop?` (${r.shop})`:''} — ${r.addr||'כתובת לא ידועה'} · ${r.dist.toFixed(1)} ק"מ מ${location}`).join('\n');
+    } catch (e) {
+        return `❌ שגיאה בחיפוש מפות: ${e.message}`;
+    }
+}
+
 /* Parse and execute tool calls from AI response */
 const RE_SEARCH = /\[SEARCH:\s*(.+?)\]/gi;
 const RE_BROWSE = /\[BROWSE:\s*(https?:\/\/[^\]\s]+)\]/gi;
+const RE_MAPS   = /\[MAPS:\s*(.+?)\]/gi;
 
 async function executeTool(match, type, statusEl) {
     if (type === 'search') {
@@ -2574,6 +2639,14 @@ async function executeTool(match, type, statusEl) {
         statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(short)}</b></span>`;
         return `\n\n---\n**🌐 תוכן הדף: ${url}**\n${result}\n---\n`;
     }
+    if (type === 'maps') {
+        const q = match[1].trim();
+        statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>🗺️ ${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
+        statusEl.style.display = 'flex';
+        const result = await webMaps(q);
+        statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>🗺️ ${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
+        return `\n\n---\n**🗺️ תוצאות מפה: "${q}"**\n${result}\n---\n`;
+    }
     return '';
 }
 
@@ -2586,21 +2659,22 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4) {
         // Stream current AI response
         fullText = await callAI(messages, (partial) => {
             // Show raw streaming (hide tool call lines for cleanliness)
-            const clean = partial.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
-            RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+            const clean = partial.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').trim();
+            RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
             txtEl.innerHTML = '<span class="stream-raw">' +
                 clean.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
                 '</span><span class="stream-cursor"></span>';
             cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
         });
-        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
 
         // Collect tool calls
         const searchMatches = [...fullText.matchAll(RE_SEARCH)];
         const browseMatches = [...fullText.matchAll(RE_BROWSE)];
-        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+        const mapsMatches   = [...fullText.matchAll(RE_MAPS)];
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
 
-        if (!searchMatches.length && !browseMatches.length) break; // no tools → done
+        if (!searchMatches.length && !browseMatches.length && !mapsMatches.length) break; // no tools → done
 
         // Show agent status area
         if (!statusEl.innerHTML) {
@@ -2610,14 +2684,15 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4) {
         // Execute all tool calls in parallel
         const toolPromises = [
             ...searchMatches.map(m => executeTool(m, 'search', statusEl)),
-            ...browseMatches.map(m => executeTool(m, 'browse',  statusEl))
+            ...browseMatches.map(m => executeTool(m, 'browse',  statusEl)),
+            ...mapsMatches.map(m => executeTool(m, 'maps',  statusEl))
         ];
         const toolResults = await Promise.all(toolPromises);
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
         // Add to conversation: AI said X, here are tool results
-        const cleanResponse = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
-        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
+        const cleanResponse = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').trim();
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
         messages.push({ role: 'assistant', content: cleanResponse || fullText });
         messages.push({ role: 'user',      content: toolResults.join('\n') + '\n\nעכשיו ענה על בסיס המידע שקיבלת.' });
     }
