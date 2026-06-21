@@ -2090,6 +2090,19 @@ document.addEventListener('paste', function(e) {
     }
 }, true);
 
+/* ── drag & drop image — without this the browser navigates away and opens
+   the dropped file as a new page, wiping the whole conversation ── */
+['dragenter','dragover','dragleave','drop'].forEach(evt => {
+    document.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); }, false);
+});
+document.addEventListener('drop', function(e) {
+    const files = e.dataTransfer?.files;
+    if (!files || !files.length) return;
+    for (const file of files) {
+        if (file.type.startsWith('image/')) { _loadImageBlob(file); return; }
+    }
+}, false);
+
 function _loadImageBlob(blob) {
     const reader = new FileReader();
     reader.onload = e => {
