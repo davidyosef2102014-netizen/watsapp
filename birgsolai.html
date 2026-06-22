@@ -2644,11 +2644,12 @@ async function webMaps(query) {
         if (!geo || !geo.length) return '❌ לא הצלחתי לאתר את המיקום שצוין.';
         const lat = parseFloat(geo[0].lat), lon = parseFloat(geo[0].lon);
 
-        // 2. Overpass — POIs within 30km: car shops, repair, or any shop/amenity matching the business name
-        const ql = `[out:json][timeout:15];(node(around:30000,${lat},${lon})["shop"];way(around:30000,${lat},${lon})["shop"];node(around:30000,${lat},${lon})["amenity"~"^(car_rental|car_wash|fuel)$"];);out center 200;`;
+        // 2. Overpass — POIs within 30km: any shop, plus a broad list of common amenity/tourism types
+        const AMENITIES = 'restaurant|cafe|fast_food|bar|pub|pharmacy|bank|atm|hospital|clinic|doctors|dentist|fuel|car_rental|car_wash|cinema|theatre|library|post_office|veterinary|car_repair';
+        const ql = `[out:json][timeout:20];(node(around:30000,${lat},${lon})["shop"];way(around:30000,${lat},${lon})["shop"];node(around:30000,${lat},${lon})["amenity"~"^(${AMENITIES})$"];way(around:30000,${lat},${lon})["amenity"~"^(${AMENITIES})$"];node(around:30000,${lat},${lon})["tourism"~"^(hotel|hostel|guest_house)$"];);out center 300;`;
         const ov = await fetch('https://overpass-api.de/api/interpreter', {
             method: 'POST', body: 'data=' + encodeURIComponent(ql),
-            signal: AbortSignal.timeout(15000)
+            signal: AbortSignal.timeout(18000)
         }).then(r => r.json());
 
         let results = (ov.elements || []).map(el => {
@@ -2656,7 +2657,7 @@ async function webMaps(query) {
             const name = el.tags?.name || el.tags?.brand || '';
             const addr = [el.tags?.['addr:street'], el.tags?.['addr:housenumber'], el.tags?.['addr:city']].filter(Boolean).join(' ');
             const dist = (elat!=null && elon!=null) ? _haversineKm(lat,lon,elat,elon) : 999;
-            return { name, brand: el.tags?.brand||'', addr, dist, shop: el.tags?.shop||el.tags?.amenity||'' };
+            return { name, brand: el.tags?.brand||'', addr, dist, shop: el.tags?.shop||el.tags?.amenity||el.tags?.tourism||'' };
         }).filter(r => r.name || r.brand);
 
         if (business) {
