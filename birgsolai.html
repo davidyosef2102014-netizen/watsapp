@@ -2409,10 +2409,10 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         ];
         // Try GitHub Models first (reliable, no bot-check), then Pollinations as backup
         try {
-            const r = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+            const r = await fetch('https://models.github.ai/inference/chat/completions', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: 'gpt-4o-mini', messages: transMessages, temperature: 0.3, max_tokens: 60 }),
+                body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages: transMessages, temperature: 0.3, max_tokens: 60 }),
                 signal: AbortSignal.timeout(10000)
             });
             const j = await r.json();
@@ -2515,11 +2515,11 @@ async function editImage(imgDataUrl, instruction) {
     // Step 1: describe image with GPT-4o vision
     let description = '';
     try {
-        const r = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+        const r = await fetch('https://models.github.ai/inference/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'gpt-4o',
+                model: 'openai/gpt-4o',
                 messages: [
                     { role: 'system', content: 'Describe the image in detail for image generation re-creation. Be specific about object type, shape, materials, colors, background, style. Output ONLY the description in English, max 60 words, no explanation.' },
                     { role: 'user', content: [
@@ -2547,11 +2547,11 @@ async function editImage(imgDataUrl, instruction) {
     const ascL = (instruction.match(/[a-zA-Z]/g) || []).length;
     if (allL > 0 && ascL / allL < 0.6) {
         try {
-            const r = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+            const r = await fetch('https://models.github.ai/inference/chat/completions', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model: 'gpt-4o-mini',
+                    model: 'openai/gpt-4o-mini',
                     messages: [
                         { role: 'system', content: 'Translate to English. Output ONLY the translation, no explanation.' },
                         { role: 'user', content: instruction }
@@ -2901,9 +2901,9 @@ async function callAI(messages, onChunk) {
     // ── Vision path ──
     if (hasImage) {
         // Try GitHub Models — gpt-4o then gpt-4o-mini
-        for (const vModel of ['gpt-4o', 'gpt-4o-mini']) {
+        for (const vModel of ['openai/gpt-4o', 'openai/gpt-4o-mini']) {
             try {
-                const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+                const res = await fetch('https://models.github.ai/inference/chat/completions', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ model: vModel, messages, temperature: 0.8, max_tokens: 1024 }),
@@ -2959,10 +2959,10 @@ async function callAI(messages, onChunk) {
                     onChunk('⚠️ לא הצלחתי לנתח את התמונה — מגיב לטקסט בלבד:\n\n');
                     // Fall through to text path with modified messages
                     const _fallback = async () => {
-                        const r = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+                        const r = await fetch('https://models.github.ai/inference/chat/completions', {
                             method: 'POST',
                             headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ model: 'gpt-4o-mini', messages: textOnlyMessages, temperature: 1, max_tokens: 1024 }),
+                            body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages: textOnlyMessages, temperature: 1, max_tokens: 1024 }),
                             signal: AbortSignal.timeout(20000)
                         });
                         if (!r.ok) throw new Error('fallback ' + r.status);
@@ -2983,10 +2983,10 @@ async function callAI(messages, onChunk) {
     // ── Text path — bounded-latency fallback: GitHub first, then race Pollinations variants
     // in PARALLEL (not sequentially — sequential with full timeouts could take minutes), then one GET fallback ──
     const _tryGitHub = async () => {
-        const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+        const res = await fetch('https://models.github.ai/inference/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 1, max_tokens: 2048 }),
+            body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages, temperature: 1, max_tokens: 2048 }),
             signal: AbortSignal.timeout(12000)
         });
         if (!res.ok) throw new Error('gh ' + res.status);
