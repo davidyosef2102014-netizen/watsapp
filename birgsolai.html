@@ -6,7 +6,7 @@
     <title>BIRGSOL AI 3.5</title>
     <!-- PWA -->
     <link rel="manifest" href="birgsolai.webmanifest">
-    <meta name="theme-color" content="#4285F4">
+    <meta name="theme-color" content="#0a0a0b">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1356,6 +1356,24 @@ function renderMsgOnly(role, text) {
         row.className = 'msg-row user';
         row.innerHTML = `<div class="user-bub">${text.replace(/\n/g,'<br>')}</div>`;
     } else {
+        // תמונה שנוצרה בעבר — שמורה ב-history עם marker, משוחזרת כתמונה אמיתית
+        const imgMatch = text.match(/^\[GENERATED_IMAGE:(.+?)§§([\s\S]*?)\]$/);
+        if (imgMatch) {
+            const [, url, caption] = imgMatch;
+            row.className = 'msg-row ai';
+            row.innerHTML = `
+                <div class="ai-ava">✦</div>
+                <div class="ai-body">
+                    <div class="ai-name">Birgsol AI</div>
+                    <div class="ai-txt"><div class="ai-img-wrap"><img class="ai-gen-img" src="${url}" loading="lazy" style="display:block"><div class="ai-img-caption">${esc2(caption)}</div></div></div>
+                    <div class="ai-acts">
+                        <button class="ai-act" onclick="window.open('${url}','_blank')">${IC.extLink} פתח</button>
+                        <a class="ai-act" href="${url}" download="birgsol-image.jpg" style="text-decoration:none">${IC.download} הורד</a>
+                    </div>
+                </div>`;
+            cw.appendChild(row);
+            return;
+        }
         row.className = 'msg-row ai';
         let content;
         try { content = marked.parse(text); } catch { content = text.replace(/\n/g,'<br>'); }
@@ -1804,14 +1822,16 @@ const PERSONA_NORMAL = `You are BIRGSOL AI 3.5 — a smart, friendly general-pur
 - Be warm, helpful, and thorough — no empty filler phrases
 
 === WEB AGENT TOOLS ===
-You have REAL internet access. DEFAULT: answer from your own knowledge — do NOT search. Search ONLY when the question is specifically about something that changes daily and you cannot know it: breaking news today, live sports score, live stock price, today's weather. If you already know the answer, NEVER search. Searching is the exception, not the rule.
-- When searching IS needed: news, sports scores, stock/crypto prices, weather, recent events/releases, product prices
+You have REAL internet access.
+- If you recognize the topic and are confident in your knowledge (general knowledge, math, coding, science, how-to, well-known history/facts) — answer directly, no search.
+- If the user names a SPECIFIC thing you don't recognize or aren't fully sure about — a named operation, event, organization, product, person, or place — SEARCH for it. Do NOT assume it doesn't exist just because you don't recognize the name; it may be real but outside your training data (e.g. recent Israeli military operations, local news, niche products). Saying "I don't know" without searching first is a failure.
+- Always search for things that change daily: news, sports scores, stock/crypto prices, weather, current prices.
 - For "nearest/where is X near Y" questions about real-world businesses, shops, dealerships, restaurants etc. — ALWAYS use [MAPS], never [SEARCH] (general web search has no business/location data)
 Write tool calls on their own line:
 [SEARCH: your search query]
 [BROWSE: https://full-url.com]
 [MAPS: business or brand, city/place]
-Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Use [MAPS] to find real businesses/shops near a place (format: "business name, location" e.g. "יונדאי, פרדס חנה" or "Hyundai, Pardes Hana"). Up to 4 tool calls per answer.
+Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Use [MAPS] to find real businesses/shops near ANY place WORLDWIDE — any city, country, or address, not limited to Israel (format: "business name, location" e.g. "יונדאי, פרדס חנה" or "Hyundai, Pardes Hana" or "Starbucks, Paris France" or "pharmacy, Tokyo"). Up to 4 tool calls per answer.
 NEVER invent search results, addresses, or business names.
 CRITICAL RULES:
 1. After [SEARCH], if the results contain URLs/links but not enough detail, immediately do [BROWSE: url] on the most relevant URL to read the actual page content.
@@ -2433,7 +2453,11 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(retryBtn); }
     }
 
-    hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}]` });
+    if (loaded && img.naturalWidth > 0) {
+        hist.push({ role: 'assistant', content: `[GENERATED_IMAGE:${imgUrl}§§${engPrompt.replace(/§/g,'')}]` });
+    } else {
+        hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}] (היצירה נכשלה)` });
+    }
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
     saveConversation();
 }
@@ -2531,7 +2555,7 @@ function triggerImageGen() {
 
 /* ══════════════ WEB AGENT TOOLS ══════════════ */
 
-/* DuckDuckGo + Wikipedia in parallel */
+/* DuckDuckGo + Wikipedia (exact title) in parallel */
 async function webSearch(query) {
     const wq = encodeURIComponent(query);
     const [ddg, wiki] = await Promise.allSettled([
@@ -2545,10 +2569,24 @@ async function webSearch(query) {
         if (d.AbstractText) out += `${d.AbstractText}\n`;
         (d.RelatedTopics||[]).slice(0,3).forEach(t => { if (t.Text) out += `• ${t.Text}\n`; });
     }
+    let gotWiki = false;
     if (wiki.status === 'fulfilled') {
         const pages = Object.values(wiki.value?.query?.pages || {});
         const p = pages[0];
-        if (p && p.extract && !p.missing) out += `[Wikipedia] ${p.extract.slice(0, 500)}\n`;
+        if (p && p.extract && !p.missing) { out += `[Wikipedia] ${p.extract.slice(0, 500)}\n`; gotWiki = true; }
+    }
+    // Fallback: exact title didn't match — try Wikipedia full-text search for the closest article
+    if (!gotWiki) {
+        try {
+            const srch = await fetch(`https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${wq}&srlimit=1&format=json&origin=*`, { signal: AbortSignal.timeout(5000) }).then(r => r.json());
+            const hit = srch?.query?.search?.[0];
+            if (hit?.title) {
+                const ext = await fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=${encodeURIComponent(hit.title)}&format=json&origin=*`, { signal: AbortSignal.timeout(5000) }).then(r => r.json());
+                const pages2 = Object.values(ext?.query?.pages || {});
+                const p2 = pages2[0];
+                if (p2 && p2.extract && !p2.missing) out += `[Wikipedia: ${hit.title}] ${p2.extract.slice(0, 500)}\n`;
+            }
+        } catch {}
     }
     return out.trim() || '❌ לא נמצאו תוצאות.';
 }
