@@ -2980,13 +2980,14 @@ async function callAI(messages, onChunk) {
         }
     }
 
-    // ── Text path — waterfall of 5 providers, each is auto-backup for the previous ──
+    // ── Text path — bounded-latency fallback: GitHub first, then race Pollinations variants
+    // in PARALLEL (not sequentially — sequential with full timeouts could take minutes), then one GET fallback ──
     const _tryGitHub = async () => {
         const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 1, max_tokens: 2048 }),
-            signal: AbortSignal.timeout(18000)
+            signal: AbortSignal.timeout(12000)
         });
         if (!res.ok) throw new Error('gh ' + res.status);
         const j = await res.json();
@@ -2994,7 +2995,7 @@ async function callAI(messages, onChunk) {
         if (!text) throw new Error('gh empty');
         return text;
     };
-    const _tryPoll = async (model, timeoutMs = 25000) => {
+    const _tryPoll = async (model, timeoutMs = 14000) => {
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3021,29 +3022,29 @@ async function callAI(messages, onChunk) {
             `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '')}`
         ).join('\n');
         const url = `https://text.pollinations.ai/${encodeURIComponent(sys + '\n\n' + conv)}?model=openai-large&private=true&seed=${Math.floor(Math.random()*99999)}`;
-        const r = await fetch(url, { signal: AbortSignal.timeout(40000) });
+        const r = await fetch(url, { signal: AbortSignal.timeout(20000) });
         if (!r.ok) throw new Error('get ' + r.status);
         const text = (await r.text()).trim();
         if (!text) throw new Error('get empty');
         return text;
     };
 
-    // providers in priority order — first available wins
-    const providers = [
-        { name: 'GitHub GPT-4o-mini', fn: _tryGitHub },
-        { name: 'Pollinations OpenAI', fn: () => _tryPoll('openai') },
-        { name: 'Pollinations Large',  fn: () => _tryPoll('openai-large') },
-        { name: 'Pollinations Mistral',fn: () => _tryPoll('mistral', 30000) },
+    // Stage 1: GitHub (fastest, best quality). Stage 2: race all Pollinations variants in
+    // parallel — worst case is the SLOWEST one's timeout, not the sum of all of them.
+    // Stage 3: one last GET-style attempt. Total worst case ≈ 12+14+20 = 46s, not minutes.
+    const stages = [
+        { name: 'GitHub GPT-4o-mini',  fn: _tryGitHub },
+        { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]) },
         { name: 'GET fallback',        fn: _tryGET },
     ];
 
-    for (const p of providers) {
+    for (const s of stages) {
         try {
-            const full = await p.fn();
+            const full = await s.fn();
             await _typewriter(full, onChunk, 6);
             return full;
         } catch (e) {
-            console.warn(`[AI] ${p.name} failed:`, e.message);
+            console.warn(`[AI] ${s.name} failed:`, e.message);
         }
     }
     throw new Error('all providers failed');
