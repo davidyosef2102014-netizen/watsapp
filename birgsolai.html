@@ -2696,10 +2696,48 @@ const HE_BUSINESS_TAG = {
     'מוסך':'car_repair', 'השכרת רכב':'car_rental', 'שטיפת רכב':'car_wash',
     'סופר':'supermarket', 'סופרמרקט':'supermarket', 'מכולת':'convenience',
 };
+// Known Israeli chain brand names → their OSM category. Many real branches exist in
+// OpenStreetMap as unnamed/untagged nodes (mapped by location but never labeled with
+// a brand) — when a brand search finds nothing, this lets us still guess "probably one
+// of these" from same-category unnamed POIs instead of just giving up.
+const HE_BRAND_CATEGORY = {
+    'אושר עד':'supermarket', 'שופרסל':'supermarket', 'רמי לוי':'supermarket', 'יינות ביתן':'supermarket',
+    'מגה':'supermarket', 'סטופ מרקט':'supermarket', 'סטופמרקט':'supermarket', 'ויקטורי':'supermarket',
+    'חצי חינם':'supermarket', 'טיב טעם':'supermarket', 'יוחננוף':'supermarket',
+    'סופר פארם':'pharmacy', 'ניופארם':'pharmacy', 'בי דבליו':'pharmacy',
+    'פז':'fuel', 'סונול':'fuel', 'דור אלון':'fuel', 'טן':'fuel', 'דלק (חברה)':'fuel',
+    'מקדונלדס':'fast_food', 'מקדונלד':'fast_food', 'בורגר קינג':'fast_food', 'דומינוס':'fast_food', 'KFC':'fast_food',
+    'ארומה':'cafe', 'קפה קפה':'cafe', 'קפה הופ':'cafe',
+};
+function _esc(el) { const elat = el.lat ?? el.center?.lat, elon = el.lon ?? el.center?.lon; return { lat: elat, lon: elon, tags: el.tags||{} }; }
+function _overpassEscapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\"]/g, '\\$&'); }
+async function _runOverpass(ql) {
+    let lastErr = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const ovRes = await fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST', body: 'data=' + encodeURIComponent(ql),
+                signal: AbortSignal.timeout(18000)
+            });
+            if (!ovRes.ok) { lastErr = new Error('overpass ' + ovRes.status); continue; }
+            const raw = await ovRes.text();
+            return JSON.parse(raw); // explicit parse so a non-JSON error body doesn't throw inside .then()
+        } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error('overpass failed');
+}
+function _toPoi(el, lat, lon) {
+    const e = _esc(el);
+    const name = e.tags.name || e.tags.brand || '';
+    const addr = [e.tags['addr:street'], e.tags['addr:housenumber'], e.tags['addr:city']].filter(Boolean).join(' ');
+    const dist = (e.lat!=null && e.lon!=null) ? _haversineKm(lat,lon,e.lat,e.lon) : 999;
+    return { name, brand: e.tags.brand||'', addr, dist, shop: e.tags.shop||e.tags.amenity||e.tags.tourism||'', lat: e.lat, lon: e.lon };
+}
 async function webMaps(query) {
     let business = '', location = query;
     const parts = query.split(/,|\s+near\s+|\s+ליד\s+|\s+ב/i).map(s=>s.trim()).filter(Boolean);
     if (parts.length >= 2) { business = parts[0]; location = parts.slice(1).join(' '); }
+    const RADIUS = 30000;
 
     try {
         // 1. Geocode the location
@@ -2709,63 +2747,86 @@ async function webMaps(query) {
         if (!geo || !geo.length) return { text: '❌ לא הצלחתי לאתר את המיקום שצוין.', results: [], center: null };
         const lat = parseFloat(geo[0].lat), lon = parseFloat(geo[0].lon);
 
-        // 2. Overpass — POIs within 30km: any shop, plus a broad list of common amenity/tourism types
-        const AMENITIES = 'restaurant|cafe|fast_food|bar|pub|pharmacy|bank|atm|hospital|clinic|doctors|dentist|fuel|car_rental|car_wash|cinema|theatre|library|post_office|veterinary|car_repair|supermarket|convenience';
-        const ql = `[out:json][timeout:20];(node(around:30000,${lat},${lon})["shop"];way(around:30000,${lat},${lon})["shop"];node(around:30000,${lat},${lon})["amenity"~"^(${AMENITIES})$"];way(around:30000,${lat},${lon})["amenity"~"^(${AMENITIES})$"];node(around:30000,${lat},${lon})["tourism"~"^(hotel|hostel|guest_house)$"];);out center 300;`;
-        // Overpass's public instance occasionally returns a non-JSON (XML/HTML) error page under load — retry once.
-        let ovJson = null, lastErr = null;
-        for (let attempt = 0; attempt < 2 && !ovJson; attempt++) {
-            try {
-                const ovRes = await fetch('https://overpass-api.de/api/interpreter', {
-                    method: 'POST', body: 'data=' + encodeURIComponent(ql),
-                    signal: AbortSignal.timeout(18000)
-                });
-                if (!ovRes.ok) { lastErr = new Error('overpass ' + ovRes.status); continue; }
-                const raw = await ovRes.text();
-                ovJson = JSON.parse(raw); // explicit parse so a non-JSON error body doesn't throw inside .then()
-            } catch (e) { lastErr = e; }
-        }
-        if (!ovJson) return { text: `❌ שירות המפות עמוס כרגע, נסה שוב בעוד רגע (${lastErr?.message||'error'}).`, results: [], center: { lat, lon } };
-
-        let results = (ovJson.elements || []).map(el => {
-            const elat = el.lat ?? el.center?.lat, elon = el.lon ?? el.center?.lon;
-            const name = el.tags?.name || el.tags?.brand || '';
-            const addr = [el.tags?.['addr:street'], el.tags?.['addr:housenumber'], el.tags?.['addr:city']].filter(Boolean).join(' ');
-            const dist = (elat!=null && elon!=null) ? _haversineKm(lat,lon,elat,elon) : 999;
-            return { name, brand: el.tags?.brand||'', addr, dist, shop: el.tags?.shop||el.tags?.amenity||el.tags?.tourism||'', lat: elat, lon: elon };
-        }).filter(r => (r.name || r.brand) && r.lat != null && r.lon != null);
-
+        // Resolve business → known category up front, so the Overpass query itself can be
+        // narrow (a dense 30km radius around Israeli coastal towns can hold 1000s of POIs —
+        // fetching "everything" and filtering client-side silently truncates and misses
+        // close matches, see HE_BUSINESS_TAG/HE_BRAND_CATEGORY usage below).
+        let category = null;
         if (business) {
             const bl = business.toLowerCase().trim();
-            // 1. Specific name/brand substring match FIRST — e.g. "סופר-פארם" must match only
-            // Super-Pharm branches, not fall into the generic "פארם"→pharmacy category below.
-            let filtered = results.filter(r => (r.name+' '+r.brand+' '+r.shop).toLowerCase().includes(bl));
-            // 2. Generic category fallback (Hebrew category word → OSM shop/amenity value) —
-            // only used when there's no specific name match, e.g. "בית מרקחת" (no business named that).
-            if (!filtered.length) {
-                let tagMatch = null;
-                for (const [he, tag] of Object.entries(HE_BUSINESS_TAG)) { if (bl.includes(he)) { tagMatch = tag; break; } }
-                if (tagMatch) filtered = results.filter(r => r.shop === tagMatch);
+            for (const [he, tag] of Object.entries(HE_BUSINESS_TAG)) { if (bl.includes(he)) { category = tag; break; } }
+            if (!category) for (const [he, tag] of Object.entries(HE_BRAND_CATEGORY)) { if (bl.includes(he.toLowerCase())) { category = tag; break; } }
+        }
+
+        let results = [], guessNote = '';
+        const AMENITIES = 'restaurant|cafe|fast_food|bar|pub|pharmacy|bank|atm|hospital|clinic|doctors|dentist|fuel|car_rental|car_wash|cinema|theatre|library|post_office|veterinary|car_repair|supermarket|convenience';
+
+        if (business && !category) {
+            // Specific brand/name with no known category — let Overpass filter by name/brand
+            // regex server-side (far fewer results than "fetch every shop nearby").
+            const re = _overpassEscapeRegex(business);
+            const ql = `[out:json][timeout:20];(node(around:${RADIUS},${lat},${lon})["shop"]["name"~"${re}",i];node(around:${RADIUS},${lat},${lon})["shop"]["brand"~"${re}",i];node(around:${RADIUS},${lat},${lon})["amenity"]["name"~"${re}",i];way(around:${RADIUS},${lat},${lon})["shop"]["name"~"${re}",i];);out center 50;`;
+            try {
+                const ov = await _runOverpass(ql);
+                results = (ov.elements||[]).map(el => _toPoi(el, lat, lon)).filter(r => r.lat != null);
+            } catch (e) { return { text: `❌ שירות המפות עמוס כרגע, נסה שוב בעוד רגע.`, results: [], center: { lat, lon } }; }
+            // Fuzzy fallback for typo/transliteration variants Overpass's regex wouldn't catch broadly enough
+            if (!results.length) {
+                try {
+                    const wideQl = `[out:json][timeout:20];(node(around:${RADIUS},${lat},${lon})["shop"];node(around:${RADIUS},${lat},${lon})["amenity"~"^(${AMENITIES})$"];);out center 800;`;
+                    const ov2 = await _runOverpass(wideQl);
+                    const candidates = (ov2.elements||[]).map(el => _toPoi(el, lat, lon)).filter(r => r.lat != null && (r.name||r.brand));
+                    const bWords = business.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
+                    if (bWords.length) {
+                        results = candidates.filter(r => {
+                            const rWords = (r.name+' '+r.brand).toLowerCase().split(/\s+/).filter(Boolean);
+                            return bWords.some(bw => rWords.some(rw => _strSim(bw, rw) >= 0.72));
+                        });
+                    }
+                } catch {}
             }
-            // 3. Fuzzy fallback: per-word similarity, for typos/transliteration variants that don't
-            // form an exact substring (e.g. "מקדונלד" vs OSM's "מקדונלדס", or word-order differences).
-            if (!filtered.length) {
-                const bWords = bl.split(/\s+/).filter(w => w.length >= 2);
-                if (bWords.length) {
-                    filtered = results.filter(r => {
-                        const rWords = (r.name+' '+r.brand).toLowerCase().split(/\s+/).filter(Boolean);
-                        return bWords.some(bw => rWords.some(rw => _strSim(bw, rw) >= 0.72));
-                    });
+        } else if (category) {
+            // Known category (generic word like "בית מרקחת", or recognized brand like "אושר עד").
+            // Overpass's "out N" truncates by internal element order, NOT by distance — in a dense
+            // 30km radius (Israeli coastal corridor) a single category can have 200+ matches, so a
+            // one-shot 30km query risks silently dropping the closest ones. Search progressively
+            // wider radii instead, stopping as soon as a radius yields results.
+            let pois = [];
+            for (const r of [8000, 15000, RADIUS]) {
+                const ql = `[out:json][timeout:20];(node(around:${r},${lat},${lon})["shop"="${category}"];way(around:${r},${lat},${lon})["shop"="${category}"];node(around:${r},${lat},${lon})["amenity"="${category}"];way(around:${r},${lat},${lon})["amenity"="${category}"];node(around:${r},${lat},${lon})["tourism"="${category}"];);out center 200;`;
+                try {
+                    const ov = await _runOverpass(ql);
+                    pois = (ov.elements||[]).map(el => _toPoi(el, lat, lon)).filter(p => p.lat != null);
+                } catch (e) { return { text: `❌ שירות המפות עמוס כרגע, נסה שוב בעוד רגע.`, results: [], center: { lat, lon } }; }
+                if (pois.length) break;
+            }
+            const named = pois.filter(r => r.name || r.brand);
+            if (business) {
+                const bl = business.toLowerCase().trim();
+                let filtered = named.filter(r => (r.name+' '+r.brand).toLowerCase().includes(bl));
+                if (!filtered.length) {
+                    // Brand recognized but no branch tagged with that name anywhere nearby — many real
+                    // branches exist in OSM only as untagged generic POIs of the right category.
+                    const unnamed = pois.filter(r => !r.name && !r.brand);
+                    if (unnamed.length) { filtered = unnamed; guessNote = ` (לא מתויגים בשם ב-OpenStreetMap — אחד מהם עלול להיות ${business})`; }
                 }
+                results = filtered;
+            } else {
+                results = named;
             }
-            // Do NOT silently fall back to showing unrelated businesses — that's misleading.
-            results = filtered;
+        } else {
+            // No business filter at all — generic "what's nearby" browse, keep it broad.
+            const ql = `[out:json][timeout:20];(node(around:${RADIUS},${lat},${lon})["shop"];way(around:${RADIUS},${lat},${lon})["shop"];node(around:${RADIUS},${lat},${lon})["amenity"~"^(${AMENITIES})$"];way(around:${RADIUS},${lat},${lon})["amenity"~"^(${AMENITIES})$"];node(around:${RADIUS},${lat},${lon})["tourism"~"^(hotel|hostel|guest_house)$"];);out center 300;`;
+            try {
+                const ov = await _runOverpass(ql);
+                results = (ov.elements||[]).map(el => _toPoi(el, lat, lon)).filter(r => r.lat != null && (r.name||r.brand));
+            } catch (e) { return { text: `❌ שירות המפות עמוס כרגע, נסה שוב בעוד רגע.`, results: [], center: { lat, lon } }; }
         }
 
         results.sort((a,b) => a.dist - b.dist);
         results = results.slice(0, 8);
         if (!results.length) return { text: `❌ לא נמצאו עסקים מתאימים ל"${business||query}" באזור ${location}.`, results: [], center: { lat, lon } };
-        const text = results.map(r => `• ${r.name||r.brand}${r.shop?` (${r.shop})`:''} — ${r.addr||'כתובת לא ידועה'} · ${r.dist.toFixed(1)} ק"מ מ${location}`).join('\n');
+        const text = results.map(r => `• ${r.name||r.brand||('מתקן ' + (r.shop||'') + ' ללא שם')}${r.shop&&(r.name||r.brand)?` (${r.shop})`:''} — ${r.addr||'כתובת לא ידועה'} · ${r.dist.toFixed(1)} ק"מ מ${location}`).join('\n') + guessNote;
         return { text, results, center: { lat, lon } };
     } catch (e) {
         return { text: `❌ שגיאה בחיפוש מפות: ${e.message}`, results: [], center: null };
@@ -2791,7 +2852,7 @@ function renderMapWidget(center, results) {
             card.className = 'map-card';
             card.style.cursor = 'pointer';
             card.innerHTML = `
-                <div class="map-card-name">${esc2(r.name||r.brand)}</div>
+                <div class="map-card-name">${esc2(r.name||r.brand||'מתקן ללא שם')}</div>
                 <div class="map-card-type">${esc2(r.shop||'')}</div>
                 <div class="map-card-addr">${esc2(r.addr||'')}</div>
                 <div class="map-card-dist">${r.dist.toFixed(1)} ק"מ</div>
@@ -2814,7 +2875,7 @@ function renderMapWidget(center, results) {
             const pts = [];
             if (center) pts.push([center.lat, center.lon]);
             results.forEach(r => {
-                const mk = L.marker([r.lat, r.lon]).addTo(map).bindPopup(`<b>${esc2(r.name||r.brand)}</b><br>${esc2(r.addr||'')}`);
+                const mk = L.marker([r.lat, r.lon]).addTo(map).bindPopup(`<b>${esc2(r.name||r.brand||'מתקן ללא שם')}</b><br>${esc2(r.addr||'')}`);
                 markerRefs.push(mk);
                 pts.push([r.lat, r.lon]);
             });
