@@ -1839,7 +1839,8 @@ CRITICAL RULES:
 3. NEVER say "check this article", "visit this site", or list URLs for the user to follow. YOU read the pages, YOU summarize.
 4. Give a concrete final answer: "The cheapest X is MODEL Y at PRICE Z" — not vague suggestions.
 5. If you browse a page and it has what you need, stop browsing and answer immediately.
-6. NEVER HALLUCINATE: If the search results don't clearly answer the question — especially about recent events, military operations, news from 2024-2026 — say explicitly: "לא מצאתי מידע עדכני ומהימן על זה. אנסה לחפש שוב או נסה לשאול אחרת." Do NOT guess or use training data for recent events you're unsure about.
+6. NEVER skip straight to "I couldn't find information" — that response is ONLY allowed AFTER you actually executed [SEARCH] (and ideally [BROWSE] on a promising result) and the returned results were genuinely empty or irrelevant. If you haven't searched yet, search first — do not guess that something won't be found.
+7. NEVER HALLUCINATE: once you HAVE searched and the results still don't clearly answer the question — especially about recent events, military operations, news from 2024-2026 — say explicitly: "לא מצאתי מידע עדכני ומהימן על זה. אנסה לחפש שוב או נסה לשאול אחרת." Do NOT guess or use training data for recent events you're unsure about.
 
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.
@@ -2579,20 +2580,34 @@ async function webSearch(query) {
             wikiTitle = p.title; gotWiki = true;
         }
     }
-    // Fallback: exact title didn't match — try Wikipedia full-text search for the closest article
+    // Fallback: exact title didn't match — full-text search, then take the TOP 3 hits
+    // (not just #1 — the most relevant title, e.g. the main article on an operation,
+    // sometimes ranks 2nd or 3rd behind a narrower sub-article)
+    let wikiTitles = [];
     if (!gotWiki) {
         try {
-            const srch = await fetch(`https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${wq}&srlimit=1&format=json&origin=*`, { signal: AbortSignal.timeout(5000) }).then(r => r.json());
-            const hit = srch?.query?.search?.[0];
-            if (hit?.title) {
-                const ext = await fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&titles=${encodeURIComponent(hit.title)}&format=json&origin=*`, { signal: AbortSignal.timeout(6000) }).then(r => r.json());
+            const srch = await fetch(`https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${wq}&srlimit=3&format=json&origin=*`, { signal: AbortSignal.timeout(5000) }).then(r => r.json());
+            const hits = (srch?.query?.search || []).map(h => h.title);
+            if (hits.length) {
+                // shortest title first — main/overview articles tend to have shorter titles than narrow sub-articles
+                hits.sort((a,b) => a.length - b.length);
+                const titlesParam = hits.map(encodeURIComponent).join('|');
+                const ext = await fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&titles=${titlesParam}&format=json&origin=*`, { signal: AbortSignal.timeout(6000) }).then(r => r.json());
                 const pages2 = Object.values(ext?.query?.pages || {});
-                const p2 = pages2[0];
-                if (p2 && p2.extract && !p2.missing) { out += `[Wikipedia: ${hit.title}] ${p2.extract.slice(0, 2500)}\n`; wikiTitle = hit.title; gotWiki = true; }
+                // keep original relevance order when appending, but cap total length
+                for (const t of hits) {
+                    const p2 = pages2.find(pp => pp.title === t);
+                    if (p2 && p2.extract && !p2.missing) {
+                        out += `[Wikipedia: ${p2.title}] ${p2.extract.slice(0, 1500)}\n`;
+                        wikiTitles.push(p2.title); gotWiki = true;
+                    }
+                }
             }
         } catch {}
+    } else {
+        wikiTitles = [wikiTitle];
     }
-    if (gotWiki) out += `\n(מאמר ויקיפדיה מלא: https://he.wikipedia.org/wiki/${encodeURIComponent(wikiTitle)} — אפשר [BROWSE] לקריאת המאמר השלם אם נדרשים עוד פרטים)\n`;
+    if (gotWiki) out += `\n(מאמרי ויקיפדיה מלאים: ${wikiTitles.map(t=>`https://he.wikipedia.org/wiki/${encodeURIComponent(t)}`).join(' , ')} — אפשר [BROWSE] לקריאה מלאה אם נדרשים עוד פרטים)\n`;
     return out.trim() || '❌ לא נמצאו תוצאות.';
 }
 
