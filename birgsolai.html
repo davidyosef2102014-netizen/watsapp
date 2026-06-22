@@ -2715,19 +2715,24 @@ function renderMapWidget(center, results) {
     canvas.id = mapId;
     wrap.appendChild(canvas);
 
+    let mapRef = null, markerRefs = [];
     if (results.length) {
         const cardsWrap = document.createElement('div');
         cardsWrap.className = 'map-widget-cards';
-        results.forEach(r => {
+        results.forEach((r, i) => {
             const card = document.createElement('div');
             card.className = 'map-card';
-            const gmaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((r.name||r.brand)+' '+(r.addr||''))}`;
+            card.style.cursor = 'pointer';
             card.innerHTML = `
                 <div class="map-card-name">${esc2(r.name||r.brand)}</div>
                 <div class="map-card-type">${esc2(r.shop||'')}</div>
                 <div class="map-card-addr">${esc2(r.addr||'')}</div>
                 <div class="map-card-dist">${r.dist.toFixed(1)} ק"מ</div>
-                <a class="map-card-link" href="${gmaps}" target="_blank">📍 פתח בגוגל מפות</a>`;
+                <span class="map-card-link">📍 הצג על המפה</span>`;
+            // קליק על כרטיס מזיז את המפה הפנימית לסיכה — בלי לפתוח דפדפן/אפליקציה חיצונית
+            card.onclick = () => {
+                if (mapRef && markerRefs[i]) { mapRef.setView([r.lat, r.lon], 16); markerRefs[i].openPopup(); }
+            };
             cardsWrap.appendChild(card);
         });
         wrap.appendChild(cardsWrap);
@@ -2737,11 +2742,13 @@ function renderMapWidget(center, results) {
     requestAnimationFrame(() => {
         try {
             const map = L.map(mapId, { zoomControl: true, attributionControl: false });
+            mapRef = map;
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19 }).addTo(map);
             const pts = [];
             if (center) pts.push([center.lat, center.lon]);
             results.forEach(r => {
-                L.marker([r.lat, r.lon]).addTo(map).bindPopup(`<b>${esc2(r.name||r.brand)}</b><br>${esc2(r.addr||'')}`);
+                const mk = L.marker([r.lat, r.lon]).addTo(map).bindPopup(`<b>${esc2(r.name||r.brand)}</b><br>${esc2(r.addr||'')}`);
+                markerRefs.push(mk);
                 pts.push([r.lat, r.lon]);
             });
             if (pts.length > 1) map.fitBounds(pts, { padding: [30,30] });
