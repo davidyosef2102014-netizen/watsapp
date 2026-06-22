@@ -1869,6 +1869,7 @@ CRITICAL RULES:
 5. If you browse a page and it has what you need, stop browsing and answer immediately.
 6. NEVER skip straight to "I couldn't find information" — that response is ONLY allowed AFTER you actually executed [SEARCH] (and ideally [BROWSE] on a promising result) and the returned results were genuinely empty or irrelevant. If you haven't searched yet, search first — do not guess that something won't be found.
 7. NEVER HALLUCINATE: once you HAVE searched and the results still don't clearly answer the question — especially about recent events, military operations, news from 2024-2026 — say explicitly: "לא מצאתי מידע עדכני ומהימן על זה. אנסה לחפש שוב או נסה לשאול אחרת." Do NOT guess or use training data for recent events you're unsure about.
+8. [MAPS] results are structured, factual data (real places with real coordinates) — NOT ambiguous web snippets. If [MAPS] returns ANY list of businesses, that list is your answer: present it directly (names, distances). If the exact brand/place the user asked for isn't in the list, say so explicitly and still show what WAS found nearby ("X לא נמצא, אבל מצאתי את Y הקרוב ביותר במרחק..."). NEVER respond "לא מצאתי מידע" when [MAPS] returned a non-empty list — that is always a failure when results exist.
 
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.
@@ -2660,7 +2661,41 @@ function _haversineKm(a,b,c,d) {
     const e = Math.sin(dA/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dB/2)**2;
     return R*2*Math.atan2(Math.sqrt(e), Math.sqrt(1-e));
 }
+// Normalized Levenshtein similarity (0..1) — used as a typo/transliteration-tolerant
+// fallback when exact substring matching misses (e.g. "מקדונלד" vs "מקדונלדס").
+function _strSim(a, b) {
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+    const m = a.length, n = b.length;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j);
+    for (let i = 1; i <= m; i++) {
+        const cur = [i];
+        for (let j = 1; j <= n; j++) {
+            cur[j] = a[i - 1] === b[j - 1] ? prev[j - 1] : 1 + Math.min(prev[j - 1], prev[j], cur[j - 1]);
+        }
+        prev = cur;
+    }
+    return 1 - prev[n] / Math.max(m, n);
+}
 /* Returns { text, results:[{name,shop,addr,dist,lat,lon}], center:{lat,lon} } — text for the AI, the rest to render a visual map widget */
+// Hebrew business-type words → OSM shop/amenity tag value (direct, reliable match —
+// substring matching against free-text "name" tags fails for generic categories like "בית מרקחת")
+const HE_BUSINESS_TAG = {
+    'בית מרקחת':'pharmacy', 'מרקחת':'pharmacy', 'פארם':'pharmacy',
+    'מסעדה':'restaurant', 'מסעדות':'restaurant',
+    'בית קפה':'cafe', 'קפה':'cafe', 'קפהית':'cafe',
+    'פיצה':'fast_food', 'המבורגר':'fast_food', 'אוכל מהיר':'fast_food',
+    'בנק':'bank', 'כספומט':'atm', 'אטיאם':'atm',
+    'בית חולים':'hospital', 'מרפאה':'clinic', 'קליניקה':'clinic', 'רופא':'doctors',
+    'רופא שיניים':'dentist', 'שיניים':'dentist', 'וטרינר':'veterinary',
+    'תחנת דלק':'fuel', 'דלק':'fuel', 'דלק חברה':'fuel',
+    'מלון':'hotel', 'אכסניה':'hostel',
+    'ספרייה':'library', 'דואר':'post_office',
+    'קולנוע':'cinema', 'תיאטרון':'theatre',
+    'בר':'bar', 'פאב':'pub',
+    'מוסך':'car_repair', 'השכרת רכב':'car_rental', 'שטיפת רכב':'car_wash',
+    'סופר':'supermarket', 'סופרמרקט':'supermarket', 'מכולת':'convenience',
+};
 async function webMaps(query) {
     let business = '', location = query;
     const parts = query.split(/,|\s+near\s+|\s+ליד\s+|\s+ב/i).map(s=>s.trim()).filter(Boolean);
@@ -2668,20 +2703,31 @@ async function webMaps(query) {
 
     try {
         // 1. Geocode the location
-        const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(location)}`;
-        const geo = await fetch(geoUrl, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) }).then(r => r.json());
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(location)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
+        if (!geoRes.ok) return { text: `❌ שגיאת שרת מיקומים (${geoRes.status}). נסה שוב.`, results: [], center: null };
+        const geo = await geoRes.json();
         if (!geo || !geo.length) return { text: '❌ לא הצלחתי לאתר את המיקום שצוין.', results: [], center: null };
         const lat = parseFloat(geo[0].lat), lon = parseFloat(geo[0].lon);
 
         // 2. Overpass — POIs within 30km: any shop, plus a broad list of common amenity/tourism types
-        const AMENITIES = 'restaurant|cafe|fast_food|bar|pub|pharmacy|bank|atm|hospital|clinic|doctors|dentist|fuel|car_rental|car_wash|cinema|theatre|library|post_office|veterinary|car_repair';
+        const AMENITIES = 'restaurant|cafe|fast_food|bar|pub|pharmacy|bank|atm|hospital|clinic|doctors|dentist|fuel|car_rental|car_wash|cinema|theatre|library|post_office|veterinary|car_repair|supermarket|convenience';
         const ql = `[out:json][timeout:20];(node(around:30000,${lat},${lon})["shop"];way(around:30000,${lat},${lon})["shop"];node(around:30000,${lat},${lon})["amenity"~"^(${AMENITIES})$"];way(around:30000,${lat},${lon})["amenity"~"^(${AMENITIES})$"];node(around:30000,${lat},${lon})["tourism"~"^(hotel|hostel|guest_house)$"];);out center 300;`;
-        const ov = await fetch('https://overpass-api.de/api/interpreter', {
-            method: 'POST', body: 'data=' + encodeURIComponent(ql),
-            signal: AbortSignal.timeout(18000)
-        }).then(r => r.json());
+        // Overpass's public instance occasionally returns a non-JSON (XML/HTML) error page under load — retry once.
+        let ovJson = null, lastErr = null;
+        for (let attempt = 0; attempt < 2 && !ovJson; attempt++) {
+            try {
+                const ovRes = await fetch('https://overpass-api.de/api/interpreter', {
+                    method: 'POST', body: 'data=' + encodeURIComponent(ql),
+                    signal: AbortSignal.timeout(18000)
+                });
+                if (!ovRes.ok) { lastErr = new Error('overpass ' + ovRes.status); continue; }
+                const raw = await ovRes.text();
+                ovJson = JSON.parse(raw); // explicit parse so a non-JSON error body doesn't throw inside .then()
+            } catch (e) { lastErr = e; }
+        }
+        if (!ovJson) return { text: `❌ שירות המפות עמוס כרגע, נסה שוב בעוד רגע (${lastErr?.message||'error'}).`, results: [], center: { lat, lon } };
 
-        let results = (ov.elements || []).map(el => {
+        let results = (ovJson.elements || []).map(el => {
             const elat = el.lat ?? el.center?.lat, elon = el.lon ?? el.center?.lon;
             const name = el.tags?.name || el.tags?.brand || '';
             const addr = [el.tags?.['addr:street'], el.tags?.['addr:housenumber'], el.tags?.['addr:city']].filter(Boolean).join(' ');
@@ -2690,9 +2736,30 @@ async function webMaps(query) {
         }).filter(r => (r.name || r.brand) && r.lat != null && r.lon != null);
 
         if (business) {
-            const bl = business.toLowerCase();
-            const filtered = results.filter(r => (r.name+' '+r.brand+' '+r.shop).toLowerCase().includes(bl));
-            if (filtered.length) results = filtered;
+            const bl = business.toLowerCase().trim();
+            // 1. Specific name/brand substring match FIRST — e.g. "סופר-פארם" must match only
+            // Super-Pharm branches, not fall into the generic "פארם"→pharmacy category below.
+            let filtered = results.filter(r => (r.name+' '+r.brand+' '+r.shop).toLowerCase().includes(bl));
+            // 2. Generic category fallback (Hebrew category word → OSM shop/amenity value) —
+            // only used when there's no specific name match, e.g. "בית מרקחת" (no business named that).
+            if (!filtered.length) {
+                let tagMatch = null;
+                for (const [he, tag] of Object.entries(HE_BUSINESS_TAG)) { if (bl.includes(he)) { tagMatch = tag; break; } }
+                if (tagMatch) filtered = results.filter(r => r.shop === tagMatch);
+            }
+            // 3. Fuzzy fallback: per-word similarity, for typos/transliteration variants that don't
+            // form an exact substring (e.g. "מקדונלד" vs OSM's "מקדונלדס", or word-order differences).
+            if (!filtered.length) {
+                const bWords = bl.split(/\s+/).filter(w => w.length >= 2);
+                if (bWords.length) {
+                    filtered = results.filter(r => {
+                        const rWords = (r.name+' '+r.brand).toLowerCase().split(/\s+/).filter(Boolean);
+                        return bWords.some(bw => rWords.some(rw => _strSim(bw, rw) >= 0.72));
+                    });
+                }
+            }
+            // Do NOT silently fall back to showing unrelated businesses — that's misleading.
+            results = filtered;
         }
 
         results.sort((a,b) => a.dist - b.dist);
