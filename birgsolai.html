@@ -1864,12 +1864,14 @@ NEVER invent search results, addresses, or business names.
 CRITICAL RULES:
 1. After [SEARCH], if the results contain URLs/links but not enough detail, immediately do [BROWSE: url] on the most relevant URL to read the actual page content.
 2. After browsing, extract specific facts: product names, model numbers, prices, specs — then answer directly.
-3. NEVER say "check this article", "visit this site", or list URLs for the user to follow. YOU read the pages, YOU summarize.
+3. NEVER say "check this article", "visit this site", or list URLs for the user to follow AS YOUR ONLY ANSWER. YOU read the pages, YOU summarize. EXCEPTION: if [BROWSE] on a retailer's own site fails (blocked/403/CAPTCHA — common for Israeli retail sites), say so briefly AND still give the best concrete numbers/info you found from [SEARCH] snippets or price-comparison sites (e.g. Zap) — partial real data beats no answer.
 4. Give a concrete final answer: "The cheapest X is MODEL Y at PRICE Z" — not vague suggestions.
 5. If you browse a page and it has what you need, stop browsing and answer immediately.
 6. NEVER skip straight to "I couldn't find information" — that response is ONLY allowed AFTER you actually executed [SEARCH] (and ideally [BROWSE] on a promising result) and the returned results were genuinely empty or irrelevant. If you haven't searched yet, search first — do not guess that something won't be found.
 7. NEVER HALLUCINATE: once you HAVE searched and the results still don't clearly answer the question — especially about recent events, military operations, news from 2024-2026 — say explicitly: "לא מצאתי מידע עדכני ומהימן על זה. אנסה לחפש שוב או נסה לשאול אחרת." Do NOT guess or use training data for recent events you're unsure about.
 8. [MAPS] results are structured, factual data (real places with real coordinates) — NOT ambiguous web snippets. If [MAPS] returns ANY list of businesses, that list is your answer: present it directly (names, distances). If the exact brand/place the user asked for isn't in the list, say so explicitly and still show what WAS found nearby ("X לא נמצא, אבל מצאתי את Y הקרוב ביותר במרחק..."). NEVER respond "לא מצאתי מידע" when [MAPS] returned a non-empty list — that is always a failure when results exist.
+9. [SEARCH] results tagged "[תוצאות חיפוש אמיתיות]" are REAL organic search results with real store names, real URLs, and real prices/snippets (from actual retailer and price-comparison sites) — they are NOT vague web noise, treat them as trustworthy primary sources. If they contain a relevant store/product/price, that IS your answer — extract and state it directly, even if the exact retailer name isn't in every single result (e.g. a price-comparison-site result naming the cheapest model still answers "what's the cheapest TV" even if it doesn't repeat the original store's name). Only say "לא מצאתי מידע" if these results are truly about something unrelated to the question.
+10. MANDATORY for any product/price question once [SEARCH] returned "[תוצאות חיפוש אמיתיות]": your answer MUST quote at least one concrete number, model name, or store name found in those results (e.g. "ב-Zap, Samsung 50 אינץ' QLED מחיר 2,490 ₪"). An answer that ends with only "בדוק באתר" / "אני ממליץ לבדוק" and no concrete figure from the results is WRONG even if you also searched — go back and extract the actual number that's already sitting in the search results text.
 
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.
@@ -2586,14 +2588,44 @@ function triggerImageGen() {
 /* ══════════════ WEB AGENT TOOLS ══════════════ */
 
 /* DuckDuckGo + Wikipedia (exact title) in parallel */
+/* Yahoo Search via Jina.ai reader — real organic search results (titles, snippets, live links),
+   completely free + CORS-friendly (same r.jina.ai already used for [BROWSE]). DuckDuckGo's API only
+   gives "instant answer" boxes (great for facts, useless for shopping/product/price queries) —
+   this is what actually answers "cheapest X at store Y" type questions. */
+function _cleanYahooResults(md) {
+    const idx = md.indexOf('Search Results');
+    let section = idx >= 0 ? md.slice(idx) : md;
+    section = section.replace(/!\[[^\]]*\]\([^)]*\)/g, ''); // strip image markdown anywhere in the line
+    const lines = section.split('\n')
+        .filter(l => !/images\.search\.yahoo\.com|video\.search\.yahoo\.com|scout\.yahoo\.com/.test(l))
+        .map(l => l.length > 400 ? l.slice(0, 400) + '…' : l)
+        .map(l => l.trim())
+        .filter(l => l && !/^\d+\.\s*$/.test(l)); // drop empty/now-bare numbered list markers
+    let out = lines.slice(0, 30).join('\n');
+    // Don't rely on the LLM to reliably notice prices buried in messy snippets — compute the
+    // cheapest one found and hand it over as a ready-made fact (with surrounding context for
+    // the model to attribute correctly).
+    const priceMatches = [...out.matchAll(/([\d][\d,]{1,7})\s*₪/g)].map(m => ({ num: parseInt(m[1].replace(/,/g,''),10), idx: m.index }));
+    if (priceMatches.length) {
+        const cheapest = priceMatches.reduce((a,b) => a.num < b.num ? a : b);
+        const context = out.slice(Math.max(0, cheapest.idx - 120), cheapest.idx + 20).replace(/\n/g, ' ').trim();
+        out = `💰 המחיר הזול ביותר שנמצא בתוצאות החיפוש: ${cheapest.num.toLocaleString()} ₪ — הקשר: "...${context}..."\n\n` + out;
+    }
+    return out;
+}
 async function webSearch(query) {
     const wq = encodeURIComponent(query);
-    const [ddg, wiki] = await Promise.allSettled([
+    const [yahoo, ddg, wiki] = await Promise.allSettled([
+        fetch(`https://r.jina.ai/https://search.yahoo.com/search?p=${wq}`, { headers: { 'X-Return-Format': 'markdown' }, signal: AbortSignal.timeout(15000) }).then(r => r.text()),
         fetch(`https://api.duckduckgo.com/?q=${wq}&format=json&no_html=1&no_redirect=1`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()),
         // no exintro — full article plaintext, not just the lead paragraph, so follow-up "more details" questions can be answered
         fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&titles=${wq}&format=json&origin=*`, { signal: AbortSignal.timeout(6000) }).then(r => r.json())
     ]);
     let out = '';
+    if (yahoo.status === 'fulfilled' && yahoo.value && !/^ParamValidationError/.test(yahoo.value)) {
+        const cleaned = _cleanYahooResults(yahoo.value);
+        if (cleaned) out += `[תוצאות חיפוש אמיתיות]\n${cleaned}\n\n`;
+    }
     if (ddg.status === 'fulfilled') {
         const d = ddg.value;
         if (d.Answer)       out += `${d.Answer}\n\n`;
