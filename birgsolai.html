@@ -14,6 +14,8 @@
     <link rel="apple-touch-icon" href="birgsolai-icon.svg">
     <link href="https://fonts.bunny.net/css2?family=assistant:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link id="hljs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <style>
         :root {
             --bg:       #eef2fb;
@@ -237,6 +239,17 @@
         .ai-img-wrap { margin:12px 0; }
         .ai-gen-img { width:100%; max-width:800px; border-radius:16px; display:block; box-shadow:0 4px 32px rgba(0,0,0,.5); }
         .ai-img-caption { font-size:12px; color:var(--muted); margin-top:6px; }
+
+        /* ── Maps widget ── */
+        .map-widget { margin:12px 0; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--surf); }
+        .map-widget-canvas { width:100%; height:260px; }
+        .map-widget-cards { display:flex; gap:10px; overflow-x:auto; padding:12px; }
+        .map-card { flex-shrink:0; width:200px; background:var(--surf2); border-radius:12px; padding:12px; }
+        .map-card-name { font-size:13.5px; font-weight:700; color:var(--text); margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .map-card-type { font-size:11.5px; color:var(--muted); margin-bottom:6px; }
+        .map-card-addr { font-size:12px; color:var(--muted); margin-bottom:8px; min-height:16px; }
+        .map-card-dist { font-size:11.5px; font-weight:700; color:var(--blue); margin-bottom:8px; }
+        .map-card-link { display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:700; color:#fff; background:linear-gradient(135deg,#4285F4,#9C6ADE); padding:6px 10px; border-radius:8px; text-decoration:none; }
         .img-gen-btn { background:none; border:none; cursor:pointer; width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; transition:background .15s; }
         .img-gen-btn:hover { background:var(--surf2); }
         .mic-btn { background:none; border:none; cursor:pointer; width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; transition:background .15s; }
@@ -1356,6 +1369,21 @@ function renderMsgOnly(role, text) {
         row.className = 'msg-row user';
         row.innerHTML = `<div class="user-bub">${text.replace(/\n/g,'<br>')}</div>`;
     } else {
+        // מפה שנוצרה בעבר — שמורה ב-history כ-base64 JSON, משוחזרת כווידג'ט מפה אמיתי
+        const mapMatch = text.match(/^\[GENERATED_MAP:([\s\S]+?)\]$/);
+        if (mapMatch) {
+            try {
+                const data = JSON.parse(decodeURIComponent(escape(atob(mapMatch[1]))));
+                row.className = 'msg-row ai';
+                const bodyEl = document.createElement('div'); bodyEl.className = 'ai-body';
+                bodyEl.innerHTML = `<div class="ai-name">Birgsol AI</div><div class="ai-txt"></div>`;
+                const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
+                row.appendChild(ava); row.appendChild(bodyEl);
+                cw.appendChild(row);
+                bodyEl.querySelector('.ai-txt').appendChild(renderMapWidget(data.center, data.results || []));
+                return;
+            } catch { /* corrupted marker — skip silently */ return; }
+        }
         // תמונה שנוצרה בעבר — שמורה ב-history עם marker, משוחזרת כתמונה אמיתית
         const imgMatch = text.match(/^\[GENERATED_IMAGE:(.+?)§§([\s\S]*?)\]$/);
         if (imgMatch) {
@@ -2632,6 +2660,7 @@ function _haversineKm(a,b,c,d) {
     const e = Math.sin(dA/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dB/2)**2;
     return R*2*Math.atan2(Math.sqrt(e), Math.sqrt(1-e));
 }
+/* Returns { text, results:[{name,shop,addr,dist,lat,lon}], center:{lat,lon} } — text for the AI, the rest to render a visual map widget */
 async function webMaps(query) {
     let business = '', location = query;
     const parts = query.split(/,|\s+near\s+|\s+ליד\s+|\s+ב/i).map(s=>s.trim()).filter(Boolean);
@@ -2641,7 +2670,7 @@ async function webMaps(query) {
         // 1. Geocode the location
         const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(location)}`;
         const geo = await fetch(geoUrl, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) }).then(r => r.json());
-        if (!geo || !geo.length) return '❌ לא הצלחתי לאתר את המיקום שצוין.';
+        if (!geo || !geo.length) return { text: '❌ לא הצלחתי לאתר את המיקום שצוין.', results: [], center: null };
         const lat = parseFloat(geo[0].lat), lon = parseFloat(geo[0].lon);
 
         // 2. Overpass — POIs within 30km: any shop, plus a broad list of common amenity/tourism types
@@ -2657,8 +2686,8 @@ async function webMaps(query) {
             const name = el.tags?.name || el.tags?.brand || '';
             const addr = [el.tags?.['addr:street'], el.tags?.['addr:housenumber'], el.tags?.['addr:city']].filter(Boolean).join(' ');
             const dist = (elat!=null && elon!=null) ? _haversineKm(lat,lon,elat,elon) : 999;
-            return { name, brand: el.tags?.brand||'', addr, dist, shop: el.tags?.shop||el.tags?.amenity||el.tags?.tourism||'' };
-        }).filter(r => r.name || r.brand);
+            return { name, brand: el.tags?.brand||'', addr, dist, shop: el.tags?.shop||el.tags?.amenity||el.tags?.tourism||'', lat: elat, lon: elon };
+        }).filter(r => (r.name || r.brand) && r.lat != null && r.lon != null);
 
         if (business) {
             const bl = business.toLowerCase();
@@ -2668,11 +2697,59 @@ async function webMaps(query) {
 
         results.sort((a,b) => a.dist - b.dist);
         results = results.slice(0, 8);
-        if (!results.length) return `❌ לא נמצאו עסקים מתאימים ל"${business||query}" באזור ${location}.`;
-        return results.map(r => `• ${r.name||r.brand}${r.shop?` (${r.shop})`:''} — ${r.addr||'כתובת לא ידועה'} · ${r.dist.toFixed(1)} ק"מ מ${location}`).join('\n');
+        if (!results.length) return { text: `❌ לא נמצאו עסקים מתאימים ל"${business||query}" באזור ${location}.`, results: [], center: { lat, lon } };
+        const text = results.map(r => `• ${r.name||r.brand}${r.shop?` (${r.shop})`:''} — ${r.addr||'כתובת לא ידועה'} · ${r.dist.toFixed(1)} ק"מ מ${location}`).join('\n');
+        return { text, results, center: { lat, lon } };
     } catch (e) {
-        return `❌ שגיאה בחיפוש מפות: ${e.message}`;
+        return { text: `❌ שגיאה בחיפוש מפות: ${e.message}`, results: [], center: null };
     }
+}
+
+/* Render an interactive Leaflet map + result cards into the chat. Returns the wrapper element. */
+function renderMapWidget(center, results) {
+    const wrap = document.createElement('div');
+    wrap.className = 'map-widget';
+    const mapId = 'map_' + Math.random().toString(36).slice(2);
+    const canvas = document.createElement('div');
+    canvas.className = 'map-widget-canvas';
+    canvas.id = mapId;
+    wrap.appendChild(canvas);
+
+    if (results.length) {
+        const cardsWrap = document.createElement('div');
+        cardsWrap.className = 'map-widget-cards';
+        results.forEach(r => {
+            const card = document.createElement('div');
+            card.className = 'map-card';
+            const gmaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((r.name||r.brand)+' '+(r.addr||''))}`;
+            card.innerHTML = `
+                <div class="map-card-name">${esc2(r.name||r.brand)}</div>
+                <div class="map-card-type">${esc2(r.shop||'')}</div>
+                <div class="map-card-addr">${esc2(r.addr||'')}</div>
+                <div class="map-card-dist">${r.dist.toFixed(1)} ק"מ</div>
+                <a class="map-card-link" href="${gmaps}" target="_blank">📍 פתח בגוגל מפות</a>`;
+            cardsWrap.appendChild(card);
+        });
+        wrap.appendChild(cardsWrap);
+    }
+
+    // Initialize Leaflet after the element is in the DOM (needs layout for sizing)
+    requestAnimationFrame(() => {
+        try {
+            const map = L.map(mapId, { zoomControl: true, attributionControl: false });
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+            const pts = [];
+            if (center) pts.push([center.lat, center.lon]);
+            results.forEach(r => {
+                L.marker([r.lat, r.lon]).addTo(map).bindPopup(`<b>${esc2(r.name||r.brand)}</b><br>${esc2(r.addr||'')}`);
+                pts.push([r.lat, r.lon]);
+            });
+            if (pts.length > 1) map.fitBounds(pts, { padding: [30,30] });
+            else if (pts.length === 1) map.setView(pts[0], 14);
+            else map.setView([31.5, 34.8], 8);
+        } catch (e) { console.warn('map render failed', e); }
+    });
+    return wrap;
 }
 
 /* Parse and execute tool calls from AI response */
@@ -2680,7 +2757,7 @@ const RE_SEARCH = /\[SEARCH:\s*(.+?)\]/gi;
 const RE_BROWSE = /\[BROWSE:\s*(https?:\/\/[^\]\s]+)\]/gi;
 const RE_MAPS   = /\[MAPS:\s*(.+?)\]/gi;
 
-async function executeTool(match, type, statusEl) {
+async function executeTool(match, type, statusEl, cw) {
     if (type === 'search') {
         const q = match[1].trim();
         statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
@@ -2702,9 +2779,19 @@ async function executeTool(match, type, statusEl) {
         const q = match[1].trim();
         statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>🗺️ ${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
         statusEl.style.display = 'flex';
-        const result = await webMaps(q);
+        const mapsResult = await webMaps(q);
         statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>🗺️ ${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
-        return `\n\n---\n**🗺️ תוצאות מפה: "${q}"**\n${result}\n---\n`;
+        if (mapsResult.results?.length && cw) {
+            const widget = renderMapWidget(mapsResult.center, mapsResult.results);
+            cw.appendChild(widget);
+            cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+            // שמור ל-history כדי שהמפה תשוחזר אם פותחים את השיחה מחדש
+            try {
+                const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ center: mapsResult.center, results: mapsResult.results }))));
+                hist.push({ role: 'assistant', content: `[GENERATED_MAP:${payload}]` });
+            } catch {}
+        }
+        return `\n\n---\n**🗺️ תוצאות מפה: "${q}"**\n${mapsResult.text}\n---\n`;
     }
     return '';
 }
@@ -2742,9 +2829,9 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4) {
 
         // Execute all tool calls in parallel
         const toolPromises = [
-            ...searchMatches.map(m => executeTool(m, 'search', statusEl)),
-            ...browseMatches.map(m => executeTool(m, 'browse',  statusEl)),
-            ...mapsMatches.map(m => executeTool(m, 'maps',  statusEl))
+            ...searchMatches.map(m => executeTool(m, 'search', statusEl, cw)),
+            ...browseMatches.map(m => executeTool(m, 'browse',  statusEl, cw)),
+            ...mapsMatches.map(m => executeTool(m, 'maps',  statusEl, cw))
         ];
         const toolResults = await Promise.all(toolPromises);
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
