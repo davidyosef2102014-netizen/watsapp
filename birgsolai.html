@@ -1384,6 +1384,21 @@ function renderMsgOnly(role, text) {
                 return;
             } catch { /* corrupted marker — skip silently */ return; }
         }
+        // כתובת מאומתת + סיכה בודדת שנוצרה בעבר — משוחזרת
+        const addrMapMatch = text.match(/^\[GENERATED_ADDRMAP:([\s\S]+?)\]$/);
+        if (addrMapMatch) {
+            try {
+                const data = JSON.parse(decodeURIComponent(escape(atob(addrMapMatch[1]))));
+                row.className = 'msg-row ai';
+                const bodyEl = document.createElement('div'); bodyEl.className = 'ai-body';
+                bodyEl.innerHTML = `<div class="ai-name">Birgsol AI</div><div class="ai-txt"></div>`;
+                const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
+                row.appendChild(ava); row.appendChild(bodyEl);
+                cw.appendChild(row);
+                bodyEl.querySelector('.ai-txt').appendChild(renderAddressMap(data.placeQuery, data.label));
+                return;
+            } catch { /* corrupted marker — skip silently */ return; }
+        }
         // תמונה שנוצרה בעבר — שמורה ב-history עם marker, משוחזרת כתמונה אמיתית
         const imgMatch = text.match(/^\[GENERATED_IMAGE:(.+?)§§([\s\S]*?)\]$/);
         if (imgMatch) {
@@ -2974,6 +2989,52 @@ function renderMapWidget(center, results) {
     return wrap;
 }
 
+/* Trim Nominatim's verbose display_name ("שם, רחוב, שכונה, עיר, נפה, מחוז, מיקוד, מדינה")
+   down to the first few meaningful parts for a clean caption. */
+function _shortAddress(displayName) {
+    return displayName.split(',').map(s => s.trim()).slice(0, 4).join(', ');
+}
+/* Single-pin map for a place looked up DIRECTLY BY NAME via Nominatim (which indexes named
+   businesses, not just street addresses — e.g. "אושר עד חדרה" resolves straight to the real shop
+   with real coordinates). Far more reliable than extracting an address out of AI-generated prose.
+   The address is always shown as a visible caption, not hidden behind a click. */
+function renderAddressMap(placeQuery, label) {
+    const wrap = document.createElement('div');
+    wrap.className = 'map-widget';
+    wrap.dir = 'ltr';
+    const mapId = 'map_' + Math.random().toString(36).slice(2);
+    const canvas = document.createElement('div');
+    canvas.className = 'map-widget-canvas';
+    canvas.id = mapId;
+    wrap.appendChild(canvas);
+
+    const caption = document.createElement('div');
+    caption.style.cssText = 'padding:12px 14px;font-size:13.5px;color:var(--text);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;';
+    caption.innerHTML = `<span style="font-size:16px">📍</span><div><b>${esc2(label||'')}</b><br><span style="color:var(--muted)">מאתר כתובת…</span></div>`;
+    wrap.appendChild(caption);
+
+    setTimeout(async () => {
+        try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(placeQuery)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
+            const geo = await geoRes.json();
+            if (!geo?.length) { wrap.remove(); return; }
+            const lat = parseFloat(geo[0].lat), lon = parseFloat(geo[0].lon);
+            const shortAddr = _shortAddress(geo[0].display_name);
+            caption.innerHTML = `<span style="font-size:16px">📍</span><div><b>${esc2(label||'')}</b><br><span style="color:var(--muted)">${esc2(shortAddr)}</span></div>`;
+            const map = L.map(mapId, { zoomControl: true, attributionControl: false });
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+            map.setView([lat, lon], 16);
+            L.marker([lat, lon]).addTo(map).bindPopup(`<b>${esc2(label||'')}</b><br>${esc2(shortAddr)}`).openPopup();
+            setTimeout(() => {
+                map.invalidateSize();
+                const cwEl = document.getElementById('chat-window');
+                if (cwEl) cwEl.scrollTo({ top: cwEl.scrollHeight, behavior: 'smooth' });
+            }, 80);
+        } catch (e) { console.warn('address map failed', e); wrap.remove(); }
+    }, 0);
+    return wrap;
+}
+
 /* Parse and execute tool calls from AI response */
 const RE_SEARCH = /\[SEARCH:\s*(.+?)\]/gi;
 const RE_BROWSE = /\[BROWSE:\s*(https?:\/\/[^\]\s]+)\]/gi;
@@ -3364,26 +3425,49 @@ async function send() {
         }
 
         // ── Auto-map: don't rely on the AI to remember to call [MAPS] — for "where is X" style
-        // questions, render the visual map ourselves, deterministically, every time. ──
+        // questions about a SPECIFIC named business, look it up DIRECTLY BY NAME via Nominatim
+        // first (it indexes named shops, not just street addresses — far more reliable than
+        // extracting an address out of AI-generated prose, or guessing from generic OSM categories).
+        // Falls back to the broader "what's nearby" map only if the direct name lookup finds nothing. ──
         const isLocationQuery = /איפה|כתובת של|הקרוב|הקרובה|סניף|near me|nearest|address of|where is|where's/i.test(q);
         if (isLocationQuery) {
-            const mapsQuery = q.replace(/^(איפה|כתובת של)\s*/i,'').replace(/[?؟]\s*$/,'').trim();
+            const placeQuery = q.replace(/^(איפה|כתובת של)\s*/i,'').replace(/[?؟]\s*$/,'').trim();
             try {
-                const mapsResult = await webMaps(mapsQuery);
-                if (mapsResult.results?.length) {
-                    const widget = renderMapWidget(mapsResult.center, mapsResult.results);
+                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(placeQuery)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
+                const geo = await geoRes.json();
+                const directHit = geo?.[0] && ['shop','amenity','tourism','office'].includes(geo[0].class);
+                if (directHit) {
+                    const widget = renderAddressMap(placeQuery, placeQuery);
                     cw.appendChild(widget);
                     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+                    const shortAddr = _shortAddress(geo[0].display_name);
                     const lastMsg2 = messages[messages.length - 1];
                     if (lastMsg2 && typeof lastMsg2.content === 'string') {
-                        lastMsg2.content += `\n\n[תוצאות מפה — כבר מוצגות חזותית למשתמש מעל התשובה שלך, אל תכתוב קישורים, רק תאר בקצרה]:\n${mapsResult.text}`;
+                        lastMsg2.content += `\n\n[כתובת מאומתת + מפה עם סיכה מדויקת — כבר מוצגות חזותית למשתמש מעל התשובה שלך. ענה בקצרה והשתמש בכתובת הזו בדיוק, אל תכתוב קישורים]:\nכתובת: ${shortAddr}`;
                     }
                     try {
-                        const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ center: mapsResult.center, results: mapsResult.results }))));
-                        hist.push({ role: 'assistant', content: `[GENERATED_MAP:${payload}]` });
+                        const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ placeQuery, label: placeQuery }))));
+                        hist.push({ role: 'assistant', content: `[GENERATED_ADDRMAP:${payload}]` });
                     } catch {}
+                } else {
+                    // No direct named match — fall back to the broader "what's nearby" map so the
+                    // user still sees something rather than nothing.
+                    const mapsResult = await webMaps(placeQuery);
+                    if (mapsResult.results?.length) {
+                        const widget = renderMapWidget(mapsResult.center, mapsResult.results);
+                        cw.appendChild(widget);
+                        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+                        const lastMsg2 = messages[messages.length - 1];
+                        if (lastMsg2 && typeof lastMsg2.content === 'string') {
+                            lastMsg2.content += `\n\n[תוצאות מפה — כבר מוצגות חזותית למשתמש מעל התשובה שלך, אל תכתוב קישורים, רק תאר בקצרה]:\n${mapsResult.text}`;
+                        }
+                        try {
+                            const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ center: mapsResult.center, results: mapsResult.results }))));
+                            hist.push({ role: 'assistant', content: `[GENERATED_MAP:${payload}]` });
+                        } catch {}
+                    }
                 }
-            } catch {}
+            } catch (e) { console.warn('auto-map failed', e); }
         }
     }
 
