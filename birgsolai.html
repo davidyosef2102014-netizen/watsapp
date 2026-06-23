@@ -2910,6 +2910,8 @@ async function webMaps(query) {
 function renderMapWidget(center, results) {
     const wrap = document.createElement('div');
     wrap.className = 'map-widget';
+    wrap.dir = 'ltr'; // Leaflet isn't RTL-aware — its zoom control/attribution positioning breaks
+                       // under dir="rtl" inheritance (page is RTL), clipping controls at the edge
     const mapId = 'map_' + Math.random().toString(36).slice(2);
     const canvas = document.createElement('div');
     canvas.className = 'map-widget-canvas';
@@ -2940,7 +2942,10 @@ function renderMapWidget(center, results) {
     }
 
     // Initialize Leaflet after the element is in the DOM (needs layout for sizing)
-    requestAnimationFrame(() => {
+    // setTimeout, not requestAnimationFrame — rAF can be throttled/paused entirely when the tab
+    // is backgrounded or not actively painting, which would leave the map container permanently
+    // empty. setTimeout still fires (if a bit delayed) in those cases.
+    setTimeout(() => {
         try {
             const map = L.map(mapId, { zoomControl: true, attributionControl: false });
             mapRef = map;
@@ -2955,8 +2960,9 @@ function renderMapWidget(center, results) {
             if (pts.length > 1) map.fitBounds(pts, { padding: [30,30] });
             else if (pts.length === 1) map.setView(pts[0], 14);
             else map.setView([31.5, 34.8], 8);
+            setTimeout(() => map.invalidateSize(), 50); // ensure correct sizing if container size settled late
         } catch (e) { console.warn('map render failed', e); }
-    });
+    }, 0);
     return wrap;
 }
 
