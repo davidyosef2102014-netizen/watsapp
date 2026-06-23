@@ -1446,28 +1446,39 @@ async function ghRead(path) {
 
 /* כתוב JSON ל-GitHub */
 async function ghWrite(path, data) {
-    try {
-        // קבל SHA הקובץ הקיים (אם יש)
-        let sha;
-        const meta = await fetch(GH_API + path, {
-            headers: { 'Authorization': 'token ' + GH_TOKEN }
-        });
-        if (meta.ok) { sha = (await meta.json()).sha; }
+    // Retry on transient failures (network blip, or a 409 SHA conflict from a concurrent writer —
+    // the GH_TOKEN is shared across every user of the app, so simultaneous registrations/saves can
+    // race each other). Re-fetches a fresh SHA on each attempt rather than reusing a stale one.
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            let sha;
+            const meta = await fetch(GH_API + path, {
+                headers: { 'Authorization': 'token ' + GH_TOKEN },
+                signal: AbortSignal.timeout(10000)
+            });
+            if (meta.ok) { sha = (await meta.json()).sha; }
 
-        const r = await fetch(GH_API + path, {
-            method: 'PUT',
-            headers: {
-                'Authorization': 'token ' + GH_TOKEN,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: 'update ' + path,
-                content: btoa(unescape(encodeURIComponent(JSON.stringify(data)))),
-                ...(sha ? { sha } : {})
-            })
-        });
-        return r.ok;
-    } catch { return false; }
+            const r = await fetch(GH_API + path, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': 'token ' + GH_TOKEN,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: 'update ' + path,
+                    content: btoa(unescape(encodeURIComponent(JSON.stringify(data)))),
+                    ...(sha ? { sha } : {})
+                }),
+                signal: AbortSignal.timeout(10000)
+            });
+            if (r.ok) return true;
+            if (r.status !== 409 || attempt === 2) return false; // only retry on SHA conflicts
+        } catch (e) {
+            if (attempt === 2) return false;
+        }
+        await new Promise(res => setTimeout(res, 300 * (attempt + 1))); // brief backoff before retry
+    }
+    return false;
 }
 
 /* טען שיחות מהענן ומהמטמון המקומי */
