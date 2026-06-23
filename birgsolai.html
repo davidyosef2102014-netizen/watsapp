@@ -3362,6 +3362,29 @@ async function send() {
                 lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nאם המידע לעיל מכיל תשובה — ענה לפיו ישירות. אם לא מצאת מידע ספציפי על הנושא — כתוב בדיוק: "לא מצאתי מידע עדכני על זה." ואל תוסיף שום מידע נוסף מהאימון שלך.`;
             }
         }
+
+        // ── Auto-map: don't rely on the AI to remember to call [MAPS] — for "where is X" style
+        // questions, render the visual map ourselves, deterministically, every time. ──
+        const isLocationQuery = /איפה|כתובת של|הקרוב|הקרובה|סניף|near me|nearest|address of|where is|where's/i.test(q);
+        if (isLocationQuery) {
+            const mapsQuery = q.replace(/^(איפה|כתובת של)\s*/i,'').replace(/[?؟]\s*$/,'').trim();
+            try {
+                const mapsResult = await webMaps(mapsQuery);
+                if (mapsResult.results?.length) {
+                    const widget = renderMapWidget(mapsResult.center, mapsResult.results);
+                    cw.appendChild(widget);
+                    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+                    const lastMsg2 = messages[messages.length - 1];
+                    if (lastMsg2 && typeof lastMsg2.content === 'string') {
+                        lastMsg2.content += `\n\n[תוצאות מפה — כבר מוצגות חזותית למשתמש מעל התשובה שלך, אל תכתוב קישורים, רק תאר בקצרה]:\n${mapsResult.text}`;
+                    }
+                    try {
+                        const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ center: mapsResult.center, results: mapsResult.results }))));
+                        hist.push({ role: 'assistant', content: `[GENERATED_MAP:${payload}]` });
+                    } catch {}
+                }
+            } catch {}
+        }
     }
 
     let fullText = '';
