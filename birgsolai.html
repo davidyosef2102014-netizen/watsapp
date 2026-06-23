@@ -2960,7 +2960,15 @@ function renderMapWidget(center, results) {
             if (pts.length > 1) map.fitBounds(pts, { padding: [30,30] });
             else if (pts.length === 1) map.setView(pts[0], 14);
             else map.setView([31.5, 34.8], 8);
-            setTimeout(() => map.invalidateSize(), 50); // ensure correct sizing if container size settled late
+            setTimeout(() => {
+                map.invalidateSize(); // ensure correct sizing if container size settled late
+                // The chat auto-scrolls to bottom right when the map <div> is inserted (260px tall
+                // by CSS), but Leaflet's own internal layout/tiles can still shift scrollHeight
+                // slightly after init — re-scroll once the map has actually finished setting up so
+                // it doesn't end up stuck mid-widget (showing only a thin sliver of it).
+                const cwEl = document.getElementById('chat-window');
+                if (cwEl) cwEl.scrollTo({ top: cwEl.scrollHeight, behavior: 'smooth' });
+            }, 80);
         } catch (e) { console.warn('map render failed', e); }
     }, 0);
     return wrap;
