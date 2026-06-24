@@ -1270,6 +1270,20 @@
 <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 <script>
+/* Polyfill AbortSignal.timeout() — added to browsers around 2022 (Chrome 103, Safari 15.4,
+   Firefox 100). Older/unupdated WebViews (common on budget or older Android phones) don't have
+   it, and since ~23 fetch() calls across this file rely on it, a missing polyfill means EVERY
+   network request throws immediately — looking exactly like "the internet doesn't work at all"
+   on that specific device while working fine on a modern browser. */
+if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout !== 'function') {
+    AbortSignal.timeout = function(ms) {
+        const controller = new AbortController();
+        setTimeout(() => {
+            try { controller.abort(new Error('TimeoutError')); } catch { controller.abort(); }
+        }, ms);
+        return controller.signal;
+    };
+}
 /* ── SVG Outline Icons ── */
 const IC = {
   mic:      `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
