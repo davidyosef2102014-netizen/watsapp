@@ -1457,6 +1457,7 @@ const GH_TOKEN = ['ghp_iIaTa8EvDW2','A7SfC6u9bzWbDf','zrRNA0IDtff'].join('');
 const TAVILY_KEY = ['tvly-dev-2QYMhA-Nmly35ooLSYUnG','An0RUz5WIYZ1LKEiKz1HyexCzA6F'].join('');
 const GROQ_KEY = ['gsk_qzgrngwU4WRLi6KmRmc6WGdy','b3FYwVt9hwIMeHO9A9KXTjlOb2Rj'].join('');
 const OPENROUTER_KEY = ['sk-or-v1-f655e93634af39fcf294ade3c3','fd8dc0191c95b35b550b7309692fc3eaf3fa28'].join('');
+const GEMINI_KEY = ['AQ.Ab8RN6KZoOHQvj-7TYEWuvXSb','mwnKlb8T88Sj2Gut8O5DZkTHg'].join('');
 const GH_RAW   = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/master/`;
 const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/`;
 
@@ -3313,6 +3314,29 @@ async function callAI(messages, onChunk) {
         if (!text) throw new Error('openrouter empty');
         return text;
     };
+    const _tryGemini = async () => {
+        // Gemini's REST schema differs from OpenAI-compatible APIs: contents/parts instead of
+        // messages, and no "system" role — prepend the system prompt onto the first user turn.
+        // This key's quota is inconsistent (0 limit on some models, "high demand" 503s on others)
+        // so it sits late in the chain as a bonus attempt, not a primary.
+        const sys = messages.find(m => m.role === 'system')?.content || '';
+        const contents = messages.filter(m => m.role !== 'system').map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '') }]
+        }));
+        if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
+            body: JSON.stringify({ contents, generationConfig: { thinkingConfig: { thinkingBudget: 0 } } }),
+            signal: AbortSignal.timeout(16000)
+        });
+        if (!res.ok) throw new Error('gemini ' + res.status);
+        const j = await res.json();
+        const text = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (!text) throw new Error('gemini empty');
+        return text;
+    };
     const _tryPoll = async (model, timeoutMs = 14000) => {
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
@@ -3356,6 +3380,7 @@ async function callAI(messages, onChunk) {
         { name: 'GitHub GPT-4o-mini',  fn: _tryGitHub },
         { name: 'Groq Llama-3.3-70b',  fn: _tryGroq },
         { name: 'OpenRouter gpt-oss-120b', fn: _tryOpenRouter },
+        { name: 'Gemini Flash',        fn: _tryGemini },
         { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]) },
         { name: 'GET fallback',        fn: _tryGET },
     ];
