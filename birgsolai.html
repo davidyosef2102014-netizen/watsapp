@@ -3424,13 +3424,12 @@ async function send() {
             status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(preview)}</b></span>`;
             status.style.display = 'flex';
             // For news/military — also try Ynet directly
+            // Note: used to also browse ynet.co.il/search directly here as an extra news source.
+            // Removed — that endpoint returns an error page for many queries ("ynet - הודעת שגיאה"),
+            // and that error HTML got appended straight into the results, confusing the model into
+            // doubting otherwise-good Tavily results and defaulting to "לא מצאתי מידע". Tavily alone
+            // already returns real, current news (verified directly).
             let results = await webSearch(newsQuery || q);
-            if (isMilitaryOrNews) {
-                try {
-                    const ynet = await webBrowse(`https://www.ynet.co.il/search?q=${encodeURIComponent(newsQuery||q)}`);
-                    if (ynet && ynet.length > 100) results += '\n\n[Ynet]:\n' + ynet.slice(0,2000);
-                } catch {}
-            }
             status.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(preview)}</b></span>`;
             const lastMsg = messages[messages.length - 1];
             if (lastMsg && typeof lastMsg.content === 'string') {
