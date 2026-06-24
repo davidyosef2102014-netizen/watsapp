@@ -1455,6 +1455,7 @@ const GH_OWNER = 'davidyosef2102014-netizen';
 const GH_REPO  = 'watsapp';
 const GH_TOKEN = ['ghp_iIaTa8EvDW2','A7SfC6u9bzWbDf','zrRNA0IDtff'].join('');
 const TAVILY_KEY = ['tvly-dev-2QYMhA-Nmly35ooLSYUnG','An0RUz5WIYZ1LKEiKz1HyexCzA6F'].join('');
+const TAVILY_KEY2 = ['tvly-dev-1D4PtD-g933m0WYqRkYbCo','LFYrcZKzyilDqwBmvOWjTcfvD2l'].join('');
 const GROQ_KEY = ['gsk_qzgrngwU4WRLi6KmRmc6WGdy','b3FYwVt9hwIMeHO9A9KXTjlOb2Rj'].join('');
 const OPENROUTER_KEY = ['sk-or-v1-f655e93634af39fcf294ade3c3','fd8dc0191c95b35b550b7309692fc3eaf3fa28'].join('');
 const GEMINI_KEY = ['AQ.Ab8RN6KZoOHQvj-7TYEWuvXSb','mwnKlb8T88Sj2Gut8O5DZkTHg'].join('');
@@ -2664,11 +2665,11 @@ function _cleanYahooResults(md) {
    "answer" plus scored results, no HTML-scraping mess. Free tier (1,000 credits/month) — primary
    search source. Falls back to the free Yahoo+DuckDuckGo+Wikipedia chain below if it fails or the
    monthly quota runs out, so the app keeps working either way. */
-async function _tryTavily(query) {
+async function _tryTavilyKey(apiKey, query) {
     const res = await fetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: TAVILY_KEY, query, search_depth: 'basic', include_answer: true, max_results: 5 }),
+        body: JSON.stringify({ api_key: apiKey, query, search_depth: 'basic', include_answer: true, max_results: 5 }),
         signal: AbortSignal.timeout(15000)
     });
     if (!res.ok) throw new Error('tavily ' + res.status);
@@ -2680,6 +2681,16 @@ async function _tryTavily(query) {
     }
     if (!out) throw new Error('tavily empty');
     return out;
+}
+// Two free-tier keys (1000 credits/month each) — if the primary is exhausted or rate-limited,
+// fall to the secondary before giving up on Tavily entirely.
+async function _tryTavily(query) {
+    try {
+        return await _tryTavilyKey(TAVILY_KEY, query);
+    } catch (e) {
+        console.warn('[search] Tavily key 1 failed, trying key 2:', e.message);
+        return await _tryTavilyKey(TAVILY_KEY2, query);
+    }
 }
 async function webSearch(query) {
     try {
