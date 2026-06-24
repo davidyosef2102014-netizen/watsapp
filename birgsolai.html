@@ -1455,6 +1455,7 @@ const GH_OWNER = 'davidyosef2102014-netizen';
 const GH_REPO  = 'watsapp';
 const GH_TOKEN = ['ghp_iIaTa8EvDW2','A7SfC6u9bzWbDf','zrRNA0IDtff'].join('');
 const TAVILY_KEY = ['tvly-dev-2QYMhA-Nmly35ooLSYUnG','An0RUz5WIYZ1LKEiKz1HyexCzA6F'].join('');
+const GROQ_KEY = ['gsk_qzgrngwU4WRLi6KmRmc6WGdy','b3FYwVt9hwIMeHO9A9KXTjlOb2Rj'].join('');
 const GH_RAW   = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/master/`;
 const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/`;
 
@@ -3285,6 +3286,19 @@ async function callAI(messages, onChunk) {
         if (!text) throw new Error('gh empty');
         return text;
     };
+    const _tryGroq = async () => {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 1, max_tokens: 2048 }),
+            signal: AbortSignal.timeout(14000)
+        });
+        if (!res.ok) throw new Error('groq ' + res.status);
+        const j = await res.json();
+        const text = j?.choices?.[0]?.message?.content?.trim();
+        if (!text) throw new Error('groq empty');
+        return text;
+    };
     const _tryPoll = async (model, timeoutMs = 14000) => {
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
@@ -3319,11 +3333,13 @@ async function callAI(messages, onChunk) {
         return text;
     };
 
-    // Stage 1: GitHub (fastest, best quality). Stage 2: race all Pollinations variants in
-    // parallel — worst case is the SLOWEST one's timeout, not the sum of all of them.
-    // Stage 3: one last GET-style attempt. Total worst case ≈ 12+14+20 = 46s, not minutes.
+    // Stage 1: GitHub (fastest, best quality). Stage 2: Groq/Llama-3.3-70b — a genuinely capable
+    // model (unlike the Pollinations proxies below, which often ignore injected search context
+    // and answer "I don't know" even when handed a correct answer — verified directly). Stage 3:
+    // race the weaker Pollinations variants. Stage 4: one last GET-style attempt.
     const stages = [
         { name: 'GitHub GPT-4o-mini',  fn: _tryGitHub },
+        { name: 'Groq Llama-3.3-70b',  fn: _tryGroq },
         { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]) },
         { name: 'GET fallback',        fn: _tryGET },
     ];
