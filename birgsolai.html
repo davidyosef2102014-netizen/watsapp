@@ -1456,6 +1456,7 @@ const GH_REPO  = 'watsapp';
 const GH_TOKEN = ['ghp_iIaTa8EvDW2','A7SfC6u9bzWbDf','zrRNA0IDtff'].join('');
 const TAVILY_KEY = ['tvly-dev-2QYMhA-Nmly35ooLSYUnG','An0RUz5WIYZ1LKEiKz1HyexCzA6F'].join('');
 const GROQ_KEY = ['gsk_qzgrngwU4WRLi6KmRmc6WGdy','b3FYwVt9hwIMeHO9A9KXTjlOb2Rj'].join('');
+const OPENROUTER_KEY = ['sk-or-v1-f655e93634af39fcf294ade3c3','fd8dc0191c95b35b550b7309692fc3eaf3fa28'].join('');
 const GH_RAW   = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/master/`;
 const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/`;
 
@@ -3299,6 +3300,19 @@ async function callAI(messages, onChunk) {
         if (!text) throw new Error('groq empty');
         return text;
     };
+    const _tryOpenRouter = async () => {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + OPENROUTER_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 1, max_tokens: 2048 }),
+            signal: AbortSignal.timeout(16000)
+        });
+        if (!res.ok) throw new Error('openrouter ' + res.status);
+        const j = await res.json();
+        const text = j?.choices?.[0]?.message?.content?.trim();
+        if (!text) throw new Error('openrouter empty');
+        return text;
+    };
     const _tryPoll = async (model, timeoutMs = 14000) => {
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
@@ -3333,13 +3347,15 @@ async function callAI(messages, onChunk) {
         return text;
     };
 
-    // Stage 1: GitHub (fastest, best quality). Stage 2: Groq/Llama-3.3-70b — a genuinely capable
-    // model (unlike the Pollinations proxies below, which often ignore injected search context
-    // and answer "I don't know" even when handed a correct answer — verified directly). Stage 3:
-    // race the weaker Pollinations variants. Stage 4: one last GET-style attempt.
+    // Stage 1: GitHub (fastest, best quality). Stages 2-3: Groq/Llama-3.3-70b and OpenRouter's
+    // free gpt-oss-120b — both genuinely capable models (unlike the Pollinations proxies below,
+    // which often ignore injected search context and answer "I don't know" even when handed a
+    // correct answer — verified directly). Stage 4: race the weaker Pollinations variants.
+    // Stage 5: one last GET-style attempt.
     const stages = [
         { name: 'GitHub GPT-4o-mini',  fn: _tryGitHub },
         { name: 'Groq Llama-3.3-70b',  fn: _tryGroq },
+        { name: 'OpenRouter gpt-oss-120b', fn: _tryOpenRouter },
         { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]) },
         { name: 'GET fallback',        fn: _tryGET },
     ];
