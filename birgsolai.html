@@ -3382,15 +3382,13 @@ async function callAI(messages, onChunk) {
         return text;
     };
 
-    // Stage 1: GitHub (fastest, best quality). Stages 2-3: Groq/Llama-3.3-70b and OpenRouter's
-    // free gpt-oss-120b — both genuinely capable models (unlike the Pollinations proxies below,
-    // which often ignore injected search context and answer "I don't know" even when handed a
-    // correct answer — verified directly). Stage 4: race the weaker Pollinations variants.
-    // Stage 5: one last GET-style attempt.
+    // Stage 1: race GitHub + Groq + OpenRouter SIMULTANEOUSLY — all three are verified reliable
+    // (correctly use injected search context, unlike the Pollinations proxies below). Whichever
+    // responds first wins, so the app automatically uses whichever model/provider is fastest or
+    // healthiest right now rather than always waiting on one fixed "primary". Only falls through
+    // to Gemini/Pollinations/GET if ALL THREE of the good models fail or time out.
     const stages = [
-        { name: 'GitHub GPT-4o-mini',  fn: _tryGitHub },
-        { name: 'Groq Llama-3.3-70b',  fn: _tryGroq },
-        { name: 'OpenRouter gpt-oss-120b', fn: _tryOpenRouter },
+        { name: 'Primary race (GitHub+Groq+OpenRouter)', fn: () => Promise.any([_tryGitHub(), _tryGroq(), _tryOpenRouter()]) },
         { name: 'Gemini Flash',        fn: _tryGemini },
         { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]) },
         { name: 'GET fallback',        fn: _tryGET },
