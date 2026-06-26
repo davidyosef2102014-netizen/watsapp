@@ -2427,7 +2427,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         actsEl = document.createElement('div'); actsEl.className = 'ai-acts';
 
         skelEl  = document.createElement('div');  skelEl.className = 'img-skeleton';
-        skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה…';
+        skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה באמצעות BIRGSOL Image 2.0…';
         wrapEl.appendChild(skelTxt); wrapEl.appendChild(skelEl);
 
         txtDiv.appendChild(wrapEl);
@@ -2442,10 +2442,10 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         skelTxt = wrapEl.querySelector('.img-skel-txt');
         if (!skelEl) {
             skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
-            skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה…';
+            skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה באמצעות BIRGSOL Image 2.0…';
             wrapEl.prepend(skelEl); wrapEl.prepend(skelTxt);
         }
-        skelEl.style.display = 'flex'; skelTxt.textContent = 'יוצר תמונה…';
+        skelEl.style.display = 'flex'; skelTxt.textContent = 'יוצר תמונה באמצעות BIRGSOL Image 2.0…';
     }
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
