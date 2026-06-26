@@ -3,7 +3,7 @@
   "short_name": "BIRGSOL AI",
   "description": "צ'אט AI חכם עם יצירת תמונות, חיפוש וניתוח קבצים",
   "start_url": "/watsapp/birgsolai.html",
-  "scope": "/watsapp/",
+  "scope": "/watsapp/birgsolai.html",
   "display": "standalone",
   "background_color": "#0a0a0b",
   "theme_color": "#0a0a0b",

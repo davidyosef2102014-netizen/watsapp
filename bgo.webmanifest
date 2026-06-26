@@ -3,7 +3,7 @@
   "short_name": "Bgo",
   "description": "מוניות Bgo, חנות BSHOP וניווט NAV",
   "start_url": "/watsapp/poninio_app.html",
-  "scope": "/watsapp/",
+  "scope": "/watsapp/poninio_app.html",
   "display": "standalone",
   "background_color": "#0f1117",
   "theme_color": "#22c55e",

@@ -3,7 +3,7 @@
   "short_name": "BGO NAV",
   "description": "ניווט GPS מתקדם",
   "start_url": "/watsapp/nav_bgo.html",
-  "scope": "/watsapp/",
+  "scope": "/watsapp/nav_bgo.html",
   "display": "standalone",
   "background_color": "#0a0e1a",
   "theme_color": "#06b6d4",

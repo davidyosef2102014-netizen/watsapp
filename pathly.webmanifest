@@ -3,7 +3,7 @@
   "short_name": "Pathly",
   "description": "ניווט GPS בישראל עם הוראות קוליות בעברית",
   "start_url": "/watsapp/pathly.html",
-  "scope": "/watsapp/",
+  "scope": "/watsapp/pathly.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
