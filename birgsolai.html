@@ -3401,11 +3401,12 @@ async function callAI(messages, onChunk) {
         return text;
     };
 
-    // Sequential order per user request: GitHub (GPT-4o-mini) first, Groq second, then OpenRouter,
-    // Gemini, Pollinations, GET — each tried in order, only moving to the next if the current one fails.
+    // Sequential order per user request: Groq (Llama-3.3-70b) first as the main/central model,
+    // GitHub GPT-4o-mini second, then OpenRouter, Gemini, Pollinations, GET — each tried in order,
+    // only moving to the next if the current one fails.
     const stages = [
-        { name: 'GitHub GPT-4o-mini',  fn: _tryGitHub },
         { name: 'Groq Llama-3.3-70b',  fn: _tryGroq },
+        { name: 'GitHub GPT-4o-mini',  fn: _tryGitHub },
         { name: 'OpenRouter gpt-oss-120b', fn: _tryOpenRouter },
         { name: 'Gemini Flash',        fn: _tryGemini },
         { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]) },
