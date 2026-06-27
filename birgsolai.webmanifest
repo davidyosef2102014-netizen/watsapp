@@ -13,15 +13,15 @@
   "categories": ["productivity", "utilities"],
   "icons": [
     {
-      "src": "birgsolai-icon.svg",
+      "src": "birgsolai-icon.png",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "birgsolai-icon.svg",
+      "src": "birgsolai-icon.png",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ]
