@@ -3924,17 +3924,25 @@ async function _playElevenLabsTTS(text) {
     }
 }
 
+// Browser-native Hebrew voice ALWAYS wins when the device actually has one installed — a real
+// Hebrew voice pronounces Hebrew far better than any English premade voice doing "multilingual"
+// transfer (confirmed: ElevenLabs' free-tier voices garble/mispronounce Hebrew words, a known
+// limitation of non-native voices on their multilingual model, not something fixable via params).
+// ElevenLabs is now only a last-resort fallback for devices with NO Hebrew voice installed at all
+// — still better than a random English/other-language default voice in that specific case.
 async function _liveSpeakText(text) {
     if (!text || _liveStopped) return;
-    const ok = await _playElevenLabsTTS(text);
-    if (ok || _liveStopped) return;
-    await _speakWithBrowserTTS(text);
+    const hadHebrewVoice = await _speakWithBrowserTTS(text);
+    if (hadHebrewVoice || _liveStopped) return;
+    await _playElevenLabsTTS(text);
 }
 
+// Resolves true if a real Hebrew voice was found and used, false if it had to fall back to some
+// other default voice (caller may then try ElevenLabs instead).
 async function _speakWithBrowserTTS(text) {
     return new Promise(async (resolve) => {
         window.speechSynthesis.cancel();
-        if (!text || _liveStopped) { resolve(); return; }
+        if (!text || _liveStopped) { resolve(true); return; }
 
         // Chrome returns empty array synchronously — wait for voices to load
         let voices = window.speechSynthesis.getVoices();
@@ -3945,7 +3953,7 @@ async function _speakWithBrowserTTS(text) {
             });
             voices = window.speechSynthesis.getVoices();
         }
-        if (_liveStopped) { resolve(); return; }
+        if (_liveStopped) { resolve(true); return; }
 
         const utt = new SpeechSynthesisUtterance(text);
         utt.rate = 1.05; utt.pitch = 1.0; utt.volume = 1.0;
@@ -3955,11 +3963,12 @@ async function _speakWithBrowserTTS(text) {
         const _isHebrewVoice = v => /^(he|iw)/i.test(v.lang) || /hebrew|עברית/i.test(v.name);
         const heVoice = voices.find(v => _isHebrewVoice(v) && v.localService) ||
                         voices.find(v => _isHebrewVoice(v));
+        const hasHebrew = !!heVoice;
         if (heVoice) {
             utt.voice = heVoice; utt.lang = heVoice.lang;
         } else {
             // No Hebrew TTS installed on this system — fall back to whatever default voice exists
-            // (will speak in English/other language until the user installs a Hebrew voice in their OS)
+            // (will speak in English/other language; caller will then try ElevenLabs instead)
             const def = voices.find(v => v.default) || voices[0];
             if (def) utt.voice = def;
         }
@@ -3968,7 +3977,7 @@ async function _speakWithBrowserTTS(text) {
         let keepAlive;
         const finish = () => {
             if (done) return; done = true;
-            clearInterval(keepAlive); resolve();
+            clearInterval(keepAlive); resolve(hasHebrew);
         };
         utt.onend  = finish;
         utt.onerror = (e) => { console.warn('TTS:', e.error); finish(); };
