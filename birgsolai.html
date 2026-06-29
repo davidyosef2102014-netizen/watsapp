@@ -3463,9 +3463,11 @@ async function send() {
     clearFile(); busy = true; updateBtn();
 
     // Build messages for OpenAI-compatible API
-    // Build messages — exclude the last hist item (just pushed by addMsg) to avoid duplicate user msg
+    // Build messages — exclude the last hist item (just pushed by addMsg) to avoid duplicate user msg.
+    // Models used (Groq Llama-3.3-70b, GPT-4o-mini, Gemini Flash) all support large context windows,
+    // so keep a wide history slice — a short window was causing the AI to "forget" earlier turns.
     const messages = [{ role: 'system', content: getPersona() }];
-    hist.slice(-15, -1).forEach(m => {
+    hist.slice(-80, -1).forEach(m => {
         const content = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
         messages.push({ role: m.role, content });
     });
@@ -3740,7 +3742,7 @@ async function _liveLoop() {
     const messages = [
         { role:'system', content: getPersona() +
           '\n\nIMPORTANT — LIVE VOICE MODE: Give SHORT, natural conversational answers (2-4 sentences). NO markdown, NO asterisks, NO bullet points, NO code blocks — speak like a human. Hebrew by default unless user writes English.' },
-        ...hist.slice(-8).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
+        ...hist.slice(-30).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
         { role:'user', content: transcript }
     ];
     let reply = '';
