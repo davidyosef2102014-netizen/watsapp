@@ -1464,6 +1464,8 @@ const GROQ_KEY = ['gsk_qzgrngwU4WRLi6KmRmc6WGdy','b3FYwVt9hwIMeHO9A9KXTjlOb2Rj']
 const OPENROUTER_KEY = ['sk-or-v1-f655e93634af39fcf294ade3c3','fd8dc0191c95b35b550b7309692fc3eaf3fa28'].join('');
 const OPENROUTER_KEY2 = ['sk-or-v1-614e25d14b22da92a4f88976','56555b50253fd7cea6f09aef8cffcd0725d58ac2'].join('');
 const GEMINI_KEY = ['AQ.Ab8RN6KZoOHQvj-7TYEWuvXSb','mwnKlb8T88Sj2Gut8O5DZkTHg'].join('');
+const ELEVEN_KEY = ['sk_49650d43f138a249ef7f74706','d4f11cb80a9c7c4a0623cc0'].join('');
+const ELEVEN_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // "Bella" — one of the few premade voices usable on the free API tier
 const GH_RAW   = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/master/`;
 const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/`;
 
@@ -3689,6 +3691,7 @@ let _liveMuted   = false;
 let _liveRec     = null;
 let _liveBusy    = false;
 let _liveStopped = false;
+let _liveCurrentAudio = null; // currently-playing ElevenLabs <audio>, so endLive() can stop it
 
 /* ══ GLOW ANIMATION (phone-call style ambient light) ══ */
 let _waveState = 'idle', _waveAnimId = null, _waveT = 0;
@@ -3760,6 +3763,7 @@ function endLive() {
     _liveActive = false; _liveStopped = true;
     if (_liveRec) { try { _liveRec.stop(); } catch(e) {} _liveRec = null; }
     window.speechSynthesis.cancel();
+    if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(e) {} _liveCurrentAudio = null; }
     document.getElementById('live-overlay').classList.remove('on');
     _setLiveState('idle');
     _stopWave();
@@ -3887,7 +3891,47 @@ function _liveListenOnce() {
     });
 }
 
+// ElevenLabs cloud TTS — real server-rendered Hebrew speech, identical on every device regardless
+// of what voices happen to be installed on the phone's OS (unlike speechSynthesis below). Free tier
+// is capped at 10,000 chars/month and a 402 means quota is exhausted or the voice isn't eligible —
+// in either case we fall back to the browser's built-in speechSynthesis rather than failing silently.
+async function _playElevenLabsTTS(text) {
+    try {
+        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`, {
+            method: 'POST',
+            headers: { 'xi-api-key': ELEVEN_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2' }),
+            signal: AbortSignal.timeout(20000)
+        });
+        if (!res.ok) return false;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        _liveCurrentAudio = audio;
+        const ok = await new Promise(resolve => {
+            let done = false;
+            const finish = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
+            audio.onended = () => finish(true);
+            audio.onerror = () => finish(false);
+            setTimeout(() => finish(false), 30000); // safety: never hang forever
+            audio.play().catch(() => finish(false));
+        });
+        if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
+        return ok;
+    } catch (e) {
+        console.warn('ElevenLabs TTS failed:', e.message);
+        return false;
+    }
+}
+
 async function _liveSpeakText(text) {
+    if (!text || _liveStopped) return;
+    const ok = await _playElevenLabsTTS(text);
+    if (ok || _liveStopped) return;
+    await _speakWithBrowserTTS(text);
+}
+
+async function _speakWithBrowserTTS(text) {
     return new Promise(async (resolve) => {
         window.speechSynthesis.cancel();
         if (!text || _liveStopped) { resolve(); return; }
