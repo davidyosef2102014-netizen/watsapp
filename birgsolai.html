@@ -1609,6 +1609,7 @@ async function _finishLogin(user) {
     document.getElementById('login-screen').style.display = 'none';
     updateUserChip(); updateFreeBanner(); updateGreeting();
     await loadConversationsCloud();
+    loadUserMemory();
 }
 
 /* ── premium check ── */
@@ -1812,7 +1813,7 @@ async function doRegister() {
 function doLogout() {
     if (!confirm('להתנתק מ-Birgsol AI?')) return;
     localStorage.removeItem(AI_AUTH_KEY);
-    currentUser = null; isPremium = false; freeLeft = FREE_LIMIT; hist = []; currentConvId = null; convList = [];
+    currentUser = null; isPremium = false; freeLeft = FREE_LIMIT; hist = []; currentConvId = null; convList = []; userMemory = [];
     document.getElementById('chat-window').innerHTML = '';
     document.getElementById('chat-window').style.display = 'none';
     document.getElementById('welcome').style.display = 'flex';
@@ -1858,6 +1859,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (spBtn) spBtn.style.display = 'none';
         currentUser = savedUser;
         checkPremium(); updateUserChip(); updateFreeBanner(); updateGreeting();
+        loadUserMemory();
         const sp = document.getElementById('splash');
         if (sp) { sp.classList.add('hide'); setTimeout(() => sp.style.display = 'none', 700); }
         document.getElementById('login-screen').style.display = 'none';
@@ -2005,9 +2007,12 @@ function getPersona() {
     const dateLine = `📅 Today is ${dateStr}, ${timeStr}.\n`;
     const lang = localStorage.getItem('birgsol_lang') || 'he';
     const langLine = `🌐 ALWAYS respond in ${LANG_NAMES[lang] || 'Hebrew'} — this is the user's chosen language. Do not switch languages unless the user explicitly asks.\n\n`;
-    if (currentMode === 'code') return dateLine + langLine + PERSONA_CODE;
-    if (currentMode === 'image') return dateLine + langLine + PERSONA_IMAGE;
-    return dateLine + langLine + PERSONA_NORMAL;
+    const memLine = userMemory.length
+        ? `\n\n=== MEMORY (what you already know about this user from past conversations) ===\n${userMemory.map(f => '- ' + f).join('\n')}\nUse this naturally when relevant — don't explicitly say "according to my memory" unless the user asks what you remember.\n`
+        : '';
+    if (currentMode === 'code') return dateLine + langLine + PERSONA_CODE + memLine;
+    if (currentMode === 'image') return dateLine + langLine + PERSONA_IMAGE + memLine;
+    return dateLine + langLine + PERSONA_NORMAL + memLine;
 }
 
 function setMode(mode) {
@@ -2024,6 +2029,47 @@ function setMode(mode) {
 }
 
 let hist = [], fileUrl = "", busy = false, isFirstMsg = true;
+let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
+
+async function loadUserMemory() {
+    if (!currentUser) { userMemory = []; return; }
+    const data = await ghRead('db/ai_memory_' + currentUser + '.json');
+    userMemory = data?.facts || [];
+}
+
+async function rememberFact(fact) {
+    if (!currentUser || !fact) return;
+    if (userMemory.some(f => f.toLowerCase() === fact.toLowerCase())) return; // exact dup
+    userMemory.push(fact);
+    if (userMemory.length > 40) userMemory = userMemory.slice(-40); // cap so the persona prompt doesn't bloat
+    await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: userMemory });
+}
+
+// Fire-and-forget: after each exchange, ask a fast model whether anything durable is worth
+// remembering long-term (name, preferences, ongoing projects). Runs in the background — never
+// awaited from send(), so it doesn't add latency to the visible reply.
+async function extractMemory(userMsg, aiReply) {
+    if (!currentUser || !userMsg) return;
+    try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: 'You extract durable facts worth remembering long-term about a user from one chat exchange (their name, preferences, ongoing projects, important personal/work context). If the exchange contains such a fact, reply with ONE short sentence stating it, in Hebrew. If there is nothing worth remembering long-term (small talk, a one-off question, no new durable info), reply with exactly: NONE' },
+                    { role: 'user', content: `User: ${userMsg}\nAssistant: ${(aiReply || '').slice(0, 500)}` }
+                ],
+                temperature: 0.3, max_tokens: 60
+            }),
+            signal: AbortSignal.timeout(10000)
+        });
+        if (!res.ok) return;
+        const j = await res.json();
+        const fact = j?.choices?.[0]?.message?.content?.trim();
+        if (fact && !/^none$/i.test(fact)) await rememberFact(fact);
+    } catch {}
+}
 
 /* ── marked + highlight.js renderer ── */
 const _renderer = new marked.Renderer();
@@ -3300,7 +3346,7 @@ async function callAI(messages, onChunk) {
         const res = await fetch('https://models.github.ai/inference/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages, temperature: 1, max_tokens: 2048 }),
+            body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }),
             signal: AbortSignal.timeout(12000)
         });
         if (!res.ok) throw new Error('gh ' + res.status);
@@ -3313,7 +3359,7 @@ async function callAI(messages, onChunk) {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 1, max_tokens: 2048 }),
+            body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }),
             signal: AbortSignal.timeout(14000)
         });
         if (!res.ok) throw new Error('groq ' + res.status);
@@ -3326,7 +3372,7 @@ async function callAI(messages, onChunk) {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 1, max_tokens: 2048 }),
+            body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 0.7, max_tokens: 2048 }),
             signal: AbortSignal.timeout(16000)
         });
         if (!res.ok) throw new Error('openrouter ' + res.status);
@@ -3350,6 +3396,8 @@ async function callAI(messages, onChunk) {
         // messages, and no "system" role — prepend the system prompt onto the first user turn.
         // This key's quota is inconsistent (0 limit on some models, "high demand" 503s on others)
         // so it sits late in the chain as a bonus attempt, not a primary.
+        // thinkingBudget left non-zero (was 0) so Gemini actually reasons before answering instead
+        // of rushing — it's a late-stage fallback, so the extra latency doesn't hurt overall speed.
         const sys = messages.find(m => m.role === 'system')?.content || '';
         const contents = messages.filter(m => m.role !== 'system').map(m => ({
             role: m.role === 'assistant' ? 'model' : 'user',
@@ -3359,8 +3407,8 @@ async function callAI(messages, onChunk) {
         const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-            body: JSON.stringify({ contents, generationConfig: { thinkingConfig: { thinkingBudget: 0 } } }),
-            signal: AbortSignal.timeout(16000)
+            body: JSON.stringify({ contents, generationConfig: { thinkingConfig: { thinkingBudget: 1024 } } }),
+            signal: AbortSignal.timeout(22000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
         const j = await res.json();
@@ -3604,6 +3652,7 @@ async function send() {
         if (isFirstMsg) { isFirstMsg = false; }
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
         saveConversation(); // שמור שיחה מלאה ב-localStorage
+        extractMemory(q, cleanText || fullText); // fire-and-forget — doesn't block the visible reply
     } catch (e) {
         if (!fullText) {
             txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
