@@ -1512,8 +1512,11 @@ async function ghWrite(path, data) {
                 signal: AbortSignal.timeout(10000)
             });
             if (r.ok) return true;
-            if (r.status !== 409 || attempt === 2) return false; // only retry on SHA conflicts
+            const errBody = await r.text().catch(() => '');
+            console.warn('[ghWrite] failed', path, r.status, errBody.slice(0, 200));
+            if (attempt === 2) return false; // retry on ANY failure now, not just 409 — rate limits/5xx are also transient
         } catch (e) {
+            console.warn('[ghWrite] error', path, e.message);
             if (attempt === 2) return false;
         }
         await new Promise(res => setTimeout(res, 300 * (attempt + 1))); // brief backoff before retry
@@ -1550,13 +1553,19 @@ async function syncConversations() {
         if (idx !== -1) { convList[idx] = { ...convList[idx], title, messages: msgs, updatedAt: now }; }
     }
     if (convList.length > 50) convList = convList.slice(0, 50);
-    localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
-    // שמור איזו שיחה פתוחה כרגע — כדי לשחזר אוטומטית אם הדף נטען מחדש
-    // (קורה למשל כשאנדרואיד סוגר את הטאב ברקע בזמן בחירת תמונה מהגלריה)
-    localStorage.setItem('birgsol_open_conv_' + currentUser, currentConvId);
+    try {
+        localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
+        // שמור איזו שיחה פתוחה כרגע — כדי לשחזר אוטומטית אם הדף נטען מחדש
+        // (קורה למשל כשאנדרואיד סוגר את הטאב ברקע בזמן בחירת תמונה מהגלריה)
+        localStorage.setItem('birgsol_open_conv_' + currentUser, currentConvId);
+    } catch (e) {
+        console.warn('[syncConversations] localStorage write failed:', e.message);
+    }
     renderConvList();
-    // העלה לענן ברקע (לא חוסם)
-    ghWrite('db/ai_convs/' + currentUser + '.json', convList).catch(() => {});
+    // העלה לענן ברקע (לא חוסם) — לוג אם נכשל אחרי כל הניסיונות, כדי שכשל לא יהיה שקט/בלתי-נראה
+    ghWrite('db/ai_convs/' + currentUser + '.json', convList).then(ok => {
+        if (!ok) console.warn('[syncConversations] cloud sync failed for user:', currentUser);
+    });
 }
 
 /* ══════════════ AUTH ══════════════ */
