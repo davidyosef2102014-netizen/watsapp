@@ -1186,8 +1186,8 @@
     </div>
     <div class="live-status" id="live-status">לחץ להתחלה</div>
     <div class="live-transcript" id="live-transcript">BIRGSOL AI 3.5 מוכן לשיחה קולית</div>
-    <div class="live-controls" style="flex-direction:column;gap:16px;align-items:center">
-        <button class="live-ptt-btn" id="live-ptt-btn">🎤 לחץ וחזק לדיבור</button>
+    <div class="live-controls">
+        <button class="live-mute-btn" id="live-mute-btn" onclick="toggleLiveMute()" title="השתק מיקרופון"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
         <button class="live-end-btn" onclick="endLive()">✕ סיים שיחה</button>
     </div>
 </div>
@@ -3855,7 +3855,7 @@ function _setLiveState(state) {
     const status = document.getElementById('live-status');
     const trans  = document.getElementById('live-transcript');
     trans.classList.remove('ai-speaking');
-    if (state === 'idle')      { status.textContent = 'לחץ וחזק את הכפתור לדיבור'; }
+    if (state === 'idle')      { status.textContent = '🎤 מקשיב בעוד שנייה…'; }
     else if (state === 'listening') { status.textContent = 'מקשיב…'; }
     else if (state === 'thinking')  { status.textContent = 'חושב…'; }
     else if (state === 'speaking')  { status.textContent = 'מדבר…'; trans.classList.add('ai-speaking'); }
@@ -3874,7 +3874,10 @@ function startLive() {
     _setLiveState('idle');
     _startWave();
     _warmupHFTTS();
-    _pttSetup();
+    document.getElementById('live-glow-canvas').onclick = () => {
+        if (!_liveBusy && _liveActive) _liveLoop();
+    };
+    setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 800);
 }
 
 function endLive() {
@@ -4025,12 +4028,11 @@ async function _liveLoop() {
 
     await _liveSpeakText(reply);
 
-    // ── 4. Loop back ──
+    // ── 4. Loop back — wait 2s so room echo fades before mic opens ──
+    _setLiveState('idle');
     _liveBusy = false;
     if (_liveActive && !_liveStopped && !_liveMuted) {
-        _liveLoop();
-    } else {
-        _setLiveState('idle');
+        setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 2000);
     }
 }
 
