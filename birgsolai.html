@@ -4189,15 +4189,53 @@ async function _playGeminiTTS(text) {
     }
 }
 
+// Google Translate TTS proxied via allorigins.win — real Hebrew quality, no API key needed
+async function _playGoogleTTSProxy(text) {
+    const chunks = _splitHebTTS(text, 140); // Google TTS URL char limit
+    for (const chunk of chunks) {
+        if (_liveStopped) return false;
+        try {
+            const ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&q='
+                + encodeURIComponent(chunk) + '&tl=he&client=tw-ob&ttsspeed=1';
+            const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(ttsUrl);
+            const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+            if (!res.ok) return false;
+            const buf = await res.arrayBuffer();
+            if (!buf.byteLength) return false;
+            const blob = new Blob([buf], { type: 'audio/mpeg' });
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            _liveCurrentAudio = audio;
+            const ok = await new Promise(resolve => {
+                let done = false;
+                const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
+                audio.onended = () => fin(true);
+                audio.onerror = (e) => { console.warn('[Google TTS proxy] audio error', e); fin(false); };
+                setTimeout(() => fin(false), 30000);
+                audio.play().catch(() => fin(false));
+            });
+            if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
+            if (!ok) return false;
+        } catch(e) {
+            console.warn('[Google TTS proxy] failed:', e.message);
+            return false;
+        }
+    }
+    return true;
+}
+
 async function _liveSpeakText(text) {
     if (!text || _liveStopped) return;
     // 1. Browser TTS — only when an actual Hebrew voice is installed on the device
     const hadLocalHeb = await _speakWithBrowserTTS(text);
     if (hadLocalHeb || _liveStopped) return;
-    // 2. HuggingFace MMS Hebrew TTS (direct → CORS proxy)
+    // 2. Google Translate TTS via allorigins.win proxy — real Hebrew, confirmed working
+    const googleOk = await _playGoogleTTSProxy(text);
+    if (googleOk || _liveStopped) return;
+    // 3. HuggingFace MMS Hebrew TTS (direct → CORS proxy)
     const hfOk = await _playHuggingFaceTTS(text);
     if (hfOk || _liveStopped) return;
-    // 3. Gemini 2.5 Flash TTS (uses existing Gemini API key)
+    // 4. Gemini 2.5 Flash TTS (uses existing Gemini API key)
     await _playGeminiTTS(text);
 }
 
