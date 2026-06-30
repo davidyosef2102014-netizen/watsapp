@@ -4067,9 +4067,7 @@ function _warmupHFTTS() {
 }
 
 async function _hfFetchAudio(chunk) {
-    const tr = () => document.getElementById('live-transcript');
     for (const url of [_HF_TTS_DIRECT, _HF_TTS_PROXY]) {
-        const tag = url.includes('corsproxy') ? '[proxy]' : '[direct]';
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
                 const res = await fetch(url, {
@@ -4080,25 +4078,22 @@ async function _hfFetchAudio(chunk) {
                 });
                 if (res.status === 503) {
                     if (attempt === 0) {
-                        if (tr()) tr().textContent = `HF ${tag} טוען… נסה שוב בעוד 12 שניות`;
+                        document.getElementById('live-status').textContent = 'טוען קול…';
                         await new Promise(r => setTimeout(r, 12000));
                         continue;
                     }
-                    if (tr()) tr().textContent = `HF ${tag} 503 — עובר לגיבוי`;
                     break;
                 }
-                if (!res.ok) { if (tr()) tr().textContent = `HF ${tag} שגיאה ${res.status}`; break; }
-                // Proxies often strip Content-Type → force audio MIME so Audio element can play
+                if (!res.ok) { console.warn('[HF TTS]', url.includes('corsproxy') ? 'proxy' : 'direct', res.status); break; }
                 const ct = res.headers.get('content-type') || '';
                 const mime = ct.includes('wav') ? 'audio/wav'
                            : ct.includes('mp3') || ct.includes('mpeg') ? 'audio/mpeg'
-                           : 'audio/flac'; // facebook/mms-tts-heb returns FLAC
+                           : 'audio/flac';
                 const buf = await res.arrayBuffer();
-                if (!buf.byteLength) { if (tr()) tr().textContent = `HF ${tag} תגובה ריקה`; break; }
-                if (tr()) tr().textContent = `HF ${tag} קיבל ${buf.byteLength}B ${mime}`;
+                if (!buf.byteLength) break;
                 return new Blob([buf], { type: mime });
             } catch(e) {
-                if (tr()) tr().textContent = `HF ${tag} שגיאת רשת: ${e.message.slice(0,40)}`;
+                console.warn('[HF TTS]', e.message);
                 break;
             }
         }
@@ -4194,32 +4189,42 @@ async function _playGoogleTTSProxy(text) {
     const chunks = _splitHebTTS(text, 140); // Google TTS URL char limit
     for (const chunk of chunks) {
         if (_liveStopped) return false;
-        try {
-            const ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&q='
-                + encodeURIComponent(chunk) + '&tl=he&client=tw-ob&ttsspeed=1';
-            const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(ttsUrl);
-            const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
-            if (!res.ok) return false;
-            const buf = await res.arrayBuffer();
-            if (!buf.byteLength) return false;
-            const blob = new Blob([buf], { type: 'audio/mpeg' });
-            const url = URL.createObjectURL(blob);
-            const audio = new Audio(url);
-            _liveCurrentAudio = audio;
-            const ok = await new Promise(resolve => {
-                let done = false;
-                const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
-                audio.onended = () => fin(true);
-                audio.onerror = (e) => { console.warn('[Google TTS proxy] audio error', e); fin(false); };
-                setTimeout(() => fin(false), 30000);
-                audio.play().catch(() => fin(false));
-            });
-            if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
-            if (!ok) return false;
-        } catch(e) {
-            console.warn('[Google TTS proxy] failed:', e.message);
-            return false;
+        let buf = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&q='
+                    + encodeURIComponent(chunk) + '&tl=he&client=tw-ob&ttsspeed=1';
+                const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(ttsUrl);
+                const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+                if (!res.ok) {
+                    if ((res.status === 530 || res.status >= 500) && attempt < 2) {
+                        await new Promise(r => setTimeout(r, 2000));
+                        continue; // retry on server/Cloudflare errors
+                    }
+                    break;
+                }
+                buf = await res.arrayBuffer();
+                if (buf.byteLength) break;
+            } catch(e) {
+                console.warn('[Google TTS proxy]', e.message);
+                if (attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue; }
+            }
         }
+        if (!buf || !buf.byteLength) return false;
+        const blob = new Blob([buf], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        _liveCurrentAudio = audio;
+        const ok = await new Promise(resolve => {
+            let done = false;
+            const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
+            audio.onended = () => fin(true);
+            audio.onerror = (e) => { console.warn('[Google TTS proxy] audio error', e); fin(false); };
+            setTimeout(() => fin(false), 30000);
+            audio.play().catch(() => fin(false));
+        });
+        if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
+        if (!ok) return false;
     }
     return true;
 }
