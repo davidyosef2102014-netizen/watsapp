@@ -4051,49 +4051,53 @@ function _splitHebTTS(text, maxLen) {
     return parts;
 }
 
-const _HF_TTS_URL = 'https://api-inference.huggingface.co/models/facebook/mms-tts-heb';
+const _HF_TTS_DIRECT = 'https://api-inference.huggingface.co/models/facebook/mms-tts-heb';
+const _HF_TTS_PROXY  = 'https://corsproxy.io/?' + _HF_TTS_DIRECT; // CORS proxy fallback
 
-// Fire-and-forget warmup so the model is hot by the time the first response arrives
+// Fire-and-forget: warm up HuggingFace model when live session opens
 function _warmupHFTTS() {
-    fetch(_HF_TTS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputs: 'שלום' }),
-        signal: AbortSignal.timeout(45000)
-    }).catch(() => {});
+    [_HF_TTS_DIRECT, _HF_TTS_PROXY].forEach(url => {
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inputs: 'שלום' }),
+            signal: AbortSignal.timeout(45000)
+        }).catch(() => {});
+    });
 }
 
 async function _hfFetchAudio(chunk) {
-    // Retries up to 3 times on 503 (model cold-start), waiting 10s between attempts
-    for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-            const res = await fetch(_HF_TTS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ inputs: chunk }),
-                signal: AbortSignal.timeout(25000)
-            });
-            if (res.status === 503) {
-                if (attempt < 2) {
-                    document.getElementById('live-status').textContent = 'טוען קול עברי…';
-                    await new Promise(r => setTimeout(r, 10000));
-                    continue;
+    // Try direct first, then CORS proxy — each with one 503-retry
+    for (const url of [_HF_TTS_DIRECT, _HF_TTS_PROXY]) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inputs: chunk }),
+                    signal: AbortSignal.timeout(25000)
+                });
+                if (res.status === 503) {
+                    if (attempt === 0) {
+                        document.getElementById('live-status').textContent = 'טוען קול עברי…';
+                        await new Promise(r => setTimeout(r, 12000));
+                        continue;
+                    }
+                    break; // both attempts on this URL failed → try proxy
                 }
-                return null;
+                if (!res.ok) break;
+                const blob = await res.blob();
+                if (blob.size) return blob;
+                break;
+            } catch(e) {
+                console.warn('[HF TTS]', url.slice(0, 40), e.message);
+                break; // CORS or network error → try proxy
             }
-            if (!res.ok) return null;
-            const blob = await res.blob();
-            return blob.size ? blob : null;
-        } catch(e) {
-            console.warn('[HF TTS] fetch error:', e.message);
-            if (attempt < 2) { await new Promise(r => setTimeout(r, 3000)); continue; }
-            return null;
         }
     }
     return null;
 }
 
-// HuggingFace MMS Hebrew TTS — neural Hebrew voice, no API key needed
 async function _playHuggingFaceTTS(text) {
     const chunks = _splitHebTTS(text, 300);
     for (const chunk of chunks) {
@@ -4117,21 +4121,76 @@ async function _playHuggingFaceTTS(text) {
     return true;
 }
 
+// Convert raw PCM bytes to WAV blob so <audio> can play it
+function _pcmToWav(pcmBytes, sampleRate) {
+    const buf = new ArrayBuffer(44 + pcmBytes.length);
+    const v = new DataView(buf);
+    const s = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+    s(0, 'RIFF'); v.setUint32(4, 36 + pcmBytes.length, true);
+    s(8, 'WAVE'); s(12, 'fmt '); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    s(36, 'data'); v.setUint32(40, pcmBytes.length, true);
+    new Uint8Array(buf, 44).set(pcmBytes);
+    return new Blob([buf], { type: 'audio/wav' });
+}
+
+// Gemini 2.5 Flash TTS — uses existing Gemini key, supports Hebrew
+async function _playGeminiTTS(text) {
+    try {
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent`,
+            {
+                method: 'POST',
+                headers: { 'X-goog-api-key': GEMINI_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text }] }],
+                    generationConfig: {
+                        responseModalities: ['AUDIO'],
+                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } } }
+                    }
+                }),
+                signal: AbortSignal.timeout(20000)
+            }
+        );
+        if (!res.ok) { console.warn('[Gemini TTS] status:', res.status); return false; }
+        const json = await res.json();
+        const part = json?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+        if (!part?.data) return false;
+        const pcm = Uint8Array.from(atob(part.data), c => c.charCodeAt(0));
+        const rate = parseInt(part.mimeType?.match(/rate=(\d+)/)?.[1] || '24000');
+        const blob = part.mimeType?.includes('pcm') ? _pcmToWav(pcm, rate)
+                                                     : new Blob([pcm], { type: part.mimeType });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        _liveCurrentAudio = audio;
+        const ok = await new Promise(resolve => {
+            let done = false;
+            const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
+            audio.onended = () => fin(true);
+            audio.onerror = (e) => { console.warn('[Gemini TTS] audio error:', e); fin(false); };
+            setTimeout(() => fin(false), 60000);
+            audio.play().catch(() => fin(false));
+        });
+        if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
+        return ok;
+    } catch(e) {
+        console.warn('[Gemini TTS] failed:', e.message);
+        return false;
+    }
+}
+
 async function _liveSpeakText(text) {
     if (!text || _liveStopped) return;
-    // 1. Browser TTS — only if an actual Hebrew voice is installed on the device
+    // 1. Browser TTS — only when an actual Hebrew voice is installed on the device
     const hadLocalHeb = await _speakWithBrowserTTS(text);
     if (hadLocalHeb || _liveStopped) return;
-    // 2. HuggingFace MMS Hebrew TTS — neural Hebrew, free, no API key needed
-    const cloudOk = await _playHuggingFaceTTS(text);
-    if (!cloudOk && !_liveStopped) {
-        // 3. All TTS failed — text is visible in transcript; show one-time setup tip
-        if (!sessionStorage.getItem('_heb_tts_tip')) {
-            sessionStorage.setItem('_heb_tts_tip', '1');
-            document.getElementById('live-transcript').textContent =
-                '💡 לקול עברי: הגדרות → שפה → טקסט לדיבור → הורד עברית';
-        }
-    }
+    // 2. HuggingFace MMS Hebrew TTS (direct → CORS proxy)
+    const hfOk = await _playHuggingFaceTTS(text);
+    if (hfOk || _liveStopped) return;
+    // 3. Gemini 2.5 Flash TTS (uses existing Gemini API key)
+    await _playGeminiTTS(text);
 }
 
 // Always resolves true. Sets lang=he-IL on the utterance — Android/iOS TTS engines handle
