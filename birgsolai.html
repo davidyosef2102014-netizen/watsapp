@@ -4032,16 +4032,78 @@ async function _playElevenLabsTTS(text) {
 
 // Browser-native Hebrew voice ALWAYS wins when the device actually has one installed — a real
 // Hebrew voice pronounces Hebrew far better than any English premade voice doing "multilingual"
-// transfer (confirmed: ElevenLabs' free-tier voices garble/mispronounce Hebrew words, a known
-// limitation of non-native voices on their multilingual model, not something fixable via params).
-// ElevenLabs is NOT used in live mode — _speakWithBrowserTTS handles everything via the OS TTS
-// engine with lang=he-IL, which works on Android/iOS without requiring an explicit Hebrew voice.
+// Split Hebrew text into TTS-friendly chunks at sentence boundaries
+function _splitHebTTS(text, maxLen) {
+    if (text.length <= maxLen) return [text];
+    const parts = [];
+    let rem = text;
+    while (rem.length > maxLen) {
+        let cut = rem.lastIndexOf('.', maxLen);
+        if (cut < maxLen * 0.4) cut = rem.lastIndexOf('!', maxLen);
+        if (cut < maxLen * 0.4) cut = rem.lastIndexOf('?', maxLen);
+        if (cut < maxLen * 0.4) cut = rem.lastIndexOf(' ', maxLen);
+        if (cut < 10) cut = maxLen;
+        parts.push(rem.slice(0, cut + 1).trim());
+        rem = rem.slice(cut + 1).trim();
+    }
+    if (rem) parts.push(rem);
+    return parts;
+}
+
+// HuggingFace MMS Hebrew TTS — neural Hebrew voice, no API key, CORS-enabled free inference
+async function _playHuggingFaceTTS(text) {
+    const chunks = _splitHebTTS(text, 300);
+    for (const chunk of chunks) {
+        if (_liveStopped) return false;
+        try {
+            const res = await fetch('https://api-inference.huggingface.co/models/facebook/mms-tts-heb', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inputs: chunk }),
+                signal: AbortSignal.timeout(20000)
+            });
+            if (!res.ok) {
+                if (res.status === 503) console.log('[HF TTS] Model warming up, will retry next message');
+                return false;
+            }
+            const blob = await res.blob();
+            if (!blob.size) return false;
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            _liveCurrentAudio = audio;
+            const ok = await new Promise(resolve => {
+                let done = false;
+                const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
+                audio.onended = () => fin(true);
+                audio.onerror = (e) => { console.warn('[HF TTS] audio error:', e); fin(false); };
+                setTimeout(() => fin(false), 60000);
+                audio.play().catch(() => fin(false));
+            });
+            if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
+            if (!ok) return false;
+        } catch(e) {
+            console.warn('[HF TTS] failed:', e.message);
+            return false;
+        }
+    }
+    return true;
+}
+
 async function _liveSpeakText(text) {
     if (!text || _liveStopped) return;
-    await _speakWithBrowserTTS(text);
-    // ElevenLabs removed — confirmed by user to garble Hebrew (2026-06).
-    // Browser TTS with lang=he-IL works on Android/iOS even without an
-    // explicit Hebrew voice in getVoices().
+    // 1. Browser TTS — only if an actual Hebrew voice is installed on the device
+    const hadLocalHeb = await _speakWithBrowserTTS(text);
+    if (hadLocalHeb || _liveStopped) return;
+    // 2. HuggingFace MMS Hebrew TTS — neural Hebrew, free, no API key needed
+    const cloudOk = await _playHuggingFaceTTS(text);
+    if (!cloudOk && !_liveStopped) {
+        // 3. All TTS failed — text is visible in transcript; show one-time setup tip
+        if (!sessionStorage.getItem('_heb_tts_tip')) {
+            sessionStorage.setItem('_heb_tts_tip', '1');
+            document.getElementById('live-transcript').textContent =
+                '💡 לקול עברי: הגדרות → שפה → טקסט לדיבור → הורד עברית';
+        }
+    }
 }
 
 // Always resolves true. Sets lang=he-IL on the utterance — Android/iOS TTS engines handle
@@ -4069,20 +4131,19 @@ async function _speakWithBrowserTTS(text) {
         const _isHebrewVoice = v => /^(he|iw)/i.test(v.lang) || /hebrew|עברית/i.test(v.name);
         const heVoice = voices.find(v => _isHebrewVoice(v) && v.localService) ||
                         voices.find(v => _isHebrewVoice(v));
-        if (heVoice) {
-            utt.voice = heVoice; utt.lang = heVoice.lang;
-        } else {
-            // No explicit Hebrew voice in getVoices() — set lang=he-IL without a specific voice.
-            // Android/iOS TTS engines handle the language request dynamically even when
-            // getVoices() returns no Hebrew entry. Never fall through to ElevenLabs (garbles Hebrew).
-            utt.lang = 'he-IL';
+        if (!heVoice) {
+            // No Hebrew voice installed on device — skip browser TTS entirely.
+            // Setting lang=he-IL without a real Hebrew voice produces noise/gibberish.
+            // Caller will try cloud Hebrew TTS instead.
+            resolve(false); return;
         }
+        utt.voice = heVoice; utt.lang = heVoice.lang;
 
         let done = false;
         let keepAlive;
         const finish = () => {
             if (done) return; done = true;
-            clearInterval(keepAlive); resolve(true); // always true — ElevenLabs is not a fallback
+            clearInterval(keepAlive); resolve(true);
         };
         utt.onend  = finish;
         utt.onerror = (e) => { console.warn('TTS:', e.error); finish(); };
