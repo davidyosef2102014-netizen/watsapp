@@ -3855,10 +3855,11 @@ function _setLiveState(state) {
     const status = document.getElementById('live-status');
     const trans  = document.getElementById('live-transcript');
     trans.classList.remove('ai-speaking');
-    if (state === 'idle')      { status.textContent = '🎤 מקשיב בעוד שנייה…'; }
-    else if (state === 'listening') { status.textContent = 'מקשיב…'; }
-    else if (state === 'thinking')  { status.textContent = 'חושב…'; }
-    else if (state === 'speaking')  { status.textContent = 'מדבר…'; trans.classList.add('ai-speaking'); }
+    if (state === 'idle')          { status.textContent = '🎤 מקשיב…'; }
+    else if (state === 'listening') { status.textContent = '🎤 מקשיב…'; }
+    else if (state === 'recording') { status.textContent = '🔴 מקליט…'; }
+    else if (state === 'thinking')  { status.textContent = '⏳ חושב…'; }
+    else if (state === 'speaking')  { status.textContent = '🔊 מדבר…'; trans.classList.add('ai-speaking'); }
 }
 
 function startLive() {
@@ -3882,8 +3883,9 @@ function startLive() {
 
 function endLive() {
     _liveActive = false; _liveStopped = true;
-    if (_pttRec)  { try { _pttRec.stop();  } catch(e) {} _pttRec  = null; }
-    if (_liveRec) { try { _liveRec.stop(); } catch(e) {} _liveRec = null; }
+    if (_pttRec)    { try { _pttRec.stop();  } catch(e) {} _pttRec  = null; }
+    if (_liveRec)   { try { _liveRec.stop(); } catch(e) {} _liveRec = null; }
+    if (_liveStream){ _liveStream.getTracks().forEach(t => t.stop()); _liveStream = null; }
     window.speechSynthesis.cancel();
     if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(e) {} _liveCurrentAudio = null; }
     document.getElementById('live-overlay').classList.remove('on');
@@ -4028,65 +4030,94 @@ async function _liveLoop() {
 
     await _liveSpeakText(reply);
 
-    // ── 4. Loop back — wait 2s so room echo fades before mic opens ──
-    _setLiveState('idle');
+    // ── 4. Loop back ──
     _liveBusy = false;
     if (_liveActive && !_liveStopped && !_liveMuted) {
-        setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 2000);
+        setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 100);
+    } else {
+        _setLiveState('idle');
     }
 }
 
-function _liveListenOnce() {
-    return new Promise((resolve) => {
-        if (_liveMuted || _liveStopped) { resolve(''); return; }
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) {
-            document.getElementById('live-status').textContent = '⚠️ הדפדפן לא תומך בזיהוי קול';
-            resolve(''); return;
+let _liveStream = null;
+
+async function _liveListenOnce() {
+    if (_liveMuted || _liveStopped) return '';
+
+    // Open mic once with hardware echo-cancellation — reuse across turns
+    if (!_liveStream || !_liveStream.active) {
+        try {
+            _liveStream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            });
+        } catch(e) {
+            document.getElementById('live-status').textContent = '⚠️ אין גישה למיקרופון';
+            return '';
         }
-        _setLiveState('listening');
-        const rec = new SR();
-        _liveRec = rec;
-        rec.lang = 'he-IL';
-        rec.interimResults = true; // Chrome sometimes never fires a final result — use interim as fallback
-        rec.continuous = false;
-        rec.maxAlternatives = 1;
+    }
 
-        let final = '', interim = '', done = false;
-        // safety timeout: if nothing happens after 10s, give up
-        const maxTimer = setTimeout(() => end(), 10000);
+    _setLiveState('listening');
 
-        const end = () => {
-            if (done) return;
-            done = true;
-            clearTimeout(maxTimer);
-            _liveRec = null;
-            const text = (final || interim).trim();
-            if (!text) document.getElementById('live-transcript').textContent = '⚠️ לא הצלחתי לתפוס מה שאמרת, נסה שוב';
-            resolve(text);
-        };
+    // VAD via Web Audio — wait for user to start speaking
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    ctx.createMediaStreamSource(_liveStream).connect(analyser);
+    const freq = new Uint8Array(analyser.frequencyBinCount);
+    const vol = () => { analyser.getByteFrequencyData(freq); return freq.reduce((a,b)=>a+b,0)/freq.length; };
 
-        rec.onresult = e => {
-            for (let i = e.resultIndex; i < e.results.length; i++) {
-                if (e.results[i].isFinal) { final += e.results[i][0].transcript; interim = ''; }
-                else interim = e.results[i][0].transcript;
-            }
-            const shown = final || interim;
-            if (shown) document.getElementById('live-transcript').textContent = '👤 ' + shown;
-        };
-
-        rec.onerror = (e) => {
-            console.warn('SpeechRecognition error:', e.error);
-            if (e.error !== 'no-speech') document.getElementById('live-transcript').textContent = '⚠️ שגיאת זיהוי קול: ' + e.error;
-            end();
-        };
-        rec.onend = () => end();
-
-        try { rec.start(); } catch(e) {
-            document.getElementById('live-transcript').textContent = '⚠️ לא ניתן להתחיל הקלטה: ' + e.message;
-            resolve('');
-        }
+    // Wait up to 10s for speech to begin
+    const started = await new Promise(res => {
+        let ticks = 0;
+        const t = setInterval(() => {
+            if (_liveStopped) { clearInterval(t); res(false); }
+            else if (vol() > 12) { clearInterval(t); res(true); }
+            else if (++ticks > 100) { clearInterval(t); res(false); }
+        }, 100);
     });
+
+    if (!started || _liveStopped) { ctx.close(); return ''; }
+
+    // Record until 1.2s of silence
+    _setLiveState('recording');
+    const chunks = [];
+    const rec = new MediaRecorder(_liveStream);
+    _liveRec = rec;
+    rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    rec.start(100);
+
+    await new Promise(res => {
+        let silMs = 0;
+        const t = setInterval(() => {
+            if (_liveStopped) { clearInterval(t); res(); return; }
+            if (vol() < 8) { silMs += 100; if (silMs >= 1200) { clearInterval(t); res(); } }
+            else silMs = 0;
+        }, 100);
+    });
+
+    rec.stop();
+    ctx.close();
+    _liveRec = null;
+    await new Promise(r => { rec.onstop = r; });
+    if (!chunks.length) return '';
+
+    // Groq Whisper — Hebrew STT
+    const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+    const fd = new FormData();
+    fd.append('file', blob, 'audio.webm');
+    fd.append('model', 'whisper-large-v3');
+    fd.append('language', 'he');
+    fd.append('response_format', 'text');
+    try {
+        const r = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+            method: 'POST', headers: { 'Authorization': 'Bearer ' + GROQ_KEY },
+            body: fd, signal: AbortSignal.timeout(15000)
+        });
+        if (!r.ok) { console.warn('[Whisper]', r.status); return ''; }
+        const text = (await r.text()).trim();
+        if (text) document.getElementById('live-transcript').textContent = '👤 ' + text;
+        return text;
+    } catch(e) { console.warn('[Whisper]', e.message); return ''; }
 }
 
 // ElevenLabs cloud TTS — real server-rendered Hebrew speech, identical on every device regardless
