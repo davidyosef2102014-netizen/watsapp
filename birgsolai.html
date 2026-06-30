@@ -889,6 +889,36 @@
         }
         .live-sidebar-btn:hover { background:rgba(255,255,255,.16); color:white; }
 
+        /* ══════════════ ADMIN PANEL ══════════════ */
+        #admin-overlay {
+            display:none; position:fixed; inset:0; z-index:9997;
+            background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:24px;
+        }
+        #admin-overlay.on { display:flex; }
+        .admin-card {
+            background:var(--surf); border-radius:18px; width:100%; max-width:560px; max-height:80vh;
+            display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.4);
+        }
+        .admin-head { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid var(--border); }
+        .admin-head h3 { font-size:16px; font-weight:700; }
+        .admin-close { background:none; border:none; font-size:20px; cursor:pointer; color:var(--muted); }
+        .admin-body { overflow-y:auto; padding:10px 14px; }
+        .admin-row { display:flex; align-items:center; gap:10px; padding:12px 8px; border-bottom:1px solid var(--border); }
+        .admin-row:last-child { border-bottom:none; }
+        .admin-row-info { flex:1; min-width:0; }
+        .admin-row-name { font-weight:700; font-size:14px; }
+        .admin-row-meta { font-size:12px; color:var(--muted); margin-top:2px; }
+        .admin-reset-btn {
+            padding:7px 12px; border-radius:8px; border:1px solid var(--border); background:transparent;
+            color:var(--text); font-size:12.5px; cursor:pointer; font-family:inherit; white-space:nowrap;
+        }
+        .admin-reset-btn:hover { background:var(--surf2); }
+        .sb-admin-btn {
+            width:100%; margin-bottom:8px; padding:9px 14px; border-radius:10px;
+            background:transparent; border:1px solid var(--border); color:var(--text);
+            font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;
+        }
+
     </style>
 </head>
 <body>
@@ -1169,10 +1199,22 @@
         <div class="hist-item" style="color:var(--muted);font-style:italic;font-size:13px;">אין שיחות עדיין...</div>
     </div>
     <div class="sb-foot">
+        <button onclick="openAdminPanel()" class="sb-admin-btn" id="sb-admin-btn" style="display:none">🛠 ניהול משתמשים</button>
         <div class="sb-creator">✦ נוצר ע"י דוד יוסף זאבי</div>
         <button onclick="doLogout()" class="sb-logout-btn">התנתקות</button>
     </div>
 </aside>
+
+<!-- ══ ADMIN PANEL ══ -->
+<div id="admin-overlay">
+    <div class="admin-card">
+        <div class="admin-head">
+            <h3>🛠 ניהול משתמשים</h3>
+            <button class="admin-close" onclick="closeAdminPanel()">✕</button>
+        </div>
+        <div class="admin-body" id="admin-body">טוען…</div>
+    </div>
+</div>
 
 <!-- ══ MAIN ══ -->
 <main id="main">
@@ -1476,6 +1518,60 @@ async function hashPassword(pass) {
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
+/* ══ ADMIN ══ — gated by the user's own real (already-hashed) login, not a separate hardcoded
+   password. Shows registered usernames + signup date only — passwords are one-way hashed and were
+   never recoverable, so there is nothing to display there; "reset password" generates a fresh
+   temporary one instead. */
+const ADMIN_USERS = ['דוד'];
+
+function updateAdminVisibility() {
+    const btn = document.getElementById('sb-admin-btn');
+    if (btn) btn.style.display = ADMIN_USERS.includes(currentUser) ? 'block' : 'none';
+}
+
+async function openAdminPanel() {
+    if (!ADMIN_USERS.includes(currentUser)) return;
+    document.getElementById('admin-overlay').classList.add('on');
+    closeSidebar();
+    const body = document.getElementById('admin-body');
+    body.textContent = 'טוען…';
+    const cloudUsers = await ghRead('db/ai_users.json') || {};
+    renderAdminUsers(cloudUsers);
+}
+
+function closeAdminPanel() {
+    document.getElementById('admin-overlay').classList.remove('on');
+}
+
+function renderAdminUsers(cloudUsers) {
+    const body = document.getElementById('admin-body');
+    const names = Object.keys(cloudUsers).sort((a, b) => (cloudUsers[b].createdAt||0) - (cloudUsers[a].createdAt||0));
+    if (!names.length) { body.textContent = 'אין משתמשים רשומים.'; return; }
+    body.innerHTML = names.map(name => {
+        const u = cloudUsers[name];
+        const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('he-IL') : '—';
+        return `<div class="admin-row">
+            <div class="admin-row-info">
+                <div class="admin-row-name">${escHtml(name)}</div>
+                <div class="admin-row-meta">נרשם: ${date}${u.lang ? ' · שפה: ' + escHtml(u.lang) : ''}</div>
+            </div>
+            <button class="admin-reset-btn" onclick="adminResetPassword('${name.replace(/'/g,"\\'")}')">איפוס סיסמה</button>
+        </div>`;
+    }).join('');
+}
+
+async function adminResetPassword(username) {
+    if (!ADMIN_USERS.includes(currentUser)) return;
+    if (!confirm(`לאפס את הסיסמה של "${username}"? תיווצר סיסמה זמנית חדשה.`)) return;
+    const tempPass = Math.random().toString(36).slice(-8);
+    const cloudUsers = await ghRead('db/ai_users.json') || {};
+    if (!cloudUsers[username]) { alert('משתמש לא נמצא.'); return; }
+    cloudUsers[username].password = await hashPassword(tempPass);
+    const ok = await ghWrite('db/ai_users.json', cloudUsers);
+    if (ok) alert(`✅ הסיסמה הזמנית של "${username}" היא:\n\n${tempPass}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.`);
+    else alert('❌ שגיאה בשמירת הסיסמה החדשה — נסה שוב.');
+}
+
 /* קרא JSON מ-GitHub (ללא rate-limit) */
 async function ghRead(path) {
     try {
@@ -1618,7 +1714,7 @@ async function _finishLogin(user) {
     localStorage.setItem(AI_AUTH_KEY, user);
     checkPremium();
     document.getElementById('login-screen').style.display = 'none';
-    updateUserChip(); updateFreeBanner(); updateGreeting();
+    updateUserChip(); updateFreeBanner(); updateGreeting(); updateAdminVisibility();
     await loadConversationsCloud();
     loadUserMemory();
 }
@@ -1870,6 +1966,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (spBtn) spBtn.style.display = 'none';
         currentUser = savedUser;
         checkPremium(); updateUserChip(); updateFreeBanner(); updateGreeting();
+        updateAdminVisibility();
         loadUserMemory();
         const sp = document.getElementById('splash');
         if (sp) { sp.classList.add('hide'); setTimeout(() => sp.style.display = 'none', 700); }
@@ -3937,17 +4034,18 @@ async function _playElevenLabsTTS(text) {
 // Hebrew voice pronounces Hebrew far better than any English premade voice doing "multilingual"
 // transfer (confirmed: ElevenLabs' free-tier voices garble/mispronounce Hebrew words, a known
 // limitation of non-native voices on their multilingual model, not something fixable via params).
-// ElevenLabs is now only a last-resort fallback for devices with NO Hebrew voice installed at all
-// — still better than a random English/other-language default voice in that specific case.
+// ElevenLabs is NOT used in live mode — _speakWithBrowserTTS handles everything via the OS TTS
+// engine with lang=he-IL, which works on Android/iOS without requiring an explicit Hebrew voice.
 async function _liveSpeakText(text) {
     if (!text || _liveStopped) return;
-    const hadHebrewVoice = await _speakWithBrowserTTS(text);
-    if (hadHebrewVoice || _liveStopped) return;
-    await _playElevenLabsTTS(text);
+    await _speakWithBrowserTTS(text);
+    // ElevenLabs removed — confirmed by user to garble Hebrew (2026-06).
+    // Browser TTS with lang=he-IL works on Android/iOS even without an
+    // explicit Hebrew voice in getVoices().
 }
 
-// Resolves true if a real Hebrew voice was found and used, false if it had to fall back to some
-// other default voice (caller may then try ElevenLabs instead).
+// Always resolves true. Sets lang=he-IL on the utterance — Android/iOS TTS engines handle
+// the language even when no Hebrew voice appears in getVoices(). Never triggers ElevenLabs.
 async function _speakWithBrowserTTS(text) {
     return new Promise(async (resolve) => {
         window.speechSynthesis.cancel();
@@ -3967,26 +4065,24 @@ async function _speakWithBrowserTTS(text) {
         const utt = new SpeechSynthesisUtterance(text);
         utt.rate = 1.05; utt.pitch = 1.0; utt.volume = 1.0;
 
-        // Best Hebrew voice → any local → default (DON'T force he-IL if no Hebrew voice — causes silent failure)
         // Hebrew has two lang codes in the wild: modern 'he' and legacy ISO 639-1 'iw' — check both, plus voice name.
         const _isHebrewVoice = v => /^(he|iw)/i.test(v.lang) || /hebrew|עברית/i.test(v.name);
         const heVoice = voices.find(v => _isHebrewVoice(v) && v.localService) ||
                         voices.find(v => _isHebrewVoice(v));
-        const hasHebrew = !!heVoice;
         if (heVoice) {
             utt.voice = heVoice; utt.lang = heVoice.lang;
         } else {
-            // No Hebrew TTS installed on this system — fall back to whatever default voice exists
-            // (will speak in English/other language; caller will then try ElevenLabs instead)
-            const def = voices.find(v => v.default) || voices[0];
-            if (def) utt.voice = def;
+            // No explicit Hebrew voice in getVoices() — set lang=he-IL without a specific voice.
+            // Android/iOS TTS engines handle the language request dynamically even when
+            // getVoices() returns no Hebrew entry. Never fall through to ElevenLabs (garbles Hebrew).
+            utt.lang = 'he-IL';
         }
 
         let done = false;
         let keepAlive;
         const finish = () => {
             if (done) return; done = true;
-            clearInterval(keepAlive); resolve(hasHebrew);
+            clearInterval(keepAlive); resolve(true); // always true — ElevenLabs is not a fallback
         };
         utt.onend  = finish;
         utt.onerror = (e) => { console.warn('TTS:', e.error); finish(); };
