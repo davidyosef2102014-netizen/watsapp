@@ -4185,31 +4185,36 @@ async function _playGeminiTTS(text) {
 }
 
 // Google Translate TTS proxied via allorigins.win — real Hebrew quality, no API key needed
-async function _playGoogleTTSProxy(text) {
-    const chunks = _splitHebTTS(text, 140); // Google TTS URL char limit
-    for (const chunk of chunks) {
-        if (_liveStopped) return false;
-        let buf = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
-            try {
-                const ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&q='
-                    + encodeURIComponent(chunk) + '&tl=he&client=tw-ob&ttsspeed=1';
-                const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(ttsUrl);
-                const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
-                if (!res.ok) {
-                    if ((res.status === 530 || res.status >= 500) && attempt < 2) {
-                        await new Promise(r => setTimeout(r, 2000));
-                        continue; // retry on server/Cloudflare errors
-                    }
-                    break;
+async function _fetchGoogleTTSChunk(chunk) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            const ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&q='
+                + encodeURIComponent(chunk) + '&tl=he&client=tw-ob&ttsspeed=1';
+            const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(ttsUrl);
+            const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+            if (!res.ok) {
+                if ((res.status === 530 || res.status >= 500) && attempt < 2) {
+                    await new Promise(r => setTimeout(r, 2000)); continue;
                 }
-                buf = await res.arrayBuffer();
-                if (buf.byteLength) break;
-            } catch(e) {
-                console.warn('[Google TTS proxy]', e.message);
-                if (attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue; }
+                return null;
             }
+            const buf = await res.arrayBuffer();
+            if (buf.byteLength) return buf;
+        } catch(e) {
+            console.warn('[Google TTS proxy]', e.message);
+            if (attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue; }
         }
+    }
+    return null;
+}
+
+async function _playGoogleTTSProxy(text) {
+    const chunks = _splitHebTTS(text, 200);
+    // Fetch ALL chunks in parallel — while chunk 1 plays, chunks 2+ are already downloading
+    const fetches = chunks.map(c => _fetchGoogleTTSChunk(c));
+    for (let i = 0; i < fetches.length; i++) {
+        if (_liveStopped) return false;
+        const buf = await fetches[i];
         if (!buf || !buf.byteLength) return false;
         const blob = new Blob([buf], { type: 'audio/mpeg' });
         const url = URL.createObjectURL(blob);
@@ -4219,7 +4224,7 @@ async function _playGoogleTTSProxy(text) {
             let done = false;
             const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
             audio.onended = () => fin(true);
-            audio.onerror = (e) => { console.warn('[Google TTS proxy] audio error', e); fin(false); };
+            audio.onerror = (e) => { console.warn('[Google TTS] audio error', e); fin(false); };
             setTimeout(() => fin(false), 30000);
             audio.play().catch(() => fin(false));
         });
