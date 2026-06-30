@@ -879,6 +879,20 @@
         }
         .live-mute-btn:hover { background:rgba(255,255,255,.16); color:white; }
         .live-mute-btn.muted { background:rgba(220,50,50,.22); border-color:rgba(220,50,50,.4); color:#ff8a80; }
+        .live-ptt-btn {
+            padding:18px 48px; border-radius:50px;
+            background:linear-gradient(135deg,#6c63ff,#3b82f6);
+            color:#fff; font-size:17px; font-weight:700; font-family:inherit;
+            border:none; cursor:pointer; user-select:none; -webkit-user-select:none;
+            touch-action:none; min-width:220px;
+            transition:background .15s,transform .1s,box-shadow .1s;
+            box-shadow:0 4px 24px rgba(108,99,255,.45);
+        }
+        .live-ptt-btn.active {
+            background:linear-gradient(135deg,#ff4757,#ff6b35);
+            transform:scale(.97); box-shadow:0 2px 12px rgba(255,71,87,.6);
+        }
+        .live-ptt-btn:disabled { opacity:.55; cursor:default; }
         .live-sidebar-btn {
             position:absolute; top:22px; right:22px; z-index:3;
             width:42px; height:42px; border-radius:50%;
@@ -1172,8 +1186,8 @@
     </div>
     <div class="live-status" id="live-status">לחץ להתחלה</div>
     <div class="live-transcript" id="live-transcript">BIRGSOL AI 3.5 מוכן לשיחה קולית</div>
-    <div class="live-controls">
-        <button class="live-mute-btn" id="live-mute-btn" onclick="toggleLiveMute()" title="השתק מיקרופון"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+    <div class="live-controls" style="flex-direction:column;gap:16px;align-items:center">
+        <button class="live-ptt-btn" id="live-ptt-btn">🎤 לחץ וחזק לדיבור</button>
         <button class="live-end-btn" onclick="endLive()">✕ סיים שיחה</button>
     </div>
 </div>
@@ -3841,7 +3855,7 @@ function _setLiveState(state) {
     const status = document.getElementById('live-status');
     const trans  = document.getElementById('live-transcript');
     trans.classList.remove('ai-speaking');
-    if (state === 'idle')      { status.textContent = 'לחץ על הגל להתחלה'; }
+    if (state === 'idle')      { status.textContent = 'לחץ וחזק את הכפתור לדיבור'; }
     else if (state === 'listening') { status.textContent = 'מקשיב…'; }
     else if (state === 'thinking')  { status.textContent = 'חושב…'; }
     else if (state === 'speaking')  { status.textContent = 'מדבר…'; trans.classList.add('ai-speaking'); }
@@ -3859,21 +3873,96 @@ function startLive() {
     document.getElementById('live-mute-btn').innerHTML = IC.mic;
     _setLiveState('idle');
     _startWave();
-    document.getElementById('live-glow-canvas').onclick = () => {
-        if (!_liveBusy && _liveActive) _liveLoop();
-    };
-    _warmupHFTTS(); // pre-warm HuggingFace model in background while user is reading to speak
-    setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 800);
+    _warmupHFTTS();
+    _pttSetup();
 }
 
 function endLive() {
     _liveActive = false; _liveStopped = true;
+    if (_pttRec)  { try { _pttRec.stop();  } catch(e) {} _pttRec  = null; }
     if (_liveRec) { try { _liveRec.stop(); } catch(e) {} _liveRec = null; }
     window.speechSynthesis.cancel();
     if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(e) {} _liveCurrentAudio = null; }
     document.getElementById('live-overlay').classList.remove('on');
     _setLiveState('idle');
     _stopWave();
+}
+
+// ── Push-to-Talk ──
+let _pttRec = null, _pttText = '';
+
+function _pttSetup() {
+    const btn = document.getElementById('live-ptt-btn');
+    if (!btn) return;
+    btn.addEventListener('pointerdown',   e => { e.preventDefault(); _pttBegin(); }, { passive:false });
+    btn.addEventListener('pointerup',     e => { e.preventDefault(); _pttEnd();   }, { passive:false });
+    btn.addEventListener('pointercancel', e => { e.preventDefault(); _pttEnd();   }, { passive:false });
+    btn.addEventListener('pointerleave',  e => { e.preventDefault(); _pttEnd();   }, { passive:false });
+}
+
+function _pttBegin() {
+    if (_liveBusy || _pttRec || _liveStopped || !_liveActive) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { document.getElementById('live-status').textContent = '⚠️ הדפדפן לא תומך בזיהוי קול'; return; }
+    _pttText = '';
+    _pttRec = new SR();
+    _pttRec.lang = 'he-IL';
+    _pttRec.interimResults = true;
+    _pttRec.continuous = true;
+    _pttRec.maxAlternatives = 1;
+    _pttRec.onresult = e => {
+        let t = '';
+        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+        _pttText = t;
+        document.getElementById('live-transcript').textContent = '👤 ' + t;
+    };
+    _pttRec.onerror = e => console.warn('PTT STT:', e.error);
+    _pttRec.onend = async () => {
+        _pttRec = null;
+        const transcript = _pttText.trim();
+        const btn = document.getElementById('live-ptt-btn');
+        if (!transcript || !_liveActive || _liveStopped) {
+            if (btn) { btn.disabled = false; btn.classList.remove('active'); btn.textContent = '🎤 לחץ וחזק לדיבור'; }
+            _setLiveState('idle'); return;
+        }
+        _liveBusy = true;
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ מעבד…'; }
+        _setLiveState('thinking');
+        const messages = [
+            { role:'system', content: getPersona() +
+              '\n\nIMPORTANT — LIVE VOICE MODE: Give SHORT, natural conversational answers (2-4 sentences). NO markdown, NO asterisks, NO bullet points, NO code blocks — speak like a human. Hebrew by default unless user writes English.' },
+            ...hist.slice(-30).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
+            { role:'user', content: transcript }
+        ];
+        let reply = '';
+        try {
+            reply = await callAI(messages, () => {});
+            reply = reply
+                .replace(/```[\s\S]*?```/g,'קוד').replace(/\*\*(.*?)\*\*/g,'$1')
+                .replace(/\*(.*?)\*/g,'$1').replace(/#{1,6}\s/g,'')
+                .replace(/`([^`]+)`/g,'$1').replace(/\[.*?\]/g,'').trim();
+            if (!reply) reply = 'מצטער, לא הצלחתי לקבל תשובה. נסה שוב.';
+        } catch(e) { reply = 'הייתה שגיאת חיבור. נסה שוב.'; }
+        hist.push({ role:'user', content: transcript });
+        hist.push({ role:'assistant', content: reply });
+        saveConversation(); extractMemory(transcript, reply);
+        _setLiveState('speaking');
+        document.getElementById('live-transcript').textContent = '✦ ' + reply;
+        await _liveSpeakText(reply);
+        _liveBusy = false; _setLiveState('idle');
+        if (btn) { btn.disabled = false; btn.textContent = '🎤 לחץ וחזק לדיבור'; }
+    };
+    try { _pttRec.start(); } catch(e) { console.warn('PTT start:', e); _pttRec = null; return; }
+    const btn = document.getElementById('live-ptt-btn');
+    if (btn) { btn.classList.add('active'); btn.textContent = '🔴 מקשיב…'; }
+    _setLiveState('listening');
+}
+
+function _pttEnd() {
+    if (!_pttRec) return;
+    const btn = document.getElementById('live-ptt-btn');
+    if (btn) { btn.classList.remove('active'); btn.textContent = '⏳ שולח…'; }
+    try { _pttRec.stop(); } catch(e) {}
 }
 
 function toggleLiveMute() {
