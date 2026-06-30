@@ -3862,6 +3862,7 @@ function startLive() {
     document.getElementById('live-glow-canvas').onclick = () => {
         if (!_liveBusy && _liveActive) _liveLoop();
     };
+    _warmupHFTTS(); // pre-warm HuggingFace model in background while user is reading to speak
     setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 800);
 }
 
@@ -4050,41 +4051,68 @@ function _splitHebTTS(text, maxLen) {
     return parts;
 }
 
-// HuggingFace MMS Hebrew TTS — neural Hebrew voice, no API key, CORS-enabled free inference
+const _HF_TTS_URL = 'https://api-inference.huggingface.co/models/facebook/mms-tts-heb';
+
+// Fire-and-forget warmup so the model is hot by the time the first response arrives
+function _warmupHFTTS() {
+    fetch(_HF_TTS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inputs: 'שלום' }),
+        signal: AbortSignal.timeout(45000)
+    }).catch(() => {});
+}
+
+async function _hfFetchAudio(chunk) {
+    // Retries up to 3 times on 503 (model cold-start), waiting 10s between attempts
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            const res = await fetch(_HF_TTS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inputs: chunk }),
+                signal: AbortSignal.timeout(25000)
+            });
+            if (res.status === 503) {
+                if (attempt < 2) {
+                    document.getElementById('live-status').textContent = 'טוען קול עברי…';
+                    await new Promise(r => setTimeout(r, 10000));
+                    continue;
+                }
+                return null;
+            }
+            if (!res.ok) return null;
+            const blob = await res.blob();
+            return blob.size ? blob : null;
+        } catch(e) {
+            console.warn('[HF TTS] fetch error:', e.message);
+            if (attempt < 2) { await new Promise(r => setTimeout(r, 3000)); continue; }
+            return null;
+        }
+    }
+    return null;
+}
+
+// HuggingFace MMS Hebrew TTS — neural Hebrew voice, no API key needed
 async function _playHuggingFaceTTS(text) {
     const chunks = _splitHebTTS(text, 300);
     for (const chunk of chunks) {
         if (_liveStopped) return false;
-        try {
-            const res = await fetch('https://api-inference.huggingface.co/models/facebook/mms-tts-heb', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ inputs: chunk }),
-                signal: AbortSignal.timeout(20000)
-            });
-            if (!res.ok) {
-                if (res.status === 503) console.log('[HF TTS] Model warming up, will retry next message');
-                return false;
-            }
-            const blob = await res.blob();
-            if (!blob.size) return false;
-            const url = URL.createObjectURL(blob);
-            const audio = new Audio(url);
-            _liveCurrentAudio = audio;
-            const ok = await new Promise(resolve => {
-                let done = false;
-                const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
-                audio.onended = () => fin(true);
-                audio.onerror = (e) => { console.warn('[HF TTS] audio error:', e); fin(false); };
-                setTimeout(() => fin(false), 60000);
-                audio.play().catch(() => fin(false));
-            });
-            if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
-            if (!ok) return false;
-        } catch(e) {
-            console.warn('[HF TTS] failed:', e.message);
-            return false;
-        }
+        const blob = await _hfFetchAudio(chunk);
+        if (!blob) return false;
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        _liveCurrentAudio = audio;
+        const ok = await new Promise(resolve => {
+            let done = false;
+            const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
+            audio.onended = () => fin(true);
+            audio.onerror = (e) => { console.warn('[HF TTS] audio error:', e); fin(false); };
+            setTimeout(() => fin(false), 60000);
+            audio.play().catch(() => fin(false));
+        });
+        if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
+        if (!ok) return false;
     }
     return true;
 }
