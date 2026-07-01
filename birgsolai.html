@@ -1569,7 +1569,10 @@ function renderAdminUsers(cloudUsers) {
                 <div class="admin-row-name">${escHtml(name)}</div>
                 <div class="admin-row-meta">נרשם: ${date}${u.lang ? ' · שפה: ' + escHtml(u.lang) : ''}</div>
             </div>
-            <button class="admin-reset-btn" onclick="adminResetPassword('${name.replace(/'/g,"\\'")}')">איפוס סיסמה</button>
+            <div style="display:flex;gap:8px">
+                <button class="admin-reset-btn" onclick="adminResetPassword('${name.replace(/'/g,"\\'")}')">איפוס סיסמה</button>
+                <button class="admin-reset-btn" style="background:rgba(220,50,50,.18);border-color:rgba(220,50,50,.35);color:#ff8a80" onclick="adminDeleteUser('${name.replace(/'/g,"\\'")}')">מחק</button>
+            </div>
         </div>`;
     }).join('');
 }
@@ -1584,6 +1587,18 @@ async function adminResetPassword(username) {
     const ok = await ghWrite('db/ai_users.json', cloudUsers);
     if (ok) alert(`✅ הסיסמה הזמנית של "${username}" היא:\n\n${tempPass}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.`);
     else alert('❌ שגיאה בשמירת הסיסמה החדשה — נסה שוב.');
+}
+
+async function adminDeleteUser(username) {
+    if (!ADMIN_USERS.includes(currentUser)) return;
+    if (username === currentUser) { alert('לא ניתן למחוק את המשתמש המחובר כרגע.'); return; }
+    if (!confirm(`למחוק את המשתמש "${username}" לצמיתות? הפעולה אינה הפיכה.`)) return;
+    const cloudUsers = await ghRead('db/ai_users.json') || {};
+    if (!cloudUsers[username]) { alert('משתמש לא נמצא.'); return; }
+    delete cloudUsers[username];
+    const ok = await ghWrite('db/ai_users.json', cloudUsers);
+    if (ok) { alert(`✅ המשתמש "${username}" נמחק.`); openAdminPanel(); }
+    else alert('❌ שגיאה במחיקה — נסה שוב.');
 }
 
 /* קרא JSON מ-GitHub (ללא rate-limit) */
@@ -3855,7 +3870,8 @@ function _setLiveState(state) {
     const status = document.getElementById('live-status');
     const trans  = document.getElementById('live-transcript');
     trans.classList.remove('ai-speaking');
-    if (state === 'idle')          { status.textContent = '🎤 מקשיב…'; }
+    if (state === 'idle')          { status.textContent = 'מוכן…'; }
+    else if (state === 'waiting')   { status.textContent = '…'; }
     else if (state === 'listening') { status.textContent = '🎤 מקשיב…'; }
     else if (state === 'recording') { status.textContent = '🔴 מקליט…'; }
     else if (state === 'thinking')  { status.textContent = '⏳ חושב…'; }
@@ -4030,10 +4046,11 @@ async function _liveLoop() {
 
     await _liveSpeakText(reply);
 
-    // ── 4. Loop back ──
+    // ── 4. Loop back — 1.5s gap so speaker echo fades before mic opens ──
     _liveBusy = false;
     if (_liveActive && !_liveStopped && !_liveMuted) {
-        setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 100);
+        _setLiveState('waiting');
+        setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 1500);
     } else {
         _setLiveState('idle');
     }
