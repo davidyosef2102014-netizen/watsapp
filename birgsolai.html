@@ -4012,6 +4012,28 @@ function toggleLiveMute() {
     if (_liveMuted && _liveRec) { try { _liveRec.stop(); } catch(e) {} }
 }
 
+async function _callAILive(messages) {
+    const short = messages.map(m => ({ ...m, content: typeof m.content === 'string' ? m.content : '' }));
+    const tryGroq = () => fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: short, temperature: 0.7, max_tokens: 400 }),
+        signal: AbortSignal.timeout(8000)
+    }).then(r => { if (!r.ok) throw new Error('groq ' + r.status); return r.json(); })
+      .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
+
+    const tryGH = () => fetch('https://models.github.ai/inference/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages: short, temperature: 0.7, max_tokens: 400 }),
+        signal: AbortSignal.timeout(10000)
+    }).then(r => { if (!r.ok) throw new Error('gh ' + r.status); return r.json(); })
+      .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
+
+    try { return await Promise.any([tryGroq(), tryGH()]); } catch(_) {}
+    try { return await callAI(messages, () => {}); } catch(e) { return 'מצטער, לא הצלחתי להגיב. נסה שוב.'; }
+}
+
 async function _liveLoop() {
     if (!_liveActive || _liveStopped || _liveBusy) return;
     _liveBusy = true;
@@ -4041,7 +4063,7 @@ async function _liveLoop() {
     ];
     let reply = '';
     try {
-        reply = await callAI(messages, () => {});
+        reply = await _callAILive(messages);
         reply = reply
             .replace(/```[\s\S]*?```/g, 'קוד')
             .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -4096,10 +4118,14 @@ function _liveListenOnce() {
             resolve(text || '');
         };
         rec.onresult = e => {
-            let t = '';
-            for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+            let t = '', hasFinal = false;
+            for (let i = 0; i < e.results.length; i++) {
+                t += e.results[i][0].transcript;
+                if (e.results[i].isFinal) hasFinal = true;
+            }
             finalText = t;
             document.getElementById('live-transcript').textContent = '👤 ' + t;
+            if (hasFinal) try { rec.stop(); } catch(_) {}
         };
         rec.onerror = e => { console.warn('[STT]', e.error); finish(''); };
         const safety = setTimeout(() => { try { rec.stop(); } catch(e) {} finish(finalText); }, 12000);
