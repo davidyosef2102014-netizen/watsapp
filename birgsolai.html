@@ -1581,7 +1581,7 @@ async function adminResetPassword(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
     if (!confirm(`לאפס את הסיסמה של "${username}"? תיווצר סיסמה זמנית חדשה.`)) return;
     const tempPass = Math.random().toString(36).slice(-8);
-    const cloudUsers = await ghRead('db/ai_users.json') || {};
+    const cloudUsers = await ghReadFresh('db/ai_users.json') || {};
     if (!cloudUsers[username]) { alert('משתמש לא נמצא.'); return; }
     cloudUsers[username].password = await hashPassword(tempPass);
     const ok = await ghWrite('db/ai_users.json', cloudUsers);
@@ -1593,7 +1593,7 @@ async function adminDeleteUser(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
     if (username === currentUser) { alert('לא ניתן למחוק את המשתמש המחובר כרגע.'); return; }
     if (!confirm(`למחוק את המשתמש "${username}" לצמיתות? הפעולה אינה הפיכה.`)) return;
-    const cloudUsers = await ghRead('db/ai_users.json') || {};
+    const cloudUsers = await ghReadFresh('db/ai_users.json') || {};
     if (!cloudUsers[username]) { alert('משתמש לא נמצא.'); return; }
     delete cloudUsers[username];
     const ok = await ghWrite('db/ai_users.json', cloudUsers);
@@ -1606,6 +1606,20 @@ async function ghRead(path) {
     try {
         const r = await fetch(GH_RAW + path + '?t=' + Date.now(), { cache: 'no-store' });
         return r.ok ? await r.json() : null;
+    } catch { return null; }
+}
+
+/* קרא JSON מ-GitHub API (authenticated, תמיד טרי — לאחר write או לפני write) */
+async function ghReadFresh(path) {
+    try {
+        const r = await fetch(GH_API + path, {
+            headers: { 'Authorization': 'token ' + GH_TOKEN },
+            signal: AbortSignal.timeout(10000)
+        });
+        if (!r.ok) return null;
+        const meta = await r.json();
+        const text = decodeURIComponent(escape(atob(meta.content.replace(/\s/g, ''))));
+        return JSON.parse(text);
     } catch { return null; }
 }
 
@@ -1631,7 +1645,7 @@ async function ghWrite(path, data) {
                 },
                 body: JSON.stringify({
                     message: 'update ' + path,
-                    content: btoa(unescape(encodeURIComponent(JSON.stringify(data)))),
+                    content: (() => { const b = new TextEncoder().encode(JSON.stringify(data)); let s = ''; b.forEach(x => s += String.fromCharCode(x)); return btoa(s); })(),
                     ...(sha ? { sha } : {})
                 }),
                 signal: AbortSignal.timeout(10000)
@@ -1668,7 +1682,7 @@ async function loadConversationsCloud() {
 async function syncConversations() {
     if (!currentUser || !hist.length) return;
     const title = (hist.find(m => m.role === 'user')?.content || 'שיחה').slice(0, 40);
-    const msgs  = hist.slice(-100);
+    const msgs  = hist.slice(-40);
     const now   = Date.now();
     if (!currentConvId) currentConvId = 'conv_' + now;
     const idx = convList.findIndex(c => c.id === currentConvId);
@@ -1678,13 +1692,17 @@ async function syncConversations() {
         convList.unshift({ id: currentConvId, title, messages: msgs, updatedAt: now });
     }
     if (convList.length > 200) convList = convList.slice(0, 200);
-    try {
-        localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
-        // שמור איזו שיחה פתוחה כרגע — כדי לשחזר אוטומטית אם הדף נטען מחדש
-        // (קורה למשל כשאנדרואיד סוגר את הטאב ברקע בזמן בחירת תמונה מהגלריה)
-        localStorage.setItem('birgsol_open_conv_' + currentUser, currentConvId);
-    } catch (e) {
-        console.warn('[syncConversations] localStorage write failed:', e.message);
+    let saved = false;
+    for (let trim = 0; trim < 5 && !saved; trim++) {
+        try {
+            localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
+            localStorage.setItem('birgsol_open_conv_' + currentUser, currentConvId);
+            saved = true;
+        } catch (e) {
+            // localStorage מלא — מוחק את השיחות הישנות ביותר ומנסה שוב
+            if (convList.length > 10) convList = convList.slice(0, Math.floor(convList.length * 0.7));
+            else break;
+        }
     }
     renderConvList();
     // העלה לענן ברקע (לא חוסם) — לוג אם נכשל אחרי כל הניסיונות, כדי שכשל לא יהיה שקט/בלתי-נראה
