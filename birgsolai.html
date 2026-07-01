@@ -3919,7 +3919,6 @@ function endLive() {
     _liveActive = false; _liveStopped = true;
     if (_pttRec)    { try { _pttRec.stop();  } catch(e) {} _pttRec  = null; }
     if (_liveRec)   { try { _liveRec.stop(); } catch(e) {} _liveRec = null; }
-    if (_liveStream){ _liveStream.getTracks().forEach(t => t.stop()); _liveStream = null; }
     window.speechSynthesis.cancel();
     if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(e) {} _liveCurrentAudio = null; }
     document.getElementById('live-overlay').classList.remove('on');
