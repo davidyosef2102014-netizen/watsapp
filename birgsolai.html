@@ -2980,20 +2980,10 @@ async function _tryTavilyKey(apiKey, query) {
     if (!out) throw new Error('tavily empty');
     return out;
 }
-// Two free-tier keys (1000 credits/month each) — if the primary is exhausted or rate-limited,
-// fall to the secondary before giving up on Tavily entirely.
+// Race all 5 Tavily keys in parallel — first success wins, exhausted/rate-limited keys lose the race
 async function _tryTavily(query) {
     const keys = [TAVILY_KEY, TAVILY_KEY2, TAVILY_KEY3, TAVILY_KEY4, TAVILY_KEY5];
-    let lastErr;
-    for (let i = 0; i < keys.length; i++) {
-        try {
-            return await _tryTavilyKey(keys[i], query);
-        } catch (e) {
-            lastErr = e;
-            console.warn(`[search] Tavily key ${i+1} failed, trying next:`, e.message);
-        }
-    }
-    throw lastErr;
+    return await Promise.any(keys.map(k => _tryTavilyKey(k, query)));
 }
 async function webSearch(query) {
     try {
@@ -3415,16 +3405,16 @@ function esc2(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 /* Agent loop — calls AI, detects tool calls, executes them, calls AI again */
 async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4) {
     let fullText = '';
+    // Only auto-scroll if user hasn't scrolled up
+    const _scroll = () => { if (cw.scrollTop >= cw.scrollHeight - cw.clientHeight - 80) cw.scrollTop = cw.scrollHeight; };
     for (let iter = 0; iter < maxIter; iter++) {
         // Stream current AI response
         fullText = await callAI(messages, (partial) => {
-            // Show raw streaming (hide tool call lines for cleanliness)
-            const clean = partial.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').trim();
-            RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
+            // During streaming: show raw text (tool call lines are cleaned up after streaming ends)
             txtEl.innerHTML = '<span class="stream-raw">' +
-                clean.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+                partial.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
                 '</span><span class="stream-cursor"></span>';
-            cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+            _scroll();
         });
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
 
@@ -3491,11 +3481,10 @@ function downloadCode(btn, ext) {
 /* ── CALL AI — robust POST with retry + GET fallback ── */
 async function _typewriter(text, onChunk, step) {
     const words = text.split(' ');
-    let shown = '';
-    for (let i = 0; i < words.length; i++) {
-        shown += (i === 0 ? '' : ' ') + words[i];
-        onChunk(shown);
-        if (i % step === step - 1) await new Promise(r => setTimeout(r, 30));
+    const batch = Math.max(step, 8); // words per frame
+    for (let i = 0; i < words.length; i += batch) {
+        onChunk(words.slice(0, i + batch).join(' '));
+        await new Promise(r => setTimeout(r, 16)); // ~60fps
     }
     onChunk(text);
 }
@@ -3507,84 +3496,45 @@ async function callAI(messages, onChunk) {
 
     // ── Vision path ──
     if (hasImage) {
-        // Try GitHub Models — gpt-4o then gpt-4o-mini
-        for (const vModel of ['openai/gpt-4o', 'openai/gpt-4o-mini']) {
-            try {
-                const res = await fetch('https://models.github.ai/inference/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: vModel, messages, temperature: 0.8, max_tokens: 1024 }),
-                    signal: AbortSignal.timeout(30000)
-                });
-                if (res.ok) {
-                    const j = await res.json();
-                    const text = j?.choices?.[0]?.message?.content?.trim();
-                    if (text) { await _typewriter(text, onChunk, 8); return text; }
-                    console.warn('GitHub vision empty body', vModel);
-                } else {
-                    const errBody = await res.text().catch(() => '');
-                    console.warn('GitHub vision HTTP', res.status, vModel, errBody.slice(0, 200));
-                }
-            } catch(e) { console.warn('GitHub vision error', vModel, e.message); }
-        }
+        const _ghVision = (model) => fetch('https://models.github.ai/inference/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, messages, temperature: 0.8, max_tokens: 1024 }),
+            signal: AbortSignal.timeout(18000)
+        }).then(r => { if (!r.ok) throw new Error('gh-v ' + r.status); return r.json(); })
+          .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
 
-        // Try Pollinations — openai (gpt-4o) supports vision
-        for (let attempt = 0; attempt < 2; attempt++) {
-            try {
-                const res = await fetch('https://text.pollinations.ai/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages, model: 'openai', stream: false, private: true }),
-                    signal: AbortSignal.timeout(55000)
-                });
-                if (!res.ok) throw new Error('poll vision HTTP ' + res.status);
-                let text = (await res.text()).trim();
-                if (!text) throw new Error('vision empty');
-                if (text.startsWith('{') || text.startsWith('[')) {
-                    try {
-                        const j = JSON.parse(text);
-                        if (j?.error) throw new Error('vision error: ' + (j.error?.message || j.error));
-                        const ex = j?.choices?.[0]?.message?.content || j?.content || j?.text || '';
-                        if (ex) text = ex;
-                        else throw new Error('vision JSON no content');
-                    } catch(pe) { if (pe.message?.startsWith('vision')) throw pe; }
-                }
-                if (!text || /turnstile|captcha/i.test(text)) throw new Error('vision blocked');
-                await _typewriter(text, onChunk, 8);
-                return text;
-            } catch(e) {
-                console.warn('Pollinations vision attempt', attempt + 1, e.message);
-                if (attempt === 1) {
-                    // All vision APIs failed — strip image and fall back to text-only
-                    console.warn('All vision APIs failed, falling back to text');
-                    const textOnlyMessages = messages.map(m => ({
-                        ...m,
-                        content: Array.isArray(m.content)
-                            ? (m.content.find(c => c.type === 'text')?.text || 'תאר מה רואים')
-                            : m.content
-                    }));
-                    onChunk('⚠️ לא הצלחתי לנתח את התמונה — מגיב לטקסט בלבד:\n\n');
-                    // Fall through to text path with modified messages
-                    const _fallback = async () => {
-                        const r = await fetch('https://models.github.ai/inference/chat/completions', {
-                            method: 'POST',
-                            headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages: textOnlyMessages, temperature: 1, max_tokens: 1024 }),
-                            signal: AbortSignal.timeout(20000)
-                        });
-                        if (!r.ok) throw new Error('fallback ' + r.status);
-                        const j = await r.json();
-                        return j?.choices?.[0]?.message?.content?.trim() || '';
-                    };
-                    try {
-                        const fb = await _fallback();
-                        if (fb) { await _typewriter(fb, onChunk, 8); return fb; }
-                    } catch(fe) { console.warn('fallback failed', fe.message); }
-                    throw new Error('vision failed');
-                }
-                await new Promise(r => setTimeout(r, 1500));
+        // Race gpt-4o and gpt-4o-mini in parallel
+        try {
+            const text = await Promise.any([_ghVision('openai/gpt-4o'), _ghVision('openai/gpt-4o-mini')]);
+            await _typewriter(text, onChunk, 8); return text;
+        } catch(e) { console.warn('GitHub vision failed:', e.message); }
+
+        // Pollinations fallback
+        try {
+            const res = await fetch('https://text.pollinations.ai/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages, model: 'openai', stream: false, private: true }),
+                signal: AbortSignal.timeout(20000)
+            });
+            if (!res.ok) throw new Error('poll ' + res.status);
+            let text = (await res.text()).trim();
+            if (!text || /turnstile|captcha/i.test(text)) throw new Error('blocked');
+            if (text.startsWith('{') || text.startsWith('[')) {
+                try { const j = JSON.parse(text); text = j?.choices?.[0]?.message?.content || j?.content || j?.text || text; } catch {}
             }
-        }
+            if (text) { await _typewriter(text, onChunk, 8); return text; }
+        } catch(e) { console.warn('Pollinations vision failed:', e.message); }
+
+        // All vision failed — strip image, continue as text
+        onChunk('⚠️ לא הצלחתי לנתח את התמונה — מגיב לטקסט בלבד:\n\n');
+        messages = messages.map(m => ({
+            ...m,
+            content: Array.isArray(m.content)
+                ? (m.content.find(c => c.type === 'text')?.text || 'תאר מה רואים')
+                : m.content
+        }));
     }
 
     // ── Text path — bounded-latency fallback: GitHub first, then race Pollinations variants
@@ -3594,7 +3544,7 @@ async function callAI(messages, onChunk) {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }),
-            signal: AbortSignal.timeout(12000)
+            signal: AbortSignal.timeout(10000)
         });
         if (!res.ok) throw new Error('gh ' + res.status);
         const j = await res.json();
@@ -3607,7 +3557,7 @@ async function callAI(messages, onChunk) {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }),
-            signal: AbortSignal.timeout(14000)
+            signal: AbortSignal.timeout(10000)
         });
         if (!res.ok) throw new Error('groq ' + res.status);
         const j = await res.json();
@@ -3620,7 +3570,7 @@ async function callAI(messages, onChunk) {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 0.7, max_tokens: 2048 }),
-            signal: AbortSignal.timeout(16000)
+            signal: AbortSignal.timeout(12000)
         });
         if (!res.ok) throw new Error('openrouter ' + res.status);
         const j = await res.json();
@@ -3655,7 +3605,7 @@ async function callAI(messages, onChunk) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
             body: JSON.stringify({ contents, generationConfig: { thinkingConfig: { thinkingBudget: 1024 } } }),
-            signal: AbortSignal.timeout(22000)
+            signal: AbortSignal.timeout(14000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
         const j = await res.json();
@@ -3663,7 +3613,7 @@ async function callAI(messages, onChunk) {
         if (!text) throw new Error('gemini empty');
         return text;
     };
-    const _tryPoll = async (model, timeoutMs = 14000) => {
+    const _tryPoll = async (model, timeoutMs = 10000) => {
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3690,7 +3640,7 @@ async function callAI(messages, onChunk) {
             `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '')}`
         ).join('\n');
         const url = `https://text.pollinations.ai/${encodeURIComponent(sys + '\n\n' + conv)}?model=openai-large&private=true&seed=${Math.floor(Math.random()*99999)}`;
-        const r = await fetch(url, { signal: AbortSignal.timeout(20000) });
+        const r = await fetch(url, { signal: AbortSignal.timeout(12000) });
         if (!r.ok) throw new Error('get ' + r.status);
         const text = (await r.text()).trim();
         if (!text) throw new Error('get empty');
@@ -4045,7 +3995,33 @@ async function _callAILive(messages) {
       .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
 
     try { return await Promise.any([tryGroq(), tryGH()]); } catch(_) {}
-    try { return await callAI(messages, () => {}); } catch(e) { return 'מצטער, לא הצלחתי להגיב. נסה שוב.'; }
+
+    // Fast parallel fallback — Gemini + both OpenRouter keys, no typewriter overhead
+    const tryGeminiLive = () => {
+        const sys = messages.find(m => m.role === 'system')?.content || '';
+        const contents = messages.filter(m => m.role !== 'system').map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: typeof m.content === 'string' ? m.content : '' }]
+        }));
+        if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
+        return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
+            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 400 } }),
+            signal: AbortSignal.timeout(10000)
+        }).then(r => { if (!r.ok) throw new Error('g ' + r.status); return r.json(); })
+          .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
+    };
+    const tryORLive = (key) => fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 0.7, max_tokens: 400 }),
+        signal: AbortSignal.timeout(10000)
+    }).then(r => { if (!r.ok) throw new Error('or ' + r.status); return r.json(); })
+      .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
+
+    try { return await Promise.any([tryGeminiLive(), tryORLive(OPENROUTER_KEY), tryORLive(OPENROUTER_KEY2)]); } catch(_) {}
+    return 'מצטער, לא הצלחתי להגיב. נסה שוב.';
 }
 
 async function _liveLoop() {
