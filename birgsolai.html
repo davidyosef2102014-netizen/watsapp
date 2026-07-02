@@ -1307,6 +1307,7 @@
                 </div>
                 <span id="img-prev-label" style="font-size:13px;color:var(--muted)">תמונה מצורפת</span>
             </div>
+            <div id="ctx-bar" style="display:none;font-size:11px;text-align:right;padding:2px 8px 4px;direction:rtl;transition:color .3s"></div>
             <div class="pill">
                 <div class="pill-inner">
                     <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
@@ -1387,8 +1388,20 @@ function loadConversations() {
 }
 
 /* שמור / עדכן את השיחה הנוכחית — localStorage + ענן */
+function _updateCtxBar() {
+    const el = document.getElementById('ctx-bar');
+    if (!el) return;
+    const n = hist.length;
+    if (n < 10) { el.style.display = 'none'; return; }
+    const pct = Math.round(n / 80 * 100);
+    el.style.display = 'block';
+    el.style.color = pct >= 80 ? '#ef4444' : pct >= 50 ? '#f59e0b' : 'var(--muted)';
+    el.textContent = 'זיכרון שיחה: ' + n + '/80' + (pct >= 80 ? ' — קרוב לגבול' : '');
+}
+
 function saveConversation() {
     if (!currentUser || !hist.length) return;
+    _updateCtxBar();
     syncConversations(); // שומר localStorage + דוחף לענן ברקע
 }
 
@@ -1436,6 +1449,7 @@ function openConversation(convId) {
     hist.forEach(m => renderMsgOnly(m.role === 'user' ? 'user' : 'ai', m.content));
     cw.scrollTo({ top: cw.scrollHeight });
     renderConvList(); // סמן פעיל
+    _updateCtxBar();
     closeSidebar();
 }
 
@@ -2237,7 +2251,7 @@ async function extractMemory(userMsg, aiReply) {
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: [
-                    { role: 'system', content: 'אתה מחלץ עובדות עמידות על המשתמש משיחה (שם, העדפות, פרויקטים פעילים, הקשר אישי/עבודה חשוב). ענה ב-JSON בלבד: {"facts":["עובדה1","עובדה2"]} עם עד 3 עובדות. אם אין דבר חשוב לזכור לטווח ארוך, ענה: {"facts":[]}. אל תכלול מידע שכבר ידוע ברשימה הקיימת.' },
+                    { role: 'system', content: 'אתה מחלץ עובדות עמידות לטווח ארוך על המשתמש (שם, גיל, מקצוע, פרויקטים פעילים, העדפות קבועות, הקשר אישי/עבודה חשוב).\n\nכללים קשוחים:\n• שמור רק מה שיהיה רלוונטי גם בשיחה הבאה, בעוד שבוע.\n• דחה: שאלות חד-פעמיות ("שאל מה השעה"), עובדות זמניות ("עייף היום"), אירועים ספציפיים ללא משמעות ארוכת טווח, תוכן של שיחה שאינו מספר משהו על המשתמש עצמו.\n• אל תשכפל מה שכבר ברשימה הקיימת.\n• ענה JSON בלבד: {"facts":["עובדה1"]} עם עד 3 עובדות. אם אין כלום שווה לזכור — {"facts":[]}.' },
                     { role: 'user', content: `${existing}משתמש: ${userMsg}\nעוזר: ${(aiReply || '').slice(0, 400)}` }
                 ],
                 temperature: 0.2, max_tokens: 120
