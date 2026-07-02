@@ -1214,6 +1214,12 @@
         <button class="mode-pill" id="mode-code" onclick="setMode('code')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> קוד</button>
         <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> תמונה</button>
     </div>
+    <div class="sb-sect-label" style="margin-top:8px">מודל</div>
+    <div class="mode-row" id="model-row">
+        <button class="mode-pill" id="model-flash"    onclick="setModelMode('flash')">⚡ Flash</button>
+        <button class="mode-pill" id="model-extended" onclick="setModelMode('extended')">🧠 מורחב</button>
+        <button class="mode-pill" id="model-pro"      onclick="setModelMode('pro')">✦ Pro</button>
+    </div>
     <div class="sb-sect-label">שיחות</div>
     <div class="sb-body" id="hist-list">
         <div class="hist-item" style="color:var(--muted);font-style:italic;font-size:13px;">אין שיחות עדיין...</div>
@@ -2213,15 +2219,33 @@ function setMode(mode) {
         const btn = document.getElementById('mode-' + m);
         if (btn) btn.classList.toggle('active', m === mode);
     });
-    // Update topbar indicator
-    const pill = document.querySelector('.ver-pill');
-    if (pill) pill.textContent = '3.5';
-    startNew(); // start fresh conversation in new mode
+    startNew();
 }
+
+function setModelMode(mode) {
+    modelMode = mode;
+    localStorage.setItem('birgsol_model', mode);
+    ['flash','extended','pro'].forEach(m => {
+        const btn = document.getElementById('model-' + m);
+        if (btn) btn.classList.toggle('active', m === mode);
+    });
+    // Update topbar badge
+    const pill = document.querySelector('.ver-pill');
+    if (pill) pill.textContent = { flash:'Flash', extended:'מורחב', pro:'Pro' }[mode] || mode;
+}
+
+// Apply saved model mode on load
+(function _initModelMode() {
+    const saved = localStorage.getItem('birgsol_model') || 'extended';
+    modelMode = saved;
+    // Buttons may not exist yet — DOMContentLoaded will call setModelMode again if needed
+    document.addEventListener('DOMContentLoaded', () => setModelMode(saved));
+})();
 
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
 let _groqQuotaExhausted = false;
 let _abortCtrl = null;
+let modelMode = localStorage.getItem('birgsol_model') || 'extended'; // flash | extended | pro
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
 
 async function loadUserMemory() {
@@ -3720,17 +3744,35 @@ async function callAI(messages, onChunk, signal=null) {
         return text;
     };
 
-    // Stages 1-2: real SSE streaming (tokens appear as they arrive).
-    // Stages 3-6: non-streaming fallbacks with typewriter animation.
     const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
-    const stages = [
-        { name: 'Groq stream',        fn: () => _groqQuotaExhausted ? Promise.reject(new Error('quota')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + GROQ_KEY, { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
-        { name: 'GitHub stream',       fn: () => _stream('https://models.github.ai/inference/chat/completions', 'Bearer ' + GH_TOKEN, { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }) },
+    const _groqStream  = () => _groqQuotaExhausted ? Promise.reject(new Error('quota')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + GROQ_KEY, { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 });
+    const _ghStream    = () => _stream('https://models.github.ai/inference/chat/completions', 'Bearer ' + GH_TOKEN, { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 });
+    const _proRace     = async () => {
+        // PRO: Groq + Gemini non-streaming race — whoever finishes first wins, then typewriter
+        const tryGroqSync = async () => {
+            if (_groqQuotaExhausted) throw new Error('quota');
+            const _sig = signal ? AbortSignal.any([signal, AbortSignal.timeout(12000)]) : AbortSignal.timeout(12000);
+            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST', headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }),
+                signal: _sig
+            });
+            if (!res.ok) { if (res.status === 429) { _groqQuotaExhausted = true; _showQuotaNotice(); } throw new Error('groq ' + res.status); }
+            const j = await res.json(); const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t;
+        };
+        const text = await Promise.any([tryGroqSync(), _tryGemini()]);
+        return _tw(text);
+    };
+    const _fallbacks = [
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'OpenRouter',          fn: () => _tryOpenRouter().then(_tw) },
         { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]).then(_tw) },
         { name: 'GET fallback',        fn: () => _tryGET().then(_tw) },
     ];
+    const stages =
+        modelMode === 'flash'    ? [{ name:'GitHub Flash', fn:_ghStream },   { name:'Groq stream', fn:_groqStream }, ..._fallbacks] :
+        modelMode === 'pro'      ? [{ name:'PRO Groq+Gemini', fn:_proRace }, { name:'GitHub stream', fn:_ghStream }, ..._fallbacks] :
+      /* extended (default) */     [{ name:'Groq stream', fn:_groqStream },  { name:'GitHub stream', fn:_ghStream }, ..._fallbacks];
 
     for (const s of stages) {
         try { return await s.fn(); }
@@ -3917,7 +3959,7 @@ async function send() {
     const row  = document.createElement('div'); row.className = 'msg-row ai';
     const ava  = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
     const body = document.createElement('div'); body.className = 'ai-body';
-    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI 3.5';
+    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI ' + ({flash:'Flash',extended:'מורחב',pro:'Pro'}[modelMode]||'מורחב');
     // Agent status bar (hidden until tools are used)
     const status = document.createElement('div'); status.className = 'agent-status'; status.style.display = 'none';
     const txt  = document.createElement('div'); txt.className = 'ai-txt';
