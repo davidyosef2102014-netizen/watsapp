@@ -324,6 +324,10 @@
 
         /* sidebar labels & footer */
         .sb-sect-label { font-size:10.5px; color:var(--muted); padding:10px 16px 4px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; opacity:.5; }
+        .conv-search { display:flex; align-items:center; gap:6px; margin:4px 8px 6px; background:var(--surf2); border-radius:10px; padding:7px 10px; }
+        .conv-search input { flex:1; background:none; border:none; outline:none; font-size:13px; color:var(--text); font-family:inherit; }
+        .conv-search input::placeholder { color:var(--muted); }
+        .conv-search svg { flex-shrink:0; opacity:.45; }
         .sb-creator { font-size:11px; color:var(--muted); opacity:.4; text-align:center; margin-bottom:8px; }
         .sb-logout-btn {
             width:100%; padding:9px; border-radius:10px;
@@ -1215,6 +1219,10 @@
         <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> תמונה</button>
     </div>
     <div class="sb-sect-label">שיחות</div>
+    <div class="conv-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="conv-search-inp" placeholder="חפש שיחות..." oninput="filterConvs(this.value)" autocomplete="off">
+    </div>
     <div class="sb-body" id="hist-list">
         <div class="hist-item" style="color:var(--muted);font-style:italic;font-size:13px;">אין שיחות עדיין...</div>
     </div>
@@ -1420,6 +1428,28 @@ function renderConvList() {
         return;
     }
     list.innerHTML = convList.map(c => `
+        <div class="conv-item ${c.id === currentConvId ? 'active' : ''}" onclick="openConversation('${c.id}')">
+            <span class="ci-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            <span class="ci-title">${escHtml(c.title || 'שיחה')}</span>
+            <button class="ci-del" onclick="event.stopPropagation();deleteConversation('${c.id}')" title="מחק שיחה">✕</button>
+        </div>
+    `).join('');
+}
+
+function filterConvs(q) {
+    const list = document.getElementById('hist-list');
+    const term = q.trim().toLowerCase();
+    const items = term
+        ? convList.filter(c =>
+            (c.title || '').toLowerCase().includes(term) ||
+            (c.messages || []).some(m => (typeof m.content === 'string' ? m.content : '').toLowerCase().includes(term))
+          )
+        : convList;
+    if (!items.length) {
+        list.innerHTML = '<div style="padding:12px 14px;color:var(--muted);font-style:italic;font-size:13px;">לא נמצאו שיחות</div>';
+        return;
+    }
+    list.innerHTML = items.map(c => `
         <div class="conv-item ${c.id === currentConvId ? 'active' : ''}" onclick="openConversation('${c.id}')">
             <span class="ci-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
             <span class="ci-title">${escHtml(c.title || 'שיחה')}</span>
@@ -3738,6 +3768,39 @@ async function callAI(messages, onChunk, signal=null) {
     throw new Error('all providers failed');
 }
 
+/* ── THINK SOUND (Gemini-style) ── */
+let _thinkCtx = null, _thinkTimer = null;
+function startThinkSound() {
+    if (_thinkCtx) return;
+    try {
+        _thinkCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = _thinkCtx;
+        const play = (freq, t, dur) => {
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = 'sine'; o.frequency.value = freq;
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(0.032, t + 0.08);
+            g.gain.linearRampToValueAtTime(0.032, t + dur - 0.09);
+            g.gain.linearRampToValueAtTime(0, t + dur);
+            o.connect(g); g.connect(ctx.destination);
+            o.start(t); o.stop(t + dur + 0.05);
+        };
+        // Soft ascending arpeggio — G4 B4 D5 G5 (like Gemini's thinking tone)
+        const notes = [392, 494, 587, 784], gap = 0.32;
+        const schedule = () => {
+            if (!_thinkCtx) return;
+            const now = _thinkCtx.currentTime;
+            notes.forEach((f, i) => play(f, now + i * gap, gap * 0.75));
+            _thinkTimer = setTimeout(schedule, (notes.length * gap + 0.5) * 1000);
+        };
+        schedule();
+    } catch(e) {}
+}
+function stopThinkSound() {
+    clearTimeout(_thinkTimer); _thinkTimer = null;
+    if (_thinkCtx) { try { _thinkCtx.close(); } catch(e) {} _thinkCtx = null; }
+}
+
 /* ── STOP / REGENERATE / EDIT ── */
 function sendOrStop() { if (busy) stopGeneration(); else send(); }
 
@@ -3883,6 +3946,7 @@ async function send() {
     addMsg('user', q, img, false, attachedFile ? attachedName : '');
     inp.value = ''; inp.style.height = 'auto';
     clearFile(); busy = true; updateBtn();
+    startThinkSound();
 
     // Build messages for OpenAI-compatible API
     // Build messages — exclude the last hist item (just pushed by addMsg) to avoid duplicate user msg.
@@ -4054,6 +4118,7 @@ async function send() {
         if (hist.filter(m => m.role === 'assistant').length === 1) _autoNameConv();
     }
 
+    stopThinkSound();
     busy = false; updateBtn();
 }
 
