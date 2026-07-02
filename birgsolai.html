@@ -431,6 +431,30 @@
         .send-btn.on:hover { transform: scale(1.12); box-shadow: 0 0 18px rgba(66,133,244,.6), 0 0 8px rgba(197,138,249,.4); }
         .send-btn.stop { opacity: 1; pointer-events: all; background: rgba(239,68,68,.85); font-size: 13px; }
         .send-btn.stop:hover { transform: scale(1.1); }
+        /* Model selector inside pill */
+        .model-sel-btn {
+            background: none; border: none; border-radius: 20px; padding: 4px 9px;
+            font-size: 13px; cursor: pointer; color: var(--muted); display: flex;
+            align-items: center; gap: 3px; transition: background .15s, color .15s;
+            font-family: inherit; white-space: nowrap; flex-shrink: 0;
+        }
+        .model-sel-btn:hover { background: rgba(0,0,0,.06); color: var(--text); }
+        [data-theme="dark"] .model-sel-btn:hover { background: rgba(255,255,255,.1); }
+        .model-sel-caret { font-size: 10px; opacity: .6; }
+        #model-dropdown {
+            display: none; position: absolute; bottom: calc(100% + 8px); right: 10px;
+            background: var(--surf); border: 1px solid var(--border); border-radius: 14px;
+            padding: 6px; z-index: 2000; flex-direction: column; gap: 2px;
+            box-shadow: 0 6px 24px rgba(0,0,0,.15); min-width: 130px;
+        }
+        #model-dropdown.open { display: flex; }
+        .model-opt {
+            background: none; border: none; cursor: pointer; padding: 8px 14px;
+            border-radius: 10px; font-size: 14px; text-align: right; color: var(--text);
+            font-family: inherit; transition: background .1s; direction: rtl;
+        }
+        .model-opt:hover { background: var(--surf2); }
+        .model-opt.active { font-weight: 700; color: var(--blue); }
         .edit-msg-btn { position: absolute; left: -26px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); opacity: 0; transition: opacity .15s; padding: 4px; display: flex; align-items: center; }
         .msg-row.user:hover .edit-msg-btn { opacity: 1; }
         .edit-msg-btn:hover { color: var(--text); }
@@ -1214,13 +1238,6 @@
         <button class="mode-pill" id="mode-code" onclick="setMode('code')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> קוד</button>
         <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> תמונה</button>
     </div>
-    <div class="sb-sect-label" style="margin-top:8px">מודל</div>
-    <div class="mode-row" id="model-row" style="flex-wrap:wrap">
-        <button class="mode-pill" id="model-auto"     onclick="setModelMode('auto')">אוטומטי</button>
-        <button class="mode-pill" id="model-flash"    onclick="setModelMode('flash')">Flash</button>
-        <button class="mode-pill" id="model-extended" onclick="setModelMode('extended')">מורחב</button>
-        <button class="mode-pill" id="model-pro"      onclick="setModelMode('pro')">Pro</button>
-    </div>
     <div class="sb-sect-label">שיחות</div>
     <div class="sb-body" id="hist-list">
         <div class="hist-item" style="color:var(--muted);font-style:italic;font-size:13px;">אין שיחות עדיין...</div>
@@ -1322,8 +1339,17 @@
                 <span id="img-prev-label" style="font-size:13px;color:var(--muted)">תמונה מצורפת</span>
             </div>
             <div id="ctx-bar" style="display:none;font-size:11px;text-align:right;padding:2px 8px 4px;direction:rtl;transition:color .3s"></div>
+            <div id="model-dropdown">
+                <button class="model-opt" onclick="setModelMode('auto');closeModelDropdown()">אוטומטי</button>
+                <button class="model-opt" onclick="setModelMode('flash');closeModelDropdown()">Flash</button>
+                <button class="model-opt" onclick="setModelMode('extended');closeModelDropdown()">מורחב</button>
+                <button class="model-opt" onclick="setModelMode('pro');closeModelDropdown()">Pro</button>
+            </div>
             <div class="pill">
                 <div class="pill-inner">
+                    <button class="model-sel-btn" id="modelSelBtn" onclick="toggleModelDropdown()" title="בחר מודל">
+                        <span id="model-sel-label">אוטומטי</span><span class="model-sel-caret">▾</span>
+                    </button>
                     <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
                     <input type="file" id="fi" style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json" onchange="previewFile()">
                     <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
@@ -2226,12 +2252,33 @@ function setMode(mode) {
 function setModelMode(mode) {
     modelMode = mode;
     localStorage.setItem('birgsol_model', mode);
-    ['auto','flash','extended','pro'].forEach(m => {
-        const btn = document.getElementById('model-' + m);
-        if (btn) btn.classList.toggle('active', m === mode);
+    const labels = { auto:'אוטומטי', flash:'Flash', extended:'מורחב', pro:'Pro' };
+    const label = labels[mode] || mode;
+    const lbl = document.getElementById('model-sel-label');
+    if (lbl) lbl.textContent = label;
+    document.querySelectorAll('.model-opt').forEach(b => {
+        b.classList.toggle('active', b.textContent.trim() === label);
     });
     const pill = document.querySelector('.ver-pill');
-    if (pill) pill.textContent = { auto:'אוטומטי', flash:'Flash', extended:'מורחב', pro:'Pro' }[mode] || mode;
+    if (pill) pill.textContent = label;
+}
+
+function toggleModelDropdown() {
+    const dd = document.getElementById('model-dropdown');
+    if (!dd) return;
+    dd.classList.toggle('open');
+    if (dd.classList.contains('open')) {
+        setTimeout(() => document.addEventListener('click', _closeDropdownOutside, { once: true }), 0);
+    }
+}
+function closeModelDropdown() {
+    document.getElementById('model-dropdown')?.classList.remove('open');
+}
+function _closeDropdownOutside(e) {
+    if (!document.getElementById('model-dropdown')?.contains(e.target) &&
+        e.target.id !== 'modelSelBtn' && !e.target.closest('#modelSelBtn')) {
+        closeModelDropdown();
+    }
 }
 
 (function _initModelMode() {
