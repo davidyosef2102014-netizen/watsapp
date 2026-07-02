@@ -431,30 +431,6 @@
         .send-btn.on:hover { transform: scale(1.12); box-shadow: 0 0 18px rgba(66,133,244,.6), 0 0 8px rgba(197,138,249,.4); }
         .send-btn.stop { opacity: 1; pointer-events: all; background: rgba(239,68,68,.85); font-size: 13px; }
         .send-btn.stop:hover { transform: scale(1.1); }
-        /* Model selector inside pill */
-        .model-sel-btn {
-            background: none; border: none; border-radius: 20px; padding: 4px 9px;
-            font-size: 13px; cursor: pointer; color: var(--muted); display: flex;
-            align-items: center; gap: 3px; transition: background .15s, color .15s;
-            font-family: inherit; white-space: nowrap; flex-shrink: 0;
-        }
-        .model-sel-btn:hover { background: rgba(0,0,0,.06); color: var(--text); }
-        [data-theme="dark"] .model-sel-btn:hover { background: rgba(255,255,255,.1); }
-        .model-sel-caret { font-size: 10px; opacity: .6; }
-        #model-dropdown {
-            display: none; position: absolute; bottom: calc(100% + 8px); right: 10px;
-            background: var(--surf); border: 1px solid var(--border); border-radius: 14px;
-            padding: 6px; z-index: 2000; flex-direction: column; gap: 2px;
-            box-shadow: 0 6px 24px rgba(0,0,0,.15); min-width: 130px;
-        }
-        #model-dropdown.open { display: flex; }
-        .model-opt {
-            background: none; border: none; cursor: pointer; padding: 8px 14px;
-            border-radius: 10px; font-size: 14px; text-align: right; color: var(--text);
-            font-family: inherit; transition: background .1s; direction: rtl;
-        }
-        .model-opt:hover { background: var(--surf2); }
-        .model-opt.active { font-weight: 700; color: var(--blue); }
         .edit-msg-btn { position: absolute; left: -26px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); opacity: 0; transition: opacity .15s; padding: 4px; display: flex; align-items: center; }
         .msg-row.user:hover .edit-msg-btn { opacity: 1; }
         .edit-msg-btn:hover { color: var(--text); }
@@ -1339,17 +1315,8 @@
                 <span id="img-prev-label" style="font-size:13px;color:var(--muted)">תמונה מצורפת</span>
             </div>
             <div id="ctx-bar" style="display:none;font-size:11px;text-align:right;padding:2px 8px 4px;direction:rtl;transition:color .3s"></div>
-            <div id="model-dropdown">
-                <button class="model-opt" onclick="setModelMode('auto');closeModelDropdown()">אוטומטי</button>
-                <button class="model-opt" onclick="setModelMode('flash');closeModelDropdown()">Flash</button>
-                <button class="model-opt" onclick="setModelMode('extended');closeModelDropdown()">מורחב</button>
-                <button class="model-opt" onclick="setModelMode('pro');closeModelDropdown()">Pro</button>
-            </div>
             <div class="pill">
                 <div class="pill-inner">
-                    <button class="model-sel-btn" id="modelSelBtn" onclick="toggleModelDropdown()" title="בחר מודל">
-                        <span id="model-sel-label">אוטומטי</span><span class="model-sel-caret">▾</span>
-                    </button>
                     <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
                     <input type="file" id="fi" style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json" onchange="previewFile()">
                     <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
@@ -2249,48 +2216,10 @@ function setMode(mode) {
     startNew();
 }
 
-function setModelMode(mode) {
-    modelMode = mode;
-    localStorage.setItem('birgsol_model', mode);
-    const labels = { auto:'אוטומטי', flash:'Flash', extended:'מורחב', pro:'Pro' };
-    const label = labels[mode] || mode;
-    const lbl = document.getElementById('model-sel-label');
-    if (lbl) lbl.textContent = label;
-    document.querySelectorAll('.model-opt').forEach(b => {
-        b.classList.toggle('active', b.textContent.trim() === label);
-    });
-    const pill = document.querySelector('.ver-pill');
-    if (pill) pill.textContent = label;
-}
-
-function toggleModelDropdown() {
-    const dd = document.getElementById('model-dropdown');
-    if (!dd) return;
-    dd.classList.toggle('open');
-    if (dd.classList.contains('open')) {
-        setTimeout(() => document.addEventListener('click', _closeDropdownOutside, { once: true }), 0);
-    }
-}
-function closeModelDropdown() {
-    document.getElementById('model-dropdown')?.classList.remove('open');
-}
-function _closeDropdownOutside(e) {
-    if (!document.getElementById('model-dropdown')?.contains(e.target) &&
-        e.target.id !== 'modelSelBtn' && !e.target.closest('#modelSelBtn')) {
-        closeModelDropdown();
-    }
-}
-
-(function _initModelMode() {
-    const saved = localStorage.getItem('birgsol_model') || 'auto';
-    modelMode = saved;
-    document.addEventListener('DOMContentLoaded', () => setModelMode(saved));
-})();
 
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
 let _groqQuotaExhausted = false;
 let _abortCtrl = null;
-let modelMode = localStorage.getItem('birgsol_model') || 'auto'; // auto | flash | extended | pro
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
 
 async function loadUserMemory() {
@@ -3790,35 +3719,14 @@ async function callAI(messages, onChunk, signal=null) {
     };
 
     const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
-    const _groqStream  = () => _groqQuotaExhausted ? Promise.reject(new Error('quota')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + GROQ_KEY, { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 });
-    const _ghStream    = () => _stream('https://models.github.ai/inference/chat/completions', 'Bearer ' + GH_TOKEN, { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 });
-    const _proRace     = async () => {
-        // PRO: Groq + Gemini non-streaming race — whoever finishes first wins, then typewriter
-        const tryGroqSync = async () => {
-            if (_groqQuotaExhausted) throw new Error('quota');
-            const _sig = signal ? AbortSignal.any([signal, AbortSignal.timeout(12000)]) : AbortSignal.timeout(12000);
-            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST', headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }),
-                signal: _sig
-            });
-            if (!res.ok) { if (res.status === 429) { _groqQuotaExhausted = true; _showQuotaNotice(); } throw new Error('groq ' + res.status); }
-            const j = await res.json(); const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t;
-        };
-        const text = await Promise.any([tryGroqSync(), _tryGemini()]);
-        return _tw(text);
-    };
-    const _fallbacks = [
+    const stages = [
+        { name: 'Groq stream',        fn: () => _groqQuotaExhausted ? Promise.reject(new Error('quota')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + GROQ_KEY, { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
+        { name: 'GitHub stream',       fn: () => _stream('https://models.github.ai/inference/chat/completions', 'Bearer ' + GH_TOKEN, { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'OpenRouter',          fn: () => _tryOpenRouter().then(_tw) },
         { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]).then(_tw) },
         { name: 'GET fallback',        fn: () => _tryGET().then(_tw) },
     ];
-    const stages =
-        modelMode === 'flash'    ? [{ name:'GitHub Flash',    fn:_ghStream },   { name:'Groq stream',   fn:_groqStream }, ..._fallbacks] :
-        modelMode === 'pro'      ? [{ name:'PRO Groq+Gemini', fn:_proRace },   { name:'GitHub stream', fn:_ghStream   }, ..._fallbacks] :
-        modelMode === 'extended' ? [{ name:'Groq מורחב',      fn:_groqStream }, { name:'GitHub stream', fn:_ghStream   }, ..._fallbacks] :
-      /* auto (default) */         [{ name:'Groq אוטומטי',   fn:_groqStream }, { name:'GitHub stream', fn:_ghStream   }, ..._fallbacks];
 
     for (const s of stages) {
         try { return await s.fn(); }
@@ -4005,7 +3913,7 @@ async function send() {
     const row  = document.createElement('div'); row.className = 'msg-row ai';
     const ava  = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
     const body = document.createElement('div'); body.className = 'ai-body';
-    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI ' + ({flash:'Flash',extended:'מורחב',pro:'Pro',auto:'אוטומטי'}[modelMode]||'אוטומטי');
+    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI';
     // Agent status bar (hidden until tools are used)
     const status = document.createElement('div'); status.className = 'agent-status'; status.style.display = 'none';
     const txt  = document.createElement('div'); txt.className = 'ai-txt';
