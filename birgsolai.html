@@ -1215,10 +1215,11 @@
         <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> תמונה</button>
     </div>
     <div class="sb-sect-label" style="margin-top:8px">מודל</div>
-    <div class="mode-row" id="model-row">
-        <button class="mode-pill" id="model-flash"    onclick="setModelMode('flash')">⚡ Flash</button>
-        <button class="mode-pill" id="model-extended" onclick="setModelMode('extended')">🧠 מורחב</button>
-        <button class="mode-pill" id="model-pro"      onclick="setModelMode('pro')">✦ Pro</button>
+    <div class="mode-row" id="model-row" style="flex-wrap:wrap">
+        <button class="mode-pill" id="model-auto"     onclick="setModelMode('auto')">אוטומטי</button>
+        <button class="mode-pill" id="model-flash"    onclick="setModelMode('flash')">Flash</button>
+        <button class="mode-pill" id="model-extended" onclick="setModelMode('extended')">מורחב</button>
+        <button class="mode-pill" id="model-pro"      onclick="setModelMode('pro')">Pro</button>
     </div>
     <div class="sb-sect-label">שיחות</div>
     <div class="sb-body" id="hist-list">
@@ -2225,27 +2226,24 @@ function setMode(mode) {
 function setModelMode(mode) {
     modelMode = mode;
     localStorage.setItem('birgsol_model', mode);
-    ['flash','extended','pro'].forEach(m => {
+    ['auto','flash','extended','pro'].forEach(m => {
         const btn = document.getElementById('model-' + m);
         if (btn) btn.classList.toggle('active', m === mode);
     });
-    // Update topbar badge
     const pill = document.querySelector('.ver-pill');
-    if (pill) pill.textContent = { flash:'Flash', extended:'מורחב', pro:'Pro' }[mode] || mode;
+    if (pill) pill.textContent = { auto:'אוטומטי', flash:'Flash', extended:'מורחב', pro:'Pro' }[mode] || mode;
 }
 
-// Apply saved model mode on load
 (function _initModelMode() {
-    const saved = localStorage.getItem('birgsol_model') || 'extended';
+    const saved = localStorage.getItem('birgsol_model') || 'auto';
     modelMode = saved;
-    // Buttons may not exist yet — DOMContentLoaded will call setModelMode again if needed
     document.addEventListener('DOMContentLoaded', () => setModelMode(saved));
 })();
 
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
 let _groqQuotaExhausted = false;
 let _abortCtrl = null;
-let modelMode = localStorage.getItem('birgsol_model') || 'extended'; // flash | extended | pro
+let modelMode = localStorage.getItem('birgsol_model') || 'auto'; // auto | flash | extended | pro
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
 
 async function loadUserMemory() {
@@ -3770,9 +3768,10 @@ async function callAI(messages, onChunk, signal=null) {
         { name: 'GET fallback',        fn: () => _tryGET().then(_tw) },
     ];
     const stages =
-        modelMode === 'flash'    ? [{ name:'GitHub Flash', fn:_ghStream },   { name:'Groq stream', fn:_groqStream }, ..._fallbacks] :
-        modelMode === 'pro'      ? [{ name:'PRO Groq+Gemini', fn:_proRace }, { name:'GitHub stream', fn:_ghStream }, ..._fallbacks] :
-      /* extended (default) */     [{ name:'Groq stream', fn:_groqStream },  { name:'GitHub stream', fn:_ghStream }, ..._fallbacks];
+        modelMode === 'flash'    ? [{ name:'GitHub Flash',    fn:_ghStream },   { name:'Groq stream',   fn:_groqStream }, ..._fallbacks] :
+        modelMode === 'pro'      ? [{ name:'PRO Groq+Gemini', fn:_proRace },   { name:'GitHub stream', fn:_ghStream   }, ..._fallbacks] :
+        modelMode === 'extended' ? [{ name:'Groq מורחב',      fn:_groqStream }, { name:'GitHub stream', fn:_ghStream   }, ..._fallbacks] :
+      /* auto (default) */         [{ name:'Groq אוטומטי',   fn:_groqStream }, { name:'GitHub stream', fn:_ghStream   }, ..._fallbacks];
 
     for (const s of stages) {
         try { return await s.fn(); }
@@ -3959,7 +3958,7 @@ async function send() {
     const row  = document.createElement('div'); row.className = 'msg-row ai';
     const ava  = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
     const body = document.createElement('div'); body.className = 'ai-body';
-    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI ' + ({flash:'Flash',extended:'מורחב',pro:'Pro'}[modelMode]||'מורחב');
+    const nm   = document.createElement('div'); nm.className = 'ai-name'; nm.textContent = 'BIRGSOL AI ' + ({flash:'Flash',extended:'מורחב',pro:'Pro',auto:'אוטומטי'}[modelMode]||'אוטומטי');
     // Agent status bar (hidden until tools are used)
     const status = document.createElement('div'); status.className = 'agent-status'; status.style.display = 'none';
     const txt  = document.createElement('div'); txt.className = 'ai-txt';
