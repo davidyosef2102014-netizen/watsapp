@@ -2198,6 +2198,7 @@ function setMode(mode) {
 }
 
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
+let _groqQuotaExhausted = false;
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
 
 async function loadUserMemory() {
@@ -2219,6 +2220,7 @@ async function rememberFacts(facts) {
     if (!changed) return;
     if (userMemory.length > 60) userMemory = userMemory.slice(-60);
     await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: userMemory });
+    if (userMemory.length >= 45) _consolidateMemory();
 }
 
 // Fire-and-forget: after each exchange, extract up to 3 durable facts about the user.
@@ -3478,6 +3480,42 @@ function downloadCode(btn, ext) {
     URL.revokeObjectURL(a.href);
 }
 
+function _showQuotaNotice() {
+    if (document.getElementById('quota-notice')) return;
+    const el = document.createElement('div');
+    el.id = 'quota-notice';
+    el.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:rgba(245,158,11,.13);border:1px solid rgba(245,158,11,.3);color:#fbbf24;padding:6px 16px;border-radius:20px;font-size:12px;z-index:9000;pointer-events:none;white-space:nowrap';
+    el.textContent = '⚠️ Groq במגבלה יומית — עובד עם מודל גיבוי';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 9000);
+}
+
+async function _consolidateMemory() {
+    if (!currentUser || userMemory.length < 45) return;
+    try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: 'קבל רשימת עובדות על משתמש. מיזג כפילויות, הסר מידע חולף או פחות חשוב, שמור את 30 העובדות הקבועות והחשובות ביותר. ענה ב-JSON בלבד: {"facts":["..."]}' },
+                    { role: 'user', content: userMemory.join('\n') }
+                ],
+                temperature: 0.2, max_tokens: 600
+            }),
+            signal: AbortSignal.timeout(12000)
+        });
+        if (!res.ok) return;
+        const j = await res.json();
+        const parsed = JSON.parse(j?.choices?.[0]?.message?.content?.trim() || '{}');
+        if (Array.isArray(parsed?.facts) && parsed.facts.length > 0) {
+            userMemory = parsed.facts.slice(0, 35);
+            await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: userMemory });
+        }
+    } catch {}
+}
+
 /* ── CALL AI — robust POST with retry + GET fallback ── */
 async function _typewriter(text, onChunk, step) {
     const words = text.split(' ');
@@ -3537,64 +3575,44 @@ async function callAI(messages, onChunk) {
         }));
     }
 
-    // ── Text path — bounded-latency fallback: GitHub first, then race Pollinations variants
-    // in PARALLEL (not sequentially — sequential with full timeouts could take minutes), then one GET fallback ──
-    const _tryGitHub = async () => {
-        const res = await fetch('https://models.github.ai/inference/chat/completions', {
+    // ── Text path ──
+    // SSE streamer: reads OpenAI-compatible server-sent events, calls onChunk with growing text
+    const _stream = async (url, auth, body) => {
+        const res = await fetch(url, {
             method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }),
-            signal: AbortSignal.timeout(10000)
+            headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...body, stream: true }),
+            signal: AbortSignal.timeout(15000)
         });
-        if (!res.ok) throw new Error('gh ' + res.status);
-        const j = await res.json();
-        const text = j?.choices?.[0]?.message?.content?.trim();
-        if (!text) throw new Error('gh empty');
-        return text;
-    };
-    const _tryGroq = async () => {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }),
-            signal: AbortSignal.timeout(10000)
-        });
-        if (!res.ok) throw new Error('groq ' + res.status);
-        const j = await res.json();
-        const text = j?.choices?.[0]?.message?.content?.trim();
-        if (!text) throw new Error('groq empty');
-        return text;
-    };
-    const _tryOpenRouterKey = async (apiKey) => {
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 0.7, max_tokens: 2048 }),
-            signal: AbortSignal.timeout(12000)
-        });
-        if (!res.ok) throw new Error('openrouter ' + res.status);
-        const j = await res.json();
-        const text = j?.choices?.[0]?.message?.content?.trim();
-        if (!text) throw new Error('openrouter empty');
-        return text;
-    };
-    // Two independent OpenRouter accounts/keys — if one is rate-limited, try the other before
-    // giving up on OpenRouter entirely.
-    const _tryOpenRouter = async () => {
-        try {
-            return await _tryOpenRouterKey(OPENROUTER_KEY);
-        } catch (e) {
-            console.warn('[AI] OpenRouter key 1 failed, trying key 2:', e.message);
-            return await _tryOpenRouterKey(OPENROUTER_KEY2);
+        if (!res.ok) {
+            if (res.status === 429 && url.includes('groq')) { _groqQuotaExhausted = true; _showQuotaNotice(); }
+            throw new Error('HTTP ' + res.status);
         }
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let full = '', buf = '';
+        try {
+            outer: while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += dec.decode(value, { stream: true });
+                const lines = buf.split('\n'); buf = lines.pop() || '';
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const d = line.slice(6).trim();
+                    if (d === '[DONE]') break outer;
+                    try {
+                        const delta = JSON.parse(d)?.choices?.[0]?.delta?.content || '';
+                        if (delta) { full += delta; onChunk(full); }
+                    } catch {}
+                }
+            }
+        } finally { try { reader.cancel(); } catch {} }
+        if (!full) throw new Error('stream empty');
+        return full;
     };
+
     const _tryGemini = async () => {
-        // Gemini's REST schema differs from OpenAI-compatible APIs: contents/parts instead of
-        // messages, and no "system" role — prepend the system prompt onto the first user turn.
-        // This key's quota is inconsistent (0 limit on some models, "high demand" 503s on others)
-        // so it sits late in the chain as a bonus attempt, not a primary.
-        // thinkingBudget left non-zero (was 0) so Gemini actually reasons before answering instead
-        // of rushing — it's a late-stage fallback, so the extra latency doesn't hurt overall speed.
         const sys = messages.find(m => m.role === 'system')?.content || '';
         const contents = messages.filter(m => m.role !== 'system').map(m => ({
             role: m.role === 'assistant' ? 'model' : 'user',
@@ -3612,6 +3630,23 @@ async function callAI(messages, onChunk) {
         const text = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (!text) throw new Error('gemini empty');
         return text;
+    };
+    const _tryOpenRouterKey = async (apiKey) => {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 0.7, max_tokens: 2048 }),
+            signal: AbortSignal.timeout(12000)
+        });
+        if (!res.ok) throw new Error('openrouter ' + res.status);
+        const j = await res.json();
+        const text = j?.choices?.[0]?.message?.content?.trim();
+        if (!text) throw new Error('openrouter empty');
+        return text;
+    };
+    const _tryOpenRouter = async () => {
+        try { return await _tryOpenRouterKey(OPENROUTER_KEY); }
+        catch(e) { console.warn('[AI] OR key1:', e.message); return await _tryOpenRouterKey(OPENROUTER_KEY2); }
     };
     const _tryPoll = async (model, timeoutMs = 10000) => {
         const res = await fetch('https://text.pollinations.ai/', {
@@ -3647,26 +3682,21 @@ async function callAI(messages, onChunk) {
         return text;
     };
 
-    // Sequential order per user request: Groq (Llama-3.3-70b) first as the main/central model,
-    // GitHub GPT-4o-mini second, Gemini third, then OpenRouter, Pollinations, GET — each tried in
-    // order, only moving to the next if the current one fails.
+    // Stages 1-2: real SSE streaming (tokens appear as they arrive).
+    // Stages 3-6: non-streaming fallbacks with typewriter animation.
+    const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
     const stages = [
-        { name: 'Groq Llama-3.3-70b',  fn: _tryGroq },
-        { name: 'GitHub GPT-4o-mini',  fn: _tryGitHub },
-        { name: 'Gemini Flash',        fn: _tryGemini },
-        { name: 'OpenRouter gpt-oss-120b', fn: _tryOpenRouter },
-        { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]) },
-        { name: 'GET fallback',        fn: _tryGET },
+        { name: 'Groq stream',        fn: () => _groqQuotaExhausted ? Promise.reject(new Error('quota')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + GROQ_KEY, { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
+        { name: 'GitHub stream',       fn: () => _stream('https://models.github.ai/inference/chat/completions', 'Bearer ' + GH_TOKEN, { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }) },
+        { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
+        { name: 'OpenRouter',          fn: () => _tryOpenRouter().then(_tw) },
+        { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]).then(_tw) },
+        { name: 'GET fallback',        fn: () => _tryGET().then(_tw) },
     ];
 
     for (const s of stages) {
-        try {
-            const full = await s.fn();
-            await _typewriter(full, onChunk, 6);
-            return full;
-        } catch (e) {
-            console.warn(`[AI] ${s.name} failed:`, e.message);
-        }
+        try { return await s.fn(); }
+        catch(e) { console.warn(`[AI] ${s.name}:`, e.message); }
     }
     throw new Error('all providers failed');
 }
@@ -4045,11 +4075,23 @@ async function _liveLoop() {
 
     // ── 2. Think ──
     _setLiveState('thinking');
+    // Search if the query sounds like a factual/real-time question
+    let liveSearchCtx = '';
+    const _liveNeedsSearch = /[?？]|מחיר|כמה עול|שער|מזג|חדשות|מה קורה|who |what |when |where |how much|weather|price|news/i.test(transcript);
+    if (_liveNeedsSearch) {
+        try {
+            const sr = await Promise.race([
+                _tryTavily(transcript),
+                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))
+            ]);
+            if (sr) liveSearchCtx = '\n\n[תוצאות חיפוש עדכניות]:\n' + sr;
+        } catch {}
+    }
     const messages = [
         { role:'system', content: getPersona() +
           '\n\nIMPORTANT — LIVE VOICE MODE: Give SHORT, natural conversational answers (2-4 sentences). NO markdown, NO asterisks, NO bullet points, NO code blocks — speak like a human. Hebrew by default unless user writes English.' },
         ...hist.slice(-30).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
-        { role:'user', content: transcript }
+        { role:'user', content: transcript + liveSearchCtx }
     ];
     let reply = '';
     try {
