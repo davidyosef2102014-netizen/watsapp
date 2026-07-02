@@ -1293,16 +1293,24 @@
             </div>
 
             <div id="img-prev">
-                <div style="position:relative">
+                <div id="img-prev-img" style="position:relative">
                     <img id="thumb" class="img-thumb" src="" alt="">
                     <button class="rm-img" onclick="clearFile()">✕</button>
                 </div>
-                <span style="font-size:13px;color:var(--muted)">תמונה מצורפת</span>
+                <div id="img-prev-doc" style="display:none;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:9px 14px;max-width:260px">
+                    <span style="font-size:22px">📄</span>
+                    <div style="min-width:0;flex:1">
+                        <div id="file-name-label" style="font-size:13px;font-weight:600;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+                        <div id="file-size-label" style="font-size:11px;color:var(--muted)"></div>
+                    </div>
+                    <button class="rm-img" onclick="clearFile()" style="position:static;background:none;border:none">✕</button>
+                </div>
+                <span id="img-prev-label" style="font-size:13px;color:var(--muted)">תמונה מצורפת</span>
             </div>
             <div class="pill">
                 <div class="pill-inner">
                     <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
-                    <input type="file" id="fi" style="display:none" accept="image/*" onchange="previewFile()">
+                    <input type="file" id="fi" style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json" onchange="previewFile()">
                     <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
@@ -2189,46 +2197,59 @@ function setMode(mode) {
     startNew(); // start fresh conversation in new mode
 }
 
-let hist = [], fileUrl = "", busy = false, isFirstMsg = true;
+let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
 
 async function loadUserMemory() {
     if (!currentUser) { userMemory = []; return; }
-    const data = await ghRead('db/ai_memory_' + currentUser + '.json');
+    const data = await ghReadFresh('db/ai_memory_' + currentUser + '.json');
     userMemory = data?.facts || [];
 }
 
-async function rememberFact(fact) {
-    if (!currentUser || !fact) return;
-    if (userMemory.some(f => f.toLowerCase() === fact.toLowerCase())) return; // exact dup
-    userMemory.push(fact);
-    if (userMemory.length > 40) userMemory = userMemory.slice(-40); // cap so the persona prompt doesn't bloat
+async function rememberFacts(facts) {
+    if (!currentUser || !facts?.length) return;
+    let changed = false;
+    for (const fact of facts) {
+        if (!fact || !fact.trim()) continue;
+        const low = fact.toLowerCase();
+        if (userMemory.some(f => f.toLowerCase() === low)) continue;
+        userMemory.push(fact.trim());
+        changed = true;
+    }
+    if (!changed) return;
+    if (userMemory.length > 60) userMemory = userMemory.slice(-60);
     await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: userMemory });
 }
 
-// Fire-and-forget: after each exchange, ask a fast model whether anything durable is worth
-// remembering long-term (name, preferences, ongoing projects). Runs in the background — never
-// awaited from send(), so it doesn't add latency to the visible reply.
+// Fire-and-forget: after each exchange, extract up to 3 durable facts about the user.
+// Includes existing memories to avoid redundant storage.
 async function extractMemory(userMsg, aiReply) {
     if (!currentUser || !userMsg) return;
     try {
+        const existing = userMemory.length
+            ? 'מה שכבר ידוע:\n' + userMemory.slice(-20).map(f => '- ' + f).join('\n') + '\n\n'
+            : '';
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: [
-                    { role: 'system', content: 'You extract durable facts worth remembering long-term about a user from one chat exchange (their name, preferences, ongoing projects, important personal/work context). If the exchange contains such a fact, reply with ONE short sentence stating it, in Hebrew. If there is nothing worth remembering long-term (small talk, a one-off question, no new durable info), reply with exactly: NONE' },
-                    { role: 'user', content: `User: ${userMsg}\nAssistant: ${(aiReply || '').slice(0, 500)}` }
+                    { role: 'system', content: 'אתה מחלץ עובדות עמידות על המשתמש משיחה (שם, העדפות, פרויקטים פעילים, הקשר אישי/עבודה חשוב). ענה ב-JSON בלבד: {"facts":["עובדה1","עובדה2"]} עם עד 3 עובדות. אם אין דבר חשוב לזכור לטווח ארוך, ענה: {"facts":[]}. אל תכלול מידע שכבר ידוע ברשימה הקיימת.' },
+                    { role: 'user', content: `${existing}משתמש: ${userMsg}\nעוזר: ${(aiReply || '').slice(0, 400)}` }
                 ],
-                temperature: 0.3, max_tokens: 60
+                temperature: 0.2, max_tokens: 120
             }),
             signal: AbortSignal.timeout(10000)
         });
         if (!res.ok) return;
         const j = await res.json();
-        const fact = j?.choices?.[0]?.message?.content?.trim();
-        if (fact && !/^none$/i.test(fact)) await rememberFact(fact);
+        const raw = j?.choices?.[0]?.message?.content?.trim();
+        if (!raw) return;
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed?.facts)) await rememberFacts(parsed.facts);
+        } catch {}
     } catch {}
 }
 
@@ -2318,7 +2339,7 @@ function autoResize(el) {
     el.style.height = Math.min(el.scrollHeight, 140) + 'px';
 }
 function updateBtn() {
-    const has = document.getElementById('userInput').value.trim() || fileUrl;
+    const has = document.getElementById('userInput').value.trim() || fileUrl || fileContent;
     document.getElementById('sendBtn').classList.toggle('on', !!has);
     const vpb = document.getElementById('voicePillBtn');
     if (vpb) vpb.style.display = has ? 'none' : '';
@@ -2474,11 +2495,75 @@ function _loadImageBlob(blob) {
 function previewFile() {
     const f = document.getElementById('fi').files[0];
     if (!f) return;
-    _loadImageBlob(f);
+    if (f.type.startsWith('image/')) {
+        fileContent = ''; fileName = '';
+        _loadImageBlob(f);
+        return;
+    }
+    fileUrl = '';
+    fileName = f.name;
+    const isText = /\.(txt|md|csv|json)$/i.test(f.name) || f.type.startsWith('text/') || f.type === 'application/json';
+    if (isText) {
+        const reader = new FileReader();
+        reader.onload = e => { fileContent = e.target.result; _showDocPreview(f.name, f.size); };
+        reader.readAsText(f, 'UTF-8');
+    } else if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
+        _loadPDF(f);
+    } else {
+        alert('סוג קובץ לא נתמך. נסה תמונה, TXT, PDF, CSV, MD או JSON.');
+        document.getElementById('fi').value = '';
+    }
 }
+
+function _showDocPreview(name, size) {
+    document.getElementById('img-prev-img').style.display = 'none';
+    document.getElementById('img-prev-doc').style.display = 'flex';
+    document.getElementById('img-prev-label').style.display = 'none';
+    document.getElementById('file-name-label').textContent = name;
+    const kb = size > 1048576 ? (size/1048576).toFixed(1)+'MB' : size > 1024 ? (size/1024).toFixed(0)+'KB' : size+'B';
+    document.getElementById('file-size-label').textContent = kb + (fileContent ? ' · ' + fileContent.length.toLocaleString() + ' תווים' : '');
+    document.getElementById('img-prev').classList.add('on');
+    updateBtn();
+}
+
+async function _loadPDF(file) {
+    _showDocPreview(file.name, file.size);
+    document.getElementById('file-size-label').textContent = 'טוען PDF…';
+    try {
+        if (!window.pdfjsLib) {
+            await new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                s.onload = res; s.onerror = rej; document.head.appendChild(s);
+            });
+            pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+                new Blob([`importScripts('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js')`],
+                {type:'application/javascript'})
+            );
+        }
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        let text = '';
+        for (let i = 1; i <= Math.min(pdf.numPages, 50); i++) {
+            const page = await pdf.getPage(i);
+            const ct = await page.getTextContent();
+            text += ct.items.map(it => it.str).join(' ') + '\n';
+        }
+        fileContent = text.trim();
+        const kb = file.size > 1048576 ? (file.size/1048576).toFixed(1)+'MB' : (file.size/1024).toFixed(0)+'KB';
+        document.getElementById('file-size-label').textContent = kb + ' · ' + pdf.numPages + ' עמודים · ' + fileContent.length.toLocaleString() + ' תווים';
+    } catch(e) {
+        document.getElementById('file-size-label').textContent = 'שגיאה בטעינת PDF';
+        console.warn('PDF load error:', e);
+    }
+}
+
 function clearFile() {
-    fileUrl = "";
+    fileUrl = ""; fileContent = ""; fileName = "";
     document.getElementById('img-prev').classList.remove('on');
+    document.getElementById('img-prev-img').style.display = '';
+    document.getElementById('img-prev-doc').style.display = 'none';
+    document.getElementById('img-prev-label').style.display = '';
     document.getElementById('fi').value = "";
     updateBtn();
 }
@@ -2492,7 +2577,7 @@ function showChat() {
 }
 
 /* ── add message ── */
-function addMsg(role, text, img = null, md = false) {
+function addMsg(role, text, img = null, md = false, fileLabel = '') {
     showChat();
     const cw = document.getElementById('chat-window');
     const row = document.createElement('div');
@@ -2500,7 +2585,8 @@ function addMsg(role, text, img = null, md = false) {
     if (role === 'user') {
         row.className = 'msg-row user';
         const imgH = img ? `<img src="${img}" class="user-img" alt="תמונה">` : '';
-        row.innerHTML = `<div class="user-bub">${text.replace(/\n/g,'<br>')}${imgH}</div>`;
+        const fileH = fileLabel ? `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);border-radius:8px;padding:4px 8px;font-size:12px;margin-top:4px">📄 ${esc2(fileLabel)}</div>` : '';
+        row.innerHTML = `<div class="user-bub">${text.replace(/\n/g,'<br>')}${imgH}${fileH ? '<br>' + fileH : ''}</div>`;
     } else {
         row.className = 'msg-row ai';
         const content = md ? marked.parse(text) : text.replace(/\n/g,'<br>');
@@ -3640,7 +3726,7 @@ async function send() {
     if (busy) return;
     const inp = document.getElementById('userInput');
     const q   = inp.value.trim();
-    if (!q && !fileUrl) return;
+    if (!q && !fileUrl && !fileContent) return;
 
     // Image generation — free, unlimited, no quota used
     if (isImageRequest(q) && !fileUrl) {
@@ -3667,7 +3753,9 @@ async function send() {
     if (!consumeFreeMsg()) return;
 
     const img = fileUrl;
-    addMsg('user', q, img);
+    const attachedFile = fileContent;
+    const attachedName = fileName;
+    addMsg('user', q, img, false, attachedFile ? attachedName : '');
     inp.value = ''; inp.style.height = 'auto';
     clearFile(); busy = true; updateBtn();
 
@@ -3685,6 +3773,11 @@ async function send() {
             { type: 'text', text: q || 'מה בתמונה?' },
             { type: 'image_url', image_url: { url: img } }
         ]});
+    } else if (attachedFile) {
+        const trimmed = attachedFile.length > 14000
+            ? attachedFile.slice(0, 14000) + '\n\n[הקובץ חותך כאן — מוצגים 14,000 תווים ראשונים]'
+            : attachedFile;
+        messages.push({ role: 'user', content: `[תוכן הקובץ "${attachedName}"]\n${trimmed}\n\n[שאלת המשתמש]: ${q || 'נתח את הקובץ'}` });
     } else {
         messages.push({ role: 'user', content: q });
     }
@@ -3917,90 +4010,12 @@ function startLive() {
 
 function endLive() {
     _liveActive = false; _liveStopped = true;
-    if (_pttRec)    { try { _pttRec.stop();  } catch(e) {} _pttRec  = null; }
     if (_liveRec)   { try { _liveRec.stop(); } catch(e) {} _liveRec = null; }
     window.speechSynthesis.cancel();
     if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(e) {} _liveCurrentAudio = null; }
     document.getElementById('live-overlay').classList.remove('on');
     _setLiveState('idle');
     _stopWave();
-}
-
-// ── Push-to-Talk ──
-let _pttRec = null, _pttText = '';
-
-function _pttSetup() {
-    const btn = document.getElementById('live-ptt-btn');
-    if (!btn) return;
-    btn.addEventListener('pointerdown',   e => { e.preventDefault(); _pttBegin(); }, { passive:false });
-    btn.addEventListener('pointerup',     e => { e.preventDefault(); _pttEnd();   }, { passive:false });
-    btn.addEventListener('pointercancel', e => { e.preventDefault(); _pttEnd();   }, { passive:false });
-    btn.addEventListener('pointerleave',  e => { e.preventDefault(); _pttEnd();   }, { passive:false });
-}
-
-function _pttBegin() {
-    if (_liveBusy || _pttRec || _liveStopped || !_liveActive) return;
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { document.getElementById('live-status').textContent = '⚠️ הדפדפן לא תומך בזיהוי קול'; return; }
-    _pttText = '';
-    _pttRec = new SR();
-    _pttRec.lang = 'he-IL';
-    _pttRec.interimResults = true;
-    _pttRec.continuous = true;
-    _pttRec.maxAlternatives = 1;
-    _pttRec.onresult = e => {
-        let t = '';
-        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-        _pttText = t;
-        document.getElementById('live-transcript').textContent = '👤 ' + t;
-    };
-    _pttRec.onerror = e => console.warn('PTT STT:', e.error);
-    _pttRec.onend = async () => {
-        _pttRec = null;
-        const transcript = _pttText.trim();
-        const btn = document.getElementById('live-ptt-btn');
-        if (!transcript || !_liveActive || _liveStopped) {
-            if (btn) { btn.disabled = false; btn.classList.remove('active'); btn.textContent = '🎤 לחץ וחזק לדיבור'; }
-            _setLiveState('idle'); return;
-        }
-        _liveBusy = true;
-        if (btn) { btn.disabled = true; btn.textContent = '⏳ מעבד…'; }
-        _setLiveState('thinking');
-        const messages = [
-            { role:'system', content: getPersona() +
-              '\n\nIMPORTANT — LIVE VOICE MODE: Give SHORT, natural conversational answers (2-4 sentences). NO markdown, NO asterisks, NO bullet points, NO code blocks — speak like a human. Hebrew by default unless user writes English.' },
-            ...hist.slice(-30).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
-            { role:'user', content: transcript }
-        ];
-        let reply = '';
-        try {
-            reply = await callAI(messages, () => {});
-            reply = reply
-                .replace(/```[\s\S]*?```/g,'קוד').replace(/\*\*(.*?)\*\*/g,'$1')
-                .replace(/\*(.*?)\*/g,'$1').replace(/#{1,6}\s/g,'')
-                .replace(/`([^`]+)`/g,'$1').replace(/\[.*?\]/g,'').trim();
-            if (!reply) reply = 'מצטער, לא הצלחתי לקבל תשובה. נסה שוב.';
-        } catch(e) { reply = 'הייתה שגיאת חיבור. נסה שוב.'; }
-        hist.push({ role:'user', content: transcript });
-        hist.push({ role:'assistant', content: reply });
-        saveConversation(); extractMemory(transcript, reply);
-        _setLiveState('speaking');
-        document.getElementById('live-transcript').textContent = '✦ ' + reply;
-        await _liveSpeakText(reply);
-        _liveBusy = false; _setLiveState('idle');
-        if (btn) { btn.disabled = false; btn.textContent = '🎤 לחץ וחזק לדיבור'; }
-    };
-    try { _pttRec.start(); } catch(e) { console.warn('PTT start:', e); _pttRec = null; return; }
-    const btn = document.getElementById('live-ptt-btn');
-    if (btn) { btn.classList.add('active'); btn.textContent = '🔴 מקשיב…'; }
-    _setLiveState('listening');
-}
-
-function _pttEnd() {
-    if (!_pttRec) return;
-    const btn = document.getElementById('live-ptt-btn');
-    if (btn) { btn.classList.remove('active'); btn.textContent = '⏳ שולח…'; }
-    try { _pttRec.stop(); } catch(e) {}
 }
 
 function toggleLiveMute() {
@@ -4444,10 +4459,6 @@ async function _speakWithBrowserTTS(text) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const ww = document.getElementById('live-glow-canvas');
-    if (ww) ww.onclick = () => { if (_liveActive && !_liveBusy) _liveLoop(); };
-});
 </script>
 </body>
 </html>
