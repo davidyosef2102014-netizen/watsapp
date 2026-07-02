@@ -429,6 +429,12 @@
         }
         .send-btn.on { opacity: 1; pointer-events: all; }
         .send-btn.on:hover { transform: scale(1.12); box-shadow: 0 0 18px rgba(66,133,244,.6), 0 0 8px rgba(197,138,249,.4); }
+        .send-btn.stop { opacity: 1; pointer-events: all; background: rgba(239,68,68,.85); font-size: 13px; }
+        .send-btn.stop:hover { transform: scale(1.1); }
+        .edit-msg-btn { position: absolute; left: -26px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); opacity: 0; transition: opacity .15s; padding: 4px; display: flex; align-items: center; }
+        .msg-row.user:hover .edit-msg-btn { opacity: 1; }
+        .edit-msg-btn:hover { color: var(--text); }
+        .user-bub-wrap { position: relative; display: inline-flex; align-items: center; }
 
         .foot-note { text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 
@@ -1214,6 +1220,7 @@
     </div>
     <div class="sb-foot">
         <button onclick="openAdminPanel()" class="sb-admin-btn" id="sb-admin-btn" style="display:none">🛠 ניהול משתמשים</button>
+        <button onclick="exportConversation()" class="sb-logout-btn" style="margin-bottom:4px;display:flex;align-items:center;gap:6px;justify-content:center" title="ייצא שיחה נוכחית כקובץ טקסט"><svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ייצא שיחה</button>
         <div class="sb-creator">✦ נוצר ע"י דוד יוסף זאבי</div>
         <button onclick="doLogout()" class="sb-logout-btn">התנתקות</button>
     </div>
@@ -1316,7 +1323,7 @@
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
                     <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></button>
-                    <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
+                    <button class="send-btn" id="sendBtn" onclick="sendOrStop()">↑</button>
                     <button class="voice-pill-btn" id="voicePillBtn" onclick="startLive()">
                         <span class="vpb-bars">
                             <span class="vpb-bar" style="--d:0s"></span>
@@ -1446,7 +1453,7 @@ function openConversation(convId) {
     const cw = document.getElementById('chat-window');
     cw.innerHTML = '';
     showChat();
-    hist.forEach(m => renderMsgOnly(m.role === 'user' ? 'user' : 'ai', m.content));
+    hist.forEach((m, i) => renderMsgOnly(m.role === 'user' ? 'user' : 'ai', m.content, i));
     cw.scrollTo({ top: cw.scrollHeight });
     renderConvList(); // סמן פעיל
     _updateCtxBar();
@@ -1454,13 +1461,14 @@ function openConversation(convId) {
 }
 
 /* רנדר הודעה בלי להוסיף להיסטוריה (ה-hist כבר מוגדר מראש) */
-function renderMsgOnly(role, text) {
+function renderMsgOnly(role, text, histIdx) {
     const cw  = document.getElementById('chat-window');
     const row = document.createElement('div');
 
     if (role === 'user') {
         row.className = 'msg-row user';
-        row.innerHTML = `<div class="user-bub">${text.replace(/\n/g,'<br>')}</div>`;
+        if (histIdx !== undefined) row.dataset.histBefore = histIdx;
+        row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><div class="user-bub">${text.replace(/\n/g,'<br>')}</div></div>`;
     } else {
         // מפה שנוצרה בעבר — שמורה ב-history כ-base64 JSON, משוחזרת כווידג'ט מפה אמיתי
         const mapMatch = text.match(/^\[GENERATED_MAP:([\s\S]+?)\]$/);
@@ -2213,6 +2221,7 @@ function setMode(mode) {
 
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
 let _groqQuotaExhausted = false;
+let _abortCtrl = null;
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
 
 async function loadUserMemory() {
@@ -2356,9 +2365,16 @@ function autoResize(el) {
 }
 function updateBtn() {
     const has = document.getElementById('userInput').value.trim() || fileUrl || fileContent;
-    document.getElementById('sendBtn').classList.toggle('on', !!has);
+    const btn = document.getElementById('sendBtn');
+    if (busy) {
+        btn.classList.remove('on'); btn.classList.add('stop');
+        btn.innerHTML = '■'; btn.title = 'עצור';
+    } else {
+        btn.classList.remove('stop'); btn.classList.toggle('on', !!has);
+        btn.innerHTML = '↑'; btn.title = '';
+    }
     const vpb = document.getElementById('voicePillBtn');
-    if (vpb) vpb.style.display = has ? 'none' : '';
+    if (vpb) vpb.style.display = (has || busy) ? 'none' : '';
 }
 function handleKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
@@ -2602,7 +2618,8 @@ function addMsg(role, text, img = null, md = false, fileLabel = '') {
         row.className = 'msg-row user';
         const imgH = img ? `<img src="${img}" class="user-img" alt="תמונה">` : '';
         const fileH = fileLabel ? `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);border-radius:8px;padding:4px 8px;font-size:12px;margin-top:4px">📄 ${esc2(fileLabel)}</div>` : '';
-        row.innerHTML = `<div class="user-bub">${text.replace(/\n/g,'<br>')}${imgH}${fileH ? '<br>' + fileH : ''}</div>`;
+        row.dataset.histBefore = hist.length;
+        row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה">${IC.pencil}</button><div class="user-bub">${text.replace(/\n/g,'<br>')}${imgH}${fileH ? '<br>' + fileH : ''}</div></div>`;
     } else {
         row.className = 'msg-row ai';
         const content = md ? marked.parse(text) : text.replace(/\n/g,'<br>');
@@ -3419,7 +3436,7 @@ async function executeTool(match, type, statusEl, cw) {
 function esc2(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 /* Agent loop — calls AI, detects tool calls, executes them, calls AI again */
-async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4) {
+async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4, signal=null) {
     let fullText = '';
     // Only auto-scroll if user hasn't scrolled up
     const _scroll = () => { if (cw.scrollTop >= cw.scrollHeight - cw.clientHeight - 80) cw.scrollTop = cw.scrollHeight; };
@@ -3431,7 +3448,7 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4) {
                 partial.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
                 '</span><span class="stream-cursor"></span>';
             _scroll();
-        });
+        }, signal);
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
 
         // Collect tool calls
@@ -3541,7 +3558,7 @@ async function _typewriter(text, onChunk, step) {
     onChunk(text);
 }
 
-async function callAI(messages, onChunk) {
+async function callAI(messages, onChunk, signal=null) {
     // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
         m.content.some(c => c.type === 'image_url'));
@@ -3592,11 +3609,14 @@ async function callAI(messages, onChunk) {
     // ── Text path ──
     // SSE streamer: reads OpenAI-compatible server-sent events, calls onChunk with growing text
     const _stream = async (url, auth, body) => {
+        const _sig = signal
+            ? AbortSignal.any([signal, AbortSignal.timeout(15000)])
+            : AbortSignal.timeout(15000);
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...body, stream: true }),
-            signal: AbortSignal.timeout(15000)
+            signal: _sig
         });
         if (!res.ok) {
             if (res.status === 429 && url.includes('groq')) { _groqQuotaExhausted = true; _showQuotaNotice(); }
@@ -3604,7 +3624,7 @@ async function callAI(messages, onChunk) {
         }
         const reader = res.body.getReader();
         const dec = new TextDecoder();
-        let full = '', buf = '';
+        let full = '', buf = '', aborted = false;
         try {
             outer: while (true) {
                 const { done, value } = await reader.read();
@@ -3621,7 +3641,11 @@ async function callAI(messages, onChunk) {
                     } catch {}
                 }
             }
+        } catch(e) {
+            if (e.name === 'AbortError') { aborted = true; }
+            else throw e;
         } finally { try { reader.cancel(); } catch {} }
+        if (aborted) { if (full) return full; throw Object.assign(new Error('aborted'), {name:'AbortError'}); }
         if (!full) throw new Error('stream empty');
         return full;
     };
@@ -3710,9 +3734,120 @@ async function callAI(messages, onChunk) {
 
     for (const s of stages) {
         try { return await s.fn(); }
-        catch(e) { console.warn(`[AI] ${s.name}:`, e.message); }
+        catch(e) {
+            if (e.name === 'AbortError') throw e; // user stopped — propagate immediately
+            console.warn(`[AI] ${s.name}:`, e.message);
+        }
     }
     throw new Error('all providers failed');
+}
+
+/* ── STOP / REGENERATE / EDIT ── */
+function sendOrStop() { if (busy) stopGeneration(); else send(); }
+
+function stopGeneration() {
+    if (_abortCtrl) { _abortCtrl.abort(); _abortCtrl = null; }
+}
+
+function regenerate() {
+    if (busy) return;
+    const cw = document.getElementById('chat-window');
+    // Remove last AI row from DOM
+    const aiRows = cw.querySelectorAll('.msg-row.ai');
+    if (!aiRows.length) return;
+    aiRows[aiRows.length - 1].remove();
+    // Remove last assistant from hist
+    while (hist.length && hist[hist.length - 1].role === 'assistant') hist.pop();
+    // Get + remove last user message from hist + DOM
+    if (!hist.length || hist[hist.length - 1].role !== 'user') return;
+    const lastUserText = typeof hist[hist.length - 1].content === 'string'
+        ? hist[hist.length - 1].content : (hist[hist.length - 1].content?.[0]?.text || '');
+    hist.pop();
+    const userRows = cw.querySelectorAll('.msg-row.user');
+    if (userRows.length) userRows[userRows.length - 1].remove();
+    document.getElementById('userInput').value = lastUserText;
+    send();
+}
+
+function editMsg(btn) {
+    if (busy) return;
+    const row = btn.closest('.msg-row.user');
+    if (!row) return;
+    const text = row.querySelector('.user-bub')?.innerText?.trim() || '';
+    const histBefore = parseInt(row.dataset.histBefore || '0', 10);
+    const cw = document.getElementById('chat-window');
+    // Remove this row and everything after it from DOM
+    const rows = [...cw.children];
+    const idx = rows.indexOf(row);
+    if (idx !== -1) for (let i = rows.length - 1; i >= idx; i--) rows[i].remove();
+    // Truncate hist
+    hist = hist.slice(0, histBefore);
+    const inp = document.getElementById('userInput');
+    inp.value = text; autoResize(inp); inp.focus(); updateBtn();
+}
+
+async function _autoNameConv() {
+    if (!currentConvId) return;
+    const firstUser = hist.find(m => m.role === 'user')?.content || '';
+    const firstAI   = hist.find(m => m.role === 'assistant')?.content || '';
+    if (!firstUser || !firstAI) return;
+    try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: 'צור שם קצר לשיחה (3-5 מילים, ללא פיסוק, ללא גרשיים). ענה בשם בלבד.' },
+                    { role: 'user', content: 'משתמש: ' + String(firstUser).slice(0, 200) + '\nAI: ' + String(firstAI).slice(0, 100) }
+                ],
+                temperature: 0.4, max_tokens: 20
+            }),
+            signal: AbortSignal.timeout(8000)
+        });
+        const j = await res.json();
+        const name = j?.choices?.[0]?.message?.content?.trim().replace(/["'״]/g,'').slice(0, 40);
+        if (!name) return;
+        const idx = convList.findIndex(c => c.id === currentConvId);
+        if (idx !== -1) { convList[idx].title = name; renderConvList(); localStorage.setItem(CONVS_KEY(), JSON.stringify(convList)); }
+    } catch {}
+}
+
+function exportConversation() {
+    if (!hist.length) return;
+    const title = convList.find(c => c.id === currentConvId)?.title || 'שיחה';
+    const lines = hist.map(m => {
+        const who = m.role === 'user' ? '👤 אתה' : '✦ BIRGSOL AI';
+        const content = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
+        return who + ':\n' + content;
+    }).join('\n\n---\n\n');
+    const blob = new Blob([lines], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = title + '.txt'; a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+let _katexLoaded = false;
+async function _renderMath(el) {
+    if (!el.textContent.includes('$')) return;
+    if (!_katexLoaded) {
+        await new Promise((res, rej) => {
+            if (window.renderMathInElement) { _katexLoaded = true; res(); return; }
+            const link = document.createElement('link');
+            link.rel = 'stylesheet'; link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css';
+            document.head.appendChild(link);
+            const s1 = document.createElement('script');
+            s1.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js';
+            s1.onload = () => {
+                const s2 = document.createElement('script');
+                s2.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js';
+                s2.onload = () => { _katexLoaded = true; res(); }; s2.onerror = rej;
+                document.head.appendChild(s2);
+            };
+            s1.onerror = rej; document.head.appendChild(s1);
+        });
+    }
+    try { window.renderMathInElement?.(el, { delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}], throwOnError:false }); } catch {}
 }
 
 /* ── SEND ── */
@@ -3869,43 +4004,60 @@ async function send() {
     }
 
     let fullText = '';
+    let _stopped = false;
+    _abortCtrl = new AbortController();
+    updateBtn();
     try {
-        // Run agent loop — handles tool calls automatically
-        fullText = await agentLoop(messages, txt, status, cw);
+        fullText = await agentLoop(messages, txt, status, cw, 4, _abortCtrl.signal);
+    } catch (e) {
+        if (e.name === 'AbortError') {
+            _stopped = true;
+            fullText = txt.querySelector('.stream-raw')?.textContent?.trim() || fullText;
+        } else if (!fullText) {
+            txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
+        }
+    }
+    _abortCtrl = null;
 
+    if (fullText) {
         // Hide search indicator
-        status.style.transition = 'opacity .4s';
-        status.style.opacity = '0';
+        status.style.transition = 'opacity .4s'; status.style.opacity = '0';
         setTimeout(() => { status.style.display = 'none'; status.innerHTML = ''; status.style.opacity = ''; status.style.transition = ''; }, 420);
 
-        // Final clean response: strip any leftover tool call lines
+        // Strip leftover tool call lines
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
         const cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
 
-        // Render as Markdown
+        // Render as Markdown + math
         try {
             txt.innerHTML = marked.parse(cleanText || fullText);
             enhanceCodeBlocks(txt);
-        } catch(renderErr) {
-            // Keep whatever the typewriter already showed
+            _renderMath(txt); // fire-and-forget KaTeX
+        } catch(renderErr) {}
+
+        if (_stopped) {
+            const stopNote = document.createElement('span');
+            stopNote.style.cssText = 'color:var(--muted);font-size:11px;display:block;margin-top:6px';
+            stopNote.textContent = '⏹ הופסק';
+            txt.appendChild(stopNote);
         }
 
-        // Copy button
+        // Action buttons
         const acts = document.createElement('div'); acts.className = 'ai-acts';
-        acts.innerHTML = `<button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>`;
+        acts.innerHTML = `<button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>
+            <button class="ai-act" onclick="regenerate()">${IC.refresh} נסה שוב</button>`;
         body.appendChild(acts);
 
         hist.push({ role: 'assistant', content: cleanText || fullText });
         if (isFirstMsg) { isFirstMsg = false; }
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
-        saveConversation(); // שמור שיחה מלאה ב-localStorage
-        extractMemory(q, cleanText || fullText); // fire-and-forget — doesn't block the visible reply
-    } catch (e) {
-        if (!fullText) {
-            txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
-        }
+        saveConversation();
+        extractMemory(q, cleanText || fullText);
+        // Auto-name the conversation after the very first exchange
+        if (hist.filter(m => m.role === 'assistant').length === 1) _autoNameConv();
     }
+
     busy = false; updateBtn();
 }
 
