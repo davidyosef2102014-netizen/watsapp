@@ -4139,6 +4139,7 @@ function startNew() {
 /* ══════════════════════════════════════════
    LIVE VOICE MODE
 ══════════════════════════════════════════ */
+let _cachedVoices = null; // pre-loaded so _speakWithBrowserTTS starts instantly
 let _liveActive  = false;
 let _liveMuted   = false;
 let _liveRec     = null;
@@ -4196,12 +4197,27 @@ function _setLiveState(state) {
     else if (state === 'speaking')  { status.textContent = '🔊 מדבר…'; trans.classList.add('ai-speaking'); }
 }
 
+async function _preloadVoices() {
+    if (_cachedVoices?.length) return _cachedVoices;
+    let v = window.speechSynthesis.getVoices();
+    if (!v.length) {
+        await new Promise(r => {
+            window.speechSynthesis.addEventListener('voiceschanged', r, { once: true });
+            setTimeout(r, 1800);
+        });
+        v = window.speechSynthesis.getVoices();
+    }
+    _cachedVoices = v;
+    return v;
+}
+
 function startLive() {
     closeSidebar();
     // iOS TTS unlock — must call speak() inside a user gesture.
     // NOTE: do NOT call cancel() right after speak() — on Chrome this is a known bug
     // that jams the speech queue silently until the page is reloaded.
     try { const _u = new SpeechSynthesisUtterance(' '); _u.volume = 0; window.speechSynthesis.speak(_u); } catch(e) {}
+    _preloadVoices(); // warm up voices now so first speech response is instant
     document.getElementById('live-overlay').classList.add('on');
     _liveActive = true; _liveStopped = false; _liveMuted = false;
     document.getElementById('live-mute-btn').classList.remove('muted');
@@ -4657,14 +4673,15 @@ async function _speakWithBrowserTTS(text) {
         window.speechSynthesis.cancel();
         if (!text || _liveStopped) { resolve(true); return; }
 
-        // Chrome returns empty array synchronously — wait for voices to load
-        let voices = window.speechSynthesis.getVoices();
+        // Use pre-cached voices if available — avoids 1800ms wait on every utterance
+        let voices = _cachedVoices?.length ? _cachedVoices : window.speechSynthesis.getVoices();
         if (!voices.length) {
             await new Promise(r => {
                 window.speechSynthesis.addEventListener('voiceschanged', r, { once: true });
-                setTimeout(r, 1800); // fallback if event never fires
+                setTimeout(r, 1800);
             });
             voices = window.speechSynthesis.getVoices();
+            _cachedVoices = voices;
         }
         if (_liveStopped) { resolve(true); return; }
 
