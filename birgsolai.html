@@ -3769,34 +3769,37 @@ async function callAI(messages, onChunk, signal=null) {
 }
 
 /* ── THINK SOUND (Gemini-style) ── */
-let _thinkCtx = null, _thinkTimer = null;
+let _thinkCtx = null, _thinkTimer = null, _thinkStop = false;
 function startThinkSound() {
     if (_thinkCtx) return;
+    _thinkStop = false;
     try {
         _thinkCtx = new (window.AudioContext || window.webkitAudioContext)();
         const ctx = _thinkCtx;
         const play = (freq, t, dur) => {
+            if (_thinkStop) return;
             const o = ctx.createOscillator(), g = ctx.createGain();
             o.type = 'sine'; o.frequency.value = freq;
-            g.gain.setValueAtTime(0, t);
-            g.gain.linearRampToValueAtTime(0.06, t + 0.1);
-            g.gain.linearRampToValueAtTime(0.06, t + dur - 0.1);
-            g.gain.linearRampToValueAtTime(0, t + dur);
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(0.1, t + 0.08);
+            g.gain.setValueAtTime(0.1, t + dur - 0.08);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
             o.connect(g); g.connect(ctx.destination);
-            o.start(t); o.stop(t + dur + 0.05);
+            o.start(t); o.stop(t + dur + 0.02);
         };
-        const notes = [392, 494, 587, 784], gap = 0.33;
-        const schedule = () => {
-            if (!_thinkCtx) return;
-            const now = ctx.currentTime;
-            notes.forEach((f, i) => play(f, now + 0.05 + i * gap, gap * 0.78));
-            _thinkTimer = setTimeout(schedule, (notes.length * gap + 0.55) * 1000);
+        // C5 E5 G5 C6 — pleasant ascending arpeggio
+        const notes = [523, 659, 784, 1047], gap = 0.32;
+        const round = () => {
+            if (_thinkStop || ctx.state === 'closed') return;
+            const t = ctx.currentTime + 0.02;
+            notes.forEach((f, i) => play(f, t + i * gap, gap * 0.75));
+            _thinkTimer = setTimeout(round, Math.round((notes.length * gap + 0.5) * 1000));
         };
-        // Chrome suspends AudioContext until resume() — must call explicitly
-        ctx.resume().then(() => schedule()).catch(() => {});
+        ctx.resume().then(round).catch(() => {});
     } catch(e) {}
 }
 function stopThinkSound() {
+    _thinkStop = true;
     clearTimeout(_thinkTimer); _thinkTimer = null;
     if (_thinkCtx) { try { _thinkCtx.close(); } catch(e) {} _thinkCtx = null; }
 }
