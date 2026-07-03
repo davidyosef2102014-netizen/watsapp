@@ -3779,21 +3779,21 @@ function startThinkSound() {
             const o = ctx.createOscillator(), g = ctx.createGain();
             o.type = 'sine'; o.frequency.value = freq;
             g.gain.setValueAtTime(0, t);
-            g.gain.linearRampToValueAtTime(0.032, t + 0.08);
-            g.gain.linearRampToValueAtTime(0.032, t + dur - 0.09);
+            g.gain.linearRampToValueAtTime(0.06, t + 0.1);
+            g.gain.linearRampToValueAtTime(0.06, t + dur - 0.1);
             g.gain.linearRampToValueAtTime(0, t + dur);
             o.connect(g); g.connect(ctx.destination);
             o.start(t); o.stop(t + dur + 0.05);
         };
-        // Soft ascending arpeggio — G4 B4 D5 G5 (like Gemini's thinking tone)
-        const notes = [392, 494, 587, 784], gap = 0.32;
+        const notes = [392, 494, 587, 784], gap = 0.33;
         const schedule = () => {
             if (!_thinkCtx) return;
-            const now = _thinkCtx.currentTime;
-            notes.forEach((f, i) => play(f, now + i * gap, gap * 0.75));
-            _thinkTimer = setTimeout(schedule, (notes.length * gap + 0.5) * 1000);
+            const now = ctx.currentTime;
+            notes.forEach((f, i) => play(f, now + 0.05 + i * gap, gap * 0.78));
+            _thinkTimer = setTimeout(schedule, (notes.length * gap + 0.55) * 1000);
         };
-        schedule();
+        // Chrome suspends AudioContext until resume() — must call explicitly
+        ctx.resume().then(() => schedule()).catch(() => {});
     } catch(e) {}
 }
 function stopThinkSound() {
@@ -4304,7 +4304,7 @@ async function _liveLoop() {
     _setLiveState('thinking');
     // Search if the query sounds like a factual/real-time question
     let liveSearchCtx = '';
-    const _liveNeedsSearch = /[?？]|מחיר|כמה עול|שער|מזג|חדשות|מה קורה|who |what |when |where |how much|weather|price|news/i.test(transcript);
+    const _liveNeedsSearch = /מחיר|כמה עולה|שער דולר|מזג אוויר|חדשות|תוצאות|ניקוד|weather|price of|news today|stock price/i.test(transcript);
     if (_liveNeedsSearch) {
         try {
             const sr = await Promise.race([
