@@ -433,8 +433,7 @@
         }
         .send-btn.on { opacity: 1; pointer-events: all; }
         .send-btn.on:hover { transform: scale(1.12); box-shadow: 0 0 18px rgba(66,133,244,.6), 0 0 8px rgba(197,138,249,.4); }
-        .send-btn.stop { opacity: 1; pointer-events: all; background: rgba(239,68,68,.85); font-size: 13px; }
-        .send-btn.stop:hover { transform: scale(1.1); }
+
         .edit-msg-btn { position: absolute; left: -26px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); opacity: 0; transition: opacity .15s; padding: 4px; display: flex; align-items: center; }
         .msg-row.user:hover .edit-msg-btn { opacity: 1; }
         .edit-msg-btn:hover { color: var(--text); }
@@ -2394,13 +2393,9 @@ function autoResize(el) {
 function updateBtn() {
     const has = document.getElementById('userInput').value.trim() || fileUrl || fileContent;
     const btn = document.getElementById('sendBtn');
-    if (busy) {
-        btn.classList.remove('on'); btn.classList.add('stop');
-        btn.innerHTML = '■'; btn.title = 'עצור';
-    } else {
-        btn.classList.remove('stop'); btn.classList.toggle('on', !!has);
-        btn.innerHTML = '↑'; btn.title = '';
-    }
+    btn.classList.remove('stop');
+    btn.innerHTML = '↑'; btn.title = '';
+    btn.classList.toggle('on', !!has && !busy);
     const vpb = document.getElementById('voicePillBtn');
     if (vpb) vpb.style.display = (has || busy) ? 'none' : '';
 }
@@ -3768,41 +3763,6 @@ async function callAI(messages, onChunk, signal=null) {
     throw new Error('all providers failed');
 }
 
-/* ── THINK SOUND (Gemini-style) ── */
-let _thinkCtx = null, _thinkTimer = null, _thinkStop = false;
-function startThinkSound() {
-    if (_thinkCtx) return;
-    _thinkStop = false;
-    try {
-        _thinkCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const ctx = _thinkCtx;
-        const play = (freq, t, dur) => {
-            if (_thinkStop) return;
-            const o = ctx.createOscillator(), g = ctx.createGain();
-            o.type = 'sine'; o.frequency.value = freq;
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.exponentialRampToValueAtTime(0.1, t + 0.08);
-            g.gain.setValueAtTime(0.1, t + dur - 0.08);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-            o.connect(g); g.connect(ctx.destination);
-            o.start(t); o.stop(t + dur + 0.02);
-        };
-        // C5 E5 G5 C6 — pleasant ascending arpeggio
-        const notes = [523, 659, 784, 1047], gap = 0.32;
-        const round = () => {
-            if (_thinkStop || ctx.state === 'closed') return;
-            const t = ctx.currentTime + 0.02;
-            notes.forEach((f, i) => play(f, t + i * gap, gap * 0.75));
-            _thinkTimer = setTimeout(round, Math.round((notes.length * gap + 0.5) * 1000));
-        };
-        ctx.resume().then(round).catch(() => {});
-    } catch(e) {}
-}
-function stopThinkSound() {
-    _thinkStop = true;
-    clearTimeout(_thinkTimer); _thinkTimer = null;
-    if (_thinkCtx) { try { _thinkCtx.close(); } catch(e) {} _thinkCtx = null; }
-}
 
 /* ── STOP / REGENERATE / EDIT ── */
 function sendOrStop() { if (busy) stopGeneration(); else send(); }
@@ -3949,7 +3909,6 @@ async function send() {
     addMsg('user', q, img, false, attachedFile ? attachedName : '');
     inp.value = ''; inp.style.height = 'auto';
     clearFile(); busy = true; updateBtn();
-    startThinkSound();
 
     // Build messages for OpenAI-compatible API
     // Build messages — exclude the last hist item (just pushed by addMsg) to avoid duplicate user msg.
@@ -4121,7 +4080,6 @@ async function send() {
         if (hist.filter(m => m.role === 'assistant').length === 1) _autoNameConv();
     }
 
-    stopThinkSound();
     busy = false; updateBtn();
 }
 
