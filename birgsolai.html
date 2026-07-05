@@ -183,9 +183,9 @@
         }
         @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
-        /* User message — pill bubble on RIGHT (in RTL = left side visually) */
-        .msg-row.user { display: flex; justify-content: flex-start; }
-        .user-bub-wrap { position: relative; max-width: 72%; }
+        /* User message — pill bubble on RIGHT */
+        .msg-row.user { display: block; text-align: start; }
+        .user-bub-wrap { display: inline-block; position: relative; max-width: 72%; vertical-align: top; }
         .user-bub {
             background: var(--surf2); border-radius: 18px 18px 4px 18px;
             padding: 12px 18px; font-size: 15.5px; line-height: 1.65;
@@ -1322,7 +1322,6 @@
                 </div>
                 <span id="img-prev-label" style="font-size:13px;color:var(--muted)">תמונה מצורפת</span>
             </div>
-            <div id="ctx-bar" style="display:none;font-size:11px;text-align:right;padding:2px 8px 4px;direction:rtl;transition:color .3s"></div>
             <div class="pill">
                 <div class="pill-inner">
                     <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
