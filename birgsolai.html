@@ -185,13 +185,12 @@
 
         /* User message — pill bubble on RIGHT (in RTL = left side visually) */
         .msg-row.user { display: flex; justify-content: flex-start; }
+        .user-bub-wrap { position: relative; max-width: 72%; }
         .user-bub {
             background: var(--surf2); border-radius: 18px 18px 4px 18px;
             padding: 12px 18px; font-size: 15.5px; line-height: 1.65;
-            max-width: 72%; word-break: break-word;
+            overflow-wrap: break-word; word-break: normal;
         }
-        .user-bub .user-img { margin-top: 8px; display: block; }
-        .user-bub > * + * { margin-top: 8px; }
         .user-img { max-width: 200px; border-radius: 10px; }
 
         /* AI message — NO bubble, clean text (Gemini style) */
