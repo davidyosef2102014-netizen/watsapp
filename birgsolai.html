@@ -88,6 +88,19 @@
         .hist-item:hover { background: var(--surf2); color: var(--text); }
 
         .sb-foot { padding: 14px 18px; border-top: 1px solid var(--border); }
+        .sb-settings-btn { background: none; border: none; cursor: pointer; color: var(--muted); padding: 6px; border-radius: 8px; transition: background .15s, color .15s; display: flex; align-items: center; gap: 6px; font-size: 13px; width: 100%; margin-bottom: 4px; }
+        .sb-settings-btn:hover { background: var(--surf2); color: var(--text); }
+        .settings-panel { display: none; background: var(--surf2); border-radius: 12px; padding: 14px; margin-bottom: 8px; border: 1px solid var(--border); }
+        .settings-panel.open { display: block; }
+        .sp-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; }
+        .sp-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .sp-row:last-child { margin-bottom: 0; }
+        .sp-label { font-size: 13px; color: var(--text); }
+        .sp-select { background: var(--surf); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; font-size: 12px; color: var(--text); cursor: pointer; font-family: inherit; }
+        .sp-toggle { position: relative; width: 36px; height: 20px; background: var(--border); border-radius: 10px; cursor: pointer; border: none; transition: background .2s; flex-shrink: 0; }
+        .sp-toggle.on { background: #6c63ff; }
+        .sp-toggle::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: white; top: 3px; right: 3px; transition: transform .2s; }
+        .sp-toggle.on::after { transform: translateX(-16px); }
         .live-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
         .dot { width: 7px; height: 7px; border-radius: 50%; background: #34d399; animation: pulse 2s infinite; }
         @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.25} }
@@ -1230,6 +1243,38 @@
         <div class="hist-item" style="color:var(--muted);font-style:italic;font-size:13px;">אין שיחות עדיין...</div>
     </div>
     <div class="sb-foot">
+        <div class="settings-panel" id="settings-panel">
+            <div class="sp-title">הגדרות תצוגה</div>
+            <div class="sp-row">
+                <span class="sp-label">ברכה</span>
+                <select class="sp-select" id="sp-greet" onchange="applyGreet(this.value)">
+                    <option value="שלום">שלום</option>
+                    <option value="Hello">Hello</option>
+                    <option value="Hola">Hola</option>
+                    <option value="Salut">Salut</option>
+                    <option value="היי">היי</option>
+                    <option value="מה נשמע">מה נשמע</option>
+                </select>
+            </div>
+            <div class="sp-row">
+                <span class="sp-label">כרטיסי הצעות</span>
+                <button class="sp-toggle" id="sp-cards" onclick="toggleCards()"></button>
+            </div>
+            <div class="sp-row">
+                <span class="sp-label">שפת AI</span>
+                <select class="sp-select" id="sp-lang" onchange="applyLang(this.value)">
+                    <option value="he">עברית</option>
+                    <option value="en">English</option>
+                    <option value="ar">العربية</option>
+                    <option value="ru">Русский</option>
+                    <option value="fr">Français</option>
+                </select>
+            </div>
+        </div>
+        <button class="sb-settings-btn" onclick="toggleSettings()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            הגדרות
+        </button>
         <button onclick="openAdminPanel()" class="sb-admin-btn" id="sb-admin-btn" style="display:none">🛠 ניהול משתמשים</button>
         <button onclick="exportConversation()" class="sb-logout-btn" style="margin-bottom:4px;display:flex;align-items:center;gap:6px;justify-content:center" title="ייצא שיחה נוכחית כקובץ טקסט"><svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ייצא שיחה</button>
         <div class="sb-creator">✦ נוצר ע"י דוד יוסף זאבי</div>
@@ -1274,6 +1319,28 @@
         <div class="gem-star"></div>
         <div class="gem-hello" id="gem-hello">שלום</div>
         <div class="gem-sub">איך אוכל לעזור לך היום?</div>
+        <div class="sug-grid" id="sug-grid" style="display:none">
+            <div class="sug-card" onclick="sendSug('כתוב לי אפלקציית todo list ב-HTML/CSS/JS מלאה ועם עיצוב יפה')">
+                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                <div class="sug-title">קוד מלא</div>
+                <div class="sug-desc">HTML, Python, JS, React ועוד</div>
+            </div>
+            <div class="sug-card" onclick="sendSug('צור תמונה של עיר עתידנית מרהיבה בשקיעה')">
+                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></div>
+                <div class="sug-title">יצירת תמונה</div>
+                <div class="sug-desc">AI image generation בחינם</div>
+            </div>
+            <div class="sug-card" onclick="sendSug('הסבר לי צעד אחר צעד איך עובד Neural Network')">
+                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg></div>
+                <div class="sug-title">הסברים ולמידה</div>
+                <div class="sug-desc">מדע, היסטוריה, מתמטיקה</div>
+            </div>
+            <div class="sug-card" onclick="sendSug('עזור לי לנפות שגיאה בקוד שלי — אסביר את הבעיה')">
+                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></div>
+                <div class="sug-title">Debug סוכן</div>
+                <div class="sug-desc">ניפוי שגיאות, אופטימיזציה</div>
+            </div>
+        </div>
     </div>
 
     <!-- CHAT -->
@@ -2026,7 +2093,48 @@ function addToHistory()           { /* לא בשימוש — saveConversation() 
 /* ── update greeting ── */
 function updateGreeting() {
     const el = document.getElementById('gem-hello');
-    if (el && currentUser) el.textContent = `שלום, ${currentUser}`;
+    if (!el) return;
+    const greet = localStorage.getItem('sp_greet') || 'שלום';
+    el.textContent = currentUser ? `${greet}, ${currentUser}` : greet;
+}
+
+/* ── settings panel ── */
+function toggleSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.classList.toggle('open');
+}
+
+function applyGreet(val) {
+    localStorage.setItem('sp_greet', val);
+    updateGreeting();
+}
+
+function toggleCards() {
+    const btn = document.getElementById('sp-cards');
+    const grid = document.getElementById('sug-grid');
+    const isOn = btn.classList.toggle('on');
+    localStorage.setItem('sp_cards', isOn ? '1' : '0');
+    if (grid) grid.style.display = isOn ? '' : 'none';
+}
+
+function applyLang(val) {
+    localStorage.setItem('birgsol_lang', val);
+}
+
+function initSettings() {
+    const greet = localStorage.getItem('sp_greet')     || 'שלום';
+    const cards = localStorage.getItem('sp_cards') === '1';
+    const lang  = localStorage.getItem('birgsol_lang') || 'he';
+
+    const selGreet = document.getElementById('sp-greet');
+    const selLang  = document.getElementById('sp-lang');
+    const btnCards = document.getElementById('sp-cards');
+    const grid     = document.getElementById('sug-grid');
+
+    if (selGreet) selGreet.value = greet;
+    if (selLang)  selLang.value  = lang;
+    if (btnCards && cards) btnCards.classList.add('on');
+    if (grid) grid.style.display = cards ? '' : 'none';
 }
 
 /* ── splash ── */
@@ -2043,6 +2151,7 @@ function startApp() {
 /* ── auto-login on load ── */
 window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(currentTheme);
+    initSettings();
     const savedUser = localStorage.getItem(AI_AUTH_KEY);
     if (savedUser) {
         // ── כניסה מיידית מ-localStorage — לא ממתינים לענן ──
