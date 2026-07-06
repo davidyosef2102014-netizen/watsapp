@@ -453,7 +453,7 @@
         .edit-msg-btn { position: absolute; left: -26px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); opacity: 0; transition: opacity .15s; padding: 4px; display: flex; align-items: center; }
         .msg-row.user:hover .edit-msg-btn { opacity: 1; }
         .edit-msg-btn:hover { color: var(--text); }
-        .user-bub-wrap { position: relative; display: block; }
+        .user-bub-wrap { position: relative; }
 
         .foot-note { text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 
@@ -2218,7 +2218,7 @@ You have REAL internet access.
 - If you recognize the topic and are confident in your knowledge (general knowledge, math, coding, science, how-to, well-known history/facts) — answer directly, no search.
 - If the user names a SPECIFIC thing you don't recognize or aren't fully sure about — a named operation, event, organization, product, person, or place — SEARCH for it. Do NOT assume it doesn't exist just because you don't recognize the name; it may be real but outside your training data (e.g. recent Israeli military operations, local news, niche products). Saying "I don't know" without searching first is a failure.
 - Always search for things that change daily: news, sports scores, stock/crypto prices, weather, current prices.
-- Use [MAPS] ONLY when the user is explicitly asking about physical location, address, directions, or "near me" — e.g. "איפה נמצא X", "כתובת של X", "סניף X הקרוב אלי", "מסעדות ליד Y". Do NOT use [MAPS] for questions like "קיים X?", "מה זה X?", "מי הם X?" — those are information questions, use [SEARCH] only.
+- Use [MAPS] ONLY when the user is explicitly asking about physical location, address, directions, or "near me" — e.g. "איפה נמצא X", "כתובת של X", "סניף X הקרוב אלי", "מסעדות ליד Y". Do NOT use [MAPS] for: "קיים X?", "מה זה X?", "מי הם X?", "איך X?", "כיצד X?", "מדריך ל-X", "איך עושים X", "איך להפעיל X", "הסבר X", "מה ההבדל", "למה X" — those are information/how-to questions, use [SEARCH] only. RULE: if the question has no physical "where" intent, never use [MAPS].
   • A SPECIFIC NAMED business/branch with a LOCATION question (e.g. "where is אושר עד in חדרה", "address of X") — output BOTH [SEARCH: business name + city] AND [MAPS: business, city] on separate lines in your first response.
   • An OPEN-ENDED "what's near me" question with NO specific brand (e.g. "nearest pharmacy", "restaurants near X") — use [MAPS] directly for a real visual map with multiple pinned options.
 Write tool calls on their own line:
@@ -2938,7 +2938,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
     const safePrompt = engPrompt.slice(0, 400);
     const seed = Math.floor(Math.random() * 999999);
     const styledPrompt = safePrompt + ', ' + imgStyle.suffix;
-    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=768&height=768&seed=${seed}&nologo=true&model=${imgStyle.model}`;
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&enhance=true&model=${imgStyle.model}`;
 
     const img = new Image();
     const loaded = await new Promise((resolve) => {
