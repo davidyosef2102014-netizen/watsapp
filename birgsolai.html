@@ -2825,7 +2825,7 @@ function _askImageStyle() {
     const cw = document.getElementById('chat-window');
     return new Promise(resolve => {
         const styles = [
-            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'flux-pro',      suffix: 'professional photograph, natural lighting, shot on Sony A7R, shallow depth of field, photorealistic' },
+            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'gptimage',      suffix: 'professional photograph, natural lighting, shot on Sony A7R, shallow depth of field, photorealistic' },
             { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors, brush strokes' },
             { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful flat design, bold outlines' },
             { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime illustration' },
@@ -2968,7 +2968,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
     // Fall back to Pollinations if Gemini failed
     if (!imgSrc) {
         if (skelTxt) skelTxt.textContent = 'יוצר תמונה עם BIRGSOL Image…';
-        imgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&enhance=true&model=${imgStyle.model}`;
+        imgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=${imgStyle.model}`;
     }
 
     const img = new Image();
