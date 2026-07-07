@@ -2826,7 +2826,7 @@ function _askImageStyle() {
     const cw = document.getElementById('chat-window');
     return new Promise(resolve => {
         const styles = [
-            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'gptimage',      suffix: 'cinematic photography, dynamic composition, vibrant saturated colors, dramatic lighting, motion blur, ultra detailed, dreamy atmosphere, professional award-winning photo' },
+            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'gptimage',      suffix: 'photorealistic, natural lighting, sharp focus, professional photography, high quality' },
             { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors, brush strokes' },
             { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful flat design, bold outlines' },
             { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime illustration' },
@@ -2942,25 +2942,25 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
     let imgSrc = null;
 
-    // Try HuggingFace FLUX.1-dev first
-    try {
-        const hfRes = await fetch('https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev', {
+    // Try HuggingFace FLUX.1-schnell (fast, high quality)
+    const _hfFetch = async () => {
+        const res = await fetch('https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ inputs: styledPrompt, parameters: { width: 1024, height: 1024 } }),
-            signal: AbortSignal.timeout(90000)
+            body: JSON.stringify({ inputs: safePrompt, parameters: { width: 1024, height: 1024, num_inference_steps: 4 } }),
+            signal: AbortSignal.timeout(60000)
         });
-        if (hfRes.ok) {
-            const blob = await hfRes.blob();
-            if (blob.size > 1000) {
-                imgSrc = await new Promise(r => {
-                    const reader = new FileReader();
-                    reader.onload = () => r(reader.result);
-                    reader.readAsDataURL(blob);
-                });
-            }
+        if (res.status === 503) {
+            // Model loading — wait and retry once
+            await new Promise(r => setTimeout(r, 8000));
+            return _hfFetch();
         }
-    } catch { /* fall through */ }
+        if (!res.ok) throw new Error('HF ' + res.status);
+        const blob = await res.blob();
+        if (blob.size < 1000) throw new Error('HF empty');
+        return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+    };
+    try { imgSrc = await _hfFetch(); } catch { /* fall through to Pollinations */ }
 
     // Fallback to Pollinations
     if (!imgSrc) {
