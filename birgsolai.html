@@ -2872,7 +2872,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         actsEl = document.createElement('div'); actsEl.className = 'ai-acts';
 
         skelEl  = document.createElement('div');  skelEl.className = 'img-skeleton';
-        skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה באמצעות BIRGSOL Image 2.0…';
+        skelTxt = document.createElement('div');  skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה עם BIRGSOL IMAGE…';
         wrapEl.appendChild(skelTxt); wrapEl.appendChild(skelEl);
 
         txtDiv.appendChild(wrapEl);
@@ -2887,10 +2887,10 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         skelTxt = wrapEl.querySelector('.img-skel-txt');
         if (!skelEl) {
             skelEl = document.createElement('div'); skelEl.className = 'img-skeleton';
-            skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה באמצעות BIRGSOL Image 2.0…';
+            skelTxt = document.createElement('div'); skelTxt.className = 'img-skel-txt'; skelTxt.textContent = 'יוצר תמונה עם BIRGSOL IMAGE…';
             wrapEl.prepend(skelEl); wrapEl.prepend(skelTxt);
         }
-        skelEl.style.display = 'flex'; skelTxt.textContent = 'יוצר תמונה באמצעות BIRGSOL Image 2.0…';
+        skelEl.style.display = 'flex'; skelTxt.textContent = 'יוצר תמונה עם BIRGSOL IMAGE…';
     }
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
@@ -2940,43 +2940,16 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
     const styledPrompt = safePrompt + ', ' + imgStyle.suffix;
 
     let imgSrc = null;
-    let isDataUrl = false;
 
-    // Try Gemini image generation
-    try {
-        if (skelTxt) skelTxt.textContent = 'יוצר תמונה עם Gemini…';
-        const gemRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: styledPrompt }] }],
-                generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
-            }),
-            signal: AbortSignal.timeout(45000)
-        });
-        if (gemRes.ok) {
-            const gemData = await gemRes.json();
-            const parts = gemData.candidates?.[0]?.content?.parts || [];
-            const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-            if (imgPart) {
-                imgSrc = `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
-                isDataUrl = true;
-            }
-        }
-    } catch { /* fall through */ }
-
-    // Fall back to Pollinations if Gemini failed
-    if (!imgSrc) {
-        if (skelTxt) skelTxt.textContent = 'יוצר תמונה עם BIRGSOL Image…';
-        imgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=${imgStyle.model}`;
-    }
+    // Build Pollinations URL (gptimage → best quality, free)
+    imgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=${imgStyle.model}`;
 
     const img = new Image();
     const loaded = await new Promise((resolve) => {
         img.onload = () => resolve(true);
         img.onerror = () => resolve(false);
         img.src = imgSrc;
-        setTimeout(() => resolve(img.naturalWidth > 0), isDataUrl ? 10000 : 60000);
+        setTimeout(() => resolve(img.naturalWidth > 0), 60000);
     });
 
     // ── 4. Show result ──
@@ -2991,7 +2964,9 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         wrapEl.appendChild(img); wrapEl.appendChild(cap);
         requestAnimationFrame(() => { img.style.opacity = '1'; });
 
-        // Action buttons
+        const openBtn = document.createElement('button');
+        openBtn.className = 'ai-act'; openBtn.innerHTML = IC.extLink + ' פתח';
+        openBtn.onclick = () => window.open(imgSrc,'_blank');
         const dlA = document.createElement('a');
         dlA.className = 'ai-act'; dlA.href = imgSrc;
         dlA.download = 'birgsol-image.jpg'; dlA.innerHTML = IC.download + ' הורד';
@@ -2999,14 +2974,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         const regenBtn = document.createElement('button');
         regenBtn.className = 'ai-act'; regenBtn.innerHTML = IC.refresh + ' עוד אחת';
         regenBtn.onclick = () => generateImage(prompt, null, imgStyle);
-        if (!isDataUrl) {
-            const openBtn = document.createElement('button');
-            openBtn.className = 'ai-act'; openBtn.innerHTML = IC.extLink + ' פתח';
-            openBtn.onclick = () => window.open(imgSrc,'_blank');
-            if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
-        } else {
-            if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
-        }
+        if (actsEl) { actsEl.innerHTML=''; actsEl.appendChild(openBtn); actsEl.appendChild(dlA); actsEl.appendChild(regenBtn); }
     } else {
         if (skelEl) { skelEl.innerHTML = '<div style="font-size:28px">⚠️</div><div>לא הצלחתי ליצור תמונה</div>'; skelEl.style.cssText += 'animation:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:14px;font-weight:600;'; }
         if (skelTxt) skelTxt.remove();
@@ -3017,7 +2985,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
     }
 
     if (loaded && img.naturalWidth > 0) {
-        hist.push({ role: 'assistant', content: `[GENERATED_IMAGE:${isDataUrl?'[gemini-data-url]':imgSrc}§§${engPrompt.replace(/§/g,'')}]` });
+        hist.push({ role: 'assistant', content: `[GENERATED_IMAGE:${imgSrc}§§${engPrompt.replace(/§/g,'')}]` });
     } else {
         hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}] (היצירה נכשלה)` });
     }
@@ -3771,7 +3739,7 @@ async function callAI(messages, onChunk, signal=null) {
             signal: _sig
         });
         if (!res.ok) {
-            if (res.status === 429 && url.includes('groq')) { _groqQuotaExhausted = true; _showQuotaNotice(); }
+            if (res.status === 429 && url.includes('groq')) { _groqQuotaExhausted = true; }
             throw new Error('HTTP ' + res.status);
         }
         const reader = res.body.getReader();
