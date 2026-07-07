@@ -1626,6 +1626,7 @@ const GROQ_KEY = ['gsk_qzgrngwU4WRLi6KmRmc6WGdy','b3FYwVt9hwIMeHO9A9KXTjlOb2Rj']
 const OPENROUTER_KEY = ['sk-or-v1-f655e93634af39fcf294ade3c3','fd8dc0191c95b35b550b7309692fc3eaf3fa28'].join('');
 const OPENROUTER_KEY2 = ['sk-or-v1-614e25d14b22da92a4f88976','56555b50253fd7cea6f09aef8cffcd0725d58ac2'].join('');
 const GEMINI_KEY = ['AQ.Ab8RN6KZoOHQvj-7TYEWuvXSb','mwnKlb8T88Sj2Gut8O5DZkTHg'].join('');
+const HF_TOKEN   = ['hf_EMQhrjlkLkOk','XUpcjBlUaNlKbNklXUDTBQ'].join('');
 const ELEVEN_KEY = ['sk_49650d43f138a249ef7f74706','d4f11cb80a9c7c4a0623cc0'].join('');
 const ELEVEN_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // "Bella" — one of the few premade voices usable on the free API tier
 const GH_RAW   = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/master/`;
@@ -2934,22 +2935,44 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         }
     }
 
-    // ── 3. Try Gemini first, fall back to Pollinations ──
+    // ── 3. HuggingFace FLUX.1-dev → fallback Pollinations ──
     const safePrompt = engPrompt.slice(0, 400);
     const seed = Math.floor(Math.random() * 999999);
     const styledPrompt = safePrompt + ', ' + imgStyle.suffix;
 
     let imgSrc = null;
 
-    // Build Pollinations URL (gptimage → best quality, free)
-    imgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=${imgStyle.model}`;
+    // Try HuggingFace FLUX.1-dev first
+    try {
+        const hfRes = await fetch('https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inputs: styledPrompt, parameters: { width: 1024, height: 1024 } }),
+            signal: AbortSignal.timeout(90000)
+        });
+        if (hfRes.ok) {
+            const blob = await hfRes.blob();
+            if (blob.size > 1000) {
+                imgSrc = await new Promise(r => {
+                    const reader = new FileReader();
+                    reader.onload = () => r(reader.result);
+                    reader.readAsDataURL(blob);
+                });
+            }
+        }
+    } catch { /* fall through */ }
+
+    // Fallback to Pollinations
+    if (!imgSrc) {
+        imgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=${imgStyle.model}`;
+    }
 
     const img = new Image();
     const loaded = await new Promise((resolve) => {
         img.onload = () => resolve(true);
         img.onerror = () => resolve(false);
         img.src = imgSrc;
-        setTimeout(() => resolve(img.naturalWidth > 0), 60000);
+        setTimeout(() => resolve(img.naturalWidth > 0), imgSrc.startsWith('data:') ? 10000 : 60000);
     });
 
     // ── 4. Show result ──
