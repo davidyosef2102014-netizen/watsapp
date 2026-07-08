@@ -2942,25 +2942,20 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
     let imgSrc = null;
 
-    // Try HuggingFace FLUX.1-schnell (fast, high quality)
-    const _hfFetch = async () => {
-        const res = await fetch('https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell', {
+    // Try HuggingFace FLUX.1-schnell via Inference Providers router (verified working)
+    try {
+        const hfRes = await fetch('https://router.huggingface.co/nscale/v1/images/generations', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ inputs: safePrompt, parameters: { width: 1024, height: 1024, num_inference_steps: 4 } }),
+            body: JSON.stringify({ model: 'black-forest-labs/FLUX.1-schnell', prompt: styledPrompt, response_format: 'b64_json' }),
             signal: AbortSignal.timeout(60000)
         });
-        if (res.status === 503) {
-            // Model loading — wait and retry once
-            await new Promise(r => setTimeout(r, 8000));
-            return _hfFetch();
+        if (hfRes.ok) {
+            const hfData = await hfRes.json();
+            const b64 = hfData?.data?.[0]?.b64_json;
+            if (b64 && b64.length > 1000) imgSrc = 'data:image/png;base64,' + b64;
         }
-        if (!res.ok) throw new Error('HF ' + res.status);
-        const blob = await res.blob();
-        if (blob.size < 1000) throw new Error('HF empty');
-        return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
-    };
-    try { imgSrc = await _hfFetch(); } catch { /* fall through to Pollinations */ }
+    } catch { /* fall through to Pollinations */ }
 
     // Fallback to Pollinations
     if (!imgSrc) {
