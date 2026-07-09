@@ -1566,12 +1566,21 @@ function filterConvs(q) {
     `).join('');
 }
 
+let deletedConvIds = new Set();
+
 async function deleteConversation(convId) {
     convList = convList.filter(c => c.id !== convId);
+    deletedConvIds.add(convId);
     if (currentConvId === convId) startNew();
     localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
+    localStorage.setItem('birgsol_del_' + currentUser, JSON.stringify([...deletedConvIds]));
     renderConvList();
     ghWrite('db/ai_convs/' + currentUser + '.json', convList).catch(() => {});
+    // מצבה בענן — מכשיר אחר עם רשימה ישנה לא יחייה את השיחה
+    ghReadFresh('db/ai_convs_deleted/' + currentUser + '.json').then(list => {
+        const merged = [...new Set([...(Array.isArray(list) ? list : []), ...deletedConvIds])].slice(-300);
+        return ghWrite('db/ai_convs_deleted/' + currentUser + '.json', merged);
+    }).catch(() => {});
 }
 
 function escHtml(s) {
@@ -1834,15 +1843,19 @@ async function ghWrite(path, data) {
 
 /* טען שיחות מהענן ומהמטמון המקומי */
 async function loadConversationsCloud() {
-    // נסה ענן קודם
-    const cloud = await ghRead('db/ai_convs/' + currentUser + '.json');
+    // טען מצבות (שיחות שנמחקו) — מקומי + ענן
+    try { JSON.parse(localStorage.getItem('birgsol_del_' + currentUser) || '[]').forEach(id => deletedConvIds.add(id)); } catch {}
+    const cloudDel = await ghReadFresh('db/ai_convs_deleted/' + currentUser + '.json');
+    if (Array.isArray(cloudDel)) cloudDel.forEach(id => deletedConvIds.add(id));
+    // קרא שיחות מה-API (טרי תמיד — raw CDN עלול להחזיר גרסה ישנה ולהחיות שיחות שנמחקו)
+    const cloud = await ghReadFresh('db/ai_convs/' + currentUser + '.json') || await ghRead('db/ai_convs/' + currentUser + '.json');
     if (cloud && Array.isArray(cloud)) {
-        convList = cloud;
+        convList = cloud.filter(c => !deletedConvIds.has(c.id));
         localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
     } else {
         // חזרה ל-localStorage
         const raw = localStorage.getItem(CONVS_KEY());
-        convList = raw ? JSON.parse(raw) : [];
+        convList = (raw ? JSON.parse(raw) : []).filter(c => !deletedConvIds.has(c.id));
     }
     renderConvList();
 }
@@ -1860,6 +1873,7 @@ async function syncConversations() {
     } else {
         convList.unshift({ id: currentConvId, title, messages: msgs, updatedAt: now });
     }
+    convList = convList.filter(c => !deletedConvIds.has(c.id) || c.id === currentConvId);
     if (convList.length > 200) convList = convList.slice(0, 200);
     let saved = false;
     for (let trim = 0; trim < 5 && !saved; trim++) {
