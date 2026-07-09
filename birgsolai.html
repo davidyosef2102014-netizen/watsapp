@@ -2826,7 +2826,7 @@ function _askImageStyle() {
     const cw = document.getElementById('chat-window');
     return new Promise(resolve => {
         const styles = [
-            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'gptimage',      suffix: 'photorealistic, natural lighting, sharp focus, professional photography, high quality' },
+            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'gptimage',      suffix: 'photorealistic, sharp focus, highly detailed textures, natural lighting, dynamic camera angle, professional DSLR photograph' },
             { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors, brush strokes' },
             { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful flat design, bold outlines' },
             { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime illustration' },
@@ -2942,8 +2942,23 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
     let imgSrc = null;
 
-    // Try HuggingFace FLUX.1-schnell via Inference Providers router (verified working)
+    // 1st: FLUX.1-dev via fal-ai (best quality, ~3s, verified working)
     try {
+        const devRes = await fetch('https://router.huggingface.co/fal-ai/fal-ai/flux/dev', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: styledPrompt, image_size: 'square_hd', num_inference_steps: 28 }),
+            signal: AbortSignal.timeout(60000)
+        });
+        if (devRes.ok) {
+            const devData = await devRes.json();
+            const url = devData?.images?.[0]?.url;
+            if (url) imgSrc = url;
+        }
+    } catch { /* fall through */ }
+
+    // 2nd: FLUX.1-schnell via nscale (fast fallback)
+    if (!imgSrc) try {
         const hfRes = await fetch('https://router.huggingface.co/nscale/v1/images/generations', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
