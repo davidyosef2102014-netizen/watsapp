@@ -249,6 +249,35 @@
         .code-dl  { background: rgba(66,133,244,.15); border: 1px solid rgba(66,133,244,.3); cursor: pointer; color: #8ab4f8; font-size: 12px; padding: 3px 9px; border-radius: 6px; font-family: inherit; transition: background .15s; }
         .code-dl:hover { background: rgba(66,133,244,.25); }
         .code-header-btns { display:flex; gap:4px; align-items:center; }
+        .code-canvas { background: rgba(167,139,250,.15); border: 1px solid rgba(167,139,250,.35); cursor: pointer; color: #a78bfa; font-size: 12px; padding: 3px 9px; border-radius: 6px; font-family: inherit; transition: background .15s; }
+        .code-canvas:hover { background: rgba(167,139,250,.28); }
+
+        /* ── Canvas side panel ── */
+        .canvas-panel {
+            position: fixed; top: 0; left: 0; bottom: 0; width: 54%; min-width: 320px;
+            background: var(--surf, #fff); z-index: 460;
+            display: flex; flex-direction: column;
+            box-shadow: 8px 0 40px rgba(0,0,0,.25);
+            transform: translateX(-105%); transition: transform .32s cubic-bezier(.2,.9,.3,1);
+        }
+        .canvas-panel.open { transform: none; }
+        .canvas-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border, #e0e0e0); flex-shrink: 0; }
+        .canvas-title { font-weight: 700; font-size: 14px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .canvas-tabs { display: flex; background: var(--surf2, #f0f0f0); border-radius: 9px; padding: 3px; }
+        .canvas-tab { border: none; background: none; padding: 5px 14px; border-radius: 7px; font-size: 12.5px; cursor: pointer; color: var(--muted, #777); font-family: inherit; font-weight: 600; }
+        .canvas-tab.on { background: var(--surf, #fff); color: var(--text, #111); box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+        .canvas-btn { border: none; background: none; cursor: pointer; color: var(--muted, #777); padding: 6px 9px; border-radius: 7px; font-size: 13px; font-family: inherit; }
+        .canvas-btn:hover { background: var(--surf2, #f0f0f0); color: var(--text, #111); }
+        .canvas-body { flex: 1; position: relative; overflow: hidden; }
+        #canvas-code {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            border: none; resize: none; padding: 14px;
+            font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; line-height: 1.55;
+            background: #1e1e2e; color: #e8eaed; outline: none;
+            direction: ltr; text-align: left; white-space: pre; tab-size: 2;
+        }
+        #canvas-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: none; background: white; }
+        @media (max-width: 700px) { .canvas-panel { width: 100%; min-width: 0; } }
         .code-block pre { background: none; border: none; border-radius: 0; padding: 14px 16px; margin: 0; overflow-x: auto; }
         .code-block pre code { background: none; padding: 0; font-size: 13.5px; color: #e8eaed; }
         .code-preview { width:100%; min-height:180px; border:none; border-top:1px solid var(--border); border-radius:0 0 12px 12px; background:#fff; display:none; }
@@ -1226,7 +1255,7 @@
             <span class="sb-name">BIRGSOL AI</span>
         </div>
         <button class="new-btn" onclick="startNew()">
-            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> שיחה חדשה
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> <span id="new-chat-label">שיחה חדשה</span>
         </button>
     </div>
     <div class="mode-row">
@@ -1281,6 +1310,24 @@
     </div>
 </aside>
 
+<!-- ══ CANVAS PANEL ══ -->
+<div class="canvas-panel" id="canvas-panel">
+    <div class="canvas-head">
+        <button class="canvas-btn" onclick="closeCanvas()" title="סגור">✕</button>
+        <div class="canvas-title" id="canvas-title">Canvas</div>
+        <button class="canvas-btn" onclick="canvasCopy()" title="העתק">⧉ העתק</button>
+        <button class="canvas-btn" onclick="canvasDownload()" title="הורד">⬇</button>
+        <div class="canvas-tabs">
+            <button class="canvas-tab" id="ctab-code" onclick="canvasTab('code')">קוד</button>
+            <button class="canvas-tab on" id="ctab-view" onclick="canvasTab('view')">תצוגה</button>
+        </div>
+    </div>
+    <div class="canvas-body">
+        <textarea id="canvas-code" spellcheck="false" oninput="canvasDirty()"></textarea>
+        <iframe id="canvas-frame" sandbox="allow-scripts allow-forms"></iframe>
+    </div>
+</div>
+
 <!-- ══ ADMIN PANEL ══ -->
 <div id="admin-overlay">
     <div class="admin-card">
@@ -1317,7 +1364,7 @@
     <div id="welcome">
         <div class="gem-star"></div>
         <div class="gem-hello" id="gem-hello">שלום</div>
-        <div class="gem-sub">איך אוכל לעזור לך היום?</div>
+        <div class="gem-sub" id="gem-sub">איך אוכל לעזור לך היום?</div>
         <div class="sug-grid" id="sug-grid" style="display:none">
             <div class="sug-card" onclick="sendSug('כתוב לי אפלקציית todo list ב-HTML/CSS/JS מלאה ועם עיצוב יפה')">
                 <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
@@ -1373,7 +1420,7 @@
                 <div class="pill-inner">
                     <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
                     <input type="file" id="fi" style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json" onchange="previewFile()">
-                    <textarea id="userInput" placeholder="שאל את Birgsol AI..." rows="1"
+                    <textarea id="userInput" dir="auto" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
                     <button class="img-gen-btn" onclick="triggerImageGen()" title="צור תמונה עם AI"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></button>
@@ -1388,7 +1435,7 @@
                     </button>
                 </div>
             </div>
-            <div class="foot-note">Birgsol AI עשוי לטעות. בדוק מידע חשוב.</div>
+            <div class="foot-note" id="foot-note">Birgsol AI עשוי לטעות. בדוק מידע חשוב.</div>
         </div>
     </div>
 
@@ -2117,8 +2164,40 @@ function toggleCards() {
     if (grid) grid.style.display = isOn ? '' : 'none';
 }
 
+/* ── UI translations per language ── */
+const L10N = {
+    he: { greet: 'שלום',   sub: 'איך אוכל לעזור לך היום?',            ph: 'שאל את Birgsol AI...',      foot: 'Birgsol AI עשוי לטעות. בדוק מידע חשוב.',                      newChat: 'שיחה חדשה' },
+    en: { greet: 'Hello',  sub: 'How can I help you today?',           ph: 'Ask Birgsol AI...',          foot: 'Birgsol AI can make mistakes. Check important info.',        newChat: 'New chat' },
+    ar: { greet: 'مرحبا',  sub: 'كيف يمكنني مساعدتك اليوم؟',           ph: 'اسأل Birgsol AI...',        foot: 'قد يخطئ Birgsol AI. تحقق من المعلومات المهمة.',               newChat: 'محادثة جديدة' },
+    ru: { greet: 'Привет', sub: 'Чем я могу помочь вам сегодня?',      ph: 'Спросите Birgsol AI...',     foot: 'Birgsol AI может ошибаться. Проверяйте важную информацию.',   newChat: 'Новый чат' },
+    fr: { greet: 'Salut',  sub: "Comment puis-je vous aider aujourd'hui ?", ph: 'Demandez à Birgsol AI...', foot: 'Birgsol AI peut se tromper. Vérifiez les informations importantes.', newChat: 'Nouvelle discussion' }
+};
+
+function applyUILang(lang) {
+    const t = L10N[lang] || L10N.he;
+    const ltr = ['en','ru','fr'].includes(lang);
+    const sub  = document.getElementById('gem-sub');       if (sub)  { sub.textContent = t.sub; sub.dir = ltr ? 'ltr' : 'rtl'; }
+    const inp  = document.getElementById('userInput');     if (inp)  inp.placeholder = t.ph;
+    const foot = document.getElementById('foot-note');     if (foot) { foot.textContent = t.foot; foot.dir = ltr ? 'ltr' : 'rtl'; }
+    const nc   = document.getElementById('new-chat-label');if (nc)   nc.textContent = t.newChat;
+    const hello = document.getElementById('gem-hello');    if (hello) hello.dir = ltr ? 'ltr' : 'rtl';
+}
+
 function applyLang(val) {
     localStorage.setItem('birgsol_lang', val);
+    // language switch also resets the default greeting word to match
+    const t = L10N[val] || L10N.he;
+    localStorage.setItem('sp_greet', t.greet);
+    const selGreet = document.getElementById('sp-greet');
+    if (selGreet) {
+        if (![...selGreet.options].some(o => o.value === t.greet)) {
+            const op = document.createElement('option'); op.value = t.greet; op.textContent = t.greet;
+            selGreet.appendChild(op);
+        }
+        selGreet.value = t.greet;
+    }
+    applyUILang(val);
+    updateGreeting();
 }
 
 function initSettings() {
@@ -2131,10 +2210,17 @@ function initSettings() {
     const btnCards = document.getElementById('sp-cards');
     const grid     = document.getElementById('sug-grid');
 
-    if (selGreet) selGreet.value = greet;
+    if (selGreet) {
+        if (![...selGreet.options].some(o => o.value === greet)) {
+            const op = document.createElement('option'); op.value = greet; op.textContent = greet;
+            selGreet.appendChild(op);
+        }
+        selGreet.value = greet;
+    }
     if (selLang)  selLang.value  = lang;
     if (btnCards && cards) btnCards.classList.add('on');
     if (grid) grid.style.display = cards ? '' : 'none';
+    applyUILang(lang);
 }
 
 /* ── splash ── */
@@ -2419,10 +2505,11 @@ _renderer.code = function(arg, langArg) {
                   java:'java', cpp:'cpp', c:'c', rust:'rs', swift:'swift' }[language.toLowerCase()] || 'txt';
     const runBtn  = runnable ? `<button class="code-run" onclick="runCode(this,'${language}')">▶ הרץ</button>` : '';
     const dlBtn   = `<button class="code-dl"  onclick="downloadCode(this,'${ext}')">⬇ הורד</button>`;
+    const cnvBtn  = `<button class="code-canvas" onclick="openCanvas(this,'${language}','${ext}')">⧉ Canvas</button>`;
     return `<div class="code-block">
         <div class="code-header">
             <span class="code-lang">${language}</span>
-            <div class="code-header-btns">${runBtn}${dlBtn}<button class="code-copy" onclick="copyCode(this)">${IC.copy} העתק</button></div>
+            <div class="code-header-btns">${cnvBtn}${runBtn}${dlBtn}<button class="code-copy" onclick="copyCode(this)">${IC.copy} העתק</button></div>
         </div>
         <pre><code class="hljs">${highlighted}</code></pre>
         <iframe class="code-preview" sandbox="allow-scripts allow-forms"></iframe>
@@ -2450,6 +2537,69 @@ function applyTheme(t) {
     localStorage.setItem('birgsol_theme', t);
 }
 function toggleTheme() { applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); }
+
+/* ══════════════ CANVAS ══════════════ */
+let _canvasLang = 'html', _canvasExt = 'html', _canvasTimer = null;
+
+function openCanvas(btn, lang, ext) {
+    const block = btn.closest('.code-block');
+    const code = block.querySelector('code').innerText;
+    _canvasLang = (lang || 'plaintext').toLowerCase();
+    _canvasExt = ext || 'txt';
+    document.getElementById('canvas-code').value = code;
+    document.getElementById('canvas-title').textContent = 'Canvas — ' + _canvasLang;
+    document.getElementById('canvas-panel').classList.add('open');
+    const previewable = ['html','javascript','js','css'].includes(_canvasLang);
+    document.getElementById('ctab-view').style.display = previewable ? '' : 'none';
+    canvasTab(previewable ? 'view' : 'code');
+}
+
+function closeCanvas() {
+    document.getElementById('canvas-panel').classList.remove('open');
+}
+
+function canvasTab(t) {
+    document.getElementById('ctab-code').classList.toggle('on', t === 'code');
+    document.getElementById('ctab-view').classList.toggle('on', t === 'view');
+    document.getElementById('canvas-code').style.display = t === 'code' ? '' : 'none';
+    document.getElementById('canvas-frame').style.display = t === 'view' ? '' : 'none';
+    if (t === 'view') renderCanvas();
+}
+
+function renderCanvas() {
+    const code = document.getElementById('canvas-code').value;
+    const frame = document.getElementById('canvas-frame');
+    let doc = code;
+    if (['javascript','js'].includes(_canvasLang)) {
+        doc = `<html><body style="font-family:Consolas,monospace;font-size:14px;padding:14px;color:#111;direction:ltr">
+<script>const _p=(...a)=>{document.body.innerHTML+=a.map(x=>typeof x==='object'?JSON.stringify(x):x).join(' ')+'<br>'};
+console.log=_p;console.error=_p;console.warn=_p;
+try{${code}}catch(e){_p('❌ '+e.message)}<\/script></body></html>`;
+    } else if (_canvasLang === 'css') {
+        doc = `<html><head><style>${code}</style></head><body><div class="demo box container card btn button">CSS Preview — הוסף אלמנטים ב-HTML לקוד כדי לראות יותר</div></body></html>`;
+    }
+    frame.srcdoc = doc;
+}
+
+function canvasDirty() {
+    // live re-render while typing (only when preview visible)
+    if (document.getElementById('canvas-frame').style.display === 'none') return;
+    clearTimeout(_canvasTimer);
+    _canvasTimer = setTimeout(renderCanvas, 600);
+}
+
+function canvasCopy() {
+    navigator.clipboard.writeText(document.getElementById('canvas-code').value);
+}
+
+function canvasDownload() {
+    const code = document.getElementById('canvas-code').value;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([code], { type: 'text/plain' }));
+    a.download = 'birgsol-canvas.' + _canvasExt;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
 
 /* ── copy code block ── */
 function copyCode(btn) {
