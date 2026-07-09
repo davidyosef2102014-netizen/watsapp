@@ -3124,7 +3124,7 @@ function _askImageStyle() {
     const cw = document.getElementById('chat-window');
     return new Promise(resolve => {
         const styles = [
-            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'gptimage',      suffix: 'photorealistic, sharp focus, highly detailed textures, natural lighting, dynamic camera angle, professional DSLR photograph' },
+            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'gptimage',      suffix: 'real photograph, candid photo, natural soft lighting, realistic skin and fur textures, natural colors, everyday realism, sharp focus' },
             { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors, brush strokes' },
             { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful flat design, bold outlines' },
             { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime illustration' },
@@ -3245,7 +3245,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         const devRes = await fetch('https://router.huggingface.co/fal-ai/fal-ai/flux/dev', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: styledPrompt, image_size: 'square_hd', num_inference_steps: 28 }),
+            body: JSON.stringify({ prompt: styledPrompt, image_size: 'square_hd', num_inference_steps: 28, guidance_scale: 3 }),
             signal: AbortSignal.timeout(60000)
         });
         if (devRes.ok) {
