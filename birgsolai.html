@@ -250,6 +250,11 @@
         .code-dl:hover { background: rgba(66,133,244,.25); }
         .code-header-btns { display:flex; gap:4px; align-items:center; }
         .code-canvas { background: rgba(167,139,250,.15); border: 1px solid rgba(167,139,250,.35); cursor: pointer; color: #a78bfa; font-size: 12px; padding: 3px 9px; border-radius: 6px; font-family: inherit; transition: background .15s; }
+
+        /* deep-think reasoning block */
+        .think-block { background: var(--surf2, #f4f4f8); border: 1px solid var(--border, #e0e0e6); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+        .think-block summary { cursor: pointer; font-weight: 700; font-size: 13px; color: var(--muted, #777); user-select: none; }
+        .think-block .think-body { margin-top: 8px; white-space: pre-wrap; font-size: 13px; color: var(--muted, #777); line-height: 1.6; }
         .code-canvas:hover { background: rgba(167,139,250,.28); }
 
         /* ── Canvas side panel ── */
@@ -1101,6 +1106,10 @@
                 onkeydown="if(event.key==='Enter')doRegister()">
         </div>
         <div class="login-field">
+            <label>איך שה-AI יתנהג? (אופציונלי)</label>
+            <textarea id="reg-instr" placeholder="לדוגמה: תענה קצר ולעניין, תסביר בפשטות, השתמש בהומור..." rows="2" style="width:100%;background:inherit;border:inherit;border-radius:inherit;padding:10px 12px;font-family:inherit;font-size:14px;color:inherit;resize:none;outline:none;border:1.5px solid var(--border,#ccc);border-radius:10px"></textarea>
+        </div>
+        <div class="login-field">
             <label>שפת AI</label>
             <div class="lang-picker" id="reg-lang-picker">
                 <button class="lang-opt active" data-lang="he" onclick="pickRegLang(this)">🇮🇱 עברית</button>
@@ -1261,6 +1270,7 @@
     <div class="mode-row">
         <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> שיחה</button>
         <button class="mode-pill" id="mode-code" onclick="setMode('code')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> קוד</button>
+        <button class="mode-pill" id="deep-btn" onclick="toggleDeep()">🧠 חשיבה</button>
         <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> תמונה</button>
     </div>
     <div class="sb-sect-label">שיחות</div>
@@ -1288,6 +1298,10 @@
             <div class="sp-row">
                 <span class="sp-label">כרטיסי הצעות</span>
                 <button class="sp-toggle" id="sp-cards" onclick="toggleCards()"></button>
+            </div>
+            <div class="sp-row">
+                <span class="sp-label">🧠 חשיבה עמוקה</span>
+                <button class="sp-toggle on" id="sp-deep" onclick="toggleDeepFeature()"></button>
             </div>
             <div class="sp-row">
                 <span class="sp-label">שפת AI</span>
@@ -1351,6 +1365,7 @@
             <span class="tb-name">BIRGSOL AI 3.5</span>
         </div>
         <div class="tb-left">
+            <button class="icon-btn" id="share-btn" onclick="shareConversation()" title="שתף שיחה"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
             <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="החלף ערכת נושא"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button>
             <span class="ver-pill">3.5</span>
             <div class="user-chip" id="user-chip">
@@ -1916,6 +1931,10 @@ async function _finishLogin(user) {
     checkPremium();
     document.getElementById('login-screen').style.display = 'none';
     updateUserChip(); updateFreeBanner(); updateGreeting(); updateAdminVisibility();
+    // טען הוראות אישיות מהענן ברקע
+    ghRead('db/ai_users.json').then(u => {
+        if (u && u[user]) localStorage.setItem('birgsol_instr_' + user, u[user].instructions || '');
+    }).catch(() => {});
     await loadConversationsCloud();
     loadUserMemory();
 }
@@ -2099,8 +2118,10 @@ async function doRegister() {
         }
         // צור משתמש חדש בענן
         const hashed = await hashPassword(pass);
-        cloudUsers[user] = { password: hashed, createdAt: Date.now(), lang: _regLang };
+        const instr = (document.getElementById('reg-instr')?.value || '').trim().slice(0, 400);
+        cloudUsers[user] = { password: hashed, createdAt: Date.now(), lang: _regLang, instructions: instr };
         localStorage.setItem('birgsol_lang', _regLang);
+        localStorage.setItem('birgsol_instr_' + user, instr);
         const ok = await ghWrite('db/ai_users.json', cloudUsers);
         if (!ok) { err.textContent = '❌ שגיאת חיבור. נסה שוב.'; err.style.display='block'; return; }
 
@@ -2221,6 +2242,17 @@ function initSettings() {
     if (btnCards && cards) btnCards.classList.add('on');
     if (grid) grid.style.display = cards ? '' : 'none';
     applyUILang(lang);
+
+    // deep-think feature toggle (default on)
+    const deepFeature = localStorage.getItem('sp_deep_feature') !== '0';
+    const spDeep = document.getElementById('sp-deep');
+    const deepPill = document.getElementById('deep-btn');
+    if (spDeep) spDeep.classList.toggle('on', deepFeature);
+    if (deepPill) {
+        deepPill.style.display = deepFeature ? '' : 'none';
+        deepPill.classList.toggle('active', deepThink && deepFeature);
+    }
+    if (!deepFeature && deepThink) { deepThink = false; localStorage.setItem('birgsol_deep_on', '0'); }
 }
 
 /* ── splash ── */
@@ -2238,6 +2270,9 @@ function startApp() {
 window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(currentTheme);
     initSettings();
+    // shared conversation view (?share=xxx) — read-only, no login needed
+    const _shareId = new URLSearchParams(location.search).get('share');
+    if (_shareId) { loadSharedView(_shareId); return; }
     const savedUser = localStorage.getItem(AI_AUTH_KEY);
     if (savedUser) {
         // ── כניסה מיידית מ-localStorage — לא ממתינים לענן ──
@@ -2266,6 +2301,8 @@ window.addEventListener('DOMContentLoaded', async () => {
                 // נמחק מהענן — התנתקות נקייה
                 localStorage.removeItem(AI_AUTH_KEY);
                 location.reload();
+            } else if (cloudUsers && cloudUsers[savedUser]) {
+                localStorage.setItem('birgsol_instr_' + savedUser, cloudUsers[savedUser].instructions || '');
             }
         }).catch(() => { /* אופליין — נשאר מחובר */ });
     } else {
@@ -2408,13 +2445,17 @@ function getPersona() {
     const timeStr = now.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
     const dateLine = `📅 Today is ${dateStr}, ${timeStr}.\n`;
     const lang = localStorage.getItem('birgsol_lang') || 'he';
-    const langLine = `🌐 ALWAYS respond in ${LANG_NAMES[lang] || 'Hebrew'} — this is the user's chosen language. Do not switch languages unless the user explicitly asks.\n\n`;
+    const langLine = `🌐 ALWAYS respond in ${LANG_NAMES[lang] || 'Hebrew'} — this is the user's chosen language. Do not switch languages unless the user explicitly asks.\n`;
+    const nameLine = currentUser ? `👤 The user's name is "${currentUser}" — address them by name naturally when it fits.\n` : '';
+    const _instr = currentUser ? (localStorage.getItem('birgsol_instr_' + currentUser) || '') : '';
+    const instrLine = _instr ? `📋 The user's personal instructions (ALWAYS follow them): ${_instr}\n` : '';
+    const persLine = nameLine + instrLine + '\n';
     const memLine = userMemory.length
         ? `\n\n=== MEMORY (what you already know about this user from past conversations) ===\n${userMemory.map(f => '- ' + f).join('\n')}\nUse this naturally when relevant — don't explicitly say "according to my memory" unless the user asks what you remember.\n`
         : '';
-    if (currentMode === 'code') return dateLine + langLine + PERSONA_CODE + memLine;
-    if (currentMode === 'image') return dateLine + langLine + PERSONA_IMAGE + memLine;
-    return dateLine + langLine + PERSONA_NORMAL + memLine;
+    if (currentMode === 'code') return dateLine + langLine + persLine + PERSONA_CODE + memLine;
+    if (currentMode === 'image') return dateLine + langLine + persLine + PERSONA_IMAGE + memLine;
+    return dateLine + langLine + persLine + PERSONA_NORMAL + memLine;
 }
 
 function setMode(mode) {
@@ -2537,6 +2578,113 @@ function applyTheme(t) {
     localStorage.setItem('birgsol_theme', t);
 }
 function toggleTheme() { applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); }
+
+/* ══════════════ DEEP THINK (🧠) ══════════════ */
+let deepThink = localStorage.getItem('birgsol_deep_on') === '1';
+
+function toggleDeep() {
+    deepThink = !deepThink;
+    localStorage.setItem('birgsol_deep_on', deepThink ? '1' : '0');
+    document.getElementById('deep-btn')?.classList.toggle('active', deepThink);
+}
+
+function toggleDeepFeature() {
+    const btn = document.getElementById('sp-deep');
+    const on = btn.classList.toggle('on');
+    localStorage.setItem('sp_deep_feature', on ? '1' : '0');
+    const pill = document.getElementById('deep-btn');
+    if (pill) pill.style.display = on ? '' : 'none';
+    if (!on && deepThink) toggleDeep();
+}
+
+const _escT = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* streams a reasoning model: shows thoughts live, returns final text with collapsible think block */
+async function deepStream(messages, onChunk, signal) {
+    const _sig = signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(120000)])
+        : AbortSignal.timeout(120000);
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages, stream: true, reasoning_effort: 'medium', temperature: 0.7, max_tokens: 4096 }),
+        signal: _sig
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let reasoning = '', content = '', buf = '';
+    try {
+        outer: while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const lines = buf.split('\n'); buf = lines.pop() || '';
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const d = line.slice(6).trim();
+                if (d === '[DONE]') break outer;
+                try {
+                    const delta = JSON.parse(d)?.choices?.[0]?.delta || {};
+                    if (delta.reasoning) reasoning += delta.reasoning;
+                    if (delta.content) content += delta.content;
+                    onChunk(content || ('🧠 חושב…\n\n' + reasoning));
+                } catch {}
+            }
+        }
+    } catch(e) {
+        if (e.name === 'AbortError' && content) { /* keep partial */ }
+        else throw e;
+    } finally { try { reader.cancel(); } catch {} }
+    if (!content) throw new Error('deep empty');
+    return reasoning
+        ? `<details class="think-block"><summary>🧠 תהליך חשיבה</summary><div class="think-body">${_escT(reasoning)}</div></details>\n\n${content}`
+        : content;
+}
+
+/* ══════════════ SHARE CONVERSATION ══════════════ */
+async function shareConversation() {
+    if (!hist.length) { alert('אין שיחה לשיתוף עדיין'); return; }
+    const btn = document.getElementById('share-btn');
+    if (btn) btn.style.opacity = '.4';
+    try {
+        const id = Math.random().toString(36).slice(2, 10);
+        const conv = convList.find(c => c.id === currentConvId);
+        const ok = await ghWrite(`db/ai_share_${id}.json`, {
+            title: conv?.title || 'שיחה עם BIRGSOL AI',
+            from: currentUser || '',
+            ts: Date.now(),
+            msgs: hist.slice(-200)
+        });
+        if (!ok) { alert('שגיאה בשיתוף — נסה שוב'); return; }
+        const link = location.origin + location.pathname + '?share=' + id;
+        try { await navigator.clipboard.writeText(link); alert('🔗 קישור השיתוף הועתק!\nכל מי שיש לו את הקישור יוכל לצפות בשיחה.'); }
+        catch { prompt('העתק את הקישור:', link); }
+    } finally { if (btn) btn.style.opacity = ''; }
+}
+
+async function loadSharedView(id) {
+    const sp = document.getElementById('splash');
+    if (sp) { sp.classList.add('hide'); setTimeout(() => sp.style.display = 'none', 700); }
+    const ls = document.getElementById('login-screen');
+    if (ls) ls.style.display = 'none';
+    const data = await ghRead(`db/ai_share_${id}.json`);
+    if (!data || !Array.isArray(data.msgs)) {
+        alert('השיחה המשותפת לא נמצאה');
+        location.href = location.pathname;
+        return;
+    }
+    showChat();
+    const cw = document.getElementById('chat-window');
+    cw.innerHTML = '';
+    data.msgs.forEach(m => renderMsgOnly(m.role === 'user' ? 'user' : 'ai', m.content));
+    cw.scrollTo({ top: 0 });
+    document.body.insertAdjacentHTML('beforeend',
+        `<div style="position:fixed;bottom:0;left:0;right:0;background:var(--surf,#fff);border-top:1px solid var(--border,#ddd);padding:13px;z-index:600;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
+            <span style="font-size:13.5px;font-weight:600">👁 ${_escT(data.title)} — שיחה משותפת, צפייה בלבד</span>
+            <button onclick="location.href=location.pathname" style="background:linear-gradient(90deg,#4285F4,#C58AF9);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">✦ התחל שיחה משלך</button>
+        </div>`);
+}
 
 /* ══════════════ CANVAS ══════════════ */
 let _canvasLang = 'html', _canvasExt = 'html', _canvasTimer = null;
@@ -3745,13 +3893,23 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4, signal=null) 
     const _scroll = () => { if (cw.scrollTop >= cw.scrollHeight - cw.clientHeight - 80) cw.scrollTop = cw.scrollHeight; };
     for (let iter = 0; iter < maxIter; iter++) {
         // Stream current AI response
-        fullText = await callAI(messages, (partial) => {
+        const _streamCb = (partial) => {
             // During streaming: show raw text (tool call lines are cleaned up after streaming ends)
             txtEl.innerHTML = '<span class="stream-raw">' +
                 partial.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
                 '</span><span class="stream-cursor"></span>';
             _scroll();
-        }, signal);
+        };
+        if (iter === 0 && deepThink && currentMode === 'normal') {
+            // 🧠 deep-think mode: reasoning model first, silent fallback to regular chain
+            try { fullText = await deepStream(messages, _streamCb, signal); }
+            catch(e) {
+                if (e.name === 'AbortError') throw e;
+                fullText = await callAI(messages, _streamCb, signal);
+            }
+        } else {
+            fullText = await callAI(messages, _streamCb, signal);
+        }
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
 
         // Collect tool calls
