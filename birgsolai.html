@@ -1285,6 +1285,17 @@
         <div class="settings-panel" id="settings-panel">
             <div class="sp-title">הגדרות תצוגה</div>
             <div class="sp-row">
+                <span class="sp-label">מחובר כ־</span>
+                <div class="user-chip" id="user-chip">
+                    <div class="user-dot" id="user-dot">?</div>
+                    <span id="user-label">—</span>
+                </div>
+            </div>
+            <div class="sp-row">
+                <span class="sp-label">🌙 מצב כהה</span>
+                <button class="sp-toggle" id="sp-theme" onclick="toggleTheme()"></button>
+            </div>
+            <div class="sp-row">
                 <span class="sp-label">ברכה</span>
                 <select class="sp-select" id="sp-greet" onchange="applyGreet(this.value)">
                     <option value="שלום">שלום</option>
@@ -1364,15 +1375,7 @@
             <div class="tb-star">✦</div>
             <span class="tb-name">BIRGSOL AI 3.5</span>
         </div>
-        <div class="tb-left">
-            <button class="icon-btn" id="share-btn" onclick="shareConversation()" title="שתף שיחה"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
-            <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="החלף ערכת נושא"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button>
-            <span class="ver-pill">3.5</span>
-            <div class="user-chip" id="user-chip">
-                <div class="user-dot" id="user-dot">?</div>
-                <span id="user-label">—</span>
-            </div>
-        </div>
+        <div class="tb-left"></div>
     </div>
 
     <!-- WELCOME -->
@@ -2583,12 +2586,12 @@ function applyTheme(t) {
     if (t === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
         document.getElementById('hljs-css').href = 'https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css';
-        document.getElementById('theme-btn').innerHTML = IC.sun;
     } else {
         document.documentElement.removeAttribute('data-theme');
         document.getElementById('hljs-css').href = 'https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css';
-        document.getElementById('theme-btn').innerHTML = IC.moon;
     }
+    const spTheme = document.getElementById('sp-theme');
+    if (spTheme) spTheme.classList.toggle('on', t === 'dark');
     localStorage.setItem('birgsol_theme', t);
 }
 function toggleTheme() { applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); }
