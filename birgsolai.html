@@ -2046,8 +2046,11 @@ async function adminSetTier(username, tierId) {
     if (!ok) { alert('שגיאה בשמירה — נסה שוב.'); return; }
     if (username === currentUser) {
         localStorage.setItem('birgsol_tier_' + currentUser, tierId);
+        localStorage.setItem('birgsol_tiernotif_' + currentUser, users[username].tierChangedAt);
         checkPremium(); updateUserChip();
     }
+    const untilStr = users[username].tierUntil ? new Date(users[username].tierUntil).toLocaleDateString('he-IL') : '';
+    _tierToast(`הגרסה של ${username} שונתה ל-${TIERS[tierId].name}${untilStr ? ' עד ' + untilStr : ''}`);
 }
 
 /* ── סנכרון תוכנית מהענן + הודעה למשתמש על שינוי ── */
@@ -2055,10 +2058,9 @@ function syncTierFromCloud(user, rec) {
     if (!rec) return;
     const expired = rec.tierUntil && rec.tierUntil < Date.now();
     const cloudTier = (!expired && TIERS[rec.tier]) ? rec.tier : 'free';
-    const prev = localStorage.getItem('birgsol_tier_' + user) || 'free';
     localStorage.setItem('birgsol_tier_' + user, cloudTier);
     const seen = parseInt(localStorage.getItem('birgsol_tiernotif_' + user) || '0');
-    if (rec.tierChangedAt && rec.tierChangedAt > seen && cloudTier !== prev) {
+    if (rec.tierChangedAt && rec.tierChangedAt > seen) {
         localStorage.setItem('birgsol_tiernotif_' + user, rec.tierChangedAt);
         const t = TIERS[cloudTier];
         const until = (cloudTier !== 'free' && rec.tierUntil) ? new Date(rec.tierUntil).toLocaleDateString('he-IL') : '';
