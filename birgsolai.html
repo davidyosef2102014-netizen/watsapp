@@ -1872,6 +1872,14 @@ async function loadConversationsCloud() {
     const cloud = await ghReadFresh('db/ai_convs/' + currentUser + '.json') || await ghRead('db/ai_convs/' + currentUser + '.json');
     if (cloud && Array.isArray(cloud)) {
         convList = cloud.filter(c => !deletedConvIds.has(c.id));
+        // נקה כותרות חכמות פגומות מגרסה ישנה של המחולל
+        convList.forEach(c => {
+            if (c.smartTitle && _badSmartTitle(c.smartTitle)) {
+                c.smartTitle = null;
+                const fu = (c.messages || []).find(m => m.role === 'user')?.content;
+                c.title = (typeof fu === 'string' ? fu : 'שיחה').slice(0, 40);
+            }
+        });
         localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
     } else {
         // חזרה ל-localStorage
@@ -1921,31 +1929,38 @@ async function syncConversations() {
 
 /* ── כותרת חכמה לשיחה — פעם אחת, אחרי התשובה הראשונה ── */
 let _titleBusy = false;
+function _badSmartTitle(t) {
+    return !t || t.length < 2 || t.length > 60 || t.includes('\n') || t.includes(':') ||
+           /משתמש|עוזר|כותרת|שיחתכם|user:|assistant/i.test(t);
+}
 async function _genSmartTitle(convId) {
     if (_titleBusy || !convId) return;
     const conv = convList.find(c => c.id === convId);
-    if (!conv || conv.smartTitle || (conv.messages || []).length < 2) return;
+    if (!conv || (conv.messages || []).length < 2) return;
+    // כותרת פגומה מגרסה קודמת — ננקה וניצור מחדש
+    if (conv.smartTitle && _badSmartTitle(conv.smartTitle)) conv.smartTitle = null;
+    if (conv.smartTitle) return;
     _titleBusy = true;
     try {
-        const sample = conv.messages.slice(0, 4).map(m =>
-            (m.role === 'user' ? 'משתמש: ' : 'עוזר: ') +
-            (typeof m.content === 'string' ? m.content.slice(0, 200) : '[תמונה]')
-        ).join('\n');
+        const sample = conv.messages.slice(0, 4)
+            .map(m => typeof m.content === 'string' ? m.content.slice(0, 200) : '[תמונה]')
+            .join('\n---\n');
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile', temperature: 0.3, max_tokens: 30,
+                model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 60,
                 messages: [
-                    { role: 'system', content: 'תן כותרת קצרה של 2-4 מילים לשיחה, באותה שפה שבה מתנהלת השיחה. השב אך ורק בכותרת עצמה — בלי מרכאות, בלי נקודה, בלי הסברים.' },
+                    { role: 'system', content: 'אתה נותן שמות לשיחות. קבל קטע שיחה והחזר נושא קצר של 2-4 מילים בשפת השיחה. דוגמאות טובות: "השוואת טלוויזיות", "מתכון פסטה", "עזרה בקוד פייתון". אסור להשתמש במילים משתמש/עוזר/שיחה/כותרת, אסור נקודתיים, מרכאות או נקודה. החזר את הנושא בלבד.' },
                     { role: 'user', content: sample }
                 ]
             }),
             signal: AbortSignal.timeout(12000)
         });
         const j = await res.json();
+        const cut = j?.choices?.[0]?.finish_reason === 'length'; // נחתך באמצע — לא אמין
         const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["'״]+|["'״.]+$/g, '').trim();
-        if (t && t.length >= 2 && t.length <= 60 && !t.includes('\n')) {
+        if (!cut && !_badSmartTitle(t)) {
             conv.smartTitle = t;
             conv.title = t;
             try { localStorage.setItem(CONVS_KEY(), JSON.stringify(convList)); } catch {}
