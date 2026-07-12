@@ -1556,9 +1556,8 @@ async function deleteConversation(convId) {
     renderConvList();
     ghWrite('db/ai_convs/' + currentUser + '.json', convList).catch(() => {});
     // מצבה בענן — מכשיר אחר עם רשימה ישנה לא יחייה את השיחה
-    ghReadFresh('db/ai_convs_deleted/' + currentUser + '.json').then(list => {
-        const merged = [...new Set([...(Array.isArray(list) ? list : []), ...deletedConvIds])].slice(-300);
-        return ghWrite('db/ai_convs_deleted/' + currentUser + '.json', merged);
+    ghUpdate('db/ai_convs_deleted/' + currentUser + '.json', list => {
+        return [...new Set([...(Array.isArray(list) ? list : []), ...deletedConvIds])].slice(-300);
     }).catch(() => {});
 }
 
@@ -1706,7 +1705,8 @@ async function openAdminPanel() {
     closeSidebar();
     const body = document.getElementById('admin-body');
     body.textContent = 'טוען…';
-    const cloudUsers = await ghRead('db/ai_users.json') || {};
+    // API טרי — ה-CDN מפגר בכ-5 דקות והיה מציג גרסאות ישנות אחרי שינוי
+    const cloudUsers = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
     renderAdminUsers(cloudUsers);
 }
 
@@ -1743,10 +1743,14 @@ async function adminResetPassword(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
     if (!confirm(`לאפס את הסיסמה של "${username}"? תיווצר סיסמה זמנית חדשה.`)) return;
     const tempPass = Math.random().toString(36).slice(-8);
-    const cloudUsers = await ghReadFresh('db/ai_users.json') || {};
-    if (!cloudUsers[username]) { alert('משתמש לא נמצא.'); return; }
-    cloudUsers[username].password = await hashPassword(tempPass);
-    const ok = await ghWrite('db/ai_users.json', cloudUsers);
+    const newHash = await hashPassword(tempPass);
+    let rpNotFound = false;
+    const ok = await ghUpdate('db/ai_users.json', users => {
+        if (!users || !users[username]) { rpNotFound = true; return undefined; }
+        users[username].password = newHash;
+        return users;
+    });
+    if (rpNotFound) { alert('משתמש לא נמצא.'); return; }
     if (ok) alert(`✅ הסיסמה הזמנית של "${username}" היא:\n\n${tempPass}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.`);
     else alert('❌ שגיאה בשמירת הסיסמה החדשה — נסה שוב.');
 }
@@ -1755,10 +1759,13 @@ async function adminDeleteUser(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
     if (username === currentUser) { alert('לא ניתן למחוק את המשתמש המחובר כרגע.'); return; }
     if (!confirm(`למחוק את המשתמש "${username}" לצמיתות? הפעולה אינה הפיכה.`)) return;
-    const cloudUsers = await ghReadFresh('db/ai_users.json') || {};
-    if (!cloudUsers[username]) { alert('משתמש לא נמצא.'); return; }
-    delete cloudUsers[username];
-    const ok = await ghWrite('db/ai_users.json', cloudUsers);
+    let delNotFound = false;
+    const ok = await ghUpdate('db/ai_users.json', users => {
+        if (!users || !users[username]) { delNotFound = true; return undefined; }
+        delete users[username];
+        return users;
+    });
+    if (delNotFound) { alert('משתמש לא נמצא.'); return; }
     if (ok) { alert(`✅ המשתמש "${username}" נמחק.`); openAdminPanel(); }
     else alert('❌ שגיאה במחיקה — נסה שוב.');
 }
@@ -1792,6 +1799,18 @@ let _ghLastWrite = 0;
 function ghWrite(path, data) {
     const job = _ghWriteChain.then(() => _ghWriteRaw(path, data));
     _ghWriteChain = job.catch(() => {}); // השרשרת ממשיכה גם אחרי כישלון
+    return job;
+}
+
+/* קריאה-עדכון-כתיבה אטומיים בתוך התור — מונע ששני שינויים מקבילים ידרסו זה את זה */
+function ghUpdate(path, mutate) {
+    const job = _ghWriteChain.then(async () => {
+        const data = await ghReadFresh(path);
+        const next = mutate(data);
+        if (next === undefined) return false;
+        return _ghWriteRaw(path, next);
+    });
+    _ghWriteChain = job.catch(() => {});
     return job;
 }
 
@@ -1938,7 +1957,8 @@ async function doLogin() {
 
     btn.textContent = '⏳ מתחבר...'; btn.disabled = true;
     try {
-        const cloudUsers = await ghRead('db/ai_users.json') || {};
+        // API טרי קודם — משתמש שנרשם/אופס לו סיסמה לפני רגע לא יופיע ב-CDN עד 5 דקות
+        const cloudUsers = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
         if (!cloudUsers[user]) { err.textContent = '❌ שם המשתמש לא נמצא. צור חשבון חדש.'; err.style.display='block'; return; }
         const hashed = await hashPassword(pass);
         if (cloudUsers[user].password !== hashed) { err.textContent = '❌ סיסמה שגויה.'; err.style.display='block'; return; }
@@ -2028,8 +2048,12 @@ async function doPurchaseTier(tierId) {
     closePricingModal();
     updateUserChip();
     // עדכן גם בענן כדי שהגרסה תישמר בכל מכשיר
-    ghReadFresh('db/ai_users.json').then(users => {
-        if (users && users[currentUser]) { users[currentUser].tier = tierId; return ghWrite('db/ai_users.json', users); }
+    ghUpdate('db/ai_users.json', users => {
+        if (!users || !users[currentUser]) return undefined;
+        users[currentUser].tier = tierId;
+        users[currentUser].tierChangedAt = Date.now();
+        users[currentUser].tierUntil = Date.now() + 30 * 24 * 60 * 60 * 1000;
+        return users;
     }).catch(() => {});
     alert(`${tier.name} הופעל!`);
 }
@@ -2037,19 +2061,24 @@ async function doPurchaseTier(tierId) {
 /* ── מנהל קובע גרסה למשתמש ── */
 async function adminSetTier(username, tierId) {
     if (!ADMIN_USERS.includes(currentUser) || !TIERS[tierId]) return;
-    const users = await ghReadFresh('db/ai_users.json') || {};
-    if (!users[username]) { alert('משתמש לא נמצא.'); return; }
-    users[username].tier = tierId;
-    users[username].tierChangedAt = Date.now();
-    users[username].tierUntil = tierId === 'free' ? null : Date.now() + 30 * 24 * 60 * 60 * 1000;
-    const ok = await ghWrite('db/ai_users.json', users);
+    const changedAt = Date.now();
+    const until = tierId === 'free' ? null : changedAt + 30 * 24 * 60 * 60 * 1000;
+    let notFound = false;
+    const ok = await ghUpdate('db/ai_users.json', users => {
+        if (!users || !users[username]) { notFound = true; return undefined; }
+        users[username].tier = tierId;
+        users[username].tierChangedAt = changedAt;
+        users[username].tierUntil = until;
+        return users;
+    });
+    if (notFound) { alert('משתמש לא נמצא.'); return; }
     if (!ok) { alert('שגיאה בשמירה — נסה שוב.'); return; }
     if (username === currentUser) {
         localStorage.setItem('birgsol_tier_' + currentUser, tierId);
-        localStorage.setItem('birgsol_tiernotif_' + currentUser, users[username].tierChangedAt);
+        localStorage.setItem('birgsol_tiernotif_' + currentUser, changedAt);
         checkPremium(); updateUserChip();
     }
-    const untilStr = users[username].tierUntil ? new Date(users[username].tierUntil).toLocaleDateString('he-IL') : '';
+    const untilStr = until ? new Date(until).toLocaleDateString('he-IL') : '';
     _tierToast(`הגרסה של ${username} שונתה ל-${TIERS[tierId].name}${untilStr ? ' עד ' + untilStr : ''}`);
 }
 
@@ -2059,14 +2088,23 @@ function syncTierFromCloud(user, rec) {
     const expired = rec.tierUntil && rec.tierUntil < Date.now();
     const cloudTier = (!expired && TIERS[rec.tier]) ? rec.tier : 'free';
     localStorage.setItem('birgsol_tier_' + user, cloudTier);
-    const seen = parseInt(localStorage.getItem('birgsol_tiernotif_' + user) || '0');
-    if (rec.tierChangedAt && rec.tierChangedAt > seen) {
-        localStorage.setItem('birgsol_tiernotif_' + user, rec.tierChangedAt);
-        const t = TIERS[cloudTier];
-        const until = (cloudTier !== 'free' && rec.tierUntil) ? new Date(rec.tierUntil).toLocaleDateString('he-IL') : '';
-        _tierToast(cloudTier === 'free'
-            ? 'התוכנית שלך הסתיימה — חזרת ל-Birgsol Free'
-            : `התוכנית שלך הוחלפה ל-${t.name}${until ? ' עד ' + until : ''}`);
+    if (expired && rec.tier && rec.tier !== 'free') {
+        // התוכנית פגה — הודעה חד-פעמית (מזוהה לפי חותמת השינוי שפג)
+        const expSeen = localStorage.getItem('birgsol_tierexp_' + user);
+        if (String(rec.tierChangedAt) !== expSeen) {
+            localStorage.setItem('birgsol_tierexp_' + user, String(rec.tierChangedAt));
+            _tierToast('התוכנית שלך הסתיימה — חזרת ל-Birgsol Free');
+        }
+    } else {
+        const seen = parseInt(localStorage.getItem('birgsol_tiernotif_' + user) || '0');
+        if (rec.tierChangedAt && rec.tierChangedAt > seen) {
+            localStorage.setItem('birgsol_tiernotif_' + user, rec.tierChangedAt);
+            const t = TIERS[cloudTier];
+            const until = (cloudTier !== 'free' && rec.tierUntil) ? new Date(rec.tierUntil).toLocaleDateString('he-IL') : '';
+            _tierToast(cloudTier === 'free'
+                ? 'התוכנית שלך עודכנה ל-Birgsol Free'
+                : `התוכנית שלך הוחלפה ל-${t.name}${until ? ' עד ' + until : ''}`);
+        }
     }
     checkPremium(); updateUserChip();
 }
@@ -2140,10 +2178,15 @@ async function doResetPass() {
     if (newPass.length < 4) { err.textContent = '❌ הסיסמה חייבת להכיל לפחות 4 תווים.'; err.style.display='block'; return; }
     if (newPass !== newPass2){ err.textContent = '❌ הסיסמאות אינן תואמות.'; err.style.display='block'; return; }
     try {
-        const cloudUsers = await ghRead('db/ai_users.json') || {};
-        if (!cloudUsers[fpUsername]) { err.textContent = '❌ משתמש לא נמצא.'; err.style.display='block'; return; }
-        cloudUsers[fpUsername].password = await hashPassword(newPass);
-        await ghWrite('db/ai_users.json', cloudUsers);
+        const newHash = await hashPassword(newPass);
+        let fpNotFound = false;
+        const ok = await ghUpdate('db/ai_users.json', users => {
+            if (!users || !users[fpUsername]) { fpNotFound = true; return undefined; }
+            users[fpUsername].password = newHash;
+            return users;
+        });
+        if (fpNotFound) { err.textContent = '❌ משתמש לא נמצא.'; err.style.display='block'; return; }
+        if (!ok) { err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block'; return; }
         alert(`✅ הסיסמה של "${fpUsername}" עודכנה!`);
         showLogin();
         document.getElementById('li-user').value = fpUsername;
@@ -2165,20 +2208,23 @@ async function doRegister() {
 
     btn.textContent = '⏳ יוצר חשבון...'; btn.disabled = true;
     try {
-        // בדוק שהשם לא תפוס בענן
-        const cloudUsers = await ghRead('db/ai_users.json') || {};
-        if (cloudUsers[user]) {
+        const hashed = await hashPassword(pass);
+        const instr = (document.getElementById('reg-instr')?.value || '').trim().slice(0, 400);
+        // יצירה אטומית — בדיקת שם תפוס והכתיבה קורות יחד, בלי מרווח שבו הרשמה מקבילה תידרס
+        let taken = false;
+        const ok = await ghUpdate('db/ai_users.json', users => {
+            users = users || {};
+            if (users[user]) { taken = true; return undefined; }
+            users[user] = { password: hashed, createdAt: Date.now(), lang: _regLang, instructions: instr };
+            return users;
+        });
+        if (taken) {
             err.textContent = '❌ שם המשתמש כבר קיים. בחר שם אחר.';
             err.style.display = 'block'; return;
         }
-        // צור משתמש חדש בענן
-        const hashed = await hashPassword(pass);
-        const instr = (document.getElementById('reg-instr')?.value || '').trim().slice(0, 400);
-        cloudUsers[user] = { password: hashed, createdAt: Date.now(), lang: _regLang, instructions: instr };
+        if (!ok) { err.textContent = '❌ שגיאת חיבור. נסה שוב.'; err.style.display='block'; return; }
         localStorage.setItem('birgsol_lang', _regLang);
         localStorage.setItem('birgsol_instr_' + user, instr);
-        const ok = await ghWrite('db/ai_users.json', cloudUsers);
-        if (!ok) { err.textContent = '❌ שגיאת חיבור. נסה שוב.'; err.style.display='block'; return; }
 
         // כניסה אוטומטית
         document.getElementById('reg-user').value = '';
