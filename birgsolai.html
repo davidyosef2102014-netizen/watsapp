@@ -1150,18 +1150,14 @@
         <div class="tier-body">
           <span class="tier-icon" style="color:#9aa0a6">✦</span>
           <div class="tier-name">Birgsol Free</div>
-          <div class="tier-tagline">הגרסה החינמית · לכולם</div>
-          <div class="tier-price-row">
-            <div class="tier-price-num" style="color:#9aa0a6">חינם</div>
-            <div class="tier-price-per">לתמיד</div>
-          </div>
+          <div class="tier-tagline">הגרסה הבסיסית · לכולם</div>
           <div class="tier-divider"></div>
           <ul class="tier-feats">
             <li><span class="ck">✓</span> 4 תמונות ביום</li>
             <li><span class="ck">✓</span> 5 חיפושים באינטרנט ביום</li>
             <li><span class="ck">✓</span> שיחות ללא הגבלה</li>
           </ul>
-          <button class="tier-buy" style="background:var(--surf2);color:var(--muted);cursor:default">הגרסה הנוכחית</button>
+          <div class="tier-buy" style="background:var(--surf2);color:var(--muted);cursor:default;text-align:center">גרסת הבסיס</div>
         </div>
       </div>
 
@@ -1172,10 +1168,6 @@
           <span class="tier-icon" style="color:#4285F4"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
           <div class="tier-name">Birgsol Basic</div>
           <div class="tier-tagline">למתחילים · כניסה לעולם ה-AI</div>
-          <div class="tier-price-row">
-            <div class="tier-price-num" style="background:linear-gradient(to left,#4285F4,#5fa8ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">₪50</div>
-            <div class="tier-price-per">לחודש</div>
-          </div>
           <div class="tier-divider"></div>
           <ul class="tier-feats">
             <li><span class="ck">✓</span> 10 תמונות ביום</li>
@@ -1183,7 +1175,7 @@
             <li><span class="ck">✓</span> שיחות ללא הגבלה</li>
             <li><span class="ck">✓</span> תג Basic</li>
           </ul>
-          <button class="tier-buy" style="background:linear-gradient(135deg,#4285F4,#5fa8ff)" onclick="doPurchaseTier('basic')">בחר Basic</button>
+          <div class="tier-buy" style="background:linear-gradient(135deg,#4285F4,#5fa8ff);text-align:center;cursor:default">לשדרוג פנה למנהל</div>
         </div>
       </div>
 
@@ -1194,10 +1186,6 @@
           <span class="tier-icon" style="color:#9C6ADE"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
           <div class="tier-name">Birgsol Pro</div>
           <div class="tier-tagline">למשתמשים כבדים · הרבה יותר כוח</div>
-          <div class="tier-price-row">
-            <div class="tier-price-num" style="background:linear-gradient(to left,#9C6ADE,#C58AF9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">₪200</div>
-            <div class="tier-price-per">לחודש</div>
-          </div>
           <div class="tier-divider"></div>
           <ul class="tier-feats">
             <li><span class="ck">✓</span> 25 תמונות ביום</li>
@@ -1205,7 +1193,7 @@
             <li><span class="ck">✓</span> שיחות ללא הגבלה</li>
             <li><span class="ck">✓</span> תג Pro</li>
           </ul>
-          <button class="tier-buy" style="background:linear-gradient(135deg,#9C6ADE,#C58AF9)" onclick="doPurchaseTier('pro')">בחר Pro</button>
+          <div class="tier-buy" style="background:linear-gradient(135deg,#9C6ADE,#C58AF9);text-align:center;cursor:default">לשדרוג פנה למנהל</div>
         </div>
       </div>
 
@@ -1217,10 +1205,6 @@
           <span class="tier-icon">✦</span>
           <div class="tier-name">Birgsol Ultra</div>
           <div class="tier-tagline">בלי גבולות · הכי חזק</div>
-          <div class="tier-price-row">
-            <div class="tier-price-num" style="background:linear-gradient(to left,#4285F4,#C58AF9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">₪450</div>
-            <div class="tier-price-per">לחודש</div>
-          </div>
           <div class="tier-divider"></div>
           <ul class="tier-feats">
             <li><span class="ck">✓</span> תמונות ללא הגבלה</li>
@@ -1228,7 +1212,7 @@
             <li><span class="ck">✓</span> שיחות ללא הגבלה</li>
             <li><span class="ck">✓</span> תג ✦ Ultra מיוחד</li>
           </ul>
-          <button class="tier-buy" style="background:linear-gradient(135deg,#4285F4,#9C6ADE,#C58AF9)" onclick="doPurchaseTier('ultra')">בחר Ultra ✦</button>
+          <div class="tier-buy" style="background:linear-gradient(135deg,#4285F4,#9C6ADE,#C58AF9);text-align:center;cursor:default">לשדרוג פנה למנהל ✦</div>
         </div>
       </div>
 
@@ -1806,7 +1790,7 @@ async function ghWrite(path, data) {
     // Retry on transient failures (network blip, or a 409 SHA conflict from a concurrent writer —
     // the GH_TOKEN is shared across every user of the app, so simultaneous registrations/saves can
     // race each other). Re-fetches a fresh SHA on each attempt rather than reusing a stale one.
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 6; attempt++) {
         try {
             let sha;
             const meta = await fetch(GH_API + path, {
@@ -1831,12 +1815,13 @@ async function ghWrite(path, data) {
             if (r.ok) return true;
             const errBody = await r.text().catch(() => '');
             console.warn('[ghWrite] failed', path, r.status, errBody.slice(0, 200));
-            if (attempt === 2) return false; // retry on ANY failure now, not just 409 — rate limits/5xx are also transient
+            if (attempt === 5) return false; // retry on ANY failure — branch races (409), rate limits, 5xx are all transient
         } catch (e) {
             console.warn('[ghWrite] error', path, e.message);
-            if (attempt === 2) return false;
+            if (attempt === 5) return false;
         }
-        await new Promise(res => setTimeout(res, 300 * (attempt + 1))); // brief backoff before retry
+        // backoff עם ג'יטר — כתיבות מקבילות (סנכרון שיחות/זיכרון) מתנגשות על אותו branch
+        await new Promise(res => setTimeout(res, 500 * (attempt + 1) + Math.random() * 600));
     }
     return false;
 }
@@ -1916,7 +1901,6 @@ const TIERS = {
 /* ── מכסות יומיות — מפתח לפי תאריך, מתאפס אוטומטית כל יום ── */
 function _quotaKey(kind) { return `birgsol_q_${kind}_${currentUser}_${new Date().toISOString().slice(0,10)}`; }
 function quotaLeft(kind) { // kind: 'img' | 'search'
-    if (ADMIN_USERS.includes(currentUser)) return Infinity;
     const t = TIERS[currentTier] || TIERS.free;
     const lim = kind === 'img' ? t.imgLimit : t.searchLimit;
     if (lim === -1) return Infinity;
