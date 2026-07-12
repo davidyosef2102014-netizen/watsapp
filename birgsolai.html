@@ -1963,8 +1963,7 @@ async function _finishLogin(user) {
     ghReadFresh('db/ai_users.json').then(u => {
         if (u && u[user]) {
             localStorage.setItem('birgsol_instr_' + user, u[user].instructions || '');
-            localStorage.setItem('birgsol_tier_' + user, u[user].tier || 'free');
-            checkPremium(); updateUserChip();
+            syncTierFromCloud(user, u[user]);
         }
     }).catch(() => {});
     await loadConversationsCloud();
@@ -2041,12 +2040,42 @@ async function adminSetTier(username, tierId) {
     const users = await ghReadFresh('db/ai_users.json') || {};
     if (!users[username]) { alert('משתמש לא נמצא.'); return; }
     users[username].tier = tierId;
+    users[username].tierChangedAt = Date.now();
+    users[username].tierUntil = tierId === 'free' ? null : Date.now() + 30 * 24 * 60 * 60 * 1000;
     const ok = await ghWrite('db/ai_users.json', users);
     if (!ok) { alert('שגיאה בשמירה — נסה שוב.'); return; }
     if (username === currentUser) {
         localStorage.setItem('birgsol_tier_' + currentUser, tierId);
         checkPremium(); updateUserChip();
     }
+}
+
+/* ── סנכרון תוכנית מהענן + הודעה למשתמש על שינוי ── */
+function syncTierFromCloud(user, rec) {
+    if (!rec) return;
+    const expired = rec.tierUntil && rec.tierUntil < Date.now();
+    const cloudTier = (!expired && TIERS[rec.tier]) ? rec.tier : 'free';
+    const prev = localStorage.getItem('birgsol_tier_' + user) || 'free';
+    localStorage.setItem('birgsol_tier_' + user, cloudTier);
+    const seen = parseInt(localStorage.getItem('birgsol_tiernotif_' + user) || '0');
+    if (rec.tierChangedAt && rec.tierChangedAt > seen && cloudTier !== prev) {
+        localStorage.setItem('birgsol_tiernotif_' + user, rec.tierChangedAt);
+        const t = TIERS[cloudTier];
+        const until = (cloudTier !== 'free' && rec.tierUntil) ? new Date(rec.tierUntil).toLocaleDateString('he-IL') : '';
+        _tierToast(cloudTier === 'free'
+            ? 'התוכנית שלך הסתיימה — חזרת ל-Birgsol Free'
+            : `התוכנית שלך הוחלפה ל-${t.name}${until ? ' עד ' + until : ''}`);
+    }
+    checkPremium(); updateUserChip();
+}
+
+function _tierToast(msg) {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-80px);background:linear-gradient(135deg,#4285F4,#C58AF9);color:#fff;padding:13px 26px;border-radius:16px;font-size:14.5px;font-weight:700;z-index:9500;box-shadow:0 10px 34px rgba(66,133,244,.4);transition:transform .4s cubic-bezier(.2,.9,.3,1.2);max-width:88vw;text-align:center';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => { el.style.transform = 'translateX(-50%) translateY(0)'; });
+    setTimeout(() => { el.style.transform = 'translateX(-50%) translateY(-80px)'; setTimeout(() => el.remove(), 500); }, 7000);
 }
 
 /* ── message counter ── */
@@ -2327,8 +2356,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 location.reload();
             } else if (cloudUsers && cloudUsers[savedUser]) {
                 localStorage.setItem('birgsol_instr_' + savedUser, cloudUsers[savedUser].instructions || '');
-                localStorage.setItem('birgsol_tier_' + savedUser, cloudUsers[savedUser].tier || 'free');
-                checkPremium(); updateUserChip();
+                syncTierFromCloud(savedUser, cloudUsers[savedUser]);
             }
         }).catch(() => { /* אופליין — נשאר מחובר */ });
     } else {
