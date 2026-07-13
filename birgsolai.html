@@ -1562,7 +1562,14 @@ async function deleteConversation(convId) {
 }
 
 function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+/* אבטחה: מחזיר URL רק אם הסכימה בטוחה (http/https/data:image) — אחרת ריק.
+   מונע javascript: ופריצה מתוך תכונות/onclick כשה-URL מגיע מהיסטוריה/שיחה משותפת. */
+function safeUrl(u) {
+    const s = String(u || '').trim();
+    if (/^https?:\/\//i.test(s) || /^data:image\//i.test(s)) return s.replace(/["'<>]/g, encodeURIComponent);
+    return '';
 }
 
 /* פתח שיחה קיימת וטען אותה למסך */
@@ -1593,7 +1600,7 @@ function renderMsgOnly(role, text, histIdx) {
     if (role === 'user') {
         row.className = 'msg-row user';
         if (histIdx !== undefined) row.dataset.histBefore = histIdx;
-        row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><div class="user-bub">${text.replace(/\n/g,'<br>')}</div></div>`;
+        row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><div class="user-bub">${escHtml(text).replace(/\n/g,'<br>')}</div></div>`;
     } else {
         // מפה שנוצרה בעבר — שמורה ב-history כ-base64 JSON, משוחזרת כווידג'ט מפה אמיתי
         const mapMatch = text.match(/^\[GENERATED_MAP:([\s\S]+?)\]$/);
@@ -1628,7 +1635,8 @@ function renderMsgOnly(role, text, histIdx) {
         // תמונה שנוצרה בעבר — שמורה ב-history עם marker, משוחזרת כתמונה אמיתית
         const imgMatch = text.match(/^\[GENERATED_IMAGE:(.+?)§§([\s\S]*?)\]$/);
         if (imgMatch) {
-            const [, url, caption] = imgMatch;
+            const [, rawUrl, caption] = imgMatch;
+            const url = safeUrl(rawUrl);
             row.className = 'msg-row ai';
             row.innerHTML = `
                 <div class="ai-ava">✦</div>
@@ -1636,7 +1644,7 @@ function renderMsgOnly(role, text, histIdx) {
                     <div class="ai-name">Birgsol AI</div>
                     <div class="ai-txt"><div class="ai-img-wrap"><img class="ai-gen-img" src="${url}" loading="lazy" style="display:block"><div class="ai-img-caption">${esc2(caption)}</div></div></div>
                     <div class="ai-acts">
-                        <button class="ai-act" onclick="window.open('${url}','_blank')">${IC.extLink} פתח</button>
+                        <a class="ai-act" href="${url}" target="_blank" rel="noopener" style="text-decoration:none">${IC.extLink} פתח</a>
                         <a class="ai-act" href="${url}" download="birgsol-image.jpg" style="text-decoration:none">${IC.download} הורד</a>
                     </div>
                 </div>`;
@@ -1645,7 +1653,7 @@ function renderMsgOnly(role, text, histIdx) {
         }
         row.className = 'msg-row ai';
         let content;
-        try { content = marked.parse(text); } catch { content = text.replace(/\n/g,'<br>'); }
+        content = mdSafe(text);
         row.innerHTML = `
             <div class="ai-ava">✦</div>
             <div class="ai-body">
@@ -1718,25 +1726,46 @@ function renderAdminUsers(cloudUsers) {
     const body = document.getElementById('admin-body');
     const names = Object.keys(cloudUsers).sort((a, b) => (cloudUsers[b].createdAt||0) - (cloudUsers[a].createdAt||0));
     if (!names.length) { body.textContent = 'אין משתמשים רשומים.'; return; }
-    body.innerHTML = names.map(name => {
+    // אבטחה: שם המשתמש עלול להכיל תווים זדוניים — לא מזריקים אותו ל-onclick/onchange.
+    // בונים דרך DOM ומצמידים מאזינים, כך שהשם אף פעם לא הופך לקוד.
+    body.innerHTML = '';
+    names.forEach(name => {
         const u = cloudUsers[name];
         const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('he-IL') : '—';
         const curT = TIERS[u.tier] ? u.tier : 'free';
-        const tierSel = `<select class="sp-select" onchange="adminSetTier('${name.replace(/'/g,"\\'")}', this.value)" title="גרסה">` +
-            Object.keys(TIERS).map(t => `<option value="${t}" ${t===curT?'selected':''}>${TIERS[t].name.replace('Birgsol ','')}</option>`).join('') +
-            `</select>`;
-        return `<div class="admin-row">
-            <div class="admin-row-info">
-                <div class="admin-row-name">${escHtml(name)}</div>
-                <div class="admin-row-meta">נרשם: ${date}${u.lang ? ' · שפה: ' + escHtml(u.lang) : ''}</div>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-                ${tierSel}
-                <button class="admin-reset-btn" onclick="adminResetPassword('${name.replace(/'/g,"\\'")}')">איפוס סיסמה</button>
-                <button class="admin-reset-btn" style="background:rgba(220,50,50,.18);border-color:rgba(220,50,50,.35);color:#ff8a80" onclick="adminDeleteUser('${name.replace(/'/g,"\\'")}')">מחק</button>
-            </div>
-        </div>`;
-    }).join('');
+
+        const rowEl = document.createElement('div'); rowEl.className = 'admin-row';
+        const info = document.createElement('div'); info.className = 'admin-row-info';
+        const nm = document.createElement('div'); nm.className = 'admin-row-name'; nm.textContent = name;
+        const meta = document.createElement('div'); meta.className = 'admin-row-meta';
+        meta.textContent = 'נרשם: ' + date + (u.lang ? ' · שפה: ' + u.lang : '');
+        info.appendChild(nm); info.appendChild(meta);
+
+        const acts = document.createElement('div');
+        acts.style.cssText = 'display:flex;gap:8px;align-items:center';
+
+        const sel = document.createElement('select'); sel.className = 'sp-select'; sel.title = 'גרסה';
+        Object.keys(TIERS).forEach(t => {
+            const op = document.createElement('option'); op.value = t;
+            op.textContent = TIERS[t].name.replace('Birgsol ', '');
+            if (t === curT) op.selected = true;
+            sel.appendChild(op);
+        });
+        sel.addEventListener('change', () => adminSetTier(name, sel.value));
+
+        const resetBtn = document.createElement('button'); resetBtn.className = 'admin-reset-btn';
+        resetBtn.textContent = 'איפוס סיסמה';
+        resetBtn.addEventListener('click', () => adminResetPassword(name));
+
+        const delBtn = document.createElement('button'); delBtn.className = 'admin-reset-btn';
+        delBtn.style.cssText = 'background:rgba(220,50,50,.18);border-color:rgba(220,50,50,.35);color:#ff8a80';
+        delBtn.textContent = 'מחק';
+        delBtn.addEventListener('click', () => adminDeleteUser(name));
+
+        acts.appendChild(sel); acts.appendChild(resetBtn); acts.appendChild(delBtn);
+        rowEl.appendChild(info); rowEl.appendChild(acts);
+        body.appendChild(rowEl);
+    });
 }
 
 async function adminResetPassword(username) {
@@ -2251,6 +2280,11 @@ async function doRegister() {
     err.style.display = 'none';
 
     if (!user)          { err.textContent = '❌ יש להזין שם משתמש.'; err.style.display='block'; return; }
+    // אבטחה + ניקיון: שם משתמש = אותיות/ספרות/רווח/מקף/קו-תחתון/נקודה בלבד (עברית ולטינית), 2-24 תווים
+    if (!/^[֐-׿a-zA-Z0-9 ._-]{2,24}$/.test(user)) {
+        err.textContent = '❌ שם המשתמש יכול להכיל אותיות, ספרות, רווח, נקודה, מקף וקו תחתון בלבד (2-24 תווים).';
+        err.style.display='block'; return;
+    }
     if (pass.length < 4){ err.textContent = '❌ הסיסמה חייבת להכיל לפחות 4 תווים.'; err.style.display='block'; return; }
     if (pass !== pass2) { err.textContent = '❌ הסיסמאות אינן תואמות.'; err.style.display='block'; return; }
 
@@ -2689,7 +2723,9 @@ const _escapeHtml = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'
 _renderer.code = function(arg, langArg) {
     // marked may call this with a token object {text, lang} OR positional (code, infostring) depending on version
     const text = (typeof arg === 'object' && arg !== null) ? arg.text : arg;
-    const lang = (typeof arg === 'object' && arg !== null) ? arg.lang : langArg;
+    let lang = (typeof arg === 'object' && arg !== null) ? arg.lang : langArg;
+    // אבטחה: מחרוזת השפה מוזרקת ל-onclick — מנקים לתווים בטוחים בלבד כדי למנוע פריצה מהמחרוזת
+    lang = (lang || '').toString().split(/\s+/)[0].replace(/[^a-zA-Z0-9+#_-]/g, '').slice(0, 20);
     const hljsReady = typeof hljs !== 'undefined';
     const language = (hljsReady && lang && hljs.getLanguage(lang)) ? lang : (lang || 'plaintext');
     let highlighted;
@@ -2711,7 +2747,42 @@ _renderer.code = function(arg, langArg) {
         <iframe class="code-preview" sandbox="allow-scripts allow-forms"></iframe>
     </div>`;
 };
+/* אבטחה: לחסום HTML גולמי שעובר דרך markdown (וקטור XSS, במיוחד בשיחות משותפות) —
+   מזריקים כטקסט מילולי במקום כ-HTML פעיל. כפתורי הקוד שלנו נוצרים ב-code renderer ולא מושפעים. */
+_renderer.html = function(t) {
+    const s = (typeof t === 'object' && t !== null) ? (t.text ?? t.raw ?? '') : (t ?? '');
+    return _escapeHtml(String(s));
+};
 marked.use({ renderer: _renderer, breaks: true, gfm: true });
+
+/* אבטחה: מנתח markdown ואז מנקה את התוצאה ב-DOM — מסיר תגי סקריפט, מטפלי on*
+   וכתובות javascript:, אך שומר על כפתורי הקוד ותצוגת ה-iframe שאנחנו יצרנו בעצמנו.
+   שכבת הגנה מרכזית מפני XSS, במיוחד כשמרנדרים שיחות משותפות שהתוכן בהן לא מהימן. */
+const _OWN_ONCLICK = /^(runCode|downloadCode|openCanvas|copyCode)\(this[,)]/;
+function mdSafe(text) {
+    let html;
+    try { html = marked.parse(text || ''); }
+    catch { return escHtml(String(text || '')).replace(/\n/g, '<br>'); }
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    tpl.content.querySelectorAll('script,object,embed,form,link,meta,base,style,noscript').forEach(el => el.remove());
+    tpl.content.querySelectorAll('iframe').forEach(el => { if (el.className !== 'code-preview') el.remove(); });
+    tpl.content.querySelectorAll('*').forEach(el => {
+        [...el.attributes].forEach(a => {
+            const n = a.name.toLowerCase();
+            if (n.startsWith('on')) {
+                // משאירים רק onclick של הכפתורים שאנחנו בעצמנו יצרנו בבלוק קוד
+                if (!(n === 'onclick' && _OWN_ONCLICK.test(a.value))) el.removeAttribute(a.name);
+            } else if (n === 'href' || n === 'src' || n === 'xlink:href' || n === 'srcdoc' || n === 'formaction') {
+                const v = a.value.replace(/[\s -]/g, '').toLowerCase();
+                if (n === 'srcdoc' || v.startsWith('javascript:') || v.startsWith('vbscript:') || v.startsWith('data:text/html')) {
+                    el.removeAttribute(a.name);
+                }
+            }
+        });
+    });
+    return tpl.innerHTML;
+}
 
 /* ── theme ── */
 if (!localStorage.getItem('birgsol_gemini_reset')) {
@@ -3189,13 +3260,13 @@ function addMsg(role, text, img = null, md = false, fileLabel = '') {
 
     if (role === 'user') {
         row.className = 'msg-row user';
-        const imgH = img ? `<img src="${img}" class="user-img" alt="תמונה">` : '';
+        const imgH = img ? `<img src="${encodeURI(img)}" class="user-img" alt="תמונה">` : '';
         const fileH = fileLabel ? `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);border-radius:8px;padding:4px 8px;font-size:12px;margin-top:4px">📄 ${esc2(fileLabel)}</div>` : '';
         row.dataset.histBefore = hist.length;
-        row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה">${IC.pencil}</button><div class="user-bub">${text.replace(/\n/g,'<br>')}${imgH}${fileH ? '<br>' + fileH : ''}</div></div>`;
+        row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה">${IC.pencil}</button><div class="user-bub">${escHtml(text).replace(/\n/g,'<br>')}${imgH}${fileH ? '<br>' + fileH : ''}</div></div>`;
     } else {
         row.className = 'msg-row ai';
-        const content = md ? marked.parse(text) : text.replace(/\n/g,'<br>');
+        const content = md ? mdSafe(text) : escHtml(text).replace(/\n/g,'<br>');
         row.innerHTML = `
             <div class="ai-ava">✦</div>
             <div class="ai-body">
@@ -4671,7 +4742,7 @@ async function send() {
 
         // Render as Markdown + math
         try {
-            txt.innerHTML = marked.parse(cleanText || fullText);
+            txt.innerHTML = mdSafe(cleanText || fullText);
             enhanceCodeBlocks(txt);
             _renderMath(txt); // fire-and-forget KaTeX
         } catch(renderErr) {}
