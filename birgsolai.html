@@ -2144,23 +2144,15 @@ function syncTierFromCloud(user, rec) {
     if (!rec) return;
     const expired = rec.tierUntil && rec.tierUntil < Date.now();
     const cloudTier = (!expired && TIERS[rec.tier]) ? rec.tier : 'free';
-    localStorage.setItem('birgsol_tier_' + user, cloudTier);
-    if (expired && rec.tier && rec.tier !== 'free') {
-        // התוכנית פגה — הודעה חד-פעמית (מזוהה לפי חותמת השינוי שפג)
-        const expSeen = localStorage.getItem('birgsol_tierexp_' + user);
-        if (String(rec.tierChangedAt) !== expSeen) {
-            localStorage.setItem('birgsol_tierexp_' + user, String(rec.tierChangedAt));
-            _tierToast('התוכנית שלך הסתיימה — חזרת ל-Birgsol Free');
-        }
-    } else {
-        const seen = parseInt(localStorage.getItem('birgsol_tiernotif_' + user) || '0');
-        if (rec.tierChangedAt && rec.tierChangedAt > seen) {
-            localStorage.setItem('birgsol_tiernotif_' + user, rec.tierChangedAt);
-            const t = TIERS[cloudTier];
-            const until = (cloudTier !== 'free' && rec.tierUntil) ? new Date(rec.tierUntil).toLocaleDateString('he-IL') : '';
-            _tierToast(cloudTier === 'free'
-                ? 'התוכנית שלך עודכנה ל-Birgsol Free'
-                : `התוכנית שלך הוחלפה ל-${t.name}${until ? ' עד ' + until : ''}`);
+    // ההודעה מופיעה רק כשהגרסה בענן שונה ממה שהמכשיר הזה מכיר — פעם אחת, בלי חזרות
+    const prev = localStorage.getItem('birgsol_tier_' + user);
+    try { localStorage.setItem('birgsol_tier_' + user, cloudTier); } catch {}
+    if (prev !== null && prev !== cloudTier) {
+        if (cloudTier === 'free') {
+            _tierToast(expired ? 'התוכנית שלך הסתיימה — חזרת ל-Birgsol Free' : 'התוכנית שלך עודכנה ל-Birgsol Free');
+        } else {
+            const until = rec.tierUntil ? new Date(rec.tierUntil).toLocaleDateString('he-IL') : '';
+            _tierToast(`התוכנית שלך הוחלפה ל-${TIERS[cloudTier].name}${until ? ' עד ' + until : ''}`);
         }
     }
     checkPremium(); updateUserChip();
