@@ -2774,7 +2774,7 @@ function mdSafe(text) {
                 // משאירים רק onclick של הכפתורים שאנחנו בעצמנו יצרנו בבלוק קוד
                 if (!(n === 'onclick' && _OWN_ONCLICK.test(a.value))) el.removeAttribute(a.name);
             } else if (n === 'href' || n === 'src' || n === 'xlink:href' || n === 'srcdoc' || n === 'formaction') {
-                const v = a.value.replace(/[\s -]/g, '').toLowerCase();
+                const v = a.value.replace(/[ - ]+/g, '').toLowerCase();
                 if (n === 'srcdoc' || v.startsWith('javascript:') || v.startsWith('vbscript:') || v.startsWith('data:text/html')) {
                     el.removeAttribute(a.name);
                 }
