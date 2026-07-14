@@ -16,6 +16,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="BIRGSOL AI">
+    <!-- מנוע תמונות FLUX.2 (נטען ברקע, לא חוסם) -->
+    <script src="https://js.puter.com/v2/" defer></script>
     <link href="https://fonts.bunny.net/css2?family=assistant:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link id="hljs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
@@ -3385,6 +3387,37 @@ function _askImageStyle() {
     });
 }
 
+/* ── מנוע תמונות FLUX.2 (Puter) — חינם, איכות גבוהה. מחזיר data-URL או null ──
+   בטיחות נשארת דלוקה (לא מעבירים disable_safety_checker). נכשל בשקט → גיבוי. */
+async function _puterImage(prompt) {
+    if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) return null;
+    const _timeout = (p, ms) => Promise.race([
+        p, new Promise((_, rej) => setTimeout(() => rej(new Error('puter-timeout')), ms))
+    ]);
+    let el;
+    try {
+        el = await _timeout(puter.ai.txt2img(prompt, { model: 'black-forest-labs/flux-2-pro' }), 55000);
+    } catch { return null; }
+    const src = (el && el.src) ? el.src : (typeof el === 'string' ? el : null);
+    if (!src) return null;
+    if (src.startsWith('data:')) return src;
+    // המרה ל-data-URL כדי שהתמונה תישמר בהיסטוריה/ענן (blob/http נעלמים)
+    return await new Promise((resolve) => {
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = () => {
+            try {
+                const c = document.createElement('canvas');
+                c.width = im.naturalWidth; c.height = im.naturalHeight;
+                c.getContext('2d').drawImage(im, 0, 0);
+                resolve(c.toDataURL('image/jpeg', 0.92));
+            } catch { resolve(src); }
+        };
+        im.onerror = () => resolve(null);
+        im.src = src;
+    });
+}
+
 async function generateImage(promptRaw, reuseRow, imgStyle) {
     showChat();
     const cw = document.getElementById('chat-window');
@@ -3486,8 +3519,13 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
     let imgSrc = null;
 
-    // 1st: FLUX.1-dev via fal-ai (best quality, ~3s, verified working)
+    // 1st: FLUX.2 via Puter (חינם, איכות גבוהה) — בטיחות דלוקה (אין disable_safety_checker)
     try {
+        imgSrc = await _puterImage(styledPrompt);
+    } catch { /* fall through */ }
+
+    // 2nd: FLUX.1-dev via fal-ai (best quality, ~3s, verified working)
+    if (!imgSrc) try {
         const devRes = await fetch('https://router.huggingface.co/fal-ai/fal-ai/flux/dev', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
@@ -3501,7 +3539,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
         }
     } catch { /* fall through */ }
 
-    // 2nd: FLUX.1-schnell via nscale (fast fallback)
+    // 3rd: FLUX.1-schnell via nscale (fast fallback)
     if (!imgSrc) try {
         const hfRes = await fetch('https://router.huggingface.co/nscale/v1/images/generations', {
             method: 'POST',
