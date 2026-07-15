@@ -2659,7 +2659,7 @@ function setMode(mode) {
 
 
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
-let _groqQuotaExhausted = false;
+let _groqCooldownUntil = 0; // כש-Groq מגיע למגבלת קצב, נותנים לו לנוח עד הזמן הזה (במקום לפסול לכל השיחה)
 let _abortCtrl = null;
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
 
@@ -4347,7 +4347,7 @@ async function callAI(messages, onChunk, signal=null) {
             signal: _sig
         });
         if (!res.ok) {
-            if (res.status === 429 && url.includes('groq')) { _groqQuotaExhausted = true; }
+            if (res.status === 429 && url.includes('groq')) { _groqCooldownUntil = Date.now() + 60000; }
             throw new Error('HTTP ' + res.status);
         }
         const reader = res.body.getReader();
@@ -4450,7 +4450,7 @@ async function callAI(messages, onChunk, signal=null) {
 
     const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
     const stages = [
-        { name: 'Groq stream',        fn: () => _groqQuotaExhausted ? Promise.reject(new Error('quota')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + GROQ_KEY, { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
+        { name: 'Groq stream',        fn: () => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + GROQ_KEY, { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
         { name: 'GitHub stream',       fn: () => _stream('https://models.github.ai/inference/chat/completions', 'Bearer ' + GH_TOKEN, { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'OpenRouter',          fn: () => _tryOpenRouter().then(_tw) },
@@ -4458,12 +4458,16 @@ async function callAI(messages, onChunk, signal=null) {
         { name: 'GET fallback',        fn: () => _tryGET().then(_tw) },
     ];
 
-    for (const s of stages) {
-        try { return await s.fn(); }
-        catch(e) {
-            if (e.name === 'AbortError') throw e; // user stopped — propagate immediately
-            console.warn(`[AI] ${s.name}:`, e.message);
+    // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
+    for (let round = 0; round < 2; round++) {
+        for (const s of stages) {
+            try { return await s.fn(); }
+            catch(e) {
+                if (e.name === 'AbortError') throw e; // user stopped — propagate immediately
+                console.warn(`[AI] ${s.name}:`, e.message);
+            }
         }
+        if (round === 0) await new Promise(r => setTimeout(r, 1500)); // המתנה קצרה לפני הסבב השני
     }
     throw new Error('all providers failed');
 }
