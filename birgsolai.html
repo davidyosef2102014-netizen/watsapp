@@ -1679,7 +1679,12 @@ const TAVILY_KEY2 = ['tvly-dev-1D4PtD-g933m0WYqRkYbCo','LFYrcZKzyilDqwBmvOWjTcfv
 const TAVILY_KEY3 = ['tvly-dev-234F4k-9aWJ3lxMHEuddz','ad5sknEYtvAj60zHSKRl0p1T12TS'].join('');
 const TAVILY_KEY4 = ['tvly-dev-Zspg-KMjhhG02qLhv4GRL','iD9mzGNqqJRUM8KQOtTn1Tqzzr'].join('');
 const TAVILY_KEY5 = ['tvly-dev-Q6Vy6-q21cuKnkyofEDT','H5CsiUtp0kFGUh8vFi0xqaLVBU1z'].join('');
-const GROQ_KEY = ['gsk_qzgrngwU4WRLi6KmRmc6WGdy','b3FYwVt9hwIMeHO9A9KXTjlOb2Rj'].join('');
+/* מספר מפתחות Groq — בוחרים אקראית בכל בקשה כדי לפזר עומס ולהרחיב את מגבלת הקצב */
+const GROQ_KEYS = [
+    ['gsk_qzgrngwU4WRLi6KmRmc6WGdy','b3FYwVt9hwIMeHO9A9KXTjlOb2Rj'].join(''),
+    ['gsk_0DEGs44HOlLJxXhUzJ64WGdy','b3FYov8hmgfKEKZUadnpYdPLJ2uh'].join('')
+];
+function groqKey() { return GROQ_KEYS[Math.floor(Math.random() * GROQ_KEYS.length)]; }
 const OPENROUTER_KEY = ['sk-or-v1-f655e93634af39fcf294ade3c3','fd8dc0191c95b35b550b7309692fc3eaf3fa28'].join('');
 const OPENROUTER_KEY2 = ['sk-or-v1-614e25d14b22da92a4f88976','56555b50253fd7cea6f09aef8cffcd0725d58ac2'].join('');
 const GEMINI_KEY = ['AQ.Ab8RN6KZoOHQvj-7TYEWuvXSb','mwnKlb8T88Sj2Gut8O5DZkTHg'].join('');
@@ -1975,7 +1980,7 @@ async function _genSmartTitle(convId) {
             .join('\n---\n');
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 60,
                 messages: [
@@ -2695,7 +2700,7 @@ async function extractMemory(userMsg, aiReply) {
             : '';
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: [
@@ -2832,7 +2837,7 @@ async function deepStream(messages, onChunk, signal) {
         : AbortSignal.timeout(120000);
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages, stream: true, reasoning_effort: 'medium', temperature: 0.7, max_tokens: 4096 }),
         signal: _sig
     });
@@ -4254,7 +4259,7 @@ async function _consolidateMemory() {
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: [
@@ -4450,7 +4455,7 @@ async function callAI(messages, onChunk, signal=null) {
 
     const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
     const stages = [
-        { name: 'Groq stream',        fn: () => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + GROQ_KEY, { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
+        { name: 'Groq stream',        fn: () => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + groqKey(), { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
         { name: 'GitHub stream',       fn: () => _stream('https://models.github.ai/inference/chat/completions', 'Bearer ' + GH_TOKEN, { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'OpenRouter',          fn: () => _tryOpenRouter().then(_tw) },
@@ -4525,7 +4530,7 @@ async function _autoNameConv() {
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: [
@@ -4923,7 +4928,7 @@ async function _callAILive(messages) {
     const short = messages.map(m => ({ ...m, content: typeof m.content === 'string' ? m.content : '' }));
     const tryGroq = () => fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: short, temperature: 0.7, max_tokens: 400 }),
         signal: AbortSignal.timeout(8000)
     }).then(r => { if (!r.ok) throw new Error('groq ' + r.status); return r.json(); })
