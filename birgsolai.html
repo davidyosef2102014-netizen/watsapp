@@ -4592,18 +4592,32 @@ async function _renderMath(el) {
 }
 
 /* ── SEND ── */
-/* מזהה קישור יוטיוב בהודעה ושולף כותרת + ערוץ (noembed — CORS פתוח), כדי שה-AI יוכל להסביר על הסרטון */
-async function _fetchYouTubeInfo(text) {
-    const m = text.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([\w-]{11})/i);
-    if (!m) return '';
-    const url = 'https://www.youtube.com/watch?v=' + m[1];
-    try {
-        const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(8000) });
-        const d = await r.json();
-        if (d && d.title) {
-            return `\n\n[מידע על סרטון היוטיוב שהמשתמש שלח — כותרת: "${d.title}"${d.author_name ? ', ערוץ: ' + d.author_name : ''}. הסבר על מה הסרטון על סמך הכותרת והערוץ. אם דרושים פרטים נוספים על התוכן, חפש את שם הסרטון עם [SEARCH].]`;
-        }
-    } catch {}
+/* מזהה קישור בהודעה ומעשיר את ההקשר ל-AI:
+   יוטיוב → כותרת + ערוץ (noembed). כל קישור אחר → תוכן הדף (r.jina.ai). שניהם CORS-פתוחים. */
+async function _fetchLinkInfo(text) {
+    // יוטיוב — שולף כותרת + ערוץ
+    const yt = text.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([\w-]{11})/i);
+    if (yt) {
+        try {
+            const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + yt[1]), { signal: AbortSignal.timeout(8000) });
+            const d = await r.json();
+            if (d && d.title) {
+                return `\n\n[מידע על סרטון היוטיוב שהמשתמש שלח — כותרת: "${d.title}"${d.author_name ? ', ערוץ: ' + d.author_name : ''}. הסבר על מה הסרטון על סמך הכותרת והערוץ. אם דרושים פרטים נוספים, חפש את שם הסרטון עם [SEARCH].]`;
+            }
+        } catch {}
+        return '';
+    }
+    // כל קישור אחר — קורא את תוכן הדף
+    const link = text.match(/https?:\/\/[^\s]+/i);
+    if (link) {
+        try {
+            const r = await fetch('https://r.jina.ai/' + link[0], { headers: { 'X-Return-Format': 'markdown' }, signal: AbortSignal.timeout(15000) });
+            if (r.ok) {
+                const t = (await r.text()).slice(0, 4000);
+                if (t && t.length > 50) return `\n\n[תוכן הדף מהקישור שהמשתמש שלח]:\n${t}\n\n[ענה על סמך תוכן הדף הזה.]`;
+            }
+        } catch {}
+    }
     return '';
 }
 
@@ -4666,8 +4680,8 @@ async function send() {
             : attachedFile;
         messages.push({ role: 'user', content: `[תוכן הקובץ "${attachedName}"]\n${trimmed}\n\n[שאלת המשתמש]: ${q || 'נתח את הקובץ'}` });
     } else {
-        const ytInfo = await _fetchYouTubeInfo(q);
-        messages.push({ role: 'user', content: q + ytInfo });
+        const linkInfo = await _fetchLinkInfo(q);
+        messages.push({ role: 'user', content: q + linkInfo });
     }
 
     // ── Build AI message row with streaming text + agent status ──
