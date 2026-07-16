@@ -3371,10 +3371,10 @@ function _askImageStyle() {
     const cw = document.getElementById('chat-window');
     return new Promise(resolve => {
         const styles = [
-            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'gptimage',      suffix: 'real photograph, candid photo, natural soft lighting, realistic skin and fur textures, natural colors, everyday realism, sharp focus' },
-            { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, artistic painterly style, vivid colors, brush strokes' },
-            { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful flat design, bold outlines' },
-            { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant anime illustration' },
+            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'gptimage',      suffix: 'real photograph, natural soft lighting, realistic textures, sharp focus. Single clear subject, simple clean composition, plain uncluttered background, no extra objects or people unless requested' },
+            { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, painterly style, vivid colors, brush strokes. Single clear subject, simple clean composition, no extra objects unless requested' },
+            { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful flat design, bold outlines. Single clear subject, simple clean background, no extra objects unless requested' },
+            { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant illustration. Single clear subject, clean composition, no extra objects unless requested' },
         ];
         const row = document.createElement('div'); row.className = 'msg-row ai';
         const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '✦';
