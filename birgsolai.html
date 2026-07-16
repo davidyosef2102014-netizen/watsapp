@@ -4592,6 +4592,21 @@ async function _renderMath(el) {
 }
 
 /* ── SEND ── */
+/* מזהה קישור יוטיוב בהודעה ושולף כותרת + ערוץ (noembed — CORS פתוח), כדי שה-AI יוכל להסביר על הסרטון */
+async function _fetchYouTubeInfo(text) {
+    const m = text.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([\w-]{11})/i);
+    if (!m) return '';
+    const url = 'https://www.youtube.com/watch?v=' + m[1];
+    try {
+        const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(8000) });
+        const d = await r.json();
+        if (d && d.title) {
+            return `\n\n[מידע על סרטון היוטיוב שהמשתמש שלח — כותרת: "${d.title}"${d.author_name ? ', ערוץ: ' + d.author_name : ''}. הסבר על מה הסרטון על סמך הכותרת והערוץ. אם דרושים פרטים נוספים על התוכן, חפש את שם הסרטון עם [SEARCH].]`;
+        }
+    } catch {}
+    return '';
+}
+
 async function send() {
     if (busy) return;
     const inp = document.getElementById('userInput');
@@ -4651,7 +4666,8 @@ async function send() {
             : attachedFile;
         messages.push({ role: 'user', content: `[תוכן הקובץ "${attachedName}"]\n${trimmed}\n\n[שאלת המשתמש]: ${q || 'נתח את הקובץ'}` });
     } else {
-        messages.push({ role: 'user', content: q });
+        const ytInfo = await _fetchYouTubeInfo(q);
+        messages.push({ role: 'user', content: q + ytInfo });
     }
 
     // ── Build AI message row with streaming text + agent status ──
