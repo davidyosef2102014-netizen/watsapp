@@ -4617,8 +4617,8 @@ async function send() {
         inp.value = ''; inp.style.height = 'auto';
         clearFile(); busy = true; updateBtn();
         if (isFirstMsg) { addToHistory(q); isFirstMsg = false; }
-        await editImage(imgToEdit, q);
-        busy = false; updateBtn();
+        try { await editImage(imgToEdit, q); }
+        finally { busy = false; updateBtn(); } // תמיד משחרר את הנעילה, גם אם נכשל
         return;
     }
 
@@ -4762,6 +4762,7 @@ async function send() {
     }
     _abortCtrl = null;
 
+    try {
     if (fullText) {
         // Hide search indicator
         status.style.transition = 'opacity .4s'; status.style.opacity = '0';
@@ -4800,8 +4801,9 @@ async function send() {
         // Auto-name the conversation after the very first exchange
         if (hist.filter(m => m.role === 'assistant').length === 1) _autoNameConv();
     }
-
-    busy = false; updateBtn();
+    } finally {
+        busy = false; updateBtn(); // תמיד משחרר את הנעילה — גם אם רינדור התשובה נכשל
+    }
 }
 
 function sendSug(t) {
