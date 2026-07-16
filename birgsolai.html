@@ -3502,21 +3502,24 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
     let imgSrc = null;
 
-    // 1st: FLUX.1-schnell via Cloudflare Worker (חינם, 10k/יום, לא נגמר)
-    try {
-        const cfRes = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: styledPrompt }),
-            signal: AbortSignal.timeout(50000)
-        });
-        if (cfRes.ok) {
-            const cfData = await cfRes.json();
-            if (cfData.image && cfData.image.length > 1000) {
-                imgSrc = `data:image/${cfData.type === 'png' ? 'png' : 'jpeg'};base64,${cfData.image}`;
+    // 1st: FLUX.1-schnell via Cloudflare Worker (חינם, 10k/יום). מנסים עד 3 פעמים —
+    // הסינון NSFW של FLUX אקראי בכל קריאה, כך שניסיון חוזר כמעט תמיד עובר.
+    for (let cfTry = 0; cfTry < 3 && !imgSrc; cfTry++) {
+        try {
+            const cfRes = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: styledPrompt }),
+                signal: AbortSignal.timeout(50000)
+            });
+            if (cfRes.ok) {
+                const cfData = await cfRes.json();
+                if (cfData.image && cfData.image.length > 1000) {
+                    imgSrc = `data:image/${cfData.type === 'png' ? 'png' : 'jpeg'};base64,${cfData.image}`;
+                }
             }
-        }
-    } catch { /* fall through */ }
+        } catch { /* ננסה שוב / ניפול לגיבוי */ }
+    }
 
     // 2nd: FLUX.1-dev via fal-ai (HuggingFace — פועל כשיש קרדיטים)
     if (!imgSrc) try {
