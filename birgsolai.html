@@ -4601,9 +4601,11 @@ async function send() {
     // Image generation — free, unlimited, no quota used
     if (isImageRequest(q) && !fileUrl) {
         addMsg('user', q);
-        inp.value = ''; inp.style.height = 'auto'; updateBtn();
+        inp.value = ''; inp.style.height = 'auto';
+        busy = true; updateBtn(); // נעילה — מונע התנגשות עם ההודעה הבאה בזמן יצירה איטית
         if (q && isFirstMsg) { addToHistory(q); isFirstMsg = false; }
-        await generateImage(q);
+        try { await generateImage(q); }
+        finally { busy = false; updateBtn(); }
         return;
     }
 
