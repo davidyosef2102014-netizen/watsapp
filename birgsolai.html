@@ -10,8 +10,8 @@
     <!-- PWA — התקנה כאפליקציה -->
     <link rel="manifest" href="birgsolai.webmanifest">
     <meta name="theme-color" content="#eef4fd">
-    <link rel="icon" type="image/png" href="birgsol-icon-192.png?v=5">
-    <link rel="apple-touch-icon" href="birgsol-icon-192.png">
+    <link rel="icon" type="image/png" href="birgsol-icon-192.png?v=6">
+    <link rel="apple-touch-icon" href="birgsol-icon-192.png?v=6">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -146,22 +146,13 @@
             padding: 40px 20px 200px; text-align: center;
         }
 
-        /* Gemini's iconic star sparkle SVG-like decoration */
+        /* BIRGSOL original spirograph logo */
         .gem-star {
-            width: 64px; height: 64px; margin-bottom: 24px;
-            position: relative; animation: sparkle 4s ease-in-out infinite;
+            width: 76px; height: 76px; margin-bottom: 24px;
+            background: url('birgsol-logo-transparent.png?v=1') center/contain no-repeat;
+            animation: sparkle 4s ease-in-out infinite;
         }
-        .gem-star::before, .gem-star::after {
-            content: '✦';
-            position: absolute; inset: 0;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 58px; line-height: 1;
-            background: linear-gradient(135deg, #4285F4, #C58AF9, #EA4335);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-        }
-        .gem-star::after { animation: spin 8s linear infinite; font-size: 20px; opacity: .4; }
-        @keyframes sparkle { 0%,100%{transform:scale(1)}50%{transform:scale(1.08)} }
-        @keyframes spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
+        @keyframes sparkle { 0%,100%{transform:scale(1)}50%{transform:scale(1.06)} }
 
         .gem-hello {
             font-size: 2.7rem; font-weight: 700; line-height: 1.15; margin-bottom: 6px;
@@ -865,8 +856,7 @@
             .gem-hello { font-size: 1.9rem; }
             .gem-sub { font-size: 1.3rem; margin-bottom: 28px; }
             #welcome { padding: 20px 14px 170px; }
-            .gem-star { width: 46px; height: 46px; margin-bottom: 16px; }
-            .gem-star::before { font-size: 40px; }
+            .gem-star { width: 60px; height: 60px; margin-bottom: 16px; }
             .sug-grid { grid-template-columns: 1fr; gap: 8px; }
             .input-area { padding: 6px 12px 14px; }
             .msg-row { padding: 4px 12px; }
