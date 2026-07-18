@@ -1087,30 +1087,30 @@
     <div id="register-card" class="login-card" style="display:none;">
         <div class="login-logo">
             <div class="l-star"></div>
-            <h1>חשבון חדש</h1>
-            <p>צור חשבון Birgsol AI אישי — עובד מכל מכשיר</p>
+            <h1 data-i18n="reg_title">חשבון חדש</h1>
+            <p data-i18n="reg_sub">צור חשבון Birgsol AI אישי — עובד מכל מכשיר</p>
         </div>
         <div class="login-field">
-            <label>שם משתמש</label>
-            <input type="text" id="reg-user" placeholder="בחר שם משתמש בעברית או אנגלית" autocomplete="off"
+            <label data-i18n="username">שם משתמש</label>
+            <input type="text" id="reg-user" data-i18n-ph="reg_user_ph" placeholder="בחר שם משתמש בעברית או אנגלית" autocomplete="off"
                 onkeydown="if(event.key==='Enter')document.getElementById('reg-pass').focus()">
         </div>
         <div class="login-field">
-            <label>סיסמה</label>
-            <input type="password" id="reg-pass" placeholder="לפחות 4 תווים" autocomplete="new-password"
+            <label data-i18n="password">סיסמה</label>
+            <input type="password" id="reg-pass" data-i18n-ph="reg_pass_ph" placeholder="לפחות 4 תווים" autocomplete="new-password"
                 onkeydown="if(event.key==='Enter')document.getElementById('reg-pass2').focus()">
         </div>
         <div class="login-field">
-            <label>אימות סיסמה</label>
-            <input type="password" id="reg-pass2" placeholder="הזן שוב את הסיסמה" autocomplete="new-password"
+            <label data-i18n="reg_pass2">אימות סיסמה</label>
+            <input type="password" id="reg-pass2" data-i18n-ph="reg_pass2_ph" placeholder="הזן שוב את הסיסמה" autocomplete="new-password"
                 onkeydown="if(event.key==='Enter')doRegister()">
         </div>
         <div class="login-field">
-            <label>איך שה-AI יתנהג? (אופציונלי)</label>
-            <textarea id="reg-instr" placeholder="לדוגמה: תענה קצר ולעניין, תסביר בפשטות, השתמש בהומור..." rows="2" style="width:100%;background:inherit;border:inherit;border-radius:inherit;padding:10px 12px;font-family:inherit;font-size:14px;color:inherit;resize:none;outline:none;border:1.5px solid var(--border,#ccc);border-radius:10px"></textarea>
+            <label data-i18n="reg_instr_label">איך שה-AI יתנהג? (אופציונלי)</label>
+            <textarea id="reg-instr" data-i18n-ph="reg_instr_ph" placeholder="לדוגמה: תענה קצר ולעניין, תסביר בפשטות, השתמש בהומור..." rows="2" style="width:100%;background:inherit;border:inherit;border-radius:inherit;padding:10px 12px;font-family:inherit;font-size:14px;color:inherit;resize:none;outline:none;border:1.5px solid var(--border,#ccc);border-radius:10px"></textarea>
         </div>
         <div class="login-field">
-            <label>שפת AI</label>
+            <label data-i18n="ai_lang">שפה</label>
             <div class="lang-picker" id="reg-lang-picker">
                 <button class="lang-opt active" data-lang="he" onclick="pickRegLang(this)">🇮🇱 עברית</button>
                 <button class="lang-opt" data-lang="en" onclick="pickRegLang(this)">🇺🇸 English</button>
@@ -1120,11 +1120,11 @@
                 <button class="lang-opt" data-lang="fr" onclick="pickRegLang(this)">🇫🇷 Français</button>
             </div>
         </div>
-        <button class="login-btn" id="reg-btn" onclick="doRegister()">צור חשבון</button>
+        <button class="login-btn" id="reg-btn" onclick="doRegister()" data-i18n="reg_btn">צור חשבון</button>
         <div id="reg-err" class="login-err"></div>
         <div style="text-align:center;margin-top:14px;">
-            <span style="font-size:13px;color:var(--muted);">כבר יש לך חשבון? </span>
-            <button onclick="showLogin()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;">כניסה</button>
+            <span style="font-size:13px;color:var(--muted);" data-i18n="have_account">כבר יש לך חשבון?</span>
+            <button onclick="showLogin()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;" data-i18n="sign_in_link">כניסה</button>
         </div>
     </div>
 </div>
@@ -2385,19 +2385,19 @@ function toggleCards() {
 const L10N = {
     he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את Birgsol AI...', foot:'Birgsol AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
           mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', convs:'שיחות', search_ph:'חפש שיחות...', settings_title:'הגדרות תצוגה',
-          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפת AI',
+          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה',
           settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות' },
     en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask Birgsol AI...', foot:'Birgsol AI can make mistakes. Check important info.', newChat:'New chat',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', convs:'Chats', search_ph:'Search chats...', settings_title:'Display settings',
-          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'AI language',
+          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language',
           settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out' },
     ar: { greet:'مرحبا', sub:'كيف يمكنني مساعدتك اليوم؟', ph:'اسأل Birgsol AI...', foot:'قد يخطئ Birgsol AI. تحقق من المعلومات المهمة.', newChat:'محادثة جديدة',
           mode_chat:'محادثة', mode_code:'كود', mode_image:'صورة', convs:'المحادثات', search_ph:'ابحث في المحادثات...', settings_title:'إعدادات العرض',
-          your_plan:'خطتك', dark_mode:'الوضع الداكن', greeting:'تحية', suggestion_cards:'بطاقات الاقتراحات', ai_lang:'لغة الذكاء الاصطناعي',
+          your_plan:'خطتك', dark_mode:'الوضع الداكن', greeting:'تحية', suggestion_cards:'بطاقات الاقتراحات', ai_lang:'اللغة',
           settings:'الإعدادات', user_mgmt:'إدارة المستخدمين', created_by:'من إنشاء ديفيد يوسف زيفي', logout:'تسجيل الخروج' },
     ru: { greet:'Привет', sub:'Чем я могу помочь вам сегодня?', ph:'Спросите Birgsol AI...', foot:'Birgsol AI может ошибаться. Проверяйте важную информацию.', newChat:'Новый чат',
           mode_chat:'Чат', mode_code:'Код', mode_image:'Изображение', convs:'Чаты', search_ph:'Поиск чатов...', settings_title:'Настройки отображения',
-          your_plan:'Ваш план', dark_mode:'Тёмная тема', greeting:'Приветствие', suggestion_cards:'Карточки подсказок', ai_lang:'Язык ИИ',
+          your_plan:'Ваш план', dark_mode:'Тёмная тема', greeting:'Приветствие', suggestion_cards:'Карточки подсказок', ai_lang:'Язык',
           settings:'Настройки', user_mgmt:'Управление пользователями', created_by:'Создано Давидом Йосефом Зеви', logout:'Выйти' },
     fr: { greet:'Salut', sub:"Comment puis-je vous aider aujourd'hui ?", ph:'Demandez à Birgsol AI...', foot:'Birgsol AI peut se tromper. Vérifiez les informations importantes.', newChat:'Nouvelle discussion',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', convs:'Discussions', search_ph:'Rechercher...', settings_title:'Paramètres d\'affichage',
@@ -2414,6 +2414,16 @@ const L10N_LOGIN = {
     fr: { login_sub:'Connectez-vous avec votre compte Birgsol AI', username:'Nom d\'utilisateur', password:'Mot de passe', username_ph:'ex. David, Ruth...', password_ph:'Votre mot de passe', login_btn:'Se connecter', no_account:'Pas encore de compte ?', create_account:'Créer un compte', forgot_pw:'Mot de passe oublié', login_note:'Les discussions sont enregistrées automatiquement dans le cloud · depuis tout appareil' }
 };
 Object.keys(L10N_LOGIN).forEach(l => Object.assign(L10N[l], L10N_LOGIN[l]));
+
+/* מחרוזות טופס ההרשמה */
+const L10N_REG = {
+    he: { reg_title:'חשבון חדש', reg_sub:'צור חשבון Birgsol AI אישי — עובד מכל מכשיר', reg_user_ph:'בחר שם משתמש בעברית או אנגלית', reg_pass_ph:'לפחות 4 תווים', reg_pass2:'אימות סיסמה', reg_pass2_ph:'הזן שוב את הסיסמה', reg_instr_label:'איך שה-AI יתנהג? (אופציונלי)', reg_instr_ph:'לדוגמה: תענה קצר ולעניין, תסביר בפשטות...', reg_btn:'צור חשבון', have_account:'כבר יש לך חשבון?', sign_in_link:'התחבר' },
+    en: { reg_title:'New account', reg_sub:'Create a personal Birgsol AI account — works on any device', reg_user_ph:'Choose a username', reg_pass_ph:'At least 4 characters', reg_pass2:'Confirm password', reg_pass2_ph:'Re-enter your password', reg_instr_label:'How should the AI behave? (optional)', reg_instr_ph:'e.g. answer briefly, explain simply, use humor...', reg_btn:'Create account', have_account:'Already have an account?', sign_in_link:'Sign in' },
+    ar: { reg_title:'حساب جديد', reg_sub:'أنشئ حساب Birgsol AI شخصي — يعمل من أي جهاز', reg_user_ph:'اختر اسم مستخدم', reg_pass_ph:'4 أحرف على الأقل', reg_pass2:'تأكيد كلمة المرور', reg_pass2_ph:'أعد إدخال كلمة المرور', reg_instr_label:'كيف يتصرف الذكاء الاصطناعي؟ (اختياري)', reg_instr_ph:'مثال: أجب باختصار، اشرح ببساطة...', reg_btn:'إنشاء حساب', have_account:'لديك حساب بالفعل؟', sign_in_link:'تسجيل الدخول' },
+    ru: { reg_title:'Новый аккаунт', reg_sub:'Создайте личный аккаунт Birgsol AI — работает на любом устройстве', reg_user_ph:'Выберите имя пользователя', reg_pass_ph:'Минимум 4 символа', reg_pass2:'Подтвердите пароль', reg_pass2_ph:'Повторите пароль', reg_instr_label:'Как должен вести себя ИИ? (необязательно)', reg_instr_ph:'напр. отвечай кратко, объясняй просто...', reg_btn:'Создать аккаунт', have_account:'Уже есть аккаунт?', sign_in_link:'Войти' },
+    fr: { reg_title:'Nouveau compte', reg_sub:'Créez un compte Birgsol AI personnel — sur tout appareil', reg_user_ph:'Choisissez un nom d\'utilisateur', reg_pass_ph:'Au moins 4 caractères', reg_pass2:'Confirmer le mot de passe', reg_pass2_ph:'Ressaisissez le mot de passe', reg_instr_label:'Comment l\'IA doit-elle se comporter ? (facultatif)', reg_instr_ph:'ex. réponds brièvement, explique simplement...', reg_btn:'Créer un compte', have_account:'Vous avez déjà un compte ?', sign_in_link:'Se connecter' }
+};
+Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
 
 const RTL_LANGS = ['he','ar'];
 
@@ -2689,6 +2699,8 @@ function pickRegLang(btn) {
     document.querySelectorAll('#reg-lang-picker .lang-opt').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     _regLang = btn.dataset.lang;
+    // החלף את הממשק מיד לשפה הנבחרת (כדי שהמשתמש יראה את הבחירה חיה)
+    if (L10N[_regLang]) { localStorage.setItem('birgsol_lang', _regLang); applyUILang(_regLang); }
 }
 const LANG_NAMES = { he:'Hebrew (עברית)', en:'English', ar:'Arabic (العربية)', ru:'Russian (Русский)', zh:'Chinese (中文)', fr:'French (Français)' };
 
