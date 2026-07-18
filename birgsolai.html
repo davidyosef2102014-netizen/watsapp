@@ -1004,30 +1004,37 @@
 
 <!-- ══ LOGIN SCREEN ══ -->
 <div id="login-screen">
+    <select id="login-lang" onchange="applyLang(this.value)" title="Language" style="position:absolute;top:14px;inset-inline-end:14px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;z-index:10;">
+        <option value="en">EN</option>
+        <option value="he">עב</option>
+        <option value="ar">ع</option>
+        <option value="ru">RU</option>
+        <option value="fr">FR</option>
+    </select>
     <div class="login-card">
         <div class="login-logo">
             <div class="l-star"></div>
             <h1>BIRGSOL AI 3.5</h1>
-            <p>התחבר עם חשבון Birgsol AI שלך</p>
+            <p data-i18n="login_sub">התחבר עם חשבון Birgsol AI שלך</p>
         </div>
         <div class="login-field">
-            <label>שם משתמש</label>
-            <input type="text" id="li-user" placeholder="לדוגמה: דוד, רות..." autocomplete="username">
+            <label data-i18n="username">שם משתמש</label>
+            <input type="text" id="li-user" data-i18n-ph="username_ph" placeholder="לדוגמה: דוד, רות..." autocomplete="username">
         </div>
         <div class="login-field">
-            <label>סיסמה</label>
-            <input type="password" id="li-pass" placeholder="הסיסמה שלך" autocomplete="current-password"
+            <label data-i18n="password">סיסמה</label>
+            <input type="password" id="li-pass" data-i18n-ph="password_ph" placeholder="הסיסמה שלך" autocomplete="current-password"
                 onkeydown="if(event.key==='Enter')doLogin()">
         </div>
-        <button class="login-btn" onclick="doLogin()">כניסה לאזור האישי</button>
+        <button class="login-btn" onclick="doLogin()" data-i18n="login_btn">כניסה לאזור האישי</button>
         <div id="li-err" class="login-err"></div>
 
-        <p class="login-bank-note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם</p>
+        <p class="login-bank-note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> <span data-i18n="login_note">שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם</span></p>
         <div style="text-align:center;margin-top:14px;">
-            <span style="font-size:13px;color:var(--muted);">אין לך חשבון עדיין? </span>
-            <button onclick="showRegister()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;">צור חשבון חדש</button>
+            <span style="font-size:13px;color:var(--muted);" data-i18n="no_account">אין לך חשבון עדיין?</span>
+            <button onclick="showRegister()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;" data-i18n="create_account">צור חשבון חדש</button>
             &nbsp;·&nbsp;
-            <button onclick="showForgot()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;font-family:inherit;text-decoration:underline;padding:0;">שכחתי סיסמה</button>
+            <button onclick="showForgot()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;font-family:inherit;text-decoration:underline;padding:0;" data-i18n="forgot_pw">שכחתי סיסמה</button>
         </div>
     </div>
 
@@ -2398,7 +2405,25 @@ const L10N = {
           settings:'Paramètres', user_mgmt:'Gestion des utilisateurs', created_by:'Créé par David Yosef Zevi', logout:'Se déconnecter' }
 };
 
+/* מחרוזות דף ההתחברות — ממוזגות לתוך L10N */
+const L10N_LOGIN = {
+    he: { login_sub:'התחבר עם חשבון Birgsol AI שלך', username:'שם משתמש', password:'סיסמה', username_ph:'לדוגמה: דוד, רות...', password_ph:'הסיסמה שלך', login_btn:'כניסה לאזור האישי', no_account:'אין לך חשבון עדיין?', create_account:'צור חשבון חדש', forgot_pw:'שכחתי סיסמה', login_note:'שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם' },
+    en: { login_sub:'Sign in with your Birgsol AI account', username:'Username', password:'Password', username_ph:'e.g. David, Ruth...', password_ph:'Your password', login_btn:'Sign in', no_account:"Don't have an account?", create_account:'Create account', forgot_pw:'Forgot password', login_note:'Chats are saved automatically in the cloud · from any device' },
+    ar: { login_sub:'سجّل الدخول بحساب Birgsol AI', username:'اسم المستخدم', password:'كلمة المرور', username_ph:'مثال: ديفيد، روث...', password_ph:'كلمة المرور', login_btn:'تسجيل الدخول', no_account:'ليس لديك حساب؟', create_account:'إنشاء حساب', forgot_pw:'نسيت كلمة المرور', login_note:'يتم حفظ المحادثات تلقائيًا في السحابة · من أي جهاز' },
+    ru: { login_sub:'Войдите в аккаунт Birgsol AI', username:'Имя пользователя', password:'Пароль', username_ph:'напр. Давид, Рут...', password_ph:'Ваш пароль', login_btn:'Войти', no_account:'Нет аккаунта?', create_account:'Создать аккаунт', forgot_pw:'Забыли пароль', login_note:'Чаты автоматически сохраняются в облаке · с любого устройства' },
+    fr: { login_sub:'Connectez-vous avec votre compte Birgsol AI', username:'Nom d\'utilisateur', password:'Mot de passe', username_ph:'ex. David, Ruth...', password_ph:'Votre mot de passe', login_btn:'Se connecter', no_account:'Pas encore de compte ?', create_account:'Créer un compte', forgot_pw:'Mot de passe oublié', login_note:'Les discussions sont enregistrées automatiquement dans le cloud · depuis tout appareil' }
+};
+Object.keys(L10N_LOGIN).forEach(l => Object.assign(L10N[l], L10N_LOGIN[l]));
+
 const RTL_LANGS = ['he','ar'];
+
+/* קביעת שפת ברירת מחדל: אם המשתמש בחר — לפי בחירתו.
+   אחרת: משתמש קיים (יש לו חשבון שמור) → עברית · מבקר חדש → אנגלית */
+function _resolveLang() {
+    const saved = localStorage.getItem('birgsol_lang');
+    if (saved) return saved;
+    return localStorage.getItem('birgsolai_auth') ? 'he' : 'en';
+}
 
 function applyUILang(lang) {
     const t = L10N[lang] || L10N.en;
@@ -2421,6 +2446,9 @@ function applyUILang(lang) {
     const inp = document.getElementById('userInput');      if (inp) inp.placeholder = t.ph;
     const foot = document.getElementById('foot-note');     if (foot) foot.textContent = t.foot;
     const nc = document.getElementById('new-chat-label');  if (nc) nc.textContent = t.newChat;
+    // סנכרן את שני בוררי השפה
+    const ll = document.getElementById('login-lang');      if (ll) ll.value = lang;
+    const sl = document.getElementById('sp-lang');         if (sl) sl.value = lang;
 }
 
 function applyLang(val) {
@@ -2443,7 +2471,7 @@ function applyLang(val) {
 function initSettings() {
     const greet = localStorage.getItem('sp_greet')     || 'שלום';
     const cards = localStorage.getItem('sp_cards') === '1';
-    const lang  = localStorage.getItem('birgsol_lang') || 'en';
+    const lang  = _resolveLang();
 
     const selGreet = document.getElementById('sp-greet');
     const selLang  = document.getElementById('sp-lang');
@@ -2669,7 +2697,7 @@ function getPersona() {
     const dateStr = now.toLocaleDateString('he-IL', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
     const timeStr = now.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
     const dateLine = `📅 Today is ${dateStr}, ${timeStr}.\n`;
-    const lang = localStorage.getItem('birgsol_lang') || 'en';
+    const lang = _resolveLang();
     const langLine = `🌐 ALWAYS respond in ${LANG_NAMES[lang] || 'Hebrew'} — this is the user's chosen language. Do not switch languages unless the user explicitly asks.\n`;
     const nameLine = currentUser ? `👤 The user's name is "${currentUser}" — address them by name naturally when it fits.\n` : '';
     const _instr = currentUser ? (localStorage.getItem('birgsol_instr_' + currentUser) || '') : '';
