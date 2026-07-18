@@ -1241,31 +1241,31 @@
         </button>
     </div>
     <div class="mode-row">
-        <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> שיחה</button>
-        <button class="mode-pill" id="mode-code" onclick="setMode('code')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> קוד</button>
-        <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> תמונה</button>
+        <button class="mode-pill active" id="mode-normal" onclick="setMode('normal')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> <span data-i18n="mode_chat">שיחה</span></button>
+        <button class="mode-pill" id="mode-code" onclick="setMode('code')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> <span data-i18n="mode_code">קוד</span></button>
+        <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> <span data-i18n="mode_image">תמונה</span></button>
     </div>
-    <div class="sb-sect-label">שיחות</div>
+    <div class="sb-sect-label" data-i18n="convs">שיחות</div>
     <div class="conv-search">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="conv-search-inp" placeholder="חפש שיחות..." oninput="filterConvs(this.value)" autocomplete="off">
+        <input id="conv-search-inp" data-i18n-ph="search_ph" placeholder="חפש שיחות..." oninput="filterConvs(this.value)" autocomplete="off">
     </div>
     <div class="sb-body" id="hist-list">
         <div class="hist-item" style="color:var(--muted);font-style:italic;font-size:13px;">אין שיחות עדיין...</div>
     </div>
     <div class="sb-foot">
         <div class="settings-panel" id="settings-panel">
-            <div class="sp-title">הגדרות תצוגה</div>
+            <div class="sp-title" data-i18n="settings_title">הגדרות תצוגה</div>
             <div class="sp-row">
-                <span class="sp-label">הגרסה שלך</span>
+                <span class="sp-label" data-i18n="your_plan">הגרסה שלך</span>
                 <span class="sp-label" id="sp-tier" style="font-weight:700;color:#6c63ff">Birgsol Free</span>
             </div>
             <div class="sp-row">
-                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> מצב כהה</span>
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> <span data-i18n="dark_mode">מצב כהה</span></span>
                 <button class="sp-toggle" id="sp-theme" onclick="toggleTheme()"></button>
             </div>
             <div class="sp-row">
-                <span class="sp-label">ברכה</span>
+                <span class="sp-label" data-i18n="greeting">ברכה</span>
                 <select class="sp-select" id="sp-greet" onchange="applyGreet(this.value)">
                     <option value="שלום">שלום</option>
                     <option value="Hello">Hello</option>
@@ -1276,11 +1276,11 @@
                 </select>
             </div>
             <div class="sp-row">
-                <span class="sp-label">כרטיסי הצעות</span>
+                <span class="sp-label" data-i18n="suggestion_cards">כרטיסי הצעות</span>
                 <button class="sp-toggle" id="sp-cards" onclick="toggleCards()"></button>
             </div>
             <div class="sp-row">
-                <span class="sp-label">שפת AI</span>
+                <span class="sp-label" data-i18n="ai_lang">שפת AI</span>
                 <select class="sp-select" id="sp-lang" onchange="applyLang(this.value)">
                     <option value="he">עברית</option>
                     <option value="en">English</option>
@@ -1292,11 +1292,11 @@
         </div>
         <button class="sb-settings-btn" onclick="toggleSettings()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            הגדרות
+            <span data-i18n="settings">הגדרות</span>
         </button>
-        <button onclick="openAdminPanel()" class="sb-admin-btn" id="sb-admin-btn" style="display:none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> ניהול משתמשים</button>
-        <div class="sb-creator">נוצר ע"י דוד יוסף זאבי</div>
-        <button onclick="doLogout()" class="sb-logout-btn">התנתקות</button>
+        <button onclick="openAdminPanel()" class="sb-admin-btn" id="sb-admin-btn" style="display:none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> <span data-i18n="user_mgmt">ניהול משתמשים</span></button>
+        <div class="sb-creator" data-i18n="created_by">נוצר ע"י דוד יוסף זאבי</div>
+        <button onclick="doLogout()" class="sb-logout-btn" data-i18n="logout">התנתקות</button>
     </div>
 </aside>
 
@@ -2376,27 +2376,57 @@ function toggleCards() {
 
 /* ── UI translations per language ── */
 const L10N = {
-    he: { greet: 'שלום',   sub: 'איך אוכל לעזור לך היום?',            ph: 'שאל את Birgsol AI...',      foot: 'Birgsol AI עשוי לטעות. בדוק מידע חשוב.',                      newChat: 'שיחה חדשה' },
-    en: { greet: 'Hello',  sub: 'How can I help you today?',           ph: 'Ask Birgsol AI...',          foot: 'Birgsol AI can make mistakes. Check important info.',        newChat: 'New chat' },
-    ar: { greet: 'مرحبا',  sub: 'كيف يمكنني مساعدتك اليوم؟',           ph: 'اسأل Birgsol AI...',        foot: 'قد يخطئ Birgsol AI. تحقق من المعلومات المهمة.',               newChat: 'محادثة جديدة' },
-    ru: { greet: 'Привет', sub: 'Чем я могу помочь вам сегодня?',      ph: 'Спросите Birgsol AI...',     foot: 'Birgsol AI может ошибаться. Проверяйте важную информацию.',   newChat: 'Новый чат' },
-    fr: { greet: 'Salut',  sub: "Comment puis-je vous aider aujourd'hui ?", ph: 'Demandez à Birgsol AI...', foot: 'Birgsol AI peut se tromper. Vérifiez les informations importantes.', newChat: 'Nouvelle discussion' }
+    he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את Birgsol AI...', foot:'Birgsol AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
+          mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', convs:'שיחות', search_ph:'חפש שיחות...', settings_title:'הגדרות תצוגה',
+          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפת AI',
+          settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות' },
+    en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask Birgsol AI...', foot:'Birgsol AI can make mistakes. Check important info.', newChat:'New chat',
+          mode_chat:'Chat', mode_code:'Code', mode_image:'Image', convs:'Chats', search_ph:'Search chats...', settings_title:'Display settings',
+          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'AI language',
+          settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out' },
+    ar: { greet:'مرحبا', sub:'كيف يمكنني مساعدتك اليوم؟', ph:'اسأل Birgsol AI...', foot:'قد يخطئ Birgsol AI. تحقق من المعلومات المهمة.', newChat:'محادثة جديدة',
+          mode_chat:'محادثة', mode_code:'كود', mode_image:'صورة', convs:'المحادثات', search_ph:'ابحث في المحادثات...', settings_title:'إعدادات العرض',
+          your_plan:'خطتك', dark_mode:'الوضع الداكن', greeting:'تحية', suggestion_cards:'بطاقات الاقتراحات', ai_lang:'لغة الذكاء الاصطناعي',
+          settings:'الإعدادات', user_mgmt:'إدارة المستخدمين', created_by:'من إنشاء ديفيد يوسف زيفي', logout:'تسجيل الخروج' },
+    ru: { greet:'Привет', sub:'Чем я могу помочь вам сегодня?', ph:'Спросите Birgsol AI...', foot:'Birgsol AI может ошибаться. Проверяйте важную информацию.', newChat:'Новый чат',
+          mode_chat:'Чат', mode_code:'Код', mode_image:'Изображение', convs:'Чаты', search_ph:'Поиск чатов...', settings_title:'Настройки отображения',
+          your_plan:'Ваш план', dark_mode:'Тёмная тема', greeting:'Приветствие', suggestion_cards:'Карточки подсказок', ai_lang:'Язык ИИ',
+          settings:'Настройки', user_mgmt:'Управление пользователями', created_by:'Создано Давидом Йосефом Зеви', logout:'Выйти' },
+    fr: { greet:'Salut', sub:"Comment puis-je vous aider aujourd'hui ?", ph:'Demandez à Birgsol AI...', foot:'Birgsol AI peut se tromper. Vérifiez les informations importantes.', newChat:'Nouvelle discussion',
+          mode_chat:'Chat', mode_code:'Code', mode_image:'Image', convs:'Discussions', search_ph:'Rechercher...', settings_title:'Paramètres d\'affichage',
+          your_plan:'Votre forfait', dark_mode:'Mode sombre', greeting:'Salutation', suggestion_cards:'Cartes de suggestions', ai_lang:'Langue de l\'IA',
+          settings:'Paramètres', user_mgmt:'Gestion des utilisateurs', created_by:'Créé par David Yosef Zevi', logout:'Se déconnecter' }
 };
 
+const RTL_LANGS = ['he','ar'];
+
 function applyUILang(lang) {
-    const t = L10N[lang] || L10N.he;
-    const ltr = ['en','ru','fr'].includes(lang);
-    const sub  = document.getElementById('gem-sub');       if (sub)  { sub.textContent = t.sub; sub.dir = ltr ? 'ltr' : 'rtl'; }
-    const inp  = document.getElementById('userInput');     if (inp)  inp.placeholder = t.ph;
-    const foot = document.getElementById('foot-note');     if (foot) { foot.textContent = t.foot; foot.dir = ltr ? 'ltr' : 'rtl'; }
-    const nc   = document.getElementById('new-chat-label');if (nc)   nc.textContent = t.newChat;
-    const hello = document.getElementById('gem-hello');    if (hello) hello.dir = ltr ? 'ltr' : 'rtl';
+    const t = L10N[lang] || L10N.en;
+    const rtl = RTL_LANGS.includes(lang);
+    // כיוון המסמך כולו
+    document.documentElement.dir = rtl ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+    // תרגם כל אלמנט עם data-i18n
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key] !== undefined) el.textContent = t[key];
+    });
+    // placeholders
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        const key = el.getAttribute('data-i18n-ph');
+        if (t[key] !== undefined) el.placeholder = t[key];
+    });
+    // אלמנטים דינמיים לפי id
+    const sub = document.getElementById('gem-sub');        if (sub) sub.textContent = t.sub;
+    const inp = document.getElementById('userInput');      if (inp) inp.placeholder = t.ph;
+    const foot = document.getElementById('foot-note');     if (foot) foot.textContent = t.foot;
+    const nc = document.getElementById('new-chat-label');  if (nc) nc.textContent = t.newChat;
 }
 
 function applyLang(val) {
     localStorage.setItem('birgsol_lang', val);
     // language switch also resets the default greeting word to match
-    const t = L10N[val] || L10N.he;
+    const t = L10N[val] || L10N.en;
     localStorage.setItem('sp_greet', t.greet);
     const selGreet = document.getElementById('sp-greet');
     if (selGreet) {
@@ -2413,7 +2443,7 @@ function applyLang(val) {
 function initSettings() {
     const greet = localStorage.getItem('sp_greet')     || 'שלום';
     const cards = localStorage.getItem('sp_cards') === '1';
-    const lang  = localStorage.getItem('birgsol_lang') || 'he';
+    const lang  = localStorage.getItem('birgsol_lang') || 'en';
 
     const selGreet = document.getElementById('sp-greet');
     const selLang  = document.getElementById('sp-lang');
@@ -2639,7 +2669,7 @@ function getPersona() {
     const dateStr = now.toLocaleDateString('he-IL', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
     const timeStr = now.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
     const dateLine = `📅 Today is ${dateStr}, ${timeStr}.\n`;
-    const lang = localStorage.getItem('birgsol_lang') || 'he';
+    const lang = localStorage.getItem('birgsol_lang') || 'en';
     const langLine = `🌐 ALWAYS respond in ${LANG_NAMES[lang] || 'Hebrew'} — this is the user's chosen language. Do not switch languages unless the user explicitly asks.\n`;
     const nameLine = currentUser ? `👤 The user's name is "${currentUser}" — address them by name naturally when it fits.\n` : '';
     const _instr = currentUser ? (localStorage.getItem('birgsol_instr_' + currentUser) || '') : '';
