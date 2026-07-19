@@ -5178,11 +5178,10 @@ async function _liveLoop() {
     try { window.speechSynthesis.cancel(); } catch(_) {}
     if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(_) {} _liveCurrentAudio = null; }
 
-    // ── 4. Loop back — 1.5s gap so speaker echo fades before mic opens ──
+    // ── 4. Loop back — חוזר להאזנה כמעט מיד כשמסיים לדבר (רק 250ms שהד הרמקול יידעך) ──
     _liveBusy = false;
     if (_liveActive && !_liveStopped && !_liveMuted) {
-        _setLiveState('waiting');
-        setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 1500);
+        setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 250);
     } else {
         _setLiveState('idle');
     }
