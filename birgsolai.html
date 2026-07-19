@@ -5015,6 +5015,7 @@ function startLive() {
 
 function endLive() {
     _liveActive = false; _liveStopped = true;
+    _stopThinkSound();
     if (_liveRec)   { try { _liveRec.stop(); } catch(e) {} _liveRec = null; }
     window.speechSynthesis.cancel();
     if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(e) {} _liveCurrentAudio = null; }
@@ -5079,6 +5080,32 @@ async function _callAILive(messages) {
     return 'מצטער, לא הצלחתי להגיב. נסה שוב.';
 }
 
+/* ── צליל חשיבה למצב לייב — בליפ רך ומתפעם (Web Audio) ── */
+let _thinkCtx = null, _thinkTimer = null;
+function _startThinkSound() {
+    try {
+        _stopThinkSound();
+        _thinkCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = _thinkCtx;
+        const blip = () => {
+            if (!_thinkCtx) return;
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = 'sine'; o.frequency.value = 528;
+            g.gain.setValueAtTime(0.0001, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.04);
+            g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+            o.connect(g).connect(ctx.destination);
+            o.start(); o.stop(ctx.currentTime + 0.4);
+        };
+        blip();
+        _thinkTimer = setInterval(blip, 720);
+    } catch(_) {}
+}
+function _stopThinkSound() {
+    if (_thinkTimer) { clearInterval(_thinkTimer); _thinkTimer = null; }
+    if (_thinkCtx) { try { _thinkCtx.close(); } catch(_) {} _thinkCtx = null; }
+}
+
 async function _liveLoop() {
     if (!_liveActive || _liveStopped || _liveBusy) return;
     _liveBusy = true;
@@ -5100,6 +5127,7 @@ async function _liveLoop() {
 
     // ── 2. Think ──
     _setLiveState('thinking');
+    _startThinkSound(); // צליל חשיבה בזמן שהוא חושב
     // Search if the query sounds like a factual/real-time question
     let liveSearchCtx = '';
     const _liveNeedsSearch = /מחיר|כמה עולה|שער דולר|מזג אוויר|חדשות|תוצאות|ניקוד|weather|price of|news today|stock price/i.test(transcript);
@@ -5137,9 +5165,10 @@ async function _liveLoop() {
     saveConversation();
 
     // ── 3. Speak ──
+    _stopThinkSound(); // עצור את צליל החשיבה כשמתחילים לענות
     if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
     _setLiveState('speaking');
-    document.getElementById('live-transcript').textContent = '' + reply;
+    document.getElementById('live-transcript').textContent = ''; // בלי טקסט — רק קול
 
     // תקרת זמן להקראה — אם ה-TTS נתקע (proxy איטי וכו'), לא נתקע יותר מ-22 שניות
     await Promise.race([
