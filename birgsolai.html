@@ -2589,11 +2589,8 @@ Before writing your reply, briefly think through the question internally: what i
 - Help with creative writing, brainstorming, analysis, translation
 - Search the web for current information
 
-=== HEBREW LANGUAGE ===
-When responding in Hebrew, use NATURAL spoken Israeli Hebrew — not a word-for-word translation from English. Correct examples:
-- Greeting: "שלום! במה אני יכול לעזור לך?" (NOT "מה יכול אני לעזור לך היום")
-- "How can I help?": "במה אני יכול לעזור?" or "מה אני יכול לעשות בשבילך?"
-- Word order must be natural Hebrew, not English grammar in Hebrew words.
+=== LANGUAGE (CRITICAL) ===
+Respond ONLY in the user's chosen language stated at the very top of this prompt (🌐). This overrides everything. If the chosen language is English, answer fully in English. If Hebrew, answer in natural spoken Israeli Hebrew (not a word-for-word translation). Match the chosen language for EVERY reply regardless of the language the persona instructions are written in. Only switch if the user explicitly writes in and asks for another language.
 
 === RESPONSE FORMAT ===
 - Full Markdown: headers, bold, lists, code blocks tagged with language
@@ -2710,7 +2707,9 @@ function getPersona() {
     const timeStr = now.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
     const dateLine = `📅 Today is ${dateStr}, ${timeStr}.\n`;
     const lang = _resolveLang();
-    const langLine = `🌐 ALWAYS respond in ${LANG_NAMES[lang] || 'Hebrew'} — this is the user's chosen language. Do not switch languages unless the user explicitly asks.\n`;
+    const langName = LANG_NAMES[lang] || 'English';
+    const langLine = `🌐🌐 CRITICAL — YOU MUST WRITE YOUR ENTIRE REPLY IN ${langName}. This is the user's chosen interface language and it OVERRIDES every other instruction below, even instructions written in Hebrew. Do NOT reply in any other language unless the user explicitly writes to you in another language and asks. Default and current language = ${langName}.\n`;
+    const langEnd = `\n\n=== FINAL REMINDER ===\nYour reply MUST be written in ${langName}. If any instruction above was in Hebrew, that is only formatting guidance — the OUTPUT language is ${langName}.`;
     const nameLine = currentUser ? `👤 The user's name is "${currentUser}" — address them by name naturally when it fits.\n` : '';
     const _instr = currentUser ? (localStorage.getItem('birgsol_instr_' + currentUser) || '') : '';
     const instrLine = _instr ? `📋 The user's personal instructions (ALWAYS follow them): ${_instr}\n` : '';
@@ -2718,9 +2717,9 @@ function getPersona() {
     const memLine = userMemory.length
         ? `\n\n=== MEMORY (what you already know about this user from past conversations) ===\n${userMemory.map(f => '- ' + f).join('\n')}\nUse this naturally when relevant — don't explicitly say "according to my memory" unless the user asks what you remember.\n`
         : '';
-    if (currentMode === 'code') return dateLine + langLine + persLine + PERSONA_CODE + memLine;
-    if (currentMode === 'image') return dateLine + langLine + persLine + PERSONA_IMAGE + memLine;
-    return dateLine + langLine + persLine + PERSONA_NORMAL + memLine;
+    if (currentMode === 'code') return dateLine + langLine + persLine + PERSONA_CODE + memLine + langEnd;
+    if (currentMode === 'image') return dateLine + langLine + persLine + PERSONA_IMAGE + memLine + langEnd;
+    return dateLine + langLine + persLine + PERSONA_NORMAL + memLine + langEnd;
 }
 
 function setMode(mode) {
