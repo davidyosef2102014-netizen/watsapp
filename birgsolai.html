@@ -5170,13 +5170,16 @@ async function _liveLoop() {
     _setLiveState('speaking');
     document.getElementById('live-transcript').textContent = ''; // בלי טקסט — רק קול
 
-    // תקרת זמן להקראה — אם ה-TTS נתקע (proxy איטי וכו'), לא נתקע יותר מ-22 שניות
+    // תקרת זמן להקראה — קוטעים רק אם הוא באמת נתקע (עבר את התקרה), לא כשסיים תקין
+    let _spokeDone = false;
     await Promise.race([
-        _liveSpeakText(reply),
-        new Promise(r => setTimeout(r, 22000))
+        _liveSpeakText(reply).then(() => { _spokeDone = true; }),
+        new Promise(r => setTimeout(r, 35000))
     ]);
-    try { window.speechSynthesis.cancel(); } catch(_) {}
-    if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(_) {} _liveCurrentAudio = null; }
+    if (!_spokeDone) { // נתקע — עוצרים כדי לא לתקוע את הלולאה
+        try { window.speechSynthesis.cancel(); } catch(_) {}
+        if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(_) {} _liveCurrentAudio = null; }
+    }
 
     // ── 4. Loop back — חוזר להאזנה כמעט מיד כשמסיים לדבר (רק 250ms שהד הרמקול יידעך) ──
     _liveBusy = false;
@@ -5421,10 +5424,13 @@ async function _fetchGoogleTTSChunk(chunk) {
         'https://corsproxy.io/?' + ttsUrl
     ];
     for (const proxyUrl of proxies) {
-        for (let attempt = 0; attempt < 1; attempt++) {
+        for (let attempt = 0; attempt < 2; attempt++) {
             try {
-                const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
+                const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
                 if (!res.ok) {
+                    if ((res.status === 530 || res.status >= 500) && attempt === 0) {
+                        await new Promise(r => setTimeout(r, 800)); continue;
+                    }
                     break; // try next proxy
                 }
                 const buf = await res.arrayBuffer();
