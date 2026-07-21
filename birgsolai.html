@@ -3462,6 +3462,30 @@ function _askImageStyle() {
     });
 }
 
+/* מארח תמונה (data-URL של base64) כקובץ קבוע ב-GitHub ומחזיר URL — כדי שתמונות יישמרו
+   באיכות מלאה בלי לתפוח את האחסון המקומי (בדיוק כמו ChatGPT ששומר על שרת).
+   נכשל בשקט → מחזיר null, והקורא נשאר עם ה-base64 המקורי כגיבוי. */
+async function _hostImage(dataUrl) {
+    try {
+        if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return null;
+        const m = /^data:image\/([\w+]+);base64,(.+)$/.exec(dataUrl);
+        if (!m) return null;
+        const ext = m[1].toLowerCase().includes('png') ? 'png' : 'jpg';
+        const b64 = m[2];
+        if (b64.length < 200) return null; // תמונה זעירה מדי — לא שווה אירוח
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const path = `db/img/${id}.${ext}`;
+        const r = await fetch(GH_API + path, {
+            method: 'PUT',
+            headers: { 'Authorization': 'token ' + GH_TOKEN, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'img', content: b64 }),
+            signal: AbortSignal.timeout(25000)
+        });
+        if (!r.ok) return null;
+        return GH_RAW + path;
+    } catch { return null; }
+}
+
 async function generateImage(promptRaw, reuseRow, imgStyle) {
     showChat();
     const cw = document.getElementById('chat-window');
@@ -3659,7 +3683,13 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
     if (loaded && img.naturalWidth > 0) {
         quotaUse('img');
-        hist.push({ role: 'assistant', content: `[GENERATED_IMAGE:${imgSrc}§§${engPrompt.replace(/§/g,'')}]` });
+        // מארח את התמונה כקובץ קבוע (איכות מלאה, נשמר לתמיד). אם האירוח נכשל — שומר base64 כגיבוי.
+        let storedSrc = imgSrc;
+        if (imgSrc.startsWith('data:')) {
+            const hosted = await _hostImage(imgSrc);
+            if (hosted) storedSrc = hosted;
+        }
+        hist.push({ role: 'assistant', content: `[GENERATED_IMAGE:${storedSrc}§§${engPrompt.replace(/§/g,'')}]` });
     } else {
         hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}] (היצירה נכשלה)` });
     }
