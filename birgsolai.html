@@ -1597,7 +1597,11 @@ function renderMsgOnly(role, text, histIdx) {
     if (role === 'user') {
         row.className = 'msg-row user';
         if (histIdx !== undefined) row.dataset.histBefore = histIdx;
-        row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><div class="user-bub">${escHtml(text).replace(/\n/g,'<br>')}</div></div>`;
+        // תמונה מצורפת ששמורה כמרקר [IMG:url] — מוצגת מחדש, והטקסט מוצג בלעדיה
+        const _imgM = text.match(/\[IMG:(https?:\/\/[^\]]+)\]/);
+        const _clean = text.replace(/\n?\[IMG:[^\]]+\]/g, '');
+        const _imgH = _imgM ? `<img src="${safeUrl(_imgM[1])}" class="user-img" alt="" style="display:block;margin-top:8px">` : '';
+        row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><div class="user-bub">${escHtml(_clean).replace(/\n/g,'<br>')}${_imgH}</div></div>`;
     } else {
         // מפה שנוצרה בעבר — שמורה ב-history כ-base64 JSON, משוחזרת כווידג'ט מפה אמיתי
         const mapMatch = text.match(/^\[GENERATED_MAP:([\s\S]+?)\]$/);
@@ -4757,6 +4761,16 @@ async function send() {
     const attachedFile = fileContent;
     const attachedName = fileName;
     addMsg('user', q, img, false, attachedFile ? attachedName : '');
+    // תמונה שהמשתמש העלה — מארחים אותה ומצרפים קישור להודעה, כדי שתישמר ותוצג גם אחרי רענון
+    const _userMsgIdx = hist.length - 1;
+    if (img && typeof img === 'string' && img.startsWith('data:')) {
+        _hostImage(img).then(url => {
+            if (url && hist[_userMsgIdx] && hist[_userMsgIdx].role === 'user' && typeof hist[_userMsgIdx].content === 'string') {
+                hist[_userMsgIdx].content += `\n[IMG:${url}]`;
+                saveConversation();
+            }
+        }).catch(() => {});
+    }
     inp.value = ''; inp.style.height = 'auto';
     clearFile(); busy = true; updateBtn();
 
@@ -4766,7 +4780,8 @@ async function send() {
     // so keep a wide history slice — a short window was causing the AI to "forget" earlier turns.
     const messages = [{ role: 'system', content: getPersona() }];
     hist.slice(-80, -1).forEach(m => {
-        const content = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
+        let content = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
+        content = content.replace(/\n?\[IMG:[^\]]+\]/g, ''); // הסר מרקר תמונה מההיסטוריה (הוא רק לתצוגה)
         messages.push({ role: m.role, content });
     });
     if (img) {
