@@ -1545,6 +1545,9 @@ function filterConvs(q) {
 let deletedConvIds = new Set();
 
 async function deleteConversation(convId) {
+    const _lang = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+    const _msg = (L10N[_lang] && L10N[_lang].del_confirm) || L10N.he.del_confirm;
+    if (!confirm(_msg)) return;
     convList = convList.filter(c => c.id !== convId);
     deletedConvIds.add(convId);
     if (currentConvId === convId) startNew();
@@ -2390,23 +2393,23 @@ const L10N = {
     he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את Birgsol AI...', foot:'Birgsol AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
           mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', convs:'שיחות', search_ph:'חפש שיחות...', settings_title:'הגדרות תצוגה',
           your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה',
-          settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות' },
+          settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות', del_confirm:'למחוק את השיחה הזו?' },
     en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask Birgsol AI...', foot:'Birgsol AI can make mistakes. Check important info.', newChat:'New chat',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', convs:'Chats', search_ph:'Search chats...', settings_title:'Display settings',
           your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language',
-          settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out' },
+          settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out', del_confirm:'Delete this chat?' },
     ar: { greet:'مرحبا', sub:'كيف يمكنني مساعدتك اليوم؟', ph:'اسأل Birgsol AI...', foot:'قد يخطئ Birgsol AI. تحقق من المعلومات المهمة.', newChat:'محادثة جديدة',
           mode_chat:'محادثة', mode_code:'كود', mode_image:'صورة', convs:'المحادثات', search_ph:'ابحث في المحادثات...', settings_title:'إعدادات العرض',
           your_plan:'خطتك', dark_mode:'الوضع الداكن', greeting:'تحية', suggestion_cards:'بطاقات الاقتراحات', ai_lang:'اللغة',
-          settings:'الإعدادات', user_mgmt:'إدارة المستخدمين', created_by:'من إنشاء ديفيد يوسف زيفي', logout:'تسجيل الخروج' },
+          settings:'الإعدادات', user_mgmt:'إدارة المستخدمين', created_by:'من إنشاء ديفيد يوسف زيفي', logout:'تسجيل الخروج', del_confirm:'هل تريد حذف هذه المحادثة؟' },
     ru: { greet:'Привет', sub:'Чем я могу помочь вам сегодня?', ph:'Спросите Birgsol AI...', foot:'Birgsol AI может ошибаться. Проверяйте важную информацию.', newChat:'Новый чат',
           mode_chat:'Чат', mode_code:'Код', mode_image:'Изображение', convs:'Чаты', search_ph:'Поиск чатов...', settings_title:'Настройки отображения',
           your_plan:'Ваш план', dark_mode:'Тёмная тема', greeting:'Приветствие', suggestion_cards:'Карточки подсказок', ai_lang:'Язык',
-          settings:'Настройки', user_mgmt:'Управление пользователями', created_by:'Создано Давидом Йосефом Зеви', logout:'Выйти' },
+          settings:'Настройки', user_mgmt:'Управление пользователями', created_by:'Создано Давидом Йосефом Зеви', logout:'Выйти', del_confirm:'Удалить этот чат?' },
     fr: { greet:'Salut', sub:"Comment puis-je vous aider aujourd'hui ?", ph:'Demandez à Birgsol AI...', foot:'Birgsol AI peut se tromper. Vérifiez les informations importantes.', newChat:'Nouvelle discussion',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', convs:'Discussions', search_ph:'Rechercher...', settings_title:'Paramètres d\'affichage',
           your_plan:'Votre forfait', dark_mode:'Mode sombre', greeting:'Salutation', suggestion_cards:'Cartes de suggestions', ai_lang:'Langue de l\'IA',
-          settings:'Paramètres', user_mgmt:'Gestion des utilisateurs', created_by:'Créé par David Yosef Zevi', logout:'Se déconnecter' }
+          settings:'Paramètres', user_mgmt:'Gestion des utilisateurs', created_by:'Créé par David Yosef Zevi', logout:'Se déconnecter', del_confirm:'Supprimer cette discussion ?' }
 };
 
 /* מחרוזות דף ההתחברות — ממוזגות לתוך L10N */
