@@ -1679,33 +1679,15 @@ const GH_OWNER = 'davidyosef2102014-netizen';
 const GH_REPO  = 'watsapp';
 // טוקן ה-GitHub הועבר ל-Cloudflare Worker (GH_WORKER) ואינו קיים עוד בקוד הדפדפן —
 // כל קריאה/כתיבה/AI שדרשה אותו עוברת דרך הפרוקסי המאובטח.
-const TAVILY_KEY =['tvly-dev-2QYMhA-Nmly35ooLSYUnG','An0RUz5WIYZ1LKEiKz1HyexCzA6F'].join('');
-const TAVILY_KEY2 = ['tvly-dev-1D4PtD-g933m0WYqRkYbCo','LFYrcZKzyilDqwBmvOWjTcfvD2l'].join('');
-const TAVILY_KEY3 = ['tvly-dev-234F4k-9aWJ3lxMHEuddz','ad5sknEYtvAj60zHSKRl0p1T12TS'].join('');
-const TAVILY_KEY4 = ['tvly-dev-Zspg-KMjhhG02qLhv4GRL','iD9mzGNqqJRUM8KQOtTn1Tqzzr'].join('');
-const TAVILY_KEY5 = ['tvly-dev-Q6Vy6-q21cuKnkyofEDT','H5CsiUtp0kFGUh8vFi0xqaLVBU1z'].join('');
-/* מספר מפתחות Groq — בוחרים אקראית בכל בקשה כדי לפזר עומס ולהרחיב את מגבלת הקצב */
-const GROQ_KEYS = [
-    ['gsk_qzgrngwU4WRLi6KmRmc6WGdy','b3FYwVt9hwIMeHO9A9KXTjlOb2Rj'].join(''),
-    ['gsk_0DEGs44HOlLJxXhUzJ64WGdy','b3FYov8hmgfKEKZUadnpYdPLJ2uh'].join(''),
-    ['gsk_W7wviWOsPR7UJFn7DDHjWGdy','b3FYtPiPrZ2JNPWl8eJMRou1ishn'].join(''),
-    ['gsk_hg2ZsgIhm9Mo4mnOwIXZWGdy','b3FYVNkI0yVo0KixZuUfMO4LDJzK'].join(''),
-    ['gsk_5KpaBwt4kI9xjdTIJLt3WGdy','b3FY6wpMOhUEQ1pe1yYXQSh38Ibd'].join(''),
-    ['gsk_0ydV5JXo3ea76UEeWdhmWGdy','b3FY28TZfUPaIMy3cMeP9AcfSaxC'].join(''),
-    ['gsk_bEzqG2CLuxdjoasiBxDtWGdy','b3FYFrB8JrTqtJ5Wi2k06UXuLwDP'].join(''),
-    ['gsk_VQKNTfY2m1p7U9yMsnSqWGdy','b3FYT41GSujhPwWxQiGxWOOPPLgz'].join(''),
-    ['gsk_lp7uIrFAkjXxe58aqIb9WGdy','b3FY4OnDyUxoDk9ipUqUK1fImqdX'].join(''),
-    ['gsk_Ywb4vg7ap91U6wUietYOWGdy','b3FYDwVapnbGR36S7c0VTkPdvS8q'].join(''),
-    ['gsk_Wcpj3oC0XP2c94EMNlJ0WGdy','b3FY59RuZWuXJ35r4svl2ryLfijW'].join(''),
-    ['gsk_zG1yXtTo7VaypvtswdXnWGdy','b3FYitQ05drQxuWdHQeCv4MIqpNP'].join(''),
-    ['gsk_CMebcKUn0l2NJlDOtWssWGdy','b3FYlGtXmq6YKLj7XrH7yy9vZWks'].join('')
-];
-function groqKey() { return GROQ_KEYS[Math.floor(Math.random() * GROQ_KEYS.length)]; }
-const OPENROUTER_KEY = ['sk-or-v1-f655e93634af39fcf294ade3c3','fd8dc0191c95b35b550b7309692fc3eaf3fa28'].join('');
-const OPENROUTER_KEY2 = ['sk-or-v1-614e25d14b22da92a4f88976','56555b50253fd7cea6f09aef8cffcd0725d58ac2'].join('');
-const GEMINI_KEY = ['AQ.Ab8RN6KZoOHQvj-7TYEWuvXSb','mwnKlb8T88Sj2Gut8O5DZkTHg'].join('');
-const HF_TOKEN   = ['hf_EMQhrjlkLkOk','XUpcjBlUaNlKbNklXUDTBQ'].join('');
-const ELEVEN_KEY = ['sk_49650d43f138a249ef7f74706','d4f11cb80a9c7c4a0623cc0'].join('');
+// ── כל מפתחות הספקים הועברו ל-Cloudflare Worker (GH_WORKER, op:'proxy') ואינם קיימים עוד בקוד.
+//    הקבועים נשארים ריקים כדי לא לשבור הפניות ישנות; ה-Worker מזריק את המפתח האמיתי בצד השרת. ──
+const TAVILY_KEY = '', TAVILY_KEY2 = '', TAVILY_KEY3 = '', TAVILY_KEY4 = '', TAVILY_KEY5 = '';
+const GROQ_KEYS = [''];
+function groqKey() { return ''; } // בחירת מפתח Groq האמיתי נעשית ב-Worker
+const OPENROUTER_KEY = '', OPENROUTER_KEY2 = '';
+const GEMINI_KEY = '';
+const HF_TOKEN   = '';
+const ELEVEN_KEY = '';
 const ELEVEN_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // "Bella" — one of the few premade voices usable on the free API tier
 const GH_RAW   = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/master/`;
 // פרוקסי Cloudflare שמחזיק את טוקן ה-GitHub בצד השרת — כל שימוש בטוקן עובר דרכו,
@@ -1718,6 +1700,35 @@ function _ghAI(payload, signal) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ op: 'ai', payload }),
         ...(signal ? { signal } : {})
+    });
+}
+/* פרוקסי כללי לכל ספק (groq/tavily/gemini/openrouter/hf/eleven) דרך ה-Worker —
+   המפתח מוזרק בצד השרת. מחזיר Response רגיל (.ok/.json()/.body/.blob() כרגיל). */
+function _ghProxy(provider, path, payload, opts) {
+    opts = opts || {};
+    return fetch(GH_WORKER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'proxy', provider, path, payload, ...(opts.method ? { method: opts.method } : {}) }),
+        ...(opts.signal ? { signal: opts.signal } : {})
+    });
+}
+/* עטיפה ל-fetch: מזהה ספק מוכר מה-URL ומנתב דרך ה-Worker (מפתח מוזרק בשרת).
+   URL לא-מוכר → fetch רגיל. מאפשר להחליף fetch(->_ghFetch( בלי לשנות את שאר הקריאה. */
+const _PROXY_HOSTS = { 'api.groq.com':'groq', 'openrouter.ai':'openrouter', 'router.huggingface.co':'hf', 'generativelanguage.googleapis.com':'gemini', 'api.elevenlabs.io':'eleven', 'api.tavily.com':'tavily' };
+function _ghFetch(url, options) {
+    options = options || {};
+    let provider = null, host = null;
+    for (const h in _PROXY_HOSTS) { if (url.indexOf(h) !== -1) { provider = _PROXY_HOSTS[h]; host = h; break; } }
+    if (!provider) return fetch(url, options); // לא ספק-פרוקסי — רגיל
+    const path = url.slice(url.indexOf(host) + host.length) || '/';
+    let payload;
+    if (options.body != null) { try { payload = JSON.parse(options.body); } catch { payload = options.body; } }
+    return fetch(GH_WORKER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'proxy', provider, path, payload, method: options.method || 'POST' }),
+        ...(options.signal ? { signal: options.signal } : {})
     });
 }
 
@@ -1999,18 +2010,13 @@ async function _genSmartTitle(convId) {
         const sample = conv.messages.slice(0, 4)
             .map(m => typeof m.content === 'string' ? m.content.slice(0, 200) : '[תמונה]')
             .join('\n---\n');
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 60,
-                messages: [
-                    { role: 'system', content: 'אתה נותן שמות לשיחות. קבל קטע שיחה והחזר נושא קצר של 2-4 מילים בשפת השיחה. בסס את הכותרת אך ורק על מה שנכתב בשיחה בפועל — אסור בהחלט להמציא נושא, שם או פרט שלא הופיע. אם אין נושא ברור (למשל רק ברכה או שיחת חולין), החזר את המילים הראשונות של המשתמש כמו שהן. דוגמאות טובות: "השוואת טלוויזיות", "מתכון פסטה", "עזרה בקוד פייתון". אסור מילים משתמש/עוזר/שיחה/כותרת, אסור נקודתיים, מרכאות או נקודה. החזר את הנושא בלבד.' },
-                    { role: 'user', content: sample }
-                ]
-            }),
-            signal: AbortSignal.timeout(12000)
-        });
+        const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
+            model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 60,
+            messages: [
+                { role: 'system', content: 'אתה נותן שמות לשיחות. קבל קטע שיחה והחזר נושא קצר של 2-4 מילים בשפת השיחה. בסס את הכותרת אך ורק על מה שנכתב בשיחה בפועל — אסור בהחלט להמציא נושא, שם או פרט שלא הופיע. אם אין נושא ברור (למשל רק ברכה או שיחת חולין), החזר את המילים הראשונות של המשתמש כמו שהן. דוגמאות טובות: "השוואת טלוויזיות", "מתכון פסטה", "עזרה בקוד פייתון". אסור מילים משתמש/עוזר/שיחה/כותרת, אסור נקודתיים, מרכאות או נקודה. החזר את הנושא בלבד.' },
+                { role: 'user', content: sample }
+            ]
+        }, { signal: AbortSignal.timeout(12000) });
         const j = await res.json();
         const cut = j?.choices?.[0]?.finish_reason === 'length'; // נחתך באמצע — לא אמין
         const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["'״]+|["'״.]+$/g, '').trim();
@@ -2784,19 +2790,14 @@ async function extractMemory(userMsg, aiReply) {
         const existing = userMemory.length
             ? 'מה שכבר ידוע:\n' + userMemory.slice(-20).map(f => '- ' + f).join('\n') + '\n\n'
             : '';
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    { role: 'system', content: 'אתה מחלץ עובדות עמידות לטווח ארוך על המשתמש (שם, גיל, מקצוע, פרויקטים פעילים, העדפות קבועות, הקשר אישי/עבודה חשוב).\n\nכללים קשוחים:\n• שמור רק מה שיהיה רלוונטי גם בשיחה הבאה, בעוד שבוע.\n• דחה: שאלות חד-פעמיות ("שאל מה השעה"), עובדות זמניות ("עייף היום"), אירועים ספציפיים ללא משמעות ארוכת טווח, תוכן של שיחה שאינו מספר משהו על המשתמש עצמו.\n• אל תשכפל מה שכבר ברשימה הקיימת.\n• ענה JSON בלבד: {"facts":["עובדה1"]} עם עד 3 עובדות. אם אין כלום שווה לזכור — {"facts":[]}.' },
-                    { role: 'user', content: `${existing}משתמש: ${userMsg}\nעוזר: ${(aiReply || '').slice(0, 400)}` }
-                ],
-                temperature: 0.2, max_tokens: 120
-            }),
-            signal: AbortSignal.timeout(10000)
-        });
+        const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+                { role: 'system', content: 'אתה מחלץ עובדות עמידות לטווח ארוך על המשתמש (שם, גיל, מקצוע, פרויקטים פעילים, העדפות קבועות, הקשר אישי/עבודה חשוב).\n\nכללים קשוחים:\n• שמור רק מה שיהיה רלוונטי גם בשיחה הבאה, בעוד שבוע.\n• דחה: שאלות חד-פעמיות ("שאל מה השעה"), עובדות זמניות ("עייף היום"), אירועים ספציפיים ללא משמעות ארוכת טווח, תוכן של שיחה שאינו מספר משהו על המשתמש עצמו.\n• אל תשכפל מה שכבר ברשימה הקיימת.\n• ענה JSON בלבד: {"facts":["עובדה1"]} עם עד 3 עובדות. אם אין כלום שווה לזכור — {"facts":[]}.' },
+                { role: 'user', content: `${existing}משתמש: ${userMsg}\nעוזר: ${(aiReply || '').slice(0, 400)}` }
+            ],
+            temperature: 0.2, max_tokens: 120
+        }, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) return;
         const j = await res.json();
         const raw = j?.choices?.[0]?.message?.content?.trim();
@@ -2921,7 +2922,7 @@ async function deepStream(messages, onChunk, signal) {
     const _sig = signal
         ? AbortSignal.any([signal, AbortSignal.timeout(120000)])
         : AbortSignal.timeout(120000);
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const res = await _ghFetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages, stream: true, reasoning_effort: 'medium', temperature: 0.7, max_tokens: 4096 }),
@@ -3618,7 +3619,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
     // 2nd: FLUX.1-dev via fal-ai (HuggingFace — פועל כשיש קרדיטים)
     if (!imgSrc) try {
-        const devRes = await fetch('https://router.huggingface.co/fal-ai/fal-ai/flux/dev', {
+        const devRes = await _ghFetch('https://router.huggingface.co/fal-ai/fal-ai/flux/dev', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: styledPrompt, image_size: 'square_hd', num_inference_steps: 28, guidance_scale: 3 }),
@@ -3633,7 +3634,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
 
     // 3rd: FLUX.1-schnell via nscale (fast fallback)
     if (!imgSrc) try {
-        const hfRes = await fetch('https://router.huggingface.co/nscale/v1/images/generations', {
+        const hfRes = await _ghFetch('https://router.huggingface.co/nscale/v1/images/generations', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: 'black-forest-labs/FLUX.1-schnell', prompt: styledPrompt, response_format: 'b64_json' }),
@@ -3821,7 +3822,7 @@ function _cleanYahooResults(md) {
    search source. Falls back to the free Yahoo+DuckDuckGo+Wikipedia chain below if it fails or the
    monthly quota runs out, so the app keeps working either way. */
 async function _tryTavilyKey(apiKey, query) {
-    const res = await fetch('https://api.tavily.com/search', {
+    const res = await _ghFetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: apiKey, query, search_depth: 'basic', include_answer: true, max_results: 5 }),
@@ -3837,10 +3838,10 @@ async function _tryTavilyKey(apiKey, query) {
     if (!out) throw new Error('tavily empty');
     return out;
 }
-// Race all 5 Tavily keys in parallel — first success wins, exhausted/rate-limited keys lose the race
+// קריאה אחת דרך ה-Worker — הוא בוחר מפתח Tavily אקראית מבין כל המפתחות בצד השרת
+// (בעבר רצו כאן 5 מפתחות במקביל; עכשיו זו קריאה אחת = קרדיט אחד לחיפוש).
 async function _tryTavily(query) {
-    const keys = [TAVILY_KEY, TAVILY_KEY2, TAVILY_KEY3, TAVILY_KEY4, TAVILY_KEY5];
-    return await Promise.any(keys.map(k => _tryTavilyKey(k, query)));
+    return await _tryTavilyKey('', query);
 }
 async function webSearch(query) {
     try {
@@ -4362,7 +4363,7 @@ function _showQuotaNotice() {
 async function _consolidateMemory() {
     if (!currentUser || userMemory.length < 45) return;
     try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const res = await _ghFetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -4442,19 +4443,23 @@ async function callAI(messages, onChunk, signal=null) {
 
     // ── Text path ──
     // SSE streamer: reads OpenAI-compatible server-sent events, calls onChunk with growing text
-    const _stream = async (url, auth, body) => {
+    const _stream = async (provider, body) => {
         const _sig = signal
             ? AbortSignal.any([signal, AbortSignal.timeout(15000)])
             : AbortSignal.timeout(15000);
-        const isWorker = (url === GH_WORKER); // AI של GitHub Models דרך הפרוקסי — עוטף את הגוף ומשמיט טוקן
-        const res = await fetch(url, {
+        // כל הסטרימינג עובר דרך ה-Worker (המפתחות מוסתרים): github → op:'ai', groq → op:'proxy'
+        const payload = { ...body, stream: true };
+        const wbody = provider === 'github'
+            ? { op: 'ai', payload }
+            : { op: 'proxy', provider, path: '/openai/v1/chat/completions', payload };
+        const res = await fetch(GH_WORKER, {
             method: 'POST',
-            headers: isWorker ? { 'Content-Type': 'application/json' } : { 'Authorization': auth, 'Content-Type': 'application/json' },
-            body: JSON.stringify(isWorker ? { op: 'ai', payload: { ...body, stream: true } } : { ...body, stream: true }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(wbody),
             signal: _sig
         });
         if (!res.ok) {
-            if (res.status === 429 && url.includes('groq')) { _groqCooldownUntil = Date.now() + 60000; }
+            if (res.status === 429 && provider === 'groq') { _groqCooldownUntil = Date.now() + 60000; }
             throw new Error('HTTP ' + res.status);
         }
         const reader = res.body.getReader();
@@ -4492,7 +4497,7 @@ async function callAI(messages, onChunk, signal=null) {
             parts: [{ text: typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '') }]
         }));
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
-        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+        const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
             body: JSON.stringify({ contents, generationConfig: { thinkingConfig: { thinkingBudget: 1024 } } }),
@@ -4505,7 +4510,7 @@ async function callAI(messages, onChunk, signal=null) {
         return text;
     };
     const _tryOpenRouterKey = async (apiKey) => {
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const res = await _ghFetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 0.7, max_tokens: 2048 }),
@@ -4557,8 +4562,8 @@ async function callAI(messages, onChunk, signal=null) {
 
     const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
     const stages = [
-        { name: 'Groq stream',        fn: () => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('https://api.groq.com/openai/v1/chat/completions', 'Bearer ' + groqKey(), { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
-        { name: 'GitHub stream',       fn: () => _stream(GH_WORKER, null, { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }) },
+        { name: 'Groq stream',        fn: () => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('groq', { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
+        { name: 'GitHub stream',       fn: () => _stream('github', { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'OpenRouter',          fn: () => _tryOpenRouter().then(_tw) },
         { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]).then(_tw) },
@@ -4630,7 +4635,7 @@ async function _autoNameConv() {
     const firstAI   = hist.find(m => m.role === 'assistant')?.content || '';
     if (!firstUser || !firstAI) return;
     try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const res = await _ghFetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -5079,7 +5084,7 @@ function toggleLiveMute() {
 
 async function _callAILive(messages) {
     const short = messages.map(m => ({ ...m, content: typeof m.content === 'string' ? m.content : '' }));
-    const tryGroq = () => fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const tryGroq = () => _ghFetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: short, temperature: 0.7, max_tokens: 400 }),
@@ -5101,7 +5106,7 @@ async function _callAILive(messages) {
             parts: [{ text: typeof m.content === 'string' ? m.content : '' }]
         }));
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
-        return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+        return _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
             body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 400 } }),
@@ -5109,7 +5114,7 @@ async function _callAILive(messages) {
         }).then(r => { if (!r.ok) throw new Error('g ' + r.status); return r.json(); })
           .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
     };
-    const tryORLive = (key) => fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const tryORLive = (key) => _ghFetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 0.7, max_tokens: 400 }),
@@ -5117,7 +5122,7 @@ async function _callAILive(messages) {
     }).then(r => { if (!r.ok) throw new Error('or ' + r.status); return r.json(); })
       .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
 
-    try { return await Promise.any([tryGeminiLive(), tryORLive(OPENROUTER_KEY), tryORLive(OPENROUTER_KEY2)]); } catch(_) {}
+    try { return await Promise.any([tryGeminiLive(), tryORLive('')]); } catch(_) {}
     return 'מצטער, לא הצלחתי להגיב. נסה שוב.';
 }
 
@@ -5276,7 +5281,7 @@ function _liveListenOnce() {
 // in either case we fall back to the browser's built-in speechSynthesis rather than failing silently.
 async function _playElevenLabsTTS(text) {
     try {
-        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`, {
+        const res = await _ghFetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`, {
             method: 'POST',
             headers: { 'xi-api-key': ELEVEN_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2' }),
@@ -5414,7 +5419,7 @@ function _pcmToWav(pcmBytes, sampleRate) {
 // Gemini 2.5 Flash TTS — uses existing Gemini key, supports Hebrew
 async function _playGeminiTTS(text) {
     try {
-        const res = await fetch(
+        const res = await _ghFetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent`,
             {
                 method: 'POST',
