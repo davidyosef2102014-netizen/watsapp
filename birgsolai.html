@@ -4818,18 +4818,22 @@ async function send() {
         const searchTriggers = [
             'כמה עולה','מחיר','מחירים','זול','יקר','לקנות','לרכוש','קנייה',
             'מומלץ','מומלצים','הכי טוב','הכי זול','הכי יקר','בישראל',
-            'חנות','מבצע','הנחה','השוואה','2025','2026','עדכני','אחרון',
+            'חנות','הנחה','השוואה','2025','2026','עדכני','אחרון',
             'ספורט','ניקוד','תוצאה','ליגה','גביע','מזג אוויר','טמפרטורה',
             'שקל','דולר','אירו','price','cheapest','best','latest','buy'
         ];
         const newsQuery = q.replace(/^(תסביר לי על|ספר לי על|מה זה|מי זה|מה הוא|תגיד לי על|תאר לי את|תסביר|ספר|תגיד)\s*/i,'').trim();
-        const isMilitaryOrNews = ['מבצע','מלחמה','פיגוע','חדשות','התקפה','ירי','טיל','לחימה','כוחות','חיזבאלה','חמאס','צה"ל','רצח','הפגנה','שב"כ','מוסד'].some(k => q.includes(k));
+        const isMilitaryOrNews = ['מלחמה','פיגוע','חדשות','התקפה','ירי','טיל','לחימה','כוחות','חיזבאלה','חמאס','צה"ל','רצח','הפגנה','שב"כ','מוסד'].some(k => q.includes(k));
+        // בקשת תרגום לעולם לא צריכה חיפוש חי — הזרקת תוצאות לתוך "תרגם את הטקסט" גרמה לדליפת הבלוק הפנימי לפלט
+        const _isTranslate = /תרגם|תתרגם|לתרגם|תרגום|translate|traduc|übersetz|переве|ترجم/i.test(q);
+        // "מבצע" כשם-עצם (הנחה / מבצע צבאי) — אך לא הפועל "מבצעת/מבצעים/מבצעות" (שהכיל בטעות "מבצע")
+        const _dealOrOp = /מבצע(?![א-ת])/.test(q);
         // בקשת חיפוש כללית ללא נושא עצמאי ("בדוק מידע עדכני", "תבדוק", "מה חדש") — אין טעם לחפש
         // את הטקסט המילולי; נדלג על החיפוש האוטומטי וניתן ל-AI לחפש לפי הקשר השיחה עם [SEARCH].
         const _fillers = new Set(['בדוק','תבדוק','לבדוק','חפש','תחפש','לחפש','מצא','תמצא','עדכן','תעדכן','עדכני','עדכנית','עדכניים','מידע','אחרון','אחרונה','אחרונות','האחרון','חדש','חדשה','חדשות','מה','לי','על','זה','את','נא','בבקשה','נשמע','קורה','היום','כרגע','באינטרנט','אונליין','now','latest','updated','update','check','search','info','news','the','a','об','что']);
         const _subjectWords = q.replace(/[?!.,״"'׳]/g,'').split(/\s+/).filter(w => w && !_fillers.has(w.toLowerCase()));
         const _hasSubject = _subjectWords.join('').length >= 2;
-        if ((searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews) && _hasSubject) {
+        if (!_isTranslate && (searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews || _dealOrOp) && _hasSubject) {
             const preview = (newsQuery||q).length > 38 ? (newsQuery||q).slice(0,38)+'…' : (newsQuery||q);
             status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(preview)}</b></span>`;
             status.style.display = 'flex';
