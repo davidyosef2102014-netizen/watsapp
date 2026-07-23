@@ -1989,6 +1989,11 @@ async function _genSmartTitle(convId) {
     // כותרת פגומה מגרסה קודמת — ננקה וניצור מחדש
     if (conv.smartTitle && _badSmartTitle(conv.smartTitle)) conv.smartTitle = null;
     if (conv.smartTitle) return;
+    // ברכה/הודעה זעירה — אין נושא אמיתי, והמודל ימציא כותרת שגויה. נשאיר את הטקסט המקורי ככותרת.
+    const _firstU = conv.messages.find(m => m.role === 'user');
+    const _firstUStr = (_firstU && typeof _firstU.content === 'string') ? _firstU.content.trim() : '';
+    const _isGreeting = /^(שלום|היי+|הי|אהלן|מה נשמע|מה קורה|מה המצב|מה קורה\?|בוקר טוב|ערב טוב|לילה טוב|צהריים טובים|שבת שלום|hi+|hello+|hey+|yo)[\s!.,?׳״]*$/i.test(_firstUStr);
+    if (_firstUStr.length < 3 || _isGreeting) return;
     _titleBusy = true;
     try {
         const sample = conv.messages.slice(0, 4)
@@ -2000,7 +2005,7 @@ async function _genSmartTitle(convId) {
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 60,
                 messages: [
-                    { role: 'system', content: 'אתה נותן שמות לשיחות. קבל קטע שיחה והחזר נושא קצר של 2-4 מילים בשפת השיחה. דוגמאות טובות: "השוואת טלוויזיות", "מתכון פסטה", "עזרה בקוד פייתון". אסור להשתמש במילים משתמש/עוזר/שיחה/כותרת, אסור נקודתיים, מרכאות או נקודה. החזר את הנושא בלבד.' },
+                    { role: 'system', content: 'אתה נותן שמות לשיחות. קבל קטע שיחה והחזר נושא קצר של 2-4 מילים בשפת השיחה. בסס את הכותרת אך ורק על מה שנכתב בשיחה בפועל — אסור בהחלט להמציא נושא, שם או פרט שלא הופיע. אם אין נושא ברור (למשל רק ברכה או שיחת חולין), החזר את המילים הראשונות של המשתמש כמו שהן. דוגמאות טובות: "השוואת טלוויזיות", "מתכון פסטה", "עזרה בקוד פייתון". אסור מילים משתמש/עוזר/שיחה/כותרת, אסור נקודתיים, מרכאות או נקודה. החזר את הנושא בלבד.' },
                     { role: 'user', content: sample }
                 ]
             }),
@@ -2633,6 +2638,7 @@ CRITICAL RULES:
 9. [SEARCH] results tagged "[תוצאות חיפוש אמיתיות]" are REAL organic search results with real store names, real URLs, and real prices/snippets (from actual retailer and price-comparison sites) — they are NOT vague web noise, treat them as trustworthy primary sources. If they contain a relevant store/product/price, that IS your answer — extract and state it directly, even if the exact retailer name isn't in every single result (e.g. a price-comparison-site result naming the cheapest model still answers "what's the cheapest TV" even if it doesn't repeat the original store's name). Only say "לא מצאתי מידע" if these results are truly about something unrelated to the question.
 9b. [SEARCH] results tagged "[תשובה מסונתזת ע"י מנוע החיפוש]" come from a dedicated AI search engine that already read multiple sources and wrote a direct answer — this is the HIGHEST-confidence source available. Repeat it as your answer (translate/rephrase into natural Hebrew if needed) — do not second-guess it or add "I'm not sure" hedging on top of it.
 10. MANDATORY for any product/price question once [SEARCH] returned "[תוצאות חיפוש אמיתיות]": your answer MUST quote at least one concrete number, model name, or store name found in those results (e.g. "ב-Zap, Samsung 50 אינץ' QLED מחיר 2,490 ₪"). An answer that ends with only "בדוק באתר" / "אני ממליץ לבדוק" and no concrete figure from the results is WRONG even if you also searched — go back and extract the actual number that's already sitting in the search results text.
+11. CONTEXT-AWARE SEARCH: when the user asks to check/search for updated info WITHOUT naming a subject — e.g. "בדוק מידע עדכני", "תבדוק", "מה חדש", "עדכן אותי", "check for updates", "search about it" — the subject is the CURRENT TOPIC of the conversation (whatever was just discussed in the previous messages). Build your query from that topic: [SEARCH: <the actual topic> עדכני]. NEVER search the literal command words themselves (searching "בדוק מידע עדכני" is always wrong). If the conversation has no prior topic yet, ask the user briefly what to check instead of searching nonsense.
 
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.
@@ -4813,7 +4819,12 @@ async function send() {
         ];
         const newsQuery = q.replace(/^(תסביר לי על|ספר לי על|מה זה|מי זה|מה הוא|תגיד לי על|תאר לי את|תסביר|ספר|תגיד)\s*/i,'').trim();
         const isMilitaryOrNews = ['מבצע','מלחמה','פיגוע','חדשות','התקפה','ירי','טיל','לחימה','כוחות','חיזבאלה','חמאס','צה"ל','רצח','הפגנה','שב"כ','מוסד'].some(k => q.includes(k));
-        if (searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews) {
+        // בקשת חיפוש כללית ללא נושא עצמאי ("בדוק מידע עדכני", "תבדוק", "מה חדש") — אין טעם לחפש
+        // את הטקסט המילולי; נדלג על החיפוש האוטומטי וניתן ל-AI לחפש לפי הקשר השיחה עם [SEARCH].
+        const _fillers = new Set(['בדוק','תבדוק','לבדוק','חפש','תחפש','לחפש','מצא','תמצא','עדכן','תעדכן','עדכני','עדכנית','עדכניים','מידע','אחרון','אחרונה','אחרונות','האחרון','חדש','חדשה','חדשות','מה','לי','על','זה','את','נא','בבקשה','נשמע','קורה','היום','כרגע','באינטרנט','אונליין','now','latest','updated','update','check','search','info','news','the','a','об','что']);
+        const _subjectWords = q.replace(/[?!.,״"'׳]/g,'').split(/\s+/).filter(w => w && !_fillers.has(w.toLowerCase()));
+        const _hasSubject = _subjectWords.join('').length >= 2;
+        if ((searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews) && _hasSubject) {
             const preview = (newsQuery||q).length > 38 ? (newsQuery||q).slice(0,38)+'…' : (newsQuery||q);
             status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(preview)}</b></span>`;
             status.style.display = 'flex';
