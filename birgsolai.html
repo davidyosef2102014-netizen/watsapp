@@ -3518,7 +3518,7 @@ async function _hostImage(dataUrl) {
     } catch { return null; }
 }
 
-async function generateImage(promptRaw, reuseRow, imgStyle) {
+async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl) {
     showChat();
     const cw = document.getElementById('chat-window');
 
@@ -3613,6 +3613,22 @@ async function generateImage(promptRaw, reuseRow, imgStyle) {
     const styledPrompt = safePrompt + ', ' + imgStyle.suffix;
 
     let imgSrc = null;
+
+    // ── מצב עריכה: אם עורכים תמונה שהמשתמש העלה — עריכה אמיתית שמותנית בפיקסלים המקוריים
+    //    (Pollinations gptimage, חינם, מקבל את התמונה עצמה). אם נכשל — ממשיך לשרשרת FLUX למטה
+    //    שמייצרת מחדש לפי התיאור (הגיבוי הישן). ──
+    if (editSrcUrl && !imgSrc) {
+        try {
+            const eUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?image=${encodeURIComponent(editSrcUrl)}&model=gptimage&nologo=true`;
+            const eRes = await fetch(eUrl, { signal: AbortSignal.timeout(55000) });
+            if (eRes.ok && (eRes.headers.get('content-type') || '').startsWith('image/')) {
+                const blob = await eRes.blob();
+                if (blob && blob.size > 2000) {
+                    imgSrc = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(blob); });
+                }
+            }
+        } catch { /* ניפול לשרשרת FLUX למטה */ }
+    }
 
     // 1st: FLUX.1-schnell via Cloudflare Worker (חינם, 10k/יום). מנסים עד 3 פעמים —
     // הסינון NSFW של FLUX אקראי בכל קריאה, כך שניסיון חוזר כמעט תמיד עובר.
@@ -3789,10 +3805,15 @@ async function editImage(imgDataUrl, instruction) {
         } catch {}
     }
 
-    // Step 3: generate with Pollinations (always photorealistic for edits)
+    // Step 3: host the uploaded image, then EDIT it — real pixel-conditioned editing via gptimage
+    // (passes the actual image). If editing fails, generateImage falls back to FLUX re-creation
+    // from the description below. Hosting failure → editSrc null → pure FLUX re-creation (old behavior).
+    skelTxt.textContent = 'עורך את התמונה…';
     const finalPrompt = description + '. Change: ' + engInstruction;
     const imgStyle = { model: 'flux-realism', suffix: 'photorealistic, product photography, highly detailed, sharp focus, 8k' };
-    await generateImage(finalPrompt, row, imgStyle);
+    let editSrc = null;
+    try { editSrc = await _hostImage(imgDataUrl); } catch {}
+    await generateImage(finalPrompt, row, imgStyle, editSrc);
 }
 
 function triggerImageGen() {
