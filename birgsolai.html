@@ -3519,7 +3519,7 @@ async function _hostImage(dataUrl) {
     } catch { return null; }
 }
 
-async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl) {
+async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInstruction) {
     showChat();
     const cw = document.getElementById('chat-window');
 
@@ -3620,7 +3620,10 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl) {
     //    שמייצרת מחדש לפי התיאור (הגיבוי הישן). ──
     if (editSrcUrl && !imgSrc) {
         try {
-            const eUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?image=${encodeURIComponent(editSrcUrl)}&model=gptimage&nologo=true`;
+            // בעריכה — שולחים ל-gptimage רק את ההוראה (הוא רואה את הפיקסלים; תיאור המקור רק "מושך" אותו
+            // לשחזר במקום לשנות). ה-safePrompt (תיאור+שינוי) נשאר לגיבוי FLUX שכן מייצר מחדש מאפס.
+            const editPrompt = (editInstruction && editInstruction.trim()) ? editInstruction.trim() : safePrompt;
+            const eUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(editPrompt)}?image=${encodeURIComponent(editSrcUrl)}&model=gptimage&nologo=true`;
             const eRes = await fetch(eUrl, { signal: AbortSignal.timeout(55000) });
             if (eRes.ok && (eRes.headers.get('content-type') || '').startsWith('image/')) {
                 const blob = await eRes.blob();
@@ -3814,7 +3817,7 @@ async function editImage(imgDataUrl, instruction) {
     const imgStyle = { model: 'flux-realism', suffix: 'photorealistic, product photography, highly detailed, sharp focus, 8k' };
     let editSrc = null;
     try { editSrc = await _hostImage(imgDataUrl); } catch {}
-    await generateImage(finalPrompt, row, imgStyle, editSrc);
+    await generateImage(finalPrompt, row, imgStyle, editSrc, engInstruction);
 }
 
 function triggerImageGen() {
