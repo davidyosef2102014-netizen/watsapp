@@ -1579,7 +1579,7 @@ function openConversation(convId) {
     currentConvId = convId;
     if (currentUser) localStorage.setItem('birgsol_open_conv_' + currentUser, currentConvId);
     hist = Array.isArray(found.messages) ? JSON.parse(JSON.stringify(found.messages)) : [];
-    isFirstMsg = false;
+    isFirstMsg = false; _lastImg = "";
 
     // רנדר מחדש את כל ההודעות
     const cw = document.getElementById('chat-window');
@@ -2772,6 +2772,7 @@ function setMode(mode) {
 
 
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
+let _lastImg = ""; // התמונה האחרונה שהמשתמש העלה בשיחה — לזכירה בשאלות המשך ("תסתכל שוב", "ההבדל")
 let _groqCooldownUntil = 0; // כש-Groq מגיע למגבלת קצב, נותנים לו לנוח עד הזמן הזה (במקום לפסול לכל השיחה)
 let _abortCtrl = null;
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
@@ -4795,6 +4796,9 @@ async function send() {
     const img = fileUrl;
     const attachedFile = fileContent;
     const attachedName = fileName;
+    if (img) _lastImg = img; // זכור את התמונה האחרונה שהועלתה
+    // שאלת המשך שמתייחסת לתמונה בלי העלאה חדשה — צרף אוטומטית את התמונה האחרונה כדי שהמודל "יזכור" אותה
+    const _refImg = (!img && _lastImg && /תמונ|בצילום|תסתכל|תראה|הזאת|הזו|הזה|רואה|ההבדל|הכלב|בה |look|image|picture|photo|\bthis\b/i.test(q)) ? _lastImg : null;
     addMsg('user', q, img, false, attachedFile ? attachedName : '');
     // תמונה שהמשתמש העלה — מארחים אותה ומצרפים קישור להודעה, כדי שתישמר ותוצג גם אחרי רענון
     const _userMsgIdx = hist.length - 1;
@@ -4819,10 +4823,10 @@ async function send() {
         content = content.replace(/\n?\[IMG:[^\]]+\]/g, ''); // הסר מרקר תמונה מההיסטוריה (הוא רק לתצוגה)
         messages.push({ role: m.role, content });
     });
-    if (img) {
+    if (img || _refImg) {
         messages.push({ role: 'user', content: [
             { type: 'text', text: q || 'מה בתמונה?' },
-            { type: 'image_url', image_url: { url: img } }
+            { type: 'image_url', image_url: { url: img || _refImg } }
         ]});
     } else if (attachedFile) {
         const trimmed = attachedFile.length > 14000
@@ -4851,7 +4855,7 @@ async function send() {
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
     // ── Auto-search: inject live results before AI call ──
-    if (!img && q) {
+    if (!img && !_refImg && q) {
         const searchTriggers = [
             'כמה עולה','מחיר','מחירים','זול','יקר','לקנות','לרכוש','קנייה',
             'מומלץ','מומלצים','הכי טוב','הכי זול','הכי יקר','בישראל',
@@ -5012,7 +5016,7 @@ function startNew() {
     const cw = document.getElementById('chat-window');
     cw.innerHTML = ''; cw.style.display = 'none';
     document.getElementById('welcome').style.display = 'flex';
-    hist = []; isFirstMsg = true; currentConvId = null;
+    hist = []; isFirstMsg = true; currentConvId = null; _lastImg = "";
     if (currentUser) localStorage.removeItem('birgsol_open_conv_' + currentUser);
     closeSidebar(); updateGreeting(); renderConvList();
 }
