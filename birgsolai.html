@@ -4041,11 +4041,70 @@ function _toPoi(el, lat, lon) {
     const dist = (e.lat!=null && e.lon!=null) ? _haversineKm(lat,lon,e.lat,e.lon) : 999;
     return { name, brand: e.tags.brand||'', addr, dist, shop: e.tags.shop||e.tags.amenity||e.tags.tourism||'', lat: e.lat, lon: e.lon };
 }
+// מיקום המשתמש (GPS) — ל"הקרוב אליי". פעם אחת, נשמר בזיכרון (undefined=לא נוסה, null=נדחה).
+let _userGeoCache;
+async function _getUserGeo() {
+    if (_userGeoCache !== undefined) return _userGeoCache;
+    try {
+        if (!navigator.geolocation) { _userGeoCache = null; return null; }
+        const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000, maximumAge: 600000, enableHighAccuracy: false }));
+        const lat = pos.coords.latitude, lon = pos.coords.longitude;
+        let city = '';
+        try {
+            const rr = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(6000) });
+            const a = (await rr.json())?.address || {};
+            city = a.city || a.town || a.village || a.municipality || a.suburb || '';
+        } catch {}
+        _userGeoCache = { lat, lon, city };
+    } catch { _userGeoCache = null; }
+    return _userGeoCache;
+}
+
+// חיפוש מקום דרך האינטרנט (Tavily) — מוצא כתובת אמיתית של עסק (טוב בהרבה מ-OSM שריק בישראל),
+// מחלץ אותה בזהירות (מילה-במילה, בלי להמציא), ומאמת ב-geocode. מחזיר null אם לא נמצא/לא אומת.
+async function _mapsViaSearch(query) {
+    try {
+        let q = query, userGeo = null;
+        if (/הקרוב|קרוב אלי|קרובה אלי|לידי|בסביב|באזור שלי|near me|nearby|closest/i.test(query)) {
+            userGeo = await _getUserGeo();
+            if (userGeo && userGeo.city) q = query.replace(/ה?קרוב[הת]?\s*(אליי?|אלי)?|near me|nearby|closest( to me)?/gi, ' ').trim() + ' ' + userGeo.city;
+        }
+        const tav = await _tryTavily(q + ' כתובת מדויקת בישראל').catch(() => '');
+        if (!tav || tav.length < 25) return null;
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
+            model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 120,
+            messages: [
+                { role: 'system', content: 'You extract a real address from search results to place ONE pin on a map. Copy the street address EXACTLY as it literally appears in the text (same language and characters) — DO NOT translate, transliterate, guess, or invent. If no explicit street address with a house number appears, respond {"address":null}. Respond ONLY compact JSON: {"address":"<verbatim street + number>, <city>, ישראל","name":"<business name>"}.' },
+                { role: 'user', content: `Requested: ${query}\n\nResults:\n${tav.slice(0, 1600)}` }
+            ]
+        }, { signal: AbortSignal.timeout(12000) });
+        const j = await r.json();
+        let parsed = null;
+        try { parsed = JSON.parse((j?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim()); } catch {}
+        if (!parsed || !parsed.address) return null;
+        const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(parsed.address)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
+        const gj = await g.json();
+        if (!gj || !gj.length) return null; // כתובת לא נמצאה/מומצאת — לא מציגים סיכה שגויה
+        const lat = parseFloat(gj[0].lat), lon = parseFloat(gj[0].lon);
+        const name = parsed.name || query;
+        const dist = userGeo ? _haversineKm(userGeo.lat, userGeo.lon, lat, lon) : 0;
+        return { text: `📍 ${name} — ${parsed.address}${userGeo ? ` · ${dist.toFixed(1)} ק"מ ממך` : ''}`, results: [{ name, brand: '', addr: parsed.address, dist, shop: '', lat, lon }], center: { lat, lon } };
+    } catch { return null; }
+}
+
 async function webMaps(query) {
     let business = '', location = query;
     const parts = query.split(/,|\s+near\s+|\s+ליד\s+|\s+ב/i).map(s=>s.trim()).filter(Boolean);
     if (parts.length >= 2) { business = parts[0]; location = parts.slice(1).join(' '); }
     const RADIUS = 30000;
+
+    // חיפוש-ראשון: לעסק ספציפי (לא קטגוריה כללית), מצא כתובת אמיתית דרך האינטרנט — הרבה יותר
+    // מדויק מ-OSM. גיבוי אוטומטי ל-Overpass אם לא נמצא/לא אומת.
+    const _genericCat = /בתי\s|מסעדות|בתי קפה|בתי מרקחת|סופרמרקט|תחנות דלק|בנקים|כספומט|מלונ|חנויות|restaurants|cafes|pharmacies|hotels|stations|what'?s near|מה יש ליד|מקומות ליד/i.test(query);
+    if (!_genericCat) {
+        const via = await _mapsViaSearch(query);
+        if (via && via.results && via.results.length) return via;
+    }
 
     try {
         // 1. Geocode the location
