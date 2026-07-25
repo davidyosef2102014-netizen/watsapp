@@ -4072,23 +4072,43 @@ async function _mapsViaSearch(query) {
         const tav = await _tryTavily(q + ' כתובת מדויקת בישראל').catch(() => '');
         if (!tav || tav.length < 25) return null;
         const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
-            model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 120,
+            model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 140,
             messages: [
-                { role: 'system', content: 'You extract a real address from search results to place ONE pin on a map. Copy the street address EXACTLY as it literally appears in the text (same language and characters) — DO NOT translate, transliterate, guess, or invent. If no explicit street address with a house number appears, respond {"address":null}. Respond ONLY compact JSON: {"address":"<verbatim street + number>, <city>, ישראל","name":"<business name>"}.' },
+                { role: 'system', content: 'Extract a real Israeli street address from the search results to place ONE map pin. Rules: (1) Copy the street name + house number EXACTLY as they appear — never invent a street or number. (2) Output in HEBREW — if the street appears transliterated in English, convert it to its standard Hebrew spelling (same street, same number). (3) If no explicit street address WITH a house number appears, use null. Respond ONLY compact JSON: {"street":"<hebrew street + number>","city":"<hebrew city>","name":"<business name>"} or {"street":null}.' },
                 { role: 'user', content: `Requested: ${query}\n\nResults:\n${tav.slice(0, 1600)}` }
             ]
         }, { signal: AbortSignal.timeout(12000) });
         const j = await r.json();
-        let parsed = null;
-        try { parsed = JSON.parse((j?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim()); } catch {}
-        if (!parsed || !parsed.address) return null;
-        const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(parsed.address)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
-        const gj = await g.json();
-        if (!gj || !gj.length) return null; // כתובת לא נמצאה/מומצאת — לא מציגים סיכה שגויה
-        const lat = parseFloat(gj[0].lat), lon = parseFloat(gj[0].lon);
-        const name = parsed.name || query;
-        const dist = userGeo ? _haversineKm(userGeo.lat, userGeo.lon, lat, lon) : 0;
-        return { text: `📍 ${name} — ${parsed.address}${userGeo ? ` · ${dist.toFixed(1)} ק"מ ממך` : ''}`, results: [{ name, brand: '', addr: parsed.address, dist, shop: '', lat, lon }], center: { lat, lon } };
+        let p = null;
+        try { p = JSON.parse((j?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim()); } catch {}
+        if (!p || !p.street) return null;
+        const city = (p.city || '').trim();
+        const name = p.name || query;
+        const addrText = p.street + (city ? ', ' + city : '');
+        // geocode עם הטיה לישראל ובעברית
+        const _geo = async (s) => {
+            try {
+                const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=${encodeURIComponent(s)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
+                const gj = await g.json();
+                return gj && gj.length ? { lat: parseFloat(gj[0].lat), lon: parseFloat(gj[0].lon) } : null;
+            } catch { return null; }
+        };
+        // 1) כתובת מדויקת (רחוב+מספר). 2) שם המקום+עיר (Nominatim מכיר מוסדות/ציוני-דרך במדויק).
+        // נמנעים מרחוב-בלבד — הוא תפס בטעות פיצ'רים אחרים עם שם דומה.
+        let pin = await _geo(addrText + ', ישראל')
+               || (name ? await _geo(name + (city ? ', ' + city : '')) : null)
+               || await _geo(addrText);
+        // אימות: הסיכה חייבת להיות באמת ליד העיר המבוקשת (מונע רחוב עם אותו שם בעיר אחרת)
+        if (pin && city) {
+            const cityPin = await _geo(city);
+            if (cityPin && _haversineKm(pin.lat, pin.lon, cityPin.lat, cityPin.lon) > 25) pin = null;
+        }
+        if (pin) {
+            const dist = userGeo ? _haversineKm(userGeo.lat, userGeo.lon, pin.lat, pin.lon) : 0;
+            return { text: `📍 ${name} — ${addrText}${userGeo ? ` · ${dist.toFixed(1)} ק"מ ממך` : ''}`, results: [{ name, brand: '', addr: addrText, dist, shop: '', lat: pin.lat, lon: pin.lon }], center: { lat: pin.lat, lon: pin.lon } };
+        }
+        // מצאנו כתובת אמיתית אבל אין מיקום אמין — מחזירים טקסט בלבד (בלי מפה), לעולם לא סיכה שגויה
+        return { text: `📍 ${name} — ${addrText}`, results: [], center: null, textOnly: true };
     } catch { return null; }
 }
 
@@ -4103,7 +4123,8 @@ async function webMaps(query) {
     const _genericCat = /בתי\s|מסעדות|בתי קפה|בתי מרקחת|סופרמרקט|תחנות דלק|בנקים|כספומט|מלונ|חנויות|restaurants|cafes|pharmacies|hotels|stations|what'?s near|מה יש ליד|מקומות ליד/i.test(query);
     if (!_genericCat) {
         const via = await _mapsViaSearch(query);
-        if (via && via.results && via.results.length) return via;
+        // כל תוצאה מהחיפוש (סיכה מאומתת או לפחות כתובת טקסטואלית) עדיפה על Overpass לעסק בשם
+        if (via) return via;
     }
 
     try {
