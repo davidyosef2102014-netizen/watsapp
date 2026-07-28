@@ -3664,7 +3664,22 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
         } catch { /* ננסה שוב / ניפול לגיבוי */ }
     }
 
-    // 2nd: FLUX.1-dev via fal-ai (HuggingFace — פועל כשיש קרדיטים)
+    // 2nd: Qwen image (Alibaba) — גיבוי איכותי. איטי אך טוב, ולכן עדיף על Pollinations. גם גיבוי גאו-פוליטי
+    // (מקור סיני שממשיך לרוץ אם שירותי ארה"ב נופלים). כל המחזור האסינכרוני קורה ב-Worker ומחזיר base64.
+    if (!imgSrc) try {
+        const qRes = await fetch(GH_WORKER, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op: 'qwen-image', prompt: styledPrompt, size: '1024*1024' }),
+            signal: AbortSignal.timeout(45000)
+        });
+        if (qRes.ok) {
+            const qData = await qRes.json();
+            if (qData.image && qData.image.length > 1000) imgSrc = `data:image/png;base64,${qData.image}`;
+        }
+    } catch { /* ניפול לגיבוי הבא */ }
+
+    // 3rd: FLUX.1-dev via fal-ai (HuggingFace — פועל כשיש קרדיטים)
     if (!imgSrc) try {
         const devRes = await _ghFetch('https://router.huggingface.co/fal-ai/fal-ai/flux/dev', {
             method: 'POST',
