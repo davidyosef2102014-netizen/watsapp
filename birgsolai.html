@@ -3645,8 +3645,23 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
         } catch { /* ניפול לשרשרת FLUX למטה */ }
     }
 
-    // 1st: FLUX.1-schnell via Cloudflare Worker (חינם, 10k/יום). מנסים עד 3 פעמים —
-    // הסינון NSFW של FLUX אקראי בכל קריאה, כך שניסיון חוזר כמעט תמיד עובר.
+    // 1st: Qwen image (Alibaba) — מודל התמונות הראשי (החלטת הצוות). איכות מעולה (≈FLUX), גם עצמאי מארה"ב.
+    // איטי יותר (~10ש') אבל מקובל ליצירת תמונה. כל המחזור האסינכרוני קורה ב-Worker ומחזיר base64.
+    if (!imgSrc) try {
+        const qRes = await fetch(GH_WORKER, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op: 'qwen-image', prompt: styledPrompt, size: '1024*1024' }),
+            signal: AbortSignal.timeout(45000)
+        });
+        if (qRes.ok) {
+            const qData = await qRes.json();
+            if (qData.image && qData.image.length > 1000) imgSrc = `data:image/png;base64,${qData.image}`;
+        }
+    } catch { /* ניפול לגיבוי הבא */ }
+
+    // 2nd: FLUX.1-schnell via Cloudflare — גיבוי מהיר (~2ש') אם Qwen נכשל / איטי / נגמרה המכסה.
+    // מנסים עד 3 פעמים — הסינון NSFW של FLUX אקראי בכל קריאה, כך שניסיון חוזר כמעט תמיד עובר.
     for (let cfTry = 0; cfTry < 3 && !imgSrc; cfTry++) {
         try {
             const cfRes = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
@@ -3663,21 +3678,6 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
             }
         } catch { /* ננסה שוב / ניפול לגיבוי */ }
     }
-
-    // 2nd: Qwen image (Alibaba) — גיבוי איכותי. איטי אך טוב, ולכן עדיף על Pollinations. גם גיבוי גאו-פוליטי
-    // (מקור סיני שממשיך לרוץ אם שירותי ארה"ב נופלים). כל המחזור האסינכרוני קורה ב-Worker ומחזיר base64.
-    if (!imgSrc) try {
-        const qRes = await fetch(GH_WORKER, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ op: 'qwen-image', prompt: styledPrompt, size: '1024*1024' }),
-            signal: AbortSignal.timeout(45000)
-        });
-        if (qRes.ok) {
-            const qData = await qRes.json();
-            if (qData.image && qData.image.length > 1000) imgSrc = `data:image/png;base64,${qData.image}`;
-        }
-    } catch { /* ניפול לגיבוי הבא */ }
 
     // 3rd: FLUX.1-dev via fal-ai (HuggingFace — פועל כשיש קרדיטים)
     if (!imgSrc) try {
