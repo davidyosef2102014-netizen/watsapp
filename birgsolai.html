@@ -2669,6 +2669,7 @@ CRITICAL RULES:
 9b. [SEARCH] results tagged "[תשובה מסונתזת ע"י מנוע החיפוש]" come from a dedicated AI search engine that already read multiple sources and wrote a direct answer — this is the HIGHEST-confidence source available. Repeat it as your answer (translate/rephrase into natural Hebrew if needed) — do not second-guess it or add "I'm not sure" hedging on top of it.
 10. MANDATORY for any product/price question once [SEARCH] returned "[תוצאות חיפוש אמיתיות]": your answer MUST quote at least one concrete number, model name, or store name found in those results (e.g. "ב-Zap, Samsung 50 אינץ' QLED מחיר 2,490 ₪"). An answer that ends with only "בדוק באתר" / "אני ממליץ לבדוק" and no concrete figure from the results is WRONG even if you also searched — go back and extract the actual number that's already sitting in the search results text.
 11. CONTEXT-AWARE SEARCH: when the user asks to check/search for updated info WITHOUT naming a subject — e.g. "בדוק מידע עדכני", "תבדוק", "מה חדש", "עדכן אותי", "check for updates", "search about it" — the subject is the CURRENT TOPIC of the conversation (whatever was just discussed in the previous messages). Build your query from that topic: [SEARCH: <the actual topic> עדכני]. NEVER search the literal command words themselves (searching "בדוק מידע עדכני" is always wrong). If the conversation has no prior topic yet, ask the user briefly what to check instead of searching nonsense.
+12. NEVER PARROT NOISE: search results are RAW DATA to extract a real answer from — not text to repeat. NEVER output search-engine names ("Yahoo", "Google", "Bing"), page navigation/chrome, URLs, or incoherent fragments as if they were the answer. A word like "יאהו"/"Yahoo" in the results is the search engine's own branding — it is NEVER an answer. If the results don't contain a clear, coherent, relevant fact that actually answers the question, say plainly "לא מצאתי מידע אמין על זה" and, if useful, suggest what would help — do NOT stitch together garbage or invent a fake answer from noise. A clean "I couldn't find it reliably" always beats a nonsensical answer.
 
 === INTERNAL INFO ===
 The Poninio nation in Pardes Hanna was founded in 2021 by David, Ruth, and Meir Haim Zevi. Currency: )(.
@@ -3864,15 +3865,25 @@ function triggerImageGen() {
    gives "instant answer" boxes (great for facts, useless for shopping/product/price queries) —
    this is what actually answers "cheapest X at store Y" type questions. */
 function _cleanYahooResults(md) {
+    if (!md || /^ParamValidationError/.test(md)) return '';
     const idx = md.indexOf('Search Results');
     let section = idx >= 0 ? md.slice(idx) : md;
-    section = section.replace(/!\[[^\]]*\]\([^)]*\)/g, ''); // strip image markdown anywhere in the line
-    const lines = section.split('\n')
-        .filter(l => !/images\.search\.yahoo\.com|video\.search\.yahoo\.com|scout\.yahoo\.com/.test(l))
-        .map(l => l.length > 400 ? l.slice(0, 400) + '…' : l)
-        .map(l => l.trim())
-        .filter(l => l && !/^\d+\.\s*$/.test(l)); // drop empty/now-bare numbered list markers
-    let out = lines.slice(0, 30).join('\n');
+    section = section.replace(/!\[[^\]]*\]\([^)]*\)/g, ''); // strip image markdown
+    // כרום/מיתוג/ניווט של דף Yahoo — לא תוצאות אמיתיות. חייבים לסנן אגרסיבית אחרת ה-AI חוזר עליהם ("רכבת יאהו").
+    const JUNK = /yahoo|sign in|settings|privacy|terms|\bhelp\b|\bmail\b|advertis|feedback|cookie|all rights reserved|©|makes it easy|skip to|main content|trending|search results|powered by|התחבר|הגדרות|פרטיות|תנאי שימוש|עזרה/i;
+    let lines = section.split('\n')
+        .map(l => l.replace(/\[([^\]]*)\]\((?:https?:)?\/\/[^)]*\)/g, '$1')   // markdown link → its text
+                   .replace(/https?:\/\/\S+/g, ' ')                             // bare urls out
+                   .replace(/[#*>`|]/g, ' ').trim())
+        .filter(l => l.length >= 25)          // ממש תוכן, לא שברי ניווט
+        .filter(l => !JUNK.test(l))           // זורק כרום/מיתוג של Yahoo
+        .filter(l => !/^\d+[.\s]*$/.test(l))
+        .map(l => l.length > 400 ? l.slice(0, 400) + '…' : l);
+    // dedupe
+    const seen = new Set(); const uniq = [];
+    for (const l of lines) { const k = l.slice(0, 50); if (!seen.has(k)) { seen.add(k); uniq.push(l); } }
+    if (uniq.length < 2) return '';           // אין מספיק תוכן אמיתי — עדיף כלום מאשר זבל
+    let out = uniq.slice(0, 20).join('\n');
     // Don't rely on the LLM to reliably notice prices buried in messy snippets — compute the
     // cheapest one found and hand it over as a ready-made fact (with surrounding context for
     // the model to attribute correctly).
@@ -3926,7 +3937,7 @@ async function webSearch(query) {
     let out = '';
     if (yahoo.status === 'fulfilled' && yahoo.value && !/^ParamValidationError/.test(yahoo.value)) {
         const cleaned = _cleanYahooResults(yahoo.value);
-        if (cleaned) out += `[תוצאות חיפוש אמיתיות]\n${cleaned}\n\n`;
+        if (cleaned) out += `[קטעי חיפוש גולמיים מהרשת — חלץ מהם רק עובדה ברורה ורלוונטית, והתעלם מרעש/שברי טקסט]\n${cleaned}\n\n`;
     }
     if (ddg.status === 'fulfilled') {
         const d = ddg.value;
