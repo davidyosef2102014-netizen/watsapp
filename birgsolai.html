@@ -3931,11 +3931,33 @@ async function _tryTavilyKey(apiKey, query) {
 async function _tryTavily(query) {
     return await _tryTavilyKey('', query);
 }
+// תרגום שאילתת חיפוש לאנגלית — לחיפוש עם כיסוי טוב בהרבה (עברית לרוב מחזירה ריק)
+async function _translateToEn(text) {
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
+            model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 80,
+            messages: [
+                { role: 'system', content: 'Translate this web-search query to concise, natural English for a search engine. Keep proper nouns/place names accurate. Output ONLY the English query — no quotes, no explanation.' },
+                { role: 'user', content: text }
+            ]
+        }, { signal: AbortSignal.timeout(8000) });
+        const j = await r.json();
+        const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, '');
+        return (t && t.length > 1 && t.length < 300) ? t : null;
+    } catch { return null; }
+}
 async function webSearch(query) {
     try {
         return await _tryTavily(query);
     } catch (e) {
-        console.warn('[search] Tavily failed, falling back to free chain:', e.message);
+        console.warn('[search] Tavily(orig) failed:', e.message);
+    }
+    // עברית לרוב מחזירה ריק ב-Tavily — מתרגמים לאנגלית ומנסים שוב (זה מה שבאמת מוצא את התשובה)
+    if (/[֐-׿]/.test(query)) {
+        try {
+            const en = await _translateToEn(query);
+            if (en && en.toLowerCase() !== query.toLowerCase()) return await _tryTavily(en);
+        } catch (e) { console.warn('[search] Tavily(en) failed:', e.message); }
     }
     const wq = encodeURIComponent(query);
     const [yahoo, ddg, wiki] = await Promise.allSettled([
