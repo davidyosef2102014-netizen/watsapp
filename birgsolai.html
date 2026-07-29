@@ -3933,14 +3933,15 @@ async function _tryTavily(query) {
 }
 // תרגום שאילתת חיפוש לאנגלית — לחיפוש עם כיסוי טוב בהרבה (עברית לרוב מחזירה ריק)
 async function _translateToEn(text) {
+    // חשוב: GPT-4o-mini, NOT Groq — ל-Groq/llama יש תרגום עברית שבור לגמרי (מחזיר שטויות אקראיות)
     try {
-        const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
-            model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 80,
+        const r = await _ghAI({
+            model: 'openai/gpt-4o-mini', temperature: 0, max_tokens: 80,
             messages: [
                 { role: 'system', content: 'Translate this web-search query to concise, natural English for a search engine. Keep proper nouns/place names accurate. Output ONLY the English query — no quotes, no explanation.' },
                 { role: 'user', content: text }
             ]
-        }, { signal: AbortSignal.timeout(8000) });
+        }, AbortSignal.timeout(9000));
         const j = await r.json();
         const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, '');
         return (t && t.length > 1 && t.length < 300) ? t : null;
