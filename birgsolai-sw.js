@@ -1,5 +1,5 @@
 /* BIRGSOL AI service worker — network-first, cache fallback (עובד גם בלי אינטרנט) */
-const CACHE = 'birgsol-ai-v37';
+const CACHE = 'birgsol-ai-v38';
 const ASSETS = ['./birgsolai.html', './birgsol-icon-192.png', './birgsol-icon-512.png'];
 
 self.addEventListener('install', e => {
