@@ -3938,7 +3938,7 @@ async function _translateToEn(text) {
         const r = await _ghAI({
             model: 'openai/gpt-4o-mini', temperature: 0, max_tokens: 80,
             messages: [
-                { role: 'system', content: 'Translate this web-search query to concise, natural English for a search engine. Keep proper nouns/place names accurate. Output ONLY the English query — no quotes, no explanation.' },
+                { role: 'system', content: 'Translate this web-search query to concise, natural English for a search engine. The user is in ISRAEL — for ambiguous LOCAL places (a museum, train/bus station, store, restaurant, street, mall) assume Israel and add "Israel" (or the Israeli city if implied) to the query, UNLESS another country is explicitly mentioned. Keep proper nouns/place names accurate. Output ONLY the English query — no quotes, no explanation.' },
                 { role: 'user', content: text }
             ]
         }, AbortSignal.timeout(9000));
