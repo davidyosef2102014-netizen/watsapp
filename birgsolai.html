@@ -286,7 +286,7 @@
         .ai-img-caption { font-size:12px; color:var(--muted); margin-top:6px; }
 
         /* ── Maps widget ── */
-        .map-widget { margin:12px 0; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--surf); flex-shrink:0; width:100%; }
+        .map-widget { margin:12px 0; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--surf); flex-shrink:0; width:100%; position:relative; z-index:0; }
         .map-widget-canvas { width:100%; height:260px; }
         .map-widget-cards { display:flex; gap:10px; overflow-x:auto; padding:12px; }
         .map-card { flex-shrink:0; width:200px; background:var(--surf2); border-radius:12px; padding:12px; }
@@ -432,6 +432,7 @@
             position: absolute; bottom: 0; width: 100%;
             padding: 8px 22px 22px;
             background: linear-gradient(to top, #eef2fb 78%, transparent);
+            z-index: 1500; /* מעל מפות Leaflet (שמגיעות ל-z-index ~1000) — אחרת המפה מכסה את תיבת ההקלדה */
         }
         .input-wrap { max-width: 760px; margin: 0 auto; }
 
@@ -2665,6 +2666,7 @@ Write tool calls on their own line:
 [BROWSE: https://full-url.com]
 [MAPS: business or brand, city/place]
 Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Use [MAPS] to find real businesses/shops near ANY place WORLDWIDE — any city, country, or address, not limited to Israel (format: "business name, location" e.g. "יונדאי, פרדס חנה" or "Hyundai, Pardes Hana" or "Starbucks, Paris France" or "pharmacy, Tokyo"). Up to 4 tool calls per answer.
+IMPORTANT — ONE MAP ONLY: emit AT MOST ONE [MAPS] call per answer. A single [MAPS] call already returns MULTIPLE nearby results and shows them ALL as pins on ONE map. NEVER emit several [MAPS] calls (one per place) — that creates several separate maps, which is wrong and confusing. If the user wants several places, make one [MAPS] call for the category/area and let it pin them all together.
 NEVER invent search results, addresses, or business names.
 CRITICAL RULES:
 1. After [SEARCH], if the results contain URLs/links but not enough detail, immediately do [BROWSE: url] on the most relevant URL to read the actual page content.
@@ -5094,7 +5096,10 @@ async function send() {
         // first (it indexes named shops, not just street addresses — far more reliable than
         // extracting an address out of AI-generated prose, or guessing from generic OSM categories).
         // Falls back to the broader "what's nearby" map only if the direct name lookup finds nothing. ──
-        const isLocationQuery = /איפה|כתובת של|הקרוב|הקרובה|סניף|near me|nearest|address of|where is|where's/i.test(q);
+        // "מה/איזו התחנה הכי קרובה ל-X?" — שאלה עובדתית שרוצה תשובה בטקסט (איזו תחנה), לא מפה של X.
+        // נשלח אותה לחיפוש+תשובה רגיל, לא לניתוב האוטומטי למפות שחוטף אותה.
+        const _askWhichNearest = /^\s*(מה|מהי|מהו|איזו|איזה|איזה|what|which)\b/i.test(q) && /הכי קרוב|קרוב|nearest|closest/i.test(q);
+        const isLocationQuery = !_askWhichNearest && /איפה|כתובת של|הקרוב|הקרובה|סניף|near me|nearest|address of|where is|where's/i.test(q);
         if (isLocationQuery) {
             const placeQuery = q.replace(/^(איפה|כתובת של)\s*/i,'').replace(/[?؟]\s*$/,'').trim();
             try {
