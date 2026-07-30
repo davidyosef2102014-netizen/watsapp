@@ -3947,12 +3947,37 @@ async function _translateToEn(text) {
         return (t && t.length > 1 && t.length < 300) ? t : null;
     } catch { return null; }
 }
-async function webSearch(query) {
+// Serper — תוצאות גוגל אמיתיות + מקומי ישראל (Google Places) בעברית. מעולה לשאלות מקומיות/עובדתיות.
+async function _trySerper(query) {
     try {
-        return await _tryTavily(query);
-    } catch (e) {
-        console.warn('[search] Tavily(orig) failed:', e.message);
-    }
+        const r = await _ghProxy('serper', '/search', { q: query, gl: 'il', hl: 'iw' }, { signal: AbortSignal.timeout(12000) });
+        if (!r.ok) return null;
+        const d = await r.json();
+        let out = '';
+        const ab = d.answerBox;
+        if (ab && (ab.answer || ab.snippet)) out += `[תשובה ישירה מגוגל] ${ab.answer || ab.snippet}\n\n`;
+        const kg = d.knowledgeGraph;
+        if (kg && (kg.title || kg.description)) {
+            const attrs = kg.attributes ? ' — ' + Object.entries(kg.attributes).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+            out += `[${kg.title || ''}] ${kg.description || ''}${attrs}\n\n`;
+        }
+        if (Array.isArray(d.places) && d.places.length) {
+            out += '[מקומות אמיתיים מ-Google Maps]\n' + d.places.slice(0, 4).map(p => `• ${p.title}${p.address ? ' — ' + p.address : ''}${p.rating ? ` (דירוג ${p.rating})` : ''}${p.category ? ' · ' + p.category : ''}`).join('\n') + '\n\n';
+        }
+        if (Array.isArray(d.organic) && d.organic.length) {
+            out += '[תוצאות חיפוש אמיתיות מגוגל]\n' + d.organic.slice(0, 5).map(o => `• ${o.title} — ${o.link}\n  ${(o.snippet || '').slice(0, 200)}`).join('\n') + '\n';
+        }
+        return out.trim() || null;
+    } catch { return null; }
+}
+async function webSearch(query) {
+    // Serper (גוגל + מקומי ישראל, עברית) ו-Tavily (תשובה מסונתזת) יחד במקביל — ממזגים לעיגון עשיר וחזק
+    const [sp, tv] = await Promise.allSettled([_trySerper(query), _tryTavily(query)]);
+    let merged = '';
+    if (sp.status === 'fulfilled' && sp.value) merged += sp.value + '\n\n';
+    if (tv.status === 'fulfilled' && tv.value) merged += tv.value + '\n\n';
+    if (merged.trim()) return merged.trim();
+    console.warn('[search] Serper+Tavily both empty, trying English + free chain');
     // עברית לרוב מחזירה ריק ב-Tavily — מתרגמים לאנגלית ומנסים שוב (זה מה שבאמת מוצא את התשובה)
     if (/[֐-׿]/.test(query)) {
         try {
