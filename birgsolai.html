@@ -4158,6 +4158,27 @@ async function _getUserGeo() {
     return _userGeoCache;
 }
 
+// גאוקוד עמיד לעברית — נקודת-הכניסה היחידה לכל חיפוש-מיקום באפליקציה. Nominatim נכשל כשמילת
+// היחס "ב" דבוקה לעיר ("תחנה בחיפה"→ריק, "תחנה חיפה"→עובד). מנסים קודם את המחרוזת כמו-שהיא
+// (כדי לא לשבור שמות שמתחילים ב-ב' כמו "בן גוריון"/"באר שבע"/"בני ברק"), ורק אם ריק — וריאציה
+// בלי " ב" דבוקה. מחזיר את מערך התוצאות הגולמי של Nominatim (או [] בכשל), כך שכל קורא ממשיך כרגיל.
+async function _geoIL(query, opts = {}) {
+    const q0 = String(query || '').trim();
+    if (!q0) return [];
+    const attempts = [q0];
+    const noPrep = q0.replace(/\sב(?=[א-ת])/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    if (noPrep && noPrep !== q0) attempts.push(noPrep);
+    const cc = opts.countryIL ? 'countrycodes=il&' : '';
+    for (const a of attempts) {
+        try {
+            const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&${cc}q=${encodeURIComponent(a)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
+            const gj = await g.json().catch(() => null);
+            if (gj && gj.length) return gj;
+        } catch {}
+    }
+    return [];
+}
+
 // חיפוש מקום דרך האינטרנט (Tavily) — מוצא כתובת אמיתית של עסק (טוב בהרבה מ-OSM שריק בישראל),
 // מחלץ אותה בזהירות (מילה-במילה, בלי להמציא), ומאמת ב-geocode. מחזיר null אם לא נמצא/לא אומת.
 async function _mapsViaSearch(query) {
@@ -4185,11 +4206,8 @@ async function _mapsViaSearch(query) {
         const addrText = p.street + (city ? ', ' + city : '');
         // geocode עם הטיה לישראל ובעברית
         const _geo = async (s) => {
-            try {
-                const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=${encodeURIComponent(s)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
-                const gj = await g.json();
-                return gj && gj.length ? { lat: parseFloat(gj[0].lat), lon: parseFloat(gj[0].lon) } : null;
-            } catch { return null; }
+            const gj = await _geoIL(s, { countryIL: true });
+            return gj.length ? { lat: parseFloat(gj[0].lat), lon: parseFloat(gj[0].lon) } : null;
         };
         // 1) כתובת מדויקת (רחוב+מספר). 2) שם המקום+עיר (Nominatim מכיר מוסדות/ציוני-דרך במדויק).
         // נמנעים מרחוב-בלבד — הוא תפס בטעות פיצ'רים אחרים עם שם דומה.
@@ -4281,17 +4299,8 @@ async function _nearestOf(q) {
         // גאוקוד עמיד: Nominatim נכשל כשמילת היחס "ב" דבוקה לעיר ("טכניון בחיפה"→ריק, "טכניון חיפה"→עובד).
         // מנסים את המחרוזת כמו-שהיא, ואם ריק — וריאציה בלי " ב" דבוקה (last-resort, רק אחרי כישלון).
         const _geoNearest = async (s) => {
-            const attempts = [s];
-            const noPrep = s.replace(/\sב(?=[א-ת])/g, ' ').replace(/\s{2,}/g, ' ').trim();
-            if (noPrep && noPrep !== s) attempts.push(noPrep);
-            for (const a of attempts) {
-                try {
-                    const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=${encodeURIComponent(a)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
-                    const gj = await g.json().catch(() => null);
-                    if (gj && gj.length) return { lat: parseFloat(gj[0].lat), lon: parseFloat(gj[0].lon) };
-                } catch {}
-            }
-            return null;
+            const gj = await _geoIL(s, { countryIL: true });
+            return gj.length ? { lat: parseFloat(gj[0].lat), lon: parseFloat(gj[0].lon) } : null;
         };
         let center = null;
         if (p.self) { const g = await _getUserGeo(); if (g) center = { lat: g.lat, lon: g.lon, label: g.city || 'המיקום שלך' }; }
@@ -4347,11 +4356,9 @@ async function webMaps(query) {
     }
 
     try {
-        // 1. Geocode the location
-        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(location)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
-        if (!geoRes.ok) return { text: `❌ שגיאת שרת מיקומים (${geoRes.status}). נסה שוב.`, results: [], center: null };
-        const geo = await geoRes.json();
-        if (!geo || !geo.length) return { text: '❌ לא הצלחתי לאתר את המיקום שצוין.', results: [], center: null };
+        // 1. Geocode the location (עמיד ל-"ב" דבוקה דרך _geoIL)
+        const geo = await _geoIL(location);
+        if (!geo.length) return { text: '❌ לא הצלחתי לאתר את המיקום שצוין.', results: [], center: null };
         const lat = parseFloat(geo[0].lat), lon = parseFloat(geo[0].lon);
 
         // Resolve business → known category up front, so the Overpass query itself can be
@@ -4534,9 +4541,8 @@ function renderAddressMap(placeQuery, label) {
 
     setTimeout(async () => {
         try {
-            const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(placeQuery)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
-            const geo = await geoRes.json();
-            if (!geo?.length) { wrap.remove(); return; }
+            const geo = await _geoIL(placeQuery);
+            if (!geo.length) { wrap.remove(); return; }
             const lat = parseFloat(geo[0].lat), lon = parseFloat(geo[0].lon);
             const shortAddr = _shortAddress(geo[0].display_name);
             caption.innerHTML = `<span style="font-size:16px">📍</span><div><b>${esc2(label||'')}</b><br><span style="color:var(--muted)">${esc2(shortAddr)}</span></div>`;
@@ -5225,8 +5231,7 @@ async function send() {
         if (isLocationQuery) {
             const placeQuery = q.replace(/^(איפה|כתובת של)\s*/i,'').replace(/[?؟]\s*$/,'').trim();
             try {
-                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(placeQuery)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
-                const geo = await geoRes.json();
+                const geo = await _geoIL(placeQuery);
                 const directHit = geo?.[0] && ['shop','amenity','tourism','office'].includes(geo[0].class);
                 if (directHit) {
                     const widget = renderAddressMap(placeQuery, placeQuery);
