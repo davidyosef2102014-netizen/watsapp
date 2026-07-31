@@ -5238,7 +5238,7 @@ async function send() {
                     const lines = near.list.map((x, i) => `${i + 1}. ${x.name}${x.addr ? ' (' + x.addr + ')' : ''} — ${x.dist.toFixed(1)} ק"מ`).join('\n');
                     const lastMsg3 = messages[messages.length - 1];
                     if (lastMsg3 && typeof lastMsg3.content === 'string') {
-                        lastMsg3.content += `\n\n[חישוב מרחק אווירי אמיתי (haversine) מ"${near.placeLabel}" למועמדים הקרובים, ממופים ב-OpenStreetMap. זו עובדה מחושבת — לא ניחוש. הכי קרוב באמת: ${near.nearest.name} (${near.nearest.dist.toFixed(1)} ק"מ אווירי). ענה בטקסט קצר וברור: איזה הכי קרוב והמרחק האווירי. אל תמציא מקום אחר ואל תמציא זמן/מרחק הליכה. בלי מפה]:\n${lines}`;
+                        lastMsg3.content += `\n\n[חישוב מרחק אווירי אמיתי מ"${near.placeLabel}" למקומות הקרובים, מבוסס נתוני מפה מדויקים — זו עובדה מחושבת, לא ניחוש. הכי קרוב באמת: ${near.nearest.name} — ${near.nearest.dist.toFixed(1)} ק"מ אווירי. חובה לענות בעברית, במשפט קצר וברור: איזה מקום הכי קרוב וכמה ק"מ אווירי. אל תמציא מקום אחר, ואל תמציא זמן או מרחק הליכה, ובלי מפה]:\n${lines}`;
                     }
                 } else {
                     status.style.display = 'none';
