@@ -4210,6 +4210,90 @@ async function _mapsViaSearch(query) {
     } catch { return null; }
 }
 
+// ── "מה ה-X הכי קרוב ל-Y?" — פיצ'ר #2: מחשב מרחק אמיתי במקום לתת למודל לנחש. ──
+// מגאוקד את מקום-הייחוס Y, מושך מועמדים מקטגוריית X מסביב מ-OpenStreetMap (Overpass),
+// מחשב מרחק אווירי (haversine) לכל אחד, ומחזיר את הכי קרוב *באמת*. מחזיר null אם הקטגוריה
+// לא נתמכת / לא נמצא מקום — ואז נופלים בשקט לחיפוש הרגיל (לא שוברים שום התנהגות קיימת).
+// כל מפתח = רשימת סלקטורים ל-Overpass (ראשי + גיבויים). לרכבת: קודם רכבת-ישראל בלבד (מפריד
+// מהכרמלית/רק"ל שגם מתויגות railway=station), ואם ריק — נפילה לסלקטור רחב יותר.
+const NEAREST_SEL = {
+    train_station: ['["railway"="station"]["operator"~"Israel Railways|רכבת ישראל",i]', '["railway"="station"]["station"!~"subway|light_rail|monorail"]'],
+    light_rail:    ['["railway"="station"]["station"="light_rail"]', '["railway"~"tram_stop|halt"]'],
+    subway:        ['["station"="subway"]', '["railway"="station"]["subway"="yes"]'],
+    bus_station:   ['["amenity"="bus_station"]', '["highway"="bus_stop"]'],
+    pharmacy:      ['["amenity"="pharmacy"]'],
+    hospital:      ['["amenity"="hospital"]'],
+    clinic:        ['["amenity"="clinic"]', '["healthcare"="clinic"]'],
+    dentist:       ['["amenity"="dentist"]'],
+    bank:          ['["amenity"="bank"]'],
+    atm:           ['["amenity"="atm"]'],
+    fuel:          ['["amenity"="fuel"]'],
+    supermarket:   ['["shop"="supermarket"]'],
+    convenience:   ['["shop"="convenience"]'],
+    mall:          ['["shop"="mall"]'],
+    restaurant:    ['["amenity"="restaurant"]'],
+    cafe:          ['["amenity"="cafe"]'],
+    fast_food:     ['["amenity"="fast_food"]'],
+    bakery:        ['["shop"="bakery"]'],
+    post_office:   ['["amenity"="post_office"]'],
+    police:        ['["amenity"="police"]'],
+    fire_station:  ['["amenity"="fire_station"]'],
+    library:       ['["amenity"="library"]'],
+    school:        ['["amenity"="school"]'],
+    university:    ['["amenity"="university"]', '["amenity"="college"]'],
+    parking:       ['["amenity"="parking"]["access"!~"private|no"]'],
+    hotel:         ['["tourism"="hotel"]'],
+    park:          ['["leisure"="park"]'],
+    playground:    ['["leisure"="playground"]'],
+    synagogue:     ['["amenity"="place_of_worship"]["religion"="jewish"]'],
+    beach:         ['["natural"="beach"]', '["leisure"="beach_resort"]'],
+};
+async function _nearestOf(q) {
+    try {
+        // 1) חילוץ קטגוריה + מקום-ייחוס דרך המודל (עמיד לעברית חופשית ולנוסחים שונים)
+        const keys = Object.keys(NEAREST_SEL).join(', ');
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
+            model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 120,
+            messages: [
+                { role: 'system', content: `The user asks "what is the nearest X to Y?". Extract three things. category = the single best-matching key from this fixed list [${keys}] — or "other" if none of them fits the thing being searched for. place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word itself). self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","קרוב אליי","near me","to me","closest to me"), otherwise false. Respond with ONLY compact JSON, no prose: {"category":"...","place":"...","self":false}` },
+                { role: 'user', content: q }
+            ]
+        }, { signal: AbortSignal.timeout(9000) });
+        const j = await r.json();
+        let p = null;
+        try { p = JSON.parse((j?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim()); } catch {}
+        if (!p || !p.category || p.category === 'other' || !NEAREST_SEL[p.category]) return null;
+
+        // 2) מרכז החישוב: מיקום המשתמש (אם "אליי") או גאוקוד של מקום-הייחוס
+        let center = null;
+        if (p.self) { const g = await _getUserGeo(); if (g) center = { lat: g.lat, lon: g.lon, label: g.city || 'המיקום שלך' }; }
+        if (!center) {
+            if (!p.place) return null;
+            const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=${encodeURIComponent(p.place)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
+            const gj = await g.json().catch(() => null);
+            if (!gj || !gj.length) return null;
+            center = { lat: parseFloat(gj[0].lat), lon: parseFloat(gj[0].lon), label: p.place };
+        }
+
+        // 3) מועמדים מסביב (Overpass) — רדיוס מתרחב + נפילה לסלקטור רחב יותר עד שנמצא בעל-שם
+        const sels = NEAREST_SEL[p.category];
+        let named = [];
+        outer:
+        for (const sel of sels) {
+            for (const R of [3000, 8000, 20000]) {
+                const ql = `[out:json][timeout:20];(node(around:${R},${center.lat},${center.lon})${sel};way(around:${R},${center.lat},${center.lon})${sel};);out center tags;`;
+                let ov = null; try { ov = await _runOverpass(ql); } catch {}
+                if (!ov || !ov.elements || !ov.elements.length) continue;
+                const pois = ov.elements.map(el => _toPoi(el, center.lat, center.lon)).filter(x => x.lat != null && x.name);
+                if (pois.length) { named = pois; break outer; }
+            }
+        }
+        if (!named.length) return null;
+        named.sort((a, b) => a.dist - b.dist);
+        return { category: p.category, placeLabel: center.label, center, nearest: named[0], list: named.slice(0, 6) };
+    } catch { return null; }
+}
+
 async function webMaps(query) {
     let business = '', location = query;
     const parts = query.split(/,|\s+near\s+|\s+ליד\s+|\s+ב/i).map(s=>s.trim()).filter(Boolean);
@@ -5139,6 +5223,27 @@ async function send() {
                     }
                 }
             } catch (e) { console.warn('auto-map failed', e); }
+        }
+
+        // ── "מה ה-X הכי קרוב ל-Y?" — פיצ'ר #2: מחשבים מרחק אמיתי במקום שהמודל ינחש מתוך קטעי חיפוש.
+        // מגאוקדים את Y, מושכים מועמדים אמיתיים של X מ-OSM, מחשבים haversine, ומזריקים את הכי-קרוב
+        // כעובדה מבוססת. תשובה בטקסט בלבד (בלי מפה — כך ביקש דוד: לשאלת "הכי קרוב" רוצים תשובה, לא מפה). ──
+        if (_askWhichNearest) {
+            try {
+                status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>מחשב מרחקים…</b></span>`;
+                status.style.display = 'flex';
+                const near = await _nearestOf(q);
+                if (near && near.nearest && near.nearest.name) {
+                    status.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(near.nearest.name)}</b></span>`;
+                    const lines = near.list.map((x, i) => `${i + 1}. ${x.name}${x.addr ? ' (' + x.addr + ')' : ''} — ${x.dist.toFixed(1)} ק"מ`).join('\n');
+                    const lastMsg3 = messages[messages.length - 1];
+                    if (lastMsg3 && typeof lastMsg3.content === 'string') {
+                        lastMsg3.content += `\n\n[חישוב מרחק אווירי אמיתי (haversine) מ"${near.placeLabel}" למועמדים הקרובים, ממופים ב-OpenStreetMap. זו עובדה מחושבת — לא ניחוש. הכי קרוב באמת: ${near.nearest.name} (${near.nearest.dist.toFixed(1)} ק"מ אווירי). ענה בטקסט קצר וברור: איזה הכי קרוב והמרחק האווירי. אל תמציא מקום אחר ואל תמציא זמן/מרחק הליכה. בלי מפה]:\n${lines}`;
+                    }
+                } else {
+                    status.style.display = 'none';
+                }
+            } catch (e) { console.warn('nearest failed', e); status.style.display = 'none'; }
         }
     }
 
