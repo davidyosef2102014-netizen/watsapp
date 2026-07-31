@@ -4255,7 +4255,7 @@ async function _nearestOf(q) {
         const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
             model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 120,
             messages: [
-                { role: 'system', content: `The user asks "what is the nearest X to Y?". Extract three things. category = the single best-matching key from this fixed list [${keys}] — or "other" if none of them fits the thing being searched for. place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word itself). self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","קרוב אליי","near me","to me","closest to me"), otherwise false. Respond with ONLY compact JSON, no prose: {"category":"...","place":"...","self":false}` },
+                { role: 'system', content: `The user asks "what is the nearest X to Y?". Extract three things. category = the single best-matching key from this fixed list [${keys}] — or "other" if none of them fits the thing being searched for. place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word itself). IMPORTANT for place: do NOT include prepositions glued to it — never write "ב" before a city name. If a city is mentioned, format place as "שם המקום, עיר" (comma-separated, no "ב"): e.g. "טכניון בחיפה" → "הטכניון, חיפה"; "כיכר רבין בתל אביב" → "כיכר רבין, תל אביב". self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","קרוב אליי","near me","to me","closest to me"), otherwise false. Respond with ONLY compact JSON, no prose: {"category":"...","place":"...","self":false}` },
                 { role: 'user', content: q }
             ]
         }, { signal: AbortSignal.timeout(9000) });
@@ -4264,15 +4264,29 @@ async function _nearestOf(q) {
         try { p = JSON.parse((j?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim()); } catch {}
         if (!p || !p.category || p.category === 'other' || !NEAREST_SEL[p.category]) return null;
 
-        // 2) מרכז החישוב: מיקום המשתמש (אם "אליי") או גאוקוד של מקום-הייחוס
+        // 2) מרכז החישוב: מיקום המשתמש (אם "אליי") או גאוקוד של מקום-הייחוס.
+        // גאוקוד עמיד: Nominatim נכשל כשמילת היחס "ב" דבוקה לעיר ("טכניון בחיפה"→ריק, "טכניון חיפה"→עובד).
+        // מנסים את המחרוזת כמו-שהיא, ואם ריק — וריאציה בלי " ב" דבוקה (last-resort, רק אחרי כישלון).
+        const _geoNearest = async (s) => {
+            const attempts = [s];
+            const noPrep = s.replace(/\sב(?=[א-ת])/g, ' ').replace(/\s{2,}/g, ' ').trim();
+            if (noPrep && noPrep !== s) attempts.push(noPrep);
+            for (const a of attempts) {
+                try {
+                    const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=${encodeURIComponent(a)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
+                    const gj = await g.json().catch(() => null);
+                    if (gj && gj.length) return { lat: parseFloat(gj[0].lat), lon: parseFloat(gj[0].lon) };
+                } catch {}
+            }
+            return null;
+        };
         let center = null;
         if (p.self) { const g = await _getUserGeo(); if (g) center = { lat: g.lat, lon: g.lon, label: g.city || 'המיקום שלך' }; }
         if (!center) {
             if (!p.place) return null;
-            const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=${encodeURIComponent(p.place)}`, { headers: { 'Accept-Language': 'he' }, signal: AbortSignal.timeout(8000) });
-            const gj = await g.json().catch(() => null);
-            if (!gj || !gj.length) return null;
-            center = { lat: parseFloat(gj[0].lat), lon: parseFloat(gj[0].lon), label: p.place };
+            const g = await _geoNearest(p.place);
+            if (!g) return null;
+            center = { lat: g.lat, lon: g.lon, label: p.place.replace(/,\s*/g, ', ') };
         }
 
         // 3) מועמדים מסביב (Overpass) — רדיוס מתרחב + נפילה לסלקטור רחב יותר עד שנמצא בעל-שם
