@@ -4247,6 +4247,12 @@ const NEAREST_SEL = {
     playground:    ['["leisure"="playground"]'],
     synagogue:     ['["amenity"="place_of_worship"]["religion"="jewish"]'],
     beach:         ['["natural"="beach"]', '["leisure"="beach_resort"]'],
+    hairdresser:   ['["shop"="hairdresser"]', '["shop"="beauty"]'],
+    gym:           ['["leisure"="fitness_centre"]', '["leisure"="sports_centre"]'],
+    veterinary:    ['["amenity"="veterinary"]'],
+    kindergarten:  ['["amenity"="kindergarten"]'],
+    car_repair:    ['["shop"="car_repair"]', '["shop"="car"]'],
+    optician:      ['["shop"="optician"]'],
 };
 async function _nearestOf(q) {
     try {
@@ -4255,7 +4261,7 @@ async function _nearestOf(q) {
         const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
             model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 120,
             messages: [
-                { role: 'system', content: `The user asks "what is the nearest X to Y?". Extract three things. category = the single best-matching key from this fixed list [${keys}] — or "other" if none of them fits the thing being searched for. place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word itself). IMPORTANT for place: do NOT include prepositions glued to it — never write "ב" before a city name. If a city is mentioned, format place as "שם המקום, עיר" (comma-separated, no "ב"): e.g. "טכניון בחיפה" → "הטכניון, חיפה"; "כיכר רבין בתל אביב" → "כיכר רבין, תל אביב". self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","קרוב אליי","near me","to me","closest to me"), otherwise false. Respond with ONLY compact JSON, no prose: {"category":"...","place":"...","self":false}` },
+                { role: 'system', content: `The user asks "what is the nearest X to Y?". Extract three things. category = a key from this fixed list [${keys}] — but ONLY if it clearly and specifically matches the thing the user is looking for. If the thing has no matching key, you MUST return "other" — never force an unrelated key (a hair salon/מספרה is NOT a dentist; a gym is NOT a clinic; if there is no exact-enough key, return "other"). place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word itself). IMPORTANT for place: do NOT include prepositions glued to it — never write "ב" before a city name. If a city is mentioned, format place as "שם המקום, עיר" (comma-separated, no "ב"): e.g. "טכניון בחיפה" → "הטכניון, חיפה"; "כיכר רבין בתל אביב" → "כיכר רבין, תל אביב". self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","קרוב אליי","near me","to me","closest to me"), otherwise false. Respond with ONLY compact JSON, no prose: {"category":"...","place":"...","self":false}` },
                 { role: 'user', content: q }
             ]
         }, { signal: AbortSignal.timeout(9000) });
