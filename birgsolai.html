@@ -4304,12 +4304,16 @@ async function _nearestOf(q) {
 
         // 3) מועמדים מסביב (Overpass) — מהיר: קריאה ישירה בודדת לכל שלב (בלי retry כפול), רדיוס
         // ראשוני 6ק"מ (מכסה עיר, מספיק ל"הכי קרוב") ורק אם ריק — 30ק"מ. break ברגע שנמצא בעל-שם.
+        // מריצים 2 שרתי Overpass במקביל ולוקחים את הראשון שמצליח (Promise.any) — השרת הציבורי
+        // הראשי לפעמים עמוס ואיטי מאוד (נמדד ~17ש'); mirror מקביל חותך את זה לרוב לשניות בודדות.
+        const OV_HOSTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
         const _ovNear = async (sel, R) => {
+            const ql = `[out:json][timeout:12];(node(around:${R},${center.lat},${center.lon})${sel};way(around:${R},${center.lat},${center.lon})${sel};);out center tags;`;
+            const body = 'data=' + encodeURIComponent(ql);
+            const hit = (host) => fetch(host, { method: 'POST', body, signal: AbortSignal.timeout(11000) })
+                .then(res => res.ok ? res.text() : Promise.reject(new Error('bad'))).then(t => JSON.parse(t));
             try {
-                const ql = `[out:json][timeout:15];(node(around:${R},${center.lat},${center.lon})${sel};way(around:${R},${center.lat},${center.lon})${sel};);out center tags;`;
-                const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(ql), signal: AbortSignal.timeout(13000) });
-                if (!res.ok) return [];
-                const ov = JSON.parse(await res.text());
+                const ov = await Promise.any(OV_HOSTS.map(hit));
                 return (ov.elements || []).map(el => _toPoi(el, center.lat, center.lon)).filter(x => x.lat != null && x.name);
             } catch { return []; }
         };
