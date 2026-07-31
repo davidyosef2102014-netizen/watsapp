@@ -4166,7 +4166,9 @@ async function _geoIL(query, opts = {}) {
     const q0 = String(query || '').trim();
     if (!q0) return [];
     const attempts = [q0];
-    const noPrep = q0.replace(/\sב(?=[א-ת])/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    // מסירים "ב" דבוקה (מילת יחס) — אך לא לפני שמות שמתחילים ב-ב' כמו בן/בני/באר/בית (גוריון/ברק/שבע/שאן),
+    // כדי לא לשבור אותם. הראשי מנוסה קודם ממילא, אז זה fallback בלבד.
+    const noPrep = q0.replace(/\sב(?!ן |ני |אר |ית )(?=[א-ת])/, ' ').replace(/\s{2,}/g, ' ').trim();
     if (noPrep && noPrep !== q0) attempts.push(noPrep);
     const cc = opts.countryIL ? 'countrycodes=il&' : '';
     for (const a of attempts) {
