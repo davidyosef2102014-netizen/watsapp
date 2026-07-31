@@ -4261,14 +4261,19 @@ async function _nearestOf(q) {
         const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
             model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 120,
             messages: [
-                { role: 'system', content: `The user asks "what is the nearest X to Y?". Extract three things. category = a key from this fixed list [${keys}] — but ONLY if it clearly and specifically matches the thing the user is looking for. If the thing has no matching key, you MUST return "other" — never force an unrelated key (a hair salon/מספרה is NOT a dentist; a gym is NOT a clinic; if there is no exact-enough key, return "other"). place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word itself). IMPORTANT for place: do NOT include prepositions glued to it — never write "ב" before a city name. If a city is mentioned, format place as "שם המקום, עיר" (comma-separated, no "ב"): e.g. "טכניון בחיפה" → "הטכניון, חיפה"; "כיכר רבין בתל אביב" → "כיכר רבין, תל אביב". self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","קרוב אליי","near me","to me","closest to me"), otherwise false. Respond with ONLY compact JSON, no prose: {"category":"...","place":"...","self":false}` },
+                { role: 'system', content: `The user asks "what is the nearest X to Y?". Extract four fields. category = a key from this fixed list [${keys}] — but ONLY if it clearly and specifically matches the thing the user is looking for; otherwise "other" (never force an unrelated key: a hair salon/מספרה is NOT a dentist; a gym is NOT a clinic). osm = null when category is a real key from the list; BUT when category is "other", set osm to the single most appropriate OpenStreetMap tag filter in EXACT format ["key"="value"] all-lowercase (examples: hair salon→["shop"="hairdresser"], gym→["leisure"="fitness_centre"], pizzeria→["amenity"="fast_food"], butcher→["shop"="butcher"], mosque→["amenity"="place_of_worship"]) so the place is still findable. place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word itself). IMPORTANT for place: do NOT include prepositions glued to it — never write "ב" before a city name. If a city is mentioned, format place as "שם המקום, עיר" (comma-separated, no "ב"): e.g. "טכניון בחיפה" → "הטכניון, חיפה"; "כיכר רבין בתל אביב" → "כיכר רבין, תל אביב". self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","קרוב אליי","near me","to me","closest to me"), otherwise false. Respond with ONLY compact JSON, no prose: {"category":"...","osm":null,"place":"...","self":false}` },
                 { role: 'user', content: q }
             ]
         }, { signal: AbortSignal.timeout(9000) });
         const j = await r.json();
         let p = null;
         try { p = JSON.parse((j?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim()); } catch {}
-        if (!p || !p.category || p.category === 'other' || !NEAREST_SEL[p.category]) return null;
+        if (!p || !p.category) return null;
+        // קטגוריה מהרשימה → סלקטורים קבועים; אחרת ("other") → מסנן OSM חופשי שהמודל הציע, אם תקין
+        // (הוולידציה מונעת הזרקה ל-Overpass ומוודאת פורמט ["key"="value"]). כך "מכיר" גם מושגים שלא ברשימה.
+        const _validOsm = (s) => typeof s === 'string' && /^\["[a-z_]+"="[a-z_:]+"\]$/.test(s);
+        const selectors = NEAREST_SEL[p.category] || (_validOsm(p.osm) ? [p.osm] : null);
+        if (!selectors) return null;
 
         // 2) מרכז החישוב: מיקום המשתמש (אם "אליי") או גאוקוד של מקום-הייחוס.
         // גאוקוד עמיד: Nominatim נכשל כשמילת היחס "ב" דבוקה לעיר ("טכניון בחיפה"→ריק, "טכניון חיפה"→עובד).
@@ -4295,16 +4300,22 @@ async function _nearestOf(q) {
             center = { lat: g.lat, lon: g.lon, label: p.place.replace(/,\s*/g, ', ') };
         }
 
-        // 3) מועמדים מסביב (Overpass) — רדיוס מתרחב + נפילה לסלקטור רחב יותר עד שנמצא בעל-שם
-        const sels = NEAREST_SEL[p.category];
+        // 3) מועמדים מסביב (Overpass) — מהיר: קריאה ישירה בודדת לכל שלב (בלי retry כפול), רדיוס
+        // ראשוני 6ק"מ (מכסה עיר, מספיק ל"הכי קרוב") ורק אם ריק — 30ק"מ. break ברגע שנמצא בעל-שם.
+        const _ovNear = async (sel, R) => {
+            try {
+                const ql = `[out:json][timeout:15];(node(around:${R},${center.lat},${center.lon})${sel};way(around:${R},${center.lat},${center.lon})${sel};);out center tags;`;
+                const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(ql), signal: AbortSignal.timeout(13000) });
+                if (!res.ok) return [];
+                const ov = JSON.parse(await res.text());
+                return (ov.elements || []).map(el => _toPoi(el, center.lat, center.lon)).filter(x => x.lat != null && x.name);
+            } catch { return []; }
+        };
         let named = [];
         outer:
-        for (const sel of sels) {
-            for (const R of [3000, 8000, 20000]) {
-                const ql = `[out:json][timeout:20];(node(around:${R},${center.lat},${center.lon})${sel};way(around:${R},${center.lat},${center.lon})${sel};);out center tags;`;
-                let ov = null; try { ov = await _runOverpass(ql); } catch {}
-                if (!ov || !ov.elements || !ov.elements.length) continue;
-                const pois = ov.elements.map(el => _toPoi(el, center.lat, center.lon)).filter(x => x.lat != null && x.name);
+        for (const sel of selectors) {
+            for (const R of [6000, 30000]) {
+                const pois = await _ovNear(sel, R);
                 if (pois.length) { named = pois; break outer; }
             }
         }
