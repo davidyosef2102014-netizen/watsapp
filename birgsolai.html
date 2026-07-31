@@ -386,6 +386,9 @@
         .stream-raw { white-space:pre-wrap; font-size:15.5px; line-height:1.78; color:var(--text); font-family:inherit; }
         /* agent status bar — tiny inline indicator */
         .agent-status { margin:2px 0 6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:0; }
+        .search-sources { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin:0 0 8px; transition:opacity .5s ease; animation:fadeUp .2s ease; }
+        .src-lead { font-size:10px; color:var(--muted); font-weight:600; opacity:.7; }
+        .src-chip { font-size:10px; color:var(--muted); background:var(--border); border-radius:9px; padding:2px 8px; white-space:nowrap; }
         .agent-step { font-size:11px; color:var(--muted); display:inline-flex; align-items:center; gap:4px; opacity:.8; animation:fadeUp .15s ease; }
         .agent-step-dot { width:5px; height:5px; border-radius:50%; background:var(--blue); animation:blink .8s infinite; flex-shrink:0; }
         .agent-step b { color:var(--muted); font-weight:500; }
@@ -1286,6 +1289,10 @@
             <div class="sp-row">
                 <span class="sp-label" data-i18n="suggestion_cards">כרטיסי הצעות</span>
                 <button class="sp-toggle" id="sp-cards" onclick="toggleCards()"></button>
+            </div>
+            <div class="sp-row">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> <span data-i18n="show_sources">מקורות חיפוש</span></span>
+                <button class="sp-toggle" id="sp-sources" onclick="toggleSources()"></button>
             </div>
             <div class="sp-row">
                 <span class="sp-label" data-i18n="ai_lang">שפת AI</span>
@@ -2400,6 +2407,25 @@ function toggleCards() {
     localStorage.setItem('sp_cards', isOn ? '1' : '0');
     if (grid) grid.style.display = isOn ? '' : 'none';
 }
+// הצגת מקורות החיפוש (הדומיינים שהמידע הגיע מהם) ליד סרגל החיפוש ל-8 שניות — שקיפות בסגנון Perplexity.
+function toggleSources() {
+    const btn = document.getElementById('sp-sources');
+    const isOn = btn.classList.toggle('on');
+    localStorage.setItem('birgsol_show_sources', isOn ? '1' : '0');
+}
+// מחלץ דומיינים ייחודיים מטקסט תוצאות החיפוש; מסנן שירותי-חיפוש/פרוקסי פנימיים (לא "אתרים" למשתמש).
+function _extractDomains(text) {
+    const urls = String(text || '').match(/https?:\/\/[^\s)"'\]]+/g) || [];
+    const seen = new Set(), out = [];
+    for (const u of urls) {
+        try {
+            const h = new URL(u).hostname.replace(/^www\./, '');
+            if (/jina\.ai|duckduckgo\.com|serper\.dev|tavily\.com|googleapis|pollinations|wikipedia\.org\/w\//.test(u)) continue;
+            if (!seen.has(h)) { seen.add(h); out.push(h); }
+        } catch {}
+    }
+    return out;
+}
 
 /* ── UI translations per language ── */
 const L10N = {
@@ -2519,6 +2545,10 @@ function initSettings() {
     if (btnCards && cards) btnCards.classList.add('on');
     if (grid) grid.style.display = cards ? '' : 'none';
     applyUILang(lang);
+
+    // search-sources toggle (default off)
+    const showSrc = localStorage.getItem('birgsol_show_sources') === '1';
+    document.getElementById('sp-sources')?.classList.toggle('on', showSrc);
 
     // deep-think feature toggle (default on)
     const deepFeature = localStorage.getItem('sp_deep_feature') !== '0';
@@ -5215,6 +5245,17 @@ async function send() {
             // already returns real, current news (verified directly).
             let results = await webSearch(newsQuery || q);
             status.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(preview)}</b></span>`;
+            // מקורות החיפוש (אם הופעל בהגדרות) — שבבי דומיינים ליד סרגל החיפוש, נעלמים אחרי 8 שניות
+            if (localStorage.getItem('birgsol_show_sources') === '1') {
+                const domains = _extractDomains(results);
+                if (domains.length) {
+                    const srcRow = document.createElement('div');
+                    srcRow.className = 'search-sources';
+                    srcRow.innerHTML = `<span class="src-lead">מקורות</span>` + domains.slice(0, 6).map(d => `<span class="src-chip">${esc2(d)}</span>`).join('');
+                    status.insertAdjacentElement('afterend', srcRow);
+                    setTimeout(() => { srcRow.style.opacity = '0'; setTimeout(() => srcRow.remove(), 600); }, 8000);
+                }
+            }
             const lastMsg = messages[messages.length - 1];
             if (lastMsg && typeof lastMsg.content === 'string') {
                 lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nאם המידע לעיל מכיל תשובה — ענה לפיו ישירות. אם לא מצאת מידע ספציפי על הנושא — כתוב בדיוק: "לא מצאתי מידע עדכני על זה." ואל תוסיף שום מידע נוסף מהאימון שלך.`;
