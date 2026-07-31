@@ -2659,6 +2659,7 @@ UNDERSTAND CONVERSATION CONTEXT — follow-ups almost never restate the topic:
 - Prefer searching silently and giving a confident, complete answer — never tell the user "you should search for this yourself".
 - Use [MAPS] ONLY when the user is explicitly asking WHERE something is — physical location, address, directions, or "near me" (e.g. "איפה נמצא X", "כתובת של X", "סניף X הקרוב אלי", "מסעדות ליד Y", "איך מגיעים ל-X"). Do NOT use [MAPS] for: "קיים X?", "מה זה X?", "מי הם X?", "איך X?", "מדריך ל-X", "הסבר X", "מה ההבדל", "למה X" — those are info/how-to, use [SEARCH] only. RULE: if the question has no physical "where" intent, never use [MAPS].
 - CRITICAL — a mentioned store/branch/address is NOT automatically a maps question. If the user asks whether a place HAS / SELLS / STOCKS a product, about prices, availability, opening hours, or services — that is a PRODUCT/INFO question → use [SEARCH] (the branch name is just context for the search), NEVER [MAPS]. Example: "האם יש את מוצרי האיפור של קליניק בסופר פארם הדקלים פרדס חנה" → this asks about PRODUCT AVAILABILITY at a branch, so [SEARCH: קליניק איפור סופר פארם הדקלים פרדס חנה] — do NOT open a map. Only if the user actually asks WHERE that branch is do you use [MAPS].
+- CRITICAL — "מה/איזו [X] הכי קרוב/ה ל-[מקום]?" (which/what specific thing is NEAREST to a named place — e.g. "מה התחנת רכבת הכי קרובה למוזיאון הרכבת", "which train station is nearest to the Railway Museum") asks for a FACT: the NAME of that nearest thing. Answer it with [SEARCH] and give the answer in TEXT ("התחנה הקרובה היא X"). Do NOT open a [MAPS] widget for this — a map of the place does not answer "which station". (This differs from "אילו בתי קפה קרובים אליי" / "pharmacies near me", which IS a map request for nearby options.)
   • A SPECIFIC NAMED business/branch with a LOCATION question (e.g. "where is אושר עד in חדרה", "address of X") — output BOTH [SEARCH: business name + city] AND [MAPS: business, city] on separate lines in your first response.
   • An OPEN-ENDED "what's near me" question with NO specific brand (e.g. "nearest pharmacy", "restaurants near X") — use [MAPS] directly for a real visual map with multiple pinned options.
 Write tool calls on their own line:
@@ -5098,7 +5099,7 @@ async function send() {
         // Falls back to the broader "what's nearby" map only if the direct name lookup finds nothing. ──
         // "מה/איזו התחנה הכי קרובה ל-X?" — שאלה עובדתית שרוצה תשובה בטקסט (איזו תחנה), לא מפה של X.
         // נשלח אותה לחיפוש+תשובה רגיל, לא לניתוב האוטומטי למפות שחוטף אותה.
-        const _askWhichNearest = /^\s*(מה|מהי|מהו|איזו|איזה|איזה|what|which)\b/i.test(q) && /הכי קרוב|קרוב|nearest|closest/i.test(q);
+        const _askWhichNearest = (/^\s*(מה|מהי|מהו|איזו|איזה|לאיזו|לאיזה)\s/.test(q) || /^\s*(what|which)\b/i.test(q)) && /קרוב|nearest|closest/i.test(q);
         const isLocationQuery = !_askWhichNearest && /איפה|כתובת של|הקרוב|הקרובה|סניף|near me|nearest|address of|where is|where's/i.test(q);
         if (isLocationQuery) {
             const placeQuery = q.replace(/^(איפה|כתובת של)\s*/i,'').replace(/[?؟]\s*$/,'').trim();
