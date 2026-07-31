@@ -4260,8 +4260,9 @@ async function _nearestOf(q) {
         const keys = Object.keys(NEAREST_SEL).join(', ');
         const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
             model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 120,
+            response_format: { type: 'json_object' },
             messages: [
-                { role: 'system', content: `The user asks "what is the nearest X to Y?". Extract four fields. category = a key from this fixed list [${keys}] — but ONLY if it clearly and specifically matches the thing the user is looking for; otherwise "other" (never force an unrelated key: a hair salon/מספרה is NOT a dentist; a gym is NOT a clinic). osm = null when category is a real key from the list; BUT when category is "other", set osm to the single most appropriate OpenStreetMap tag filter in EXACT format ["key"="value"] all-lowercase (examples: hair salon→["shop"="hairdresser"], gym→["leisure"="fitness_centre"], pizzeria→["amenity"="fast_food"], butcher→["shop"="butcher"], mosque→["amenity"="place_of_worship"]) so the place is still findable. place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word itself). IMPORTANT for place: do NOT include prepositions glued to it — never write "ב" before a city name. If a city is mentioned, format place as "שם המקום, עיר" (comma-separated, no "ב"): e.g. "טכניון בחיפה" → "הטכניון, חיפה"; "כיכר רבין בתל אביב" → "כיכר רבין, תל אביב". self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","קרוב אליי","near me","to me","closest to me"), otherwise false. Respond with ONLY compact JSON, no prose: {"category":"...","osm":null,"place":"...","self":false}` },
+                { role: 'system', content: `You are a strict JSON extraction function for a "what is the nearest X to Y?" question. You NEVER refuse, NEVER apologize, NEVER answer in prose, and NEVER say you can't find the place — you only PARSE the question into fields (finding the actual business is done elsewhere). Output five fields as JSON. category = a key from this fixed list [${keys}] — but ONLY if it clearly and specifically matches the thing asked for; otherwise "other" (never force an unrelated key: a hair salon/מספרה is NOT a dentist; a gym is NOT a clinic). When category is "other", also fill osm_key and osm_value = the single most appropriate OpenStreetMap tag as two plain lowercase words (no quotes, no brackets): osm_key is one of shop/amenity/leisure/tourism/craft, osm_value is the tag value. Examples: hair salon→osm_key "shop", osm_value "hairdresser"; gym→"leisure","fitness_centre"; pizzeria→"amenity","fast_food"; butcher→"shop","butcher"; mosque→"amenity","place_of_worship". When category is a real list key, set osm_key and osm_value to null. place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word). For place: never write "ב" before a city name; if a city is mentioned, format as "שם המקום, עיר" (comma, no "ב"). self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","near me","to me"), else false. Example: "מה המספרה הכי קרובה לכיכר המדינה בתל אביב?" → {"category":"hairdresser","osm_key":null,"osm_value":null,"place":"כיכר המדינה, תל אביב","self":false}. Example: "איפה הקצביה הכי קרובה לשוק הכרמל?" → {"category":"other","osm_key":"shop","osm_value":"butcher","place":"שוק הכרמל, תל אביב","self":false}. Respond with ONLY the JSON object.` },
                 { role: 'user', content: q }
             ]
         }, { signal: AbortSignal.timeout(9000) });
@@ -4269,10 +4270,11 @@ async function _nearestOf(q) {
         let p = null;
         try { p = JSON.parse((j?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim()); } catch {}
         if (!p || !p.category) return null;
-        // קטגוריה מהרשימה → סלקטורים קבועים; אחרת ("other") → מסנן OSM חופשי שהמודל הציע, אם תקין
-        // (הוולידציה מונעת הזרקה ל-Overpass ומוודאת פורמט ["key"="value"]). כך "מכיר" גם מושגים שלא ברשימה.
-        const _validOsm = (s) => typeof s === 'string' && /^\["[a-z_]+"="[a-z_:]+"\]$/.test(s);
-        const selectors = NEAREST_SEL[p.category] || (_validOsm(p.osm) ? [p.osm] : null);
+        // קטגוריה מהרשימה → סלקטורים קבועים; אחרת ("other") → תג OSM חופשי שהמודל הציע (key+value
+        // כמילים פשוטות, בלי מרכאות מקוננות — עמיד יותר ל-JSON mode). הוולידציה מונעת הזרקה ל-Overpass.
+        const _validTag = (s) => typeof s === 'string' && /^[a-z_]{2,24}$/.test(s);
+        const freeSel = (_validTag(p.osm_key) && _validTag(p.osm_value)) ? `["${p.osm_key}"="${p.osm_value}"]` : null;
+        const selectors = NEAREST_SEL[p.category] || (freeSel ? [freeSel] : null);
         if (!selectors) return null;
 
         // 2) מרכז החישוב: מיקום המשתמש (אם "אליי") או גאוקוד של מקום-הייחוס.
