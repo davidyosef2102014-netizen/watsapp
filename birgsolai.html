@@ -2849,9 +2849,9 @@ async function rememberFacts(facts) {
         changed = true;
     }
     if (!changed) return;
-    if (userMemory.length > 60) userMemory = userMemory.slice(-60);
+    if (userMemory.length > 120) userMemory = userMemory.slice(-120);
     await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: userMemory });
-    if (userMemory.length >= 45) _consolidateMemory();
+    if (userMemory.length >= 90) _consolidateMemory();
 }
 
 // Fire-and-forget: after each exchange, extract up to 3 durable facts about the user.
@@ -2865,10 +2865,10 @@ async function extractMemory(userMsg, aiReply) {
         const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
             model: 'llama-3.3-70b-versatile',
             messages: [
-                { role: 'system', content: 'אתה מחלץ עובדות עמידות לטווח ארוך על המשתמש (שם, גיל, מקצוע, פרויקטים פעילים, העדפות קבועות, הקשר אישי/עבודה חשוב).\n\nכללים קשוחים:\n• שמור רק מה שיהיה רלוונטי גם בשיחה הבאה, בעוד שבוע.\n• דחה: שאלות חד-פעמיות ("שאל מה השעה"), עובדות זמניות ("עייף היום"), אירועים ספציפיים ללא משמעות ארוכת טווח, תוכן של שיחה שאינו מספר משהו על המשתמש עצמו.\n• אל תשכפל מה שכבר ברשימה הקיימת.\n• ענה JSON בלבד: {"facts":["עובדה1"]} עם עד 3 עובדות. אם אין כלום שווה לזכור — {"facts":[]}.' },
-                { role: 'user', content: `${existing}משתמש: ${userMsg}\nעוזר: ${(aiReply || '').slice(0, 400)}` }
+                { role: 'system', content: 'אתה מחלץ מה שכדאי לזכור על המשתמש כדי להכיר אותו טוב יותר ולהמשיך את הקשר בשיחות הבאות. שמור בנדיבות: עובדות (שם, גיל, מקצוע, משפחה, מיקום), פרויקטים ותחומי עניין, העדפות (סגנון, שפה, טעם, איך הוא אוהב שיעזרו לו), נושאים חשובים שהמשתמש העלה, מטרות ותוכניות, ופרטים אישיים שהוא שיתף.\n\nכללים:\n• דחה רק דברים באמת חולפים ("מה השעה עכשיו", "עייף כרגע") או ידע כללי שלא קשור למשתמש עצמו.\n• נסח כל פריט כמשפט קצר, ברור ועצמאי.\n• אל תשכפל מה שכבר ברשימה הקיימת.\n• ענה JSON בלבד: {"facts":["..."]} עם עד 5 פריטים. אם באמת אין שום דבר חדש ששווה לזכור — {"facts":[]}.' },
+                { role: 'user', content: `${existing}משתמש: ${userMsg}\nעוזר: ${(aiReply || '').slice(0, 800)}` }
             ],
-            temperature: 0.2, max_tokens: 120
+            temperature: 0.3, max_tokens: 250
         }, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) return;
         const j = await res.json();
@@ -4739,7 +4739,7 @@ function _showQuotaNotice() {
 }
 
 async function _consolidateMemory() {
-    if (!currentUser || userMemory.length < 45) return;
+    if (!currentUser || userMemory.length < 90) return;
     try {
         const res = await _ghFetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -4747,10 +4747,10 @@ async function _consolidateMemory() {
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: [
-                    { role: 'system', content: 'קבל רשימת עובדות על משתמש. מיזג כפילויות, הסר מידע חולף או פחות חשוב, שמור את 30 העובדות הקבועות והחשובות ביותר. ענה ב-JSON בלבד: {"facts":["..."]}' },
+                    { role: 'system', content: 'קבל רשימת פריטי זיכרון על משתמש. מזג רק כפילויות ממש והסר רק מידע חולף לגמרי, אבל שמור בנדיבות — עד 80 הפריטים הקבועים והמשמעותיים ביותר (עובדות, פרויקטים, תחומי עניין, העדפות, נושאים חשובים). עדיף לזכור יותר מדי מאשר לשכוח. ענה ב-JSON בלבד: {"facts":["..."]}' },
                     { role: 'user', content: userMemory.join('\n') }
                 ],
-                temperature: 0.2, max_tokens: 600
+                temperature: 0.2, max_tokens: 1200
             }),
             signal: AbortSignal.timeout(12000)
         });
@@ -4758,7 +4758,7 @@ async function _consolidateMemory() {
         const j = await res.json();
         const parsed = JSON.parse(j?.choices?.[0]?.message?.content?.trim() || '{}');
         if (Array.isArray(parsed?.facts) && parsed.facts.length > 0) {
-            userMemory = parsed.facts.slice(0, 35);
+            userMemory = parsed.facts.slice(0, 80);
             await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: userMemory });
         }
     } catch {}
