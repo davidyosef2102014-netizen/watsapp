@@ -1723,7 +1723,7 @@ function _ghProxy(provider, path, payload, opts) {
 }
 /* עטיפה ל-fetch: מזהה ספק מוכר מה-URL ומנתב דרך ה-Worker (מפתח מוזרק בשרת).
    URL לא-מוכר → fetch רגיל. מאפשר להחליף fetch(->_ghFetch( בלי לשנות את שאר הקריאה. */
-const _PROXY_HOSTS = { 'api.groq.com':'groq', 'openrouter.ai':'openrouter', 'router.huggingface.co':'hf', 'generativelanguage.googleapis.com':'gemini', 'api.elevenlabs.io':'eleven', 'api.tavily.com':'tavily' };
+const _PROXY_HOSTS = { 'api.groq.com':'groq', 'openrouter.ai':'openrouter', 'router.huggingface.co':'hf', 'generativelanguage.googleapis.com':'gemini', 'api.elevenlabs.io':'eleven', 'api.tavily.com':'tavily', 'api.mistral.ai':'mistral' };
 function _ghFetch(url, options) {
     options = options || {};
     let provider = null, host = null;
@@ -4914,6 +4914,21 @@ async function callAI(messages, onChunk, signal=null) {
         try { return await _tryOpenRouterKey(OPENROUTER_KEY); }
         catch(e) { console.warn('[AI] OR key1:', e.message); return await _tryOpenRouterKey(OPENROUTER_KEY2); }
     };
+    // Mistral — גיבוי אחרון מספק *אחר* (עמידות אמיתית). OpenAI-compatible, עברית טובה. עובר דרך ה-Worker.
+    const _tryMistral = async () => {
+        const _code = (typeof currentMode !== 'undefined' && currentMode === 'code');
+        const res = await _ghFetch('https://api.mistral.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: _code ? 'mistral-large-latest' : 'mistral-small-latest', messages, temperature: _code ? 0.2 : 0.7, max_tokens: _code ? 6000 : 2048 }),
+            signal: AbortSignal.timeout(15000)
+        });
+        if (!res.ok) throw new Error('mistral ' + res.status);
+        const j = await res.json();
+        const text = j?.choices?.[0]?.message?.content?.trim();
+        if (!text) throw new Error('mistral empty');
+        return text;
+    };
     const _tryPoll = async (model, timeoutMs = 10000) => {
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
@@ -4964,11 +4979,13 @@ async function callAI(messages, onChunk, signal=null) {
         { name: 'Groq llama (code fb)',      fn: () => _stream('groq', { model: 'llama-3.3-70b-versatile', messages, ..._codeCfg }) },
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
         { name: 'Qwen (code)',               fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._codeCfg }) },
+        { name: 'Mistral (code)',            fn: () => _tryMistral().then(_tw) },
     ] : [
         { name: 'Groq stream',         fn: () => _groqGuard({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'Groq gpt-oss-120b',   fn: () => _stream('groq', { model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
         { name: 'Qwen stream',         fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._chatCfg }) },
+        { name: 'Mistral (last resort)', fn: () => _tryMistral().then(_tw) },
     ];
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
