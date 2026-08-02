@@ -4949,19 +4949,25 @@ async function callAI(messages, onChunk, signal=null) {
     };
 
     const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
-    // מצב קוד בלבד: מודל חזק בקוד (gpt-oss-120b על Groq) ראשי, טמפרטורה נמוכה וחלון גדול (8K) כדי
-    // שקוד ארוך לא ייקטע. הצ'אט הרגיל נשאר על llama-3.3-70b בדיוק כמו קודם — לא נגענו בו.
+    // ── שרשרת המודלים ──
+    // צ'אט: Groq llama ראשי (לא נוגעים!) → Gemini flash (ספק *אחר*, עמידות אמיתית אם Groq נופל) →
+    //       Groq gpt-oss-120b (מודל חזק) → Qwen → OpenRouter → Pollinations. GitHub הוסר (נסגר/retirement).
+    // קוד: gpt-oss-120b ראשי (חזק בקוד, 8K tokens, temp 0.2) → llama → Gemini → Qwen → OpenRouter.
     const isCode = (typeof currentMode !== 'undefined' && currentMode === 'code');
-    const stages = [
-        { name: isCode ? 'Groq gpt-oss-120b (code)' : 'Groq stream',
-          fn: () => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down'))
-                  : _stream('groq', isCode ? { model: 'openai/gpt-oss-120b', messages, temperature: 0.2, max_tokens: 8192 }
-                                           : { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 2048 }) },
-        { name: isCode ? 'Groq llama (code fallback)' : 'GitHub stream',
-          fn: () => isCode ? _stream('groq', { model: 'llama-3.3-70b-versatile', messages, temperature: 0.2, max_tokens: 8192 })
-                           : _stream('github', { model: 'openai/gpt-4o-mini', messages, temperature: 0.7, max_tokens: 2048 }) },
-        { name: 'Qwen stream',         fn: () => _stream('qwen', { model: 'qwen-plus', messages, temperature: isCode ? 0.2 : 0.7, max_tokens: isCode ? 8192 : 2048 }) },
+    const _codeCfg = { temperature: 0.2, max_tokens: 8192 };
+    const _chatCfg = { temperature: 0.7, max_tokens: 2048 };
+    const _groqGuard = (payload) => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('groq', payload);
+    const stages = isCode ? [
+        { name: 'Groq gpt-oss-120b (code)', fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
+        { name: 'Groq llama (code fb)',      fn: () => _stream('groq', { model: 'llama-3.3-70b-versatile', messages, ..._codeCfg }) },
+        { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
+        { name: 'Qwen (code)',               fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._codeCfg }) },
+        { name: 'OpenRouter',                fn: () => _tryOpenRouter().then(_tw) },
+    ] : [
+        { name: 'Groq stream',         fn: () => _groqGuard({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
+        { name: 'Groq gpt-oss-120b',   fn: () => _stream('groq', { model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
+        { name: 'Qwen stream',         fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._chatCfg }) },
         { name: 'OpenRouter',          fn: () => _tryOpenRouter().then(_tw) },
         { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]).then(_tw) },
         { name: 'GET fallback',        fn: () => _tryGET().then(_tw) },
