@@ -4954,23 +4954,21 @@ async function callAI(messages, onChunk, signal=null) {
     //       Groq gpt-oss-120b (מודל חזק) → Qwen → OpenRouter → Pollinations. GitHub הוסר (נסגר/retirement).
     // קוד: gpt-oss-120b ראשי (חזק בקוד, 8K tokens, temp 0.2) → llama → Gemini → Qwen → OpenRouter.
     const isCode = (typeof currentMode !== 'undefined' && currentMode === 'code');
-    const _codeCfg = { temperature: 0.2, max_tokens: 8192 };
+    const _codeCfg = { temperature: 0.2, max_tokens: 6000 }; // 6000<8000 = תקרת ה-TPM של gpt-oss-120b ב-Groq; 8192 גרם ל-413 והפלה ל-llama (קוד קטוע)
     const _chatCfg = { temperature: 0.7, max_tokens: 2048 };
     const _groqGuard = (payload) => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('groq', payload);
+    // שרשרת נקייה — רק מנועים שנבדקו ועובדים (2026-08-01). הוסרו: GitHub (נסגר), OpenRouter (:free עבר
+    // לתשלום, 404), Pollinations+GET (מתים, 402). עדיף הודעת שגיאה מנומסת מאשר גיבוי מת שמבזבז זמן.
     const stages = isCode ? [
         { name: 'Groq gpt-oss-120b (code)', fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Groq llama (code fb)',      fn: () => _stream('groq', { model: 'llama-3.3-70b-versatile', messages, ..._codeCfg }) },
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
         { name: 'Qwen (code)',               fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._codeCfg }) },
-        { name: 'OpenRouter',                fn: () => _tryOpenRouter().then(_tw) },
     ] : [
         { name: 'Groq stream',         fn: () => _groqGuard({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'Groq gpt-oss-120b',   fn: () => _stream('groq', { model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
         { name: 'Qwen stream',         fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._chatCfg }) },
-        { name: 'OpenRouter',          fn: () => _tryOpenRouter().then(_tw) },
-        { name: 'Pollinations (race)', fn: () => Promise.any([_tryPoll('openai'), _tryPoll('openai-large'), _tryPoll('mistral')]).then(_tw) },
-        { name: 'GET fallback',        fn: () => _tryGET().then(_tw) },
     ];
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
