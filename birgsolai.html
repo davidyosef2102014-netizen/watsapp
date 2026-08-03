@@ -1723,7 +1723,7 @@ function _ghProxy(provider, path, payload, opts) {
 }
 /* עטיפה ל-fetch: מזהה ספק מוכר מה-URL ומנתב דרך ה-Worker (מפתח מוזרק בשרת).
    URL לא-מוכר → fetch רגיל. מאפשר להחליף fetch(->_ghFetch( בלי לשנות את שאר הקריאה. */
-const _PROXY_HOSTS = { 'api.groq.com':'groq', 'openrouter.ai':'openrouter', 'router.huggingface.co':'hf', 'generativelanguage.googleapis.com':'gemini', 'api.elevenlabs.io':'eleven', 'api.tavily.com':'tavily', 'api.mistral.ai':'mistral' };
+const _PROXY_HOSTS = { 'api.groq.com':'groq', 'openrouter.ai':'openrouter', 'router.huggingface.co':'hf', 'generativelanguage.googleapis.com':'gemini', 'api.elevenlabs.io':'eleven', 'api.tavily.com':'tavily', 'api.mistral.ai':'mistral', 'api.cohere.ai':'cohere' };
 function _ghFetch(url, options) {
     options = options || {};
     let provider = null, host = null;
@@ -4836,7 +4836,9 @@ async function callAI(messages, onChunk, signal=null) {
         // כל הסטרימינג עובר דרך ה-Worker (המפתחות מוסתרים): github → op:'ai', groq → op:'proxy'
         const payload = { ...body, stream: true };
         // נתיב ה-API לכל ספק (Qwen של עליבאבא תואם-OpenAI אך בנתיב אחר)
-        const _spath = provider === 'qwen' ? '/compatible-mode/v1/chat/completions' : '/openai/v1/chat/completions';
+        const _spath = provider === 'qwen' ? '/compatible-mode/v1/chat/completions'
+                     : provider === 'mistral' ? '/v1/chat/completions'
+                     : '/openai/v1/chat/completions';
         const wbody = provider === 'github'
             ? { op: 'ai', payload }
             : { op: 'proxy', provider, path: _spath, payload };
@@ -4929,6 +4931,22 @@ async function callAI(messages, onChunk, signal=null) {
         if (!text) throw new Error('mistral empty');
         return text;
     };
+    // Cohere Command A — גיבוי אחרון, ספק נוסף (עמידות). פורמט v2: content הוא מערך {type:'text',text}.
+    const _tryCohere = async () => {
+        const _code = (typeof currentMode !== 'undefined' && currentMode === 'code');
+        const cohMsgs = messages.map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : (m.content?.find(c => c.type === 'text')?.text || '') }));
+        const res = await _ghFetch('https://api.cohere.ai/v2/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'command-a-03-2025', messages: cohMsgs, temperature: _code ? 0.2 : 0.7, max_tokens: _code ? 4000 : 2048 }),
+            signal: AbortSignal.timeout(15000)
+        });
+        if (!res.ok) throw new Error('cohere ' + res.status);
+        const j = await res.json();
+        const text = (j?.message?.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
+        if (!text) throw new Error('cohere empty');
+        return text;
+    };
     const _tryPoll = async (model, timeoutMs = 10000) => {
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
@@ -4965,9 +4983,8 @@ async function callAI(messages, onChunk, signal=null) {
 
     const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
     // ── שרשרת המודלים ──
-    // צ'אט: Groq llama ראשי (לא נוגעים!) → Gemini flash (ספק *אחר*, עמידות אמיתית אם Groq נופל) →
-    //       Groq gpt-oss-120b (מודל חזק) → Qwen → OpenRouter → Pollinations. GitHub הוסר (נסגר/retirement).
-    // קוד: gpt-oss-120b ראשי (חזק בקוד, 8K tokens, temp 0.2) → llama → Gemini → Qwen → OpenRouter.
+    // צ'אט: Groq llama → Gemini → Groq gpt-oss-120b → Qwen → Mistral → Cohere (5 ספקים שונים, עמידות אמיתית).
+    // קוד: gpt-oss-120b → llama → Gemini → Qwen → Mistral → Cohere. GitHub/OpenRouter/Pollinations הוסרו (מתים).
     const isCode = (typeof currentMode !== 'undefined' && currentMode === 'code');
     const _codeCfg = { temperature: 0.2, max_tokens: 6000 }; // 6000<8000 = תקרת ה-TPM של gpt-oss-120b ב-Groq; 8192 גרם ל-413 והפלה ל-llama (קוד קטוע)
     const _chatCfg = { temperature: 0.7, max_tokens: 2048 };
@@ -4980,12 +4997,14 @@ async function callAI(messages, onChunk, signal=null) {
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
         { name: 'Qwen (code)',               fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._codeCfg }) },
         { name: 'Mistral (code)',            fn: () => _tryMistral().then(_tw) },
+        { name: 'Cohere (code)',             fn: () => _tryCohere().then(_tw) },
     ] : [
         { name: 'Groq stream',         fn: () => _groqGuard({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'Groq gpt-oss-120b',   fn: () => _stream('groq', { model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
         { name: 'Qwen stream',         fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._chatCfg }) },
-        { name: 'Mistral (last resort)', fn: () => _tryMistral().then(_tw) },
+        { name: 'Mistral',           fn: () => _tryMistral().then(_tw) },
+        { name: 'Cohere (last resort)', fn: () => _tryCohere().then(_tw) },
     ];
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
