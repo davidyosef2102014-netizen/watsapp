@@ -579,6 +579,10 @@
         }
         .google-login-btn:hover { background:#f8f9fa; border-color:rgba(66,133,244,.3); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
         .google-login-btn svg { width:20px; height:20px; flex-shrink:0; }
+        .or-divider { display:flex; align-items:center; text-align:center; margin:16px 0 12px; color:var(--muted); font-size:12px; }
+        .or-divider::before, .or-divider::after { content:''; flex:1; height:1px; background:var(--border,#e0e0e0); }
+        .or-divider span { padding:0 10px; }
+        .gbtn-holder { display:flex; justify-content:center; min-height:44px; }
 
         /* ── Firebase setup modal ── */
         #fb-setup-modal {
@@ -5218,11 +5222,20 @@ async function send() {
     // Models used (Groq Llama-3.3-70b, GPT-4o-mini, Gemini Flash) all support large context windows,
     // so keep a wide history slice — a short window was causing the AI to "forget" earlier turns.
     const messages = [{ role: 'system', content: getPersona() }];
-    hist.slice(-80, -1).forEach(m => {
-        let content = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
-        content = content.replace(/\n?\[IMG:[^\]]+\]/g, ''); // הסר מרקר תמונה מההיסטוריה (הוא רק לתצוגה)
-        messages.push({ role: m.role, content });
-    });
+    // context לפי תקציב-אורך (לא מספר-הודעות קשיח) + סינון מרקרים ויזואליים כבדים (מפות/תמונות עם
+    // base64). Groq TPM=12K בלבד — שיחה ארוכה או מפה ב-hist חרגה, Groq נפל, והגענו ל-Qwen שמדליף.
+    const _clean = c => (typeof c === 'string' ? c : (c?.[0]?.text || ''))
+        .replace(/\n?\[IMG:[^\]]+\]/g, '')
+        .replace(/\[GENERATED_(?:MAP|ADDRMAP|IMAGE)[^\]]*\]/g, '').trim();
+    let _budget = 7000; // הפרסונה לבד ~5.6K טוקנים ו-TPM=12K — נותנים ל-hist רק ~2.4K טוקנים כדי ש-Groq לא יחרוג
+    const _ctx = [];
+    for (let i = hist.length - 2; i >= 0 && _budget > 0; i--) {
+        const content = _clean(hist[i].content);
+        if (!content) continue;
+        _budget -= content.length;
+        _ctx.unshift({ role: hist[i].role, content });
+    }
+    _ctx.forEach(m => messages.push(m));
     if (img || _refImg) {
         messages.push({ role: 'user', content: [
             { type: 'text', text: q || 'מה בתמונה?' },
