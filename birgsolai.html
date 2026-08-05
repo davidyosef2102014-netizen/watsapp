@@ -2632,6 +2632,7 @@ const PERSONA_NORMAL = `You are BIRGSOL AI 3.5 — a smart, friendly general-pur
 === HOW YOU TALK (VERY IMPORTANT) ===
 Talk like a real, warm, smart person — a knowledgeable friend texting back — NOT like a formal corporate assistant or a machine. This matters a lot.
 - Natural, flowing, human. In Hebrew: real spoken Israeli Hebrew, the way people actually talk and text (e.g. "אין בעיה", "בטח", "רגע, בוא נראה", "האמת שכן", "תשמע") — not stiff, translated, or bookish language.
+- Write in ONE clean language — the user's (usually Hebrew). NEVER mix Arabic letters, Chinese/CJK characters, or other foreign scripts into a Hebrew answer, and NEVER add niqqud (vowel points). If a foreign term is needed, write it in Hebrew letters. This is critical.
 - Warm and relaxed. React naturally: a little enthusiasm when it fits, empathy when it fits, light humor when it fits. You can have opinions and say what you think.
 - Get to the point like a person would. Skip robotic openers ("בהחלט!", "אשמח לעזור לך!", "כמובן!", "שאלה מצוינת!") and empty filler. Just answer, warmly.
 - Don't over-format. For a simple question, just talk in a sentence or two — no headers, no bullet lists, no bold everywhere. Use structure ONLY when it genuinely helps (real lists, steps, code, comparisons). A wall of bullets for a casual question feels robotic.
@@ -4983,8 +4984,8 @@ async function callAI(messages, onChunk, signal=null) {
 
     const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
     // ── שרשרת המודלים ──
-    // צ'אט: Groq llama → Gemini → Groq gpt-oss-120b → Qwen → Mistral → Cohere (5 ספקים שונים, עמידות אמיתית).
-    // קוד: gpt-oss-120b → llama → Gemini → Qwen → Mistral → Cohere. GitHub/OpenRouter/Pollinations הוסרו (מתים).
+    // צ'אט: Groq llama → Gemini → gpt-oss-120b → Mistral → Cohere → Qwen (Qwen אחרון — מדליף ערבית/סינית/ניקוד).
+    // קוד: gpt-oss-120b → llama → Gemini → Mistral → Cohere → Qwen. GitHub/OpenRouter/Pollinations הוסרו (מתים).
     const isCode = (typeof currentMode !== 'undefined' && currentMode === 'code');
     const _codeCfg = { temperature: 0.2, max_tokens: 6000 }; // 6000<8000 = תקרת ה-TPM של gpt-oss-120b ב-Groq; 8192 גרם ל-413 והפלה ל-llama (קוד קטוע)
     const _chatCfg = { temperature: 0.7, max_tokens: 2048 };
@@ -4995,16 +4996,16 @@ async function callAI(messages, onChunk, signal=null) {
         { name: 'Groq gpt-oss-120b (code)', fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Groq llama (code fb)',      fn: () => _stream('groq', { model: 'llama-3.3-70b-versatile', messages, ..._codeCfg }) },
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
-        { name: 'Qwen (code)',               fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._codeCfg }) },
         { name: 'Mistral (code)',            fn: () => _tryMistral().then(_tw) },
         { name: 'Cohere (code)',             fn: () => _tryCohere().then(_tw) },
+        { name: 'Qwen (code, last)',         fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._codeCfg }) },
     ] : [
         { name: 'Groq stream',         fn: () => _groqGuard({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'Groq gpt-oss-120b',   fn: () => _stream('groq', { model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
-        { name: 'Qwen stream',         fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._chatCfg }) },
         { name: 'Mistral',           fn: () => _tryMistral().then(_tw) },
-        { name: 'Cohere (last resort)', fn: () => _tryCohere().then(_tw) },
+        { name: 'Cohere',            fn: () => _tryCohere().then(_tw) },
+        { name: 'Qwen (last resort)', fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._chatCfg }) },
     ];
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
@@ -5404,7 +5405,11 @@ async function send() {
 
         // Strip leftover tool call lines
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
-        const cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
+        let cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
+        // רשת ביטחון: אם התשובה בעברית ומודל-גיבוי הדליף שפה זרה/ניקוד — מנקים ניקוד, ערבית ו-CJK (סינית/יפנית)
+        if ((cleanText.match(/[א-ת]/g) || []).length >= 8) {
+            cleanText = cleanText.replace(/[֑-ׇֽֿׁׂׅׄ؀-ۿݐ-ݿ一-鿿぀-ヿ㐀-䶿]/g, '').replace(/ {2,}/g, ' ');
+        }
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
 
         // Render as Markdown + math
