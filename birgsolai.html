@@ -1036,6 +1036,8 @@
         </div>
         <button class="login-btn" onclick="doLogin()" data-i18n="login_btn">כניסה לאזור האישי</button>
         <div id="li-err" class="login-err"></div>
+        <div class="or-divider"><span data-i18n="or">או</span></div>
+        <div id="google-btn-login" class="gbtn-holder"></div>
 
         <p class="login-bank-note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> <span data-i18n="login_note">שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם</span></p>
         <div style="text-align:center;margin-top:14px;">
@@ -1130,6 +1132,8 @@
         </div>
         <button class="login-btn" id="reg-btn" onclick="doRegister()" data-i18n="reg_btn">צור חשבון</button>
         <div id="reg-err" class="login-err"></div>
+        <div class="or-divider"><span data-i18n="or">או</span></div>
+        <div id="google-btn-reg" class="gbtn-holder"></div>
         <div style="text-align:center;margin-top:14px;">
             <span style="font-size:13px;color:var(--muted);" data-i18n="have_account">כבר יש לך חשבון?</span>
             <button onclick="showLogin()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;" data-i18n="sign_in_link">כניסה</button>
@@ -2099,6 +2103,53 @@ async function doLogin() {
     }
 }
 
+/* ── Google Sign-In — התחברות/יצירת חשבון בקליק אחד (client-side, רק Client ID) ── */
+const GOOGLE_CLIENT_ID = '176622606802-f3ksjengb6cqftslv1o3bgv5d0ltdlf6.apps.googleusercontent.com';
+function _decodeJwt(token) {
+    try {
+        const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const json = decodeURIComponent(atob(b64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        return JSON.parse(json);
+    } catch { return null; }
+}
+async function handleGoogleLogin(response) {
+    const p = _decodeJwt(response && response.credential);
+    if (!p || !p.email) { alert('שגיאת התחברות עם Google. נסה שוב.'); return; }
+    const username = p.email.trim().toLowerCase();
+    try {
+        // יצירה אטומית אם חדש; אם קיים — פשוט מתחברים
+        await ghUpdate('db/ai_users.json', users => {
+            users = users || {};
+            if (users[username]) return undefined;
+            users[username] = { google: true, name: p.name || '', picture: p.picture || '', createdAt: Date.now(), lang: localStorage.getItem('birgsol_lang') || 'he' };
+            return users;
+        });
+        await _finishLogin(username);
+    } catch (e) { alert('שגיאת חיבור — נסה שוב.'); }
+}
+let _gisInited = false;
+function _loadGIS() {
+    if (document.getElementById('gis-lib')) { _initGoogle(); return; }
+    const s = document.createElement('script');
+    s.id = 'gis-lib'; s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
+    s.onload = _initGoogle;
+    document.head.appendChild(s);
+}
+function _initGoogle() {
+    if (!window.google || !google.accounts || !google.accounts.id) { setTimeout(_initGoogle, 300); return; }
+    if (!_gisInited) { google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleLogin }); _gisInited = true; }
+    _renderGoogleBtns();
+}
+function _renderGoogleBtns() {
+    if (!window.google || !google.accounts || !google.accounts.id) return;
+    ['google-btn-login', 'google-btn-reg'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.hasChildNodes()) {
+            google.accounts.id.renderButton(el, { theme: (currentTheme === 'dark' ? 'filled_black' : 'outline'), size: 'large', text: 'continue_with', shape: 'pill', width: 260, locale: 'he' });
+        }
+    });
+}
+
 async function _finishLogin(user) {
     // הסתר splash אם עדיין גלוי
     const sp = document.getElementById('splash');
@@ -2249,12 +2300,14 @@ function showRegister() {
     document.querySelector('#login-screen .login-card').style.display = 'none';
     document.getElementById('register-card').style.display = 'block';
     document.getElementById('reg-user').focus();
+    if (typeof _loadGIS === 'function') { _loadGIS(); setTimeout(_renderGoogleBtns, 350); }
 }
 function showLogin() {
     document.getElementById('register-card').style.display = 'none';
     document.getElementById('forgot-card').style.display = 'none';
     document.querySelector('#login-screen .login-card').style.display = 'block';
     document.getElementById('li-user').focus();
+    if (typeof _loadGIS === 'function') { _loadGIS(); setTimeout(_renderGoogleBtns, 350); }
 }
 
 /* ── forgot password ── */
@@ -2571,9 +2624,10 @@ function startApp() {
     const splash = document.getElementById('splash');
     splash.classList.add('hide');
     setTimeout(() => splash.style.display = 'none', 700);
-    // אם המשתמש לא מחובר — הצג מסך כניסה
+    // אם המשתמש לא מחובר — הצג מסך כניסה + טען את כפתור Google
     if (!currentUser) {
         document.getElementById('login-screen').style.display = 'flex';
+        if (typeof _loadGIS === 'function') _loadGIS();
     }
 }
 
