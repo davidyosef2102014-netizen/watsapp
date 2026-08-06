@@ -49,7 +49,7 @@
             display: flex; flex-direction: column;
             overflow: hidden;
             transition: width .32s cubic-bezier(.4,0,.2,1), border .32s cubic-bezier(.4,0,.2,1), transform .32s cubic-bezier(.4,0,.2,1);
-            z-index: 500;
+            z-index: 1600; /* מעל input-area(1500) — אחרת ה-input מכסה את כפתור ההתנתקות בתחתית הסיידבר */
         }
         #sidebar.closed { width: 0; border-left-width: 0; }
         @media (max-width: 900px) {
@@ -490,7 +490,7 @@
         .foot-note { text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 
         /* overlay */
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 499; }
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1550; }
         #overlay.on { display: block; }
 
         * { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.12) transparent; }
@@ -2635,6 +2635,19 @@ function startApp() {
 /* ── PWA: רישום service worker ── */
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('birgsolai-sw.js').catch(() => {});
+}
+
+/* ── מובייל: הרם את תיבת ההקלדה מעל המקלדת (visualViewport) — אחרת המקלדת הפתוחה מסתירה אותה ── */
+if (window.visualViewport) {
+    const _liftInput = () => {
+        const ia = document.querySelector('.input-area');
+        if (!ia) return;
+        const vv = window.visualViewport;
+        const kb = window.innerHeight - vv.height - vv.offsetTop; // גובה המקלדת
+        ia.style.transform = kb > 80 ? `translateY(-${Math.round(kb)}px)` : '';
+    };
+    window.visualViewport.addEventListener('resize', _liftInput);
+    window.visualViewport.addEventListener('scroll', _liftInput);
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
