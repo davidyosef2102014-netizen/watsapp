@@ -2054,6 +2054,7 @@ const FREE_LIMIT  = 9999;
 const PREM_COST   = 200;
 
 let currentUser = null;
+let currentName = null; // שם תצוגה (מ-Google) — מוצג ב-chip ובברכה במקום כתובת המייל
 let isPremium   = false;
 let currentTier = 'free';
 let freeLeft    = FREE_LIMIT;
@@ -2124,6 +2125,7 @@ async function handleGoogleLogin(response) {
             users[username] = { google: true, name: p.name || '', picture: p.picture || '', createdAt: Date.now(), lang: localStorage.getItem('birgsol_lang') || 'he' };
             return users;
         });
+        currentName = p.name || null;
         await _finishLogin(username);
     } catch (e) { alert('שגיאת חיבור — נסה שוב.'); }
 }
@@ -2164,6 +2166,7 @@ async function _finishLogin(user) {
         if (u && u[user]) {
             localStorage.setItem('birgsol_instr_' + user, u[user].instructions || '');
             syncTierFromCloud(user, u[user]);
+            if (u[user].name) { currentName = u[user].name; updateUserChip(); updateGreeting(); }
         }
     }).catch(() => {});
     await loadConversationsCloud();
@@ -2183,11 +2186,12 @@ function updateUserChip() {
     const dot   = document.getElementById('user-dot');
     const label = document.getElementById('user-label');
     if (!currentUser || !chip) return;
-    dot.textContent = currentUser[0];
+    const disp = currentName ? currentName.trim().split(/\s+/)[0] : currentUser;
+    dot.textContent = disp[0];
     const t = TIERS[currentTier] || TIERS.free;
     label.innerHTML = isPremium
-        ? currentUser + ' <span class="prem-badge">' + t.badge + '</span>'
-        : currentUser;
+        ? disp + ' <span class="prem-badge">' + t.badge + '</span>'
+        : disp;
     chip.onclick = openPricingModal;
     chip.style.cursor = 'pointer';
     const spTier = document.getElementById('sp-tier');
@@ -2422,7 +2426,7 @@ async function doRegister() {
 function doLogout() {
     if (!confirm('להתנתק מ-Birgsol AI?')) return;
     localStorage.removeItem(AI_AUTH_KEY);
-    currentUser = null; isPremium = false; freeLeft = FREE_LIMIT; hist = []; currentConvId = null; convList = []; userMemory = [];
+    currentUser = null; currentName = null; isPremium = false; freeLeft = FREE_LIMIT; hist = []; currentConvId = null; convList = []; userMemory = [];
     document.getElementById('chat-window').innerHTML = '';
     document.getElementById('chat-window').style.display = 'none';
     document.getElementById('welcome').style.display = 'flex';
@@ -2443,7 +2447,7 @@ function updateGreeting() {
     const el = document.getElementById('gem-hello');
     if (!el) return;
     const greet = localStorage.getItem('sp_greet') || 'שלום';
-    el.textContent = currentUser ? `${greet}, ${currentUser}` : greet;
+    el.textContent = currentUser ? `${greet}, ${currentName ? currentName.trim().split(/\s+/)[0] : currentUser}` : greet;
 }
 
 /* ── settings panel ── */
