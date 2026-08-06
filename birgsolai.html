@@ -584,6 +584,27 @@
         .or-divider span { padding:0 10px; }
         .gbtn-holder { display:flex; justify-content:center; min-height:44px; }
 
+        /* ══ Grok-style split auth ══ */
+        #login-screen.split { flex-direction: row; padding: 0; align-items: stretch; justify-content: stretch; }
+        .auth-form-side { flex: 1 1 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; overflow-y: auto; }
+        .auth-form-side .login-card { background: transparent; border: none; box-shadow: none; backdrop-filter: none; max-width: 380px; padding: 20px 8px; }
+        .auth-brand-side { flex: 1 1 50%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(circle at 30% 30%, #1e2a4a, #0d1428 55%, #1a0f2e); }
+        .auth-brand-side .brand-logo { width: 190px; height: 190px; border-radius: 44px; background: url('birgsol-icon-512.png') center/cover, #111;
+            box-shadow: 0 0 90px rgba(66,133,244,.55), 0 0 40px rgba(156,106,222,.4); animation: logoFloat 4s ease-in-out infinite; z-index:1; }
+        .auth-brand-side::after { content:''; position:absolute; inset:0; background: radial-gradient(circle at 72% 78%, rgba(156,106,222,.28), transparent 60%); }
+        @media (max-width: 900px) { .auth-brand-side { display: none; } .auth-form-side { flex: 1 1 100%; } }
+
+        .auth-choice-btn { width:100%; padding:13px 18px; margin:9px 0; border-radius:50px; border:1.5px solid var(--border);
+            background:var(--surf); color:var(--text); font-size:15px; font-weight:600; font-family:inherit; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; gap:10px; transition:all .18s; }
+        .auth-choice-btn:hover { background:var(--surf2); border-color:rgba(66,133,244,.4); transform:translateY(-1px); }
+        .auth-choice-btn.primary { background:linear-gradient(135deg,#4285F4,#9C6ADE); color:#fff; border:none; box-shadow:0 4px 16px rgba(66,133,244,.35); }
+        .auth-choice-btn svg { width:19px; height:19px; flex-shrink:0; }
+        .auth-h1 { font-size:1.9rem; font-weight:800; margin-bottom:6px; text-align:center; }
+        .auth-sub { font-size:14px; color:var(--muted); margin-bottom:22px; text-align:center; }
+        .auth-back { background:none; border:none; cursor:pointer; color:var(--muted); font-size:13px; font-family:inherit; margin-bottom:8px; align-self:flex-start; }
+
         /* ── Firebase setup modal ── */
         #fb-setup-modal {
             display:none; position:fixed; inset:0; z-index:10500;
@@ -1011,7 +1032,7 @@
 </div>
 
 <!-- ══ LOGIN SCREEN ══ -->
-<div id="login-screen">
+<div id="login-screen" class="split">
     <select id="login-lang" onchange="applyLang(this.value)" title="Language" style="position:absolute;top:14px;inset-inline-end:14px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;z-index:10;">
         <option value="en">EN</option>
         <option value="he">עב</option>
@@ -1019,7 +1040,8 @@
         <option value="ru">RU</option>
         <option value="fr">FR</option>
     </select>
-    <div class="login-card">
+    <div class="auth-form-side">
+    <div class="login-card" id="login-card-main">
         <div class="login-logo">
             <div class="l-star"></div>
             <h1>BIRGSOL AI 3.5</h1>
@@ -1038,6 +1060,8 @@
         <div id="li-err" class="login-err"></div>
         <div class="or-divider"><span data-i18n="or">או</span></div>
         <div id="google-btn-login" class="gbtn-holder"></div>
+        <button class="auth-choice-btn" style="margin-top:10px" onclick="showEmailCard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg> המשך עם מייל</button>
+        <button class="auth-choice-btn" disabled style="margin-top:2px;opacity:.5;cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> טלפון + SMS · בקרוב</button>
 
         <p class="login-bank-note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> <span data-i18n="login_note">שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם</span></p>
         <div style="text-align:center;margin-top:14px;">
@@ -1139,6 +1163,19 @@
             <button onclick="showLogin()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0;" data-i18n="sign_in_link">כניסה</button>
         </div>
     </div>
+
+    <!-- EMAIL CARD (מייל + סיסמה — התחברות או הרשמה אוטומטית) -->
+    <div class="login-card" id="email-card" style="display:none;">
+        <button class="auth-back" onclick="showLogin()">← חזרה</button>
+        <div class="login-logo"><div class="l-star"></div><h1>כניסה עם מייל</h1><p>חדש? החשבון ייווצר אוטומטית · קיים? פשוט התחבר</p></div>
+        <div class="login-field"><label>אימייל</label><input type="email" id="em-mail" placeholder="name@example.com" autocomplete="email" dir="ltr" onkeydown="if(event.key==='Enter')document.getElementById('em-pass').focus()"></div>
+        <div class="login-field"><label>סיסמה</label><input type="password" id="em-pass" placeholder="לפחות 4 תווים" autocomplete="current-password" onkeydown="if(event.key==='Enter')doEmailAuth()"></div>
+        <button class="login-btn" onclick="doEmailAuth()">המשך ←</button>
+        <div id="em-err" class="login-err"></div>
+    </div>
+
+    </div><!-- /auth-form-side -->
+    <div class="auth-brand-side"><div class="brand-logo"></div></div>
 </div>
 
 
@@ -2300,26 +2337,39 @@ function consumeFreeMsg() {
 }
 
 /* ── register ── */
-function showRegister() {
-    document.querySelector('#login-screen .login-card').style.display = 'none';
-    document.getElementById('register-card').style.display = 'block';
-    document.getElementById('reg-user').focus();
+function _authShow(id) {
+    ['login-card-main','email-card','register-card','forgot-card'].forEach(c => {
+        const el = document.getElementById(c); if (el) el.style.display = (c === id) ? 'block' : 'none';
+    });
     if (typeof _loadGIS === 'function') { _loadGIS(); setTimeout(_renderGoogleBtns, 350); }
 }
-function showLogin() {
-    document.getElementById('register-card').style.display = 'none';
-    document.getElementById('forgot-card').style.display = 'none';
-    document.querySelector('#login-screen .login-card').style.display = 'block';
-    document.getElementById('li-user').focus();
-    if (typeof _loadGIS === 'function') { _loadGIS(); setTimeout(_renderGoogleBtns, 350); }
+function showRegister() { _authShow('register-card'); document.getElementById('reg-user').focus(); }
+function showLogin()    { _authShow('login-card-main'); document.getElementById('li-user').focus(); }
+function showEmailCard(){ _authShow('email-card'); setTimeout(() => document.getElementById('em-mail').focus(), 50); }
+async function doEmailAuth() {
+    const mail = document.getElementById('em-mail').value.trim().toLowerCase();
+    const pass = document.getElementById('em-pass').value;
+    const err  = document.getElementById('em-err'); err.style.display = 'none';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { err.textContent = '❌ כתובת מייל לא תקינה.'; err.style.display='block'; return; }
+    if (pass.length < 4) { err.textContent = '❌ הסיסמה חייבת להכיל לפחות 4 תווים.'; err.style.display='block'; return; }
+    try {
+        const hashed = await hashPassword(pass);
+        const users = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
+        if (users[mail]) { // קיים — אימות
+            if (!users[mail].password) { err.textContent = '❌ החשבון הזה נפתח עם Google — התחבר עם כפתור Google.'; err.style.display='block'; return; }
+            if (users[mail].password !== hashed) { err.textContent = '❌ סיסמה שגויה.'; err.style.display='block'; return; }
+            await _finishLogin(mail); return;
+        }
+        // חדש — יצירה אטומית
+        await ghUpdate('db/ai_users.json', u => { u = u || {}; if (u[mail]) return undefined; u[mail] = { password: hashed, email: true, createdAt: Date.now(), lang: localStorage.getItem('birgsol_lang') || 'he' }; return u; });
+        await _finishLogin(mail);
+    } catch (e) { err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block'; }
 }
 
 /* ── forgot password ── */
 let fpUsername = null, fpPassRevealed = false;
 function showForgot() {
-    document.querySelector('#login-screen .login-card').style.display = 'none';
-    document.getElementById('register-card').style.display = 'none';
-    document.getElementById('forgot-card').style.display = 'block';
+    _authShow('forgot-card');
     document.getElementById('forgot-step1').style.display = 'block';
     document.getElementById('forgot-step2').style.display = 'none';
     document.getElementById('fp-user').value = '';
@@ -2414,7 +2464,7 @@ async function doRegister() {
         document.getElementById('reg-pass').value = '';
         document.getElementById('reg-pass2').value = '';
         document.getElementById('register-card').style.display = 'none';
-        document.querySelector('#login-screen .login-card').style.display = 'block';
+        document.getElementById('login-card-main').style.display = 'block';
         await _finishLogin(user);
         alert(`✅ חשבון "${user}" נוצר! ברוך הבא ל-Birgsol AI 🎉`);
     } finally {
