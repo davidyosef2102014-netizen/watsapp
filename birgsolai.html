@@ -4829,6 +4829,41 @@ async function executeTool(match, type, statusEl, cw) {
 
 function esc2(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ── ניתוח מסמך ארוך (map-reduce) — מסמכים גדולים חורגים מתקרת ה-TPM של Groq, אז מפצלים לחלקים,
+// מחלצים מכל חלק את מה שרלוונטי לשאלה (MAP), והתשובה הסופית מסונתזת אח"כ בזרם הרגיל (REDUCE). ──
+async function _analyzeLongDoc(text, question, onStatus, signal) {
+    const CHUNK = 9000, MAX_CHUNKS = 16;
+    const chunks = [];
+    let i = 0;
+    while (i < text.length && chunks.length < MAX_CHUNKS) {
+        let end = Math.min(i + CHUNK, text.length);
+        if (end < text.length) {
+            const nl = text.lastIndexOf('\n', end);
+            if (nl > i + CHUNK * 0.5) end = nl; // חיתוך על גבול שורה, לא באמצע משפט
+        }
+        chunks.push(text.slice(i, end));
+        i = end;
+    }
+    const truncated = i < text.length;
+    const q = question || 'סכם את עיקרי המסמך';
+    const notes = [];
+    for (let c = 0; c < chunks.length; c++) {
+        if (onStatus) onStatus(`קורא חלק ${c + 1}/${chunks.length}…`);
+        try {
+            const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: 'קיבלת קטע ממסמך ארוך. חלץ בתמצות רק מידע ועובדות מהקטע שרלוונטיים לשאלת המשתמש. אם אין בקטע כלום רלוונטי, כתוב בדיוק "—". אל תמציא — ציטוט או פרפרזה נאמנה בלבד.' },
+                    { role: 'user', content: `שאלת המשתמש: ${q}\n\nקטע ${c + 1} מתוך ${chunks.length}:\n${chunks[c]}` }
+                ],
+                temperature: 0.2, max_tokens: 700
+            }, { signal: signal || AbortSignal.timeout(20000) });
+            if (res.ok) { const j = await res.json(); const t = j?.choices?.[0]?.message?.content?.trim(); if (t && t.replace(/[—\-\s]/g, '')) notes.push(`[חלק ${c + 1}] ${t}`); }
+        } catch (e) { if (e.name === 'AbortError') throw e; }
+    }
+    return { notes: notes.join('\n\n'), chunks: chunks.length, truncated };
+}
+
 /* Agent loop — calls AI, detects tool calls, executes them, calls AI again */
 async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4, signal=null) {
     let fullText = '';
@@ -5433,10 +5468,19 @@ async function send() {
             { type: 'image_url', image_url: { url: img || _refImg } }
         ]});
     } else if (attachedFile) {
-        const trimmed = attachedFile.length > 14000
-            ? attachedFile.slice(0, 14000) + '\n\n[הקובץ חותך כאן — מוצגים 14,000 תווים ראשונים]'
-            : attachedFile;
-        messages.push({ role: 'user', content: `[תוכן הקובץ "${attachedName}"]\n${trimmed}\n\n[שאלת המשתמש]: ${q || 'נתח את הקובץ'}` });
+        if (attachedFile.length > 12000) {
+            // מסמך ארוך — map-reduce: מחלצים מכל חלק את הרלוונטי לשאלה, כדי לא לחרוג מתקרת ה-TPM ולתמוך במסמכים ארוכים מאוד
+            status.style.display = 'flex';
+            status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>קורא מסמך ארוך…</b></span>`;
+            let notes = '', nChunks = 0, wasTrunc = false;
+            try {
+                const r = await _analyzeLongDoc(attachedFile, q, (s) => { status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(s)}</b></span>`; });
+                notes = r.notes; nChunks = r.chunks; wasTrunc = r.truncated;
+            } catch (e) { if (e.name === 'AbortError') { busy = false; updateBtn(); return; } }
+            messages.push({ role: 'user', content: `[מתוך הקובץ הארוך "${attachedName}" (${nChunks} חלקים${wasTrunc ? ', ארוך מהמקסימום — נותח החלק הראשון' : ''}) — אלה הקטעים הרלוונטיים שחולצו לשאלה]:\n${notes || '(לא נמצא בקובץ מידע רלוונטי לשאלה)'}\n\n[שאלת המשתמש]: ${q || 'סכם את המסמך'}\nענה על סמך המידע שחולץ לעיל בלבד, אל תמציא.` });
+        } else {
+            messages.push({ role: 'user', content: `[תוכן הקובץ "${attachedName}"]\n${attachedFile}\n\n[שאלת המשתמש]: ${q || 'נתח את הקובץ'}` });
+        }
     } else {
         const linkInfo = await _fetchLinkInfo(q);
         messages.push({ role: 'user', content: q + linkInfo });
@@ -5459,7 +5503,7 @@ async function send() {
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
     // ── Auto-search: inject live results before AI call ──
-    if (!img && !_refImg && q) {
+    if (!img && !_refImg && q && !attachedFile) {
         const searchTriggers = [
             'כמה עולה','מחיר','מחירים','זול','יקר','לקנות','לרכוש','קנייה',
             'מומלץ','מומלצים','הכי טוב','הכי זול','הכי יקר','בישראל',
