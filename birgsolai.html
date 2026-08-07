@@ -2515,7 +2515,8 @@ async function doPhoneSend() {
     try {
         await _initFirebase();
         if (!_fbRecaptcha) {
-            _fbRecaptcha = new firebase.auth.RecaptchaVerifier('phone-recaptcha', { size: 'invisible' }, _fbAuth);
+            // חשוב: בגרסת compat מעבירים רק (container, params) — העברת מופע ה-Auth כארגומנט שלישי שוברת את זיהוי המפתח (auth/invalid-api-key)
+            _fbRecaptcha = new firebase.auth.RecaptchaVerifier('phone-recaptcha', { size: 'invisible' });
             await _fbRecaptcha.render();
         }
         _fbConfirm = await _fbAuth.signInWithPhoneNumber(phone, _fbRecaptcha);
