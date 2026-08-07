@@ -2941,9 +2941,16 @@ function getPersona() {
     const _instr = currentUser ? (localStorage.getItem('birgsol_instr_' + currentUser) || '') : '';
     const instrLine = _instr ? `📋 The user's personal instructions (ALWAYS follow them): ${_instr}\n` : '';
     const persLine = nameLine + instrLine + '\n';
-    const memLine = userMemory.length
-        ? `\n\n=== MEMORY (what you already know about this user from past conversations) ===\n${userMemory.map(f => '- ' + f).join('\n')}\nUse this naturally when relevant — don't explicitly say "according to my memory" unless the user asks what you remember.\n`
-        : '';
+    let memLine = '';
+    if (userMemory.length) {
+        const groups = {};
+        for (const f of userMemory) { const n = _memNorm(f); if (n.t) (groups[n.c] = groups[n.c] || []).push(n.t); }
+        const order = ['family', 'friends', 'life', 'work', 'prefs', 'health', 'other'];
+        let body = '';
+        for (const c of order) { if (groups[c] && groups[c].length) body += `\n[${MEM_CATS[c]}]\n` + groups[c].map(t => '• ' + t).join('\n') + '\n'; }
+        const who = currentName ? currentName.trim().split(/\s+/)[0] : 'this user';
+        memLine = `\n\n=== מה שאתה כבר יודע על ${who} משיחות קודמות (הזיכרון שלך) ===${body}\nהשתמש בזה בטבעיות ובחום, כמו חבר קרוב שבאמת מכיר אותו — התעניין והמשך דברים שסיפר כשזה מתאים ("איך היה ה...?", "מה נשמע עם...?"), אבל אל תציף ואל תזכיר הכול בכוח. לעולם אל תגיד "לפי הזיכרון שלי" אלא אם נשאלת מה אתה זוכר. לעולם אל תמציא ואל תניח — אם המשתמש סותר משהו שזכרת, קבל את התיקון. אל תעלה נושא רגיש (בריאות, קשיים) אלא אם המשתמש פתח אותו קודם.\n`;
+    }
     if (currentMode === 'code') return dateLine + langLine + persLine + PERSONA_CODE + memLine + langEnd;
     if (currentMode === 'image') return dateLine + langLine + persLine + PERSONA_IMAGE + memLine + langEnd;
     return dateLine + langLine + persLine + PERSONA_NORMAL + memLine + langEnd;
@@ -2965,21 +2972,30 @@ let _lastImg = ""; // התמונה האחרונה שהמשתמש העלה בשי
 let _groqCooldownUntil = 0; // כש-Groq מגיע למגבלת קצב, נותנים לו לנוח עד הזמן הזה (במקום לפסול לכל השיחה)
 let _abortCtrl = null;
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
+// כל פריט זיכרון: {t:"טקסט העובדה", c:"קטגוריה", d:חותמת_זמן}. תאימות לאחור: מחרוזות ישנות מומרות ל-{t,c:'other'}.
+const MEM_CATS = { family:'משפחה', friends:'חברים ואנשים קרובים', life:'אירועי חיים', prefs:'העדפות וטעמים', work:'עבודה, לימודים ופרויקטים', health:'בריאות ורגש', other:'שונות' };
+function _memNorm(f) {
+    if (typeof f === 'string') return { t: f.trim(), c: 'other', d: 0 };
+    return { t: (f && f.t || '').trim(), c: (f && MEM_CATS[f.c] ? f.c : 'other'), d: (f && f.d) || 0 };
+}
+function _memText(f) { return _memNorm(f).t; }
 
 async function loadUserMemory() {
     if (!currentUser) { userMemory = []; return; }
     const data = await ghReadFresh('db/ai_memory_' + currentUser + '.json');
-    userMemory = data?.facts || [];
+    userMemory = (data?.facts || []).map(_memNorm).filter(f => f.t);
 }
 
 async function rememberFacts(facts) {
     if (!currentUser || !facts?.length) return;
     let changed = false;
-    for (const fact of facts) {
-        if (!fact || !fact.trim()) continue;
-        const low = fact.toLowerCase();
-        if (userMemory.some(f => f.toLowerCase() === low)) continue;
-        userMemory.push(fact.trim());
+    for (const raw of facts) {
+        const fact = _memNorm(raw);
+        if (!fact.t) continue;
+        const low = fact.t.toLowerCase();
+        if (userMemory.some(f => _memNorm(f).t.toLowerCase() === low)) continue;
+        fact.d = Date.now();
+        userMemory.push(fact);
         changed = true;
     }
     if (!changed) return;
@@ -2994,15 +3010,26 @@ async function extractMemory(userMsg, aiReply) {
     if (!currentUser || !userMsg) return;
     try {
         const existing = userMemory.length
-            ? 'מה שכבר ידוע:\n' + userMemory.slice(-20).map(f => '- ' + f).join('\n') + '\n\n'
+            ? 'מה שכבר ידוע (אל תחזור על זה):\n' + userMemory.slice(-25).map(f => { const n = _memNorm(f); return `- [${n.c}] ${n.t}`; }).join('\n') + '\n\n'
             : '';
         const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
             model: 'llama-3.3-70b-versatile',
             messages: [
-                { role: 'system', content: 'אתה מחלץ מה שכדאי לזכור על המשתמש כדי להכיר אותו טוב יותר ולהמשיך את הקשר בשיחות הבאות. שמור בנדיבות: עובדות (שם, גיל, מקצוע, משפחה, מיקום), פרויקטים ותחומי עניין, העדפות (סגנון, שפה, טעם, איך הוא אוהב שיעזרו לו), נושאים חשובים שהמשתמש העלה, מטרות ותוכניות, ופרטים אישיים שהוא שיתף.\n\nכללים:\n• דחה רק דברים באמת חולפים ("מה השעה עכשיו", "עייף כרגע") או ידע כללי שלא קשור למשתמש עצמו.\n• נסח כל פריט כמשפט קצר, ברור ועצמאי.\n• אל תשכפל מה שכבר ברשימה הקיימת.\n• ענה JSON בלבד: {"facts":["..."]} עם עד 5 פריטים. אם באמת אין שום דבר חדש ששווה לזכור — {"facts":[]}.' },
-                { role: 'user', content: `${existing}משתמש: ${userMsg}\nעוזר: ${(aiReply || '').slice(0, 800)}` }
+                { role: 'system', content:
+`אתה הזיכרון ארוך-הטווח של עוזר AI אישי. תפקידך: לחלץ מהשיחה עובדות אמיתיות על המשתמש ועל עולמו, כדי שהעוזר יכיר אותו לעומק בשיחות הבאות — כמו חבר קרוב שזוכר.
+
+מה לחלץ (רק אם עולה מהשיחה): שם וכינויים; משפחה (בן/בת זוג, ילדים, הורים, אחים — שמות, גילאים, קשרים); חברים ואנשים חשובים בחייו; מקום מגורים, עבודה ולימודים; אירועי חיים (מעבר דירה, לידה, חתונה, טיול, מחלה, התחלה/סיום עבודה או לימודים); העדפות, טעמים וסגנון; פרויקטים, מטרות ותוכניות; ודברים שחשובים לו רגשית.
+
+הסקה מותרת רק כשהיא חד-משמעית: אם אמר "הבן שלי בכיתה א'" אפשר להסיק "יש לו בן בגיל ~6". אם אמר "חזרתי מהעבודה" אפשר להסיק "הוא עובד".
+
+איסור מוחלט — לעולם אל תמציא, אל תנחש, אל תניח מעבר למה שנאמר או משתמע ברור. אם עובדה לא נאמרה ולא משתמעת באופן חד-משמעי — אל תכתוב אותה. עדיף לפספס מאשר להמציא. חלץ אך ורק מה שהמשתמש עצמו סיפר או אישר — לעולם לא דברים שהעוזר אמר, הציע או שיער.
+
+לכל עובדה קטגוריה אחת: family (משפחה), friends (חברים/אנשים קרובים), life (אירועי חיים), prefs (העדפות/טעמים), work (עבודה/לימודים/פרויקטים), health (בריאות/רגש), other (שאר).
+
+ענה JSON בלבד: {"facts":[{"t":"עובדה קצרה, ברורה ועצמאית","c":"family"}]} — עד 5 פריטים. דחה דברים חולפים ("עייף כרגע", "מה השעה") וידע כללי. אם אין שום דבר חדש ואמיתי — {"facts":[]}.` },
+                { role: 'user', content: `${existing}משתמש אמר: ${userMsg}\nהעוזר ענה: ${(aiReply || '').slice(0, 800)}` }
             ],
-            temperature: 0.3, max_tokens: 250
+            temperature: 0.2, max_tokens: 350
         }, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) return;
         const j = await res.json();
@@ -4881,10 +4908,10 @@ async function _consolidateMemory() {
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: [
-                    { role: 'system', content: 'קבל רשימת פריטי זיכרון על משתמש. מזג רק כפילויות ממש והסר רק מידע חולף לגמרי, אבל שמור בנדיבות — עד 80 הפריטים הקבועים והמשמעותיים ביותר (עובדות, פרויקטים, תחומי עניין, העדפות, נושאים חשובים). עדיף לזכור יותר מדי מאשר לשכוח. ענה ב-JSON בלבד: {"facts":["..."]}' },
-                    { role: 'user', content: userMemory.join('\n') }
+                    { role: 'system', content: 'קבל רשימת פריטי זיכרון על משתמש, כל שורה בפורמט "קטגוריה | עובדה". מזג כפילויות ועובדות סותרות (שמור את העדכני), הסר רק מידע חולף לגמרי, אבל שמור בנדיבות — עד 80 הפריטים הקבועים והמשמעותיים ביותר. שמור לכל עובדה את הקטגוריה שלה (family/friends/life/prefs/work/health/other). ענה ב-JSON בלבד: {"facts":[{"t":"עובדה","c":"family"}]}' },
+                    { role: 'user', content: userMemory.map(f => { const n = _memNorm(f); return `${n.c} | ${n.t}`; }).join('\n') }
                 ],
-                temperature: 0.2, max_tokens: 1200
+                temperature: 0.2, max_tokens: 1500
             }),
             signal: AbortSignal.timeout(12000)
         });
@@ -4892,7 +4919,7 @@ async function _consolidateMemory() {
         const j = await res.json();
         const parsed = JSON.parse(j?.choices?.[0]?.message?.content?.trim() || '{}');
         if (Array.isArray(parsed?.facts) && parsed.facts.length > 0) {
-            userMemory = parsed.facts.slice(0, 80);
+            userMemory = parsed.facts.map(_memNorm).filter(f => f.t).slice(0, 80);
             await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: userMemory });
         }
     } catch {}
@@ -4983,7 +5010,7 @@ async function callAI(messages, onChunk, signal=null) {
             signal: _sig
         });
         if (!res.ok) {
-            if (res.status === 429 && provider === 'groq') { _groqCooldownUntil = Date.now() + 60000; }
+            if (res.status === 429 && provider === 'groq') { _groqCooldownUntil = Date.now() + 15000; } // קצר — יש כמה חשבונות Groq, מנסים מפתח/חשבון אחר מיד במקום לפסול את Groq לגמרי
             throw new Error('HTTP ' + res.status);
         }
         const reader = res.body.getReader();
@@ -5125,16 +5152,23 @@ async function callAI(messages, onChunk, signal=null) {
     const _groqGuard = (payload) => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('groq', payload);
     // שרשרת נקייה — רק מנועים שנבדקו ועובדים (2026-08-01). הוסרו: GitHub (נסגר), OpenRouter (:free עבר
     // לתשלום, 404), Pollinations+GET (מתים, 402). עדיף הודעת שגיאה מנומסת מאשר גיבוי מת שמבזבז זמן.
+    // _groqTry: קריאת Groq עם מפתח טרי (ה-Worker בוחר מפתח אקראי מ-13 המפתחות / כמה חשבונות בכל קריאה),
+    // עוקף את ה-cooldown — כך ש-429 על חשבון אחד מנתב מיד לחשבון Groq אחר, לתשובות מהירות גם בדקה עמוסה.
+    const _groqTry = (payload) => _stream('groq', payload);
     const stages = isCode ? [
         { name: 'Groq gpt-oss-120b (code)', fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
-        { name: 'Groq llama (code fb)',      fn: () => _stream('groq', { model: 'llama-3.3-70b-versatile', messages, ..._codeCfg }) },
+        { name: 'Groq gpt-oss (acct 2)',    fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
+        { name: 'Groq llama (code fb)',      fn: () => _groqTry({ model: 'llama-3.3-70b-versatile', messages, ..._codeCfg }) },
+        { name: 'Groq llama (acct 3)',       fn: () => _groqTry({ model: 'llama-3.3-70b-versatile', messages, ..._codeCfg }) },
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
         { name: 'Mistral (code)',            fn: () => _tryMistral().then(_tw) },
         { name: 'Cohere (code)',             fn: () => _tryCohere().then(_tw) },
     ] : [
         { name: 'Groq stream',         fn: () => _groqGuard({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
+        { name: 'Groq (acct 2)',       fn: () => _groqTry({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
+        { name: 'Groq (acct 3)',       fn: () => _groqTry({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
-        { name: 'Groq gpt-oss-120b',   fn: () => _stream('groq', { model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
+        { name: 'Groq gpt-oss-120b',   fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
         { name: 'Mistral',           fn: () => _tryMistral().then(_tw) },
         { name: 'Cohere',            fn: () => _tryCohere().then(_tw) },
     ];
