@@ -6138,46 +6138,33 @@ function toggleLiveMute() {
 }
 
 async function _callAILive(messages) {
+    // שרשרת חזקה למצב לייב — Groq (רב-חשבונות) → Gemini → Mistral → Cohere. הוסרו GitHub Models (מת) ו-OpenRouter (בלי מפתח).
     const short = messages.map(m => ({ ...m, content: typeof m.content === 'string' ? m.content : '' }));
-    const tryGroq = () => _ghFetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: short, temperature: 0.7, max_tokens: 400 }),
-        signal: AbortSignal.timeout(8000)
-    }).then(r => { if (!r.ok) throw new Error('groq ' + r.status); return r.json(); })
-      .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
+    const cfg = { temperature: 0.7, max_tokens: 400 };
+    const _pick = j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; };
 
-    const tryGH = () => _ghAI({ model: 'openai/gpt-4o-mini', messages: short, temperature: 0.7, max_tokens: 400 }, AbortSignal.timeout(10000))
-      .then(r => { if (!r.ok) throw new Error('gh ' + r.status); return r.json(); })
-      .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
+    const tryGroq = () => _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: short, ...cfg }, { signal: AbortSignal.timeout(12000) })
+        .then(r => { if (!r.ok) throw new Error('groq ' + r.status); return r.json(); }).then(_pick);
 
-    try { return await Promise.any([tryGroq(), tryGH()]); } catch(_) {}
-
-    // Fast parallel fallback — Gemini + both OpenRouter keys, no typewriter overhead
     const tryGeminiLive = () => {
-        const sys = messages.find(m => m.role === 'system')?.content || '';
-        const contents = messages.filter(m => m.role !== 'system').map(m => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: typeof m.content === 'string' ? m.content : '' }]
-        }));
+        const sys = short.find(m => m.role === 'system')?.content || '';
+        const contents = short.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
-        return _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 400 } }),
-            signal: AbortSignal.timeout(10000)
-        }).then(r => { if (!r.ok) throw new Error('g ' + r.status); return r.json(); })
-          .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
+        return _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', { contents, generationConfig: { maxOutputTokens: 400 } }, { signal: AbortSignal.timeout(10000) })
+            .then(r => { if (!r.ok) throw new Error('g ' + r.status); return r.json(); })
+            .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
     };
-    const tryORLive = (key) => _ghFetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'openai/gpt-oss-120b:free', messages, temperature: 0.7, max_tokens: 400 }),
-        signal: AbortSignal.timeout(10000)
-    }).then(r => { if (!r.ok) throw new Error('or ' + r.status); return r.json(); })
-      .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
+    const tryMistralLive = () => _ghProxy('mistral', '/v1/chat/completions', { model: 'mistral-small-latest', messages: short, ...cfg }, { signal: AbortSignal.timeout(10000) })
+        .then(r => { if (!r.ok) throw new Error('m ' + r.status); return r.json(); }).then(_pick);
+    const tryCohereLive = () => _ghProxy('cohere', '/v2/chat', { model: 'command-a-03-2025', messages: short, ...cfg }, { signal: AbortSignal.timeout(10000) })
+        .then(r => { if (!r.ok) throw new Error('c ' + r.status); return r.json(); })
+        .then(j => { const t = (j?.message?.content || []).map(x => x.text || '').join('').trim(); if (!t) throw new Error('empty'); return t; });
 
-    try { return await Promise.any([tryGeminiLive(), tryORLive('')]); } catch(_) {}
+    // Groq ראשי (מהיר); אם נפל — מירוץ Groq(חשבון אחר)+Gemini; ואז Mistral; ואז Cohere.
+    try { return await tryGroq(); } catch(_) {}
+    try { return await Promise.any([tryGroq(), tryGeminiLive()]); } catch(_) {}
+    try { return await tryMistralLive(); } catch(_) {}
+    try { return await tryCohereLive(); } catch(_) {}
     return 'מצטער, לא הצלחתי להגיב. נסה שוב.';
 }
 
