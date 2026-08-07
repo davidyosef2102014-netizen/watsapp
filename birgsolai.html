@@ -586,8 +586,8 @@
 
         /* ══ Grok-style split auth ══ */
         #login-screen.split { flex-direction: row; padding: 0; align-items: stretch; justify-content: stretch; }
-        .auth-form-side { flex: 1 1 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; overflow-y: auto; }
-        .auth-form-side .login-card { background: transparent; border: none; box-shadow: none; backdrop-filter: none; max-width: 380px; padding: 20px 8px; }
+        .auth-form-side { flex: 1 1 50%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 32px 24px; overflow-y: auto; }
+        .auth-form-side .login-card { background: transparent; border: none; box-shadow: none; backdrop-filter: none; max-width: 380px; padding: 20px 8px; margin: auto 0; }
         .auth-brand-side { flex: 1 1 50%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
             background: radial-gradient(circle at 30% 30%, #1e2a4a, #0d1428 55%, #1a0f2e); }
         .auth-brand-side .brand-logo { width: 190px; height: 190px; border-radius: 44px; background: url('birgsol-icon-512.png') center/cover, #111;
@@ -1211,6 +1211,11 @@
       <h2>הגרסאות של BIRGSOL AI</h2>
       <p>כל גרסה קובעת כמה תמונות וחיפושים באינטרנט אפשר ביום</p>
       <div class="pricing-bal"><span id="pm-uname">—</span></div>
+      <div style="display:flex;gap:8px;max-width:420px;margin:14px auto 0;flex-wrap:wrap;justify-content:center">
+        <input id="redeem-inp" type="text" placeholder="יש לך קוד שדרוג? הזן כאן" dir="ltr" style="flex:1;min-width:190px;padding:11px 14px;border-radius:12px;border:1.5px solid var(--border);background:var(--surf);color:var(--text);font-size:14px;text-align:center;letter-spacing:1px" onkeydown="if(event.key==='Enter')redeemCode()">
+        <button onclick="redeemCode()" style="padding:11px 22px;border-radius:12px;border:none;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;font-weight:700;cursor:pointer">שדרג</button>
+      </div>
+      <div id="redeem-msg" style="margin-top:8px;font-size:13px;font-weight:600;min-height:18px"></div>
     </div>
     <div class="pricing-grid">
 
@@ -1845,13 +1850,32 @@ function closeAdminPanel() {
     document.getElementById('admin-overlay').classList.remove('on');
 }
 
+function _renderAdminCodesUI(body) {
+    const box = document.createElement('div');
+    box.style.cssText = 'padding:12px 8px;border-bottom:2px solid var(--border);margin-bottom:6px';
+    const tierOpts = Object.keys(TIERS).filter(t => t !== 'free').map(t => `<option value="${t}">${esc2(TIERS[t].name)}</option>`).join('');
+    box.innerHTML =
+        `<div style="font-weight:700;font-size:14px;margin-bottom:8px">🎫 ייצור קודי שדרוג</div>
+         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+           <select id="gc-tier" class="sp-select">${tierOpts}</select>
+           <input id="gc-count" type="number" min="1" max="50" value="5" title="כמות קודים" style="width:60px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf);color:var(--text)">
+           <input id="gc-days" type="number" min="1" max="3650" value="30" title="ימי תוקף" style="width:64px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf);color:var(--text)">
+           <button id="gc-btn" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;font-weight:700;cursor:pointer">ייצר</button>
+         </div>
+         <div style="font-size:11px;color:var(--muted);margin-top:4px">גרסה · כמות · ימי תוקף</div>
+         <div id="gc-out"></div>`;
+    body.appendChild(box);
+    box.querySelector('#gc-btn').addEventListener('click', adminGenCodes);
+}
+
 function renderAdminUsers(cloudUsers) {
     const body = document.getElementById('admin-body');
     const names = Object.keys(cloudUsers).sort((a, b) => (cloudUsers[b].createdAt||0) - (cloudUsers[a].createdAt||0));
-    if (!names.length) { body.textContent = 'אין משתמשים רשומים.'; return; }
     // אבטחה: שם המשתמש עלול להכיל תווים זדוניים — לא מזריקים אותו ל-onclick/onchange.
     // בונים דרך DOM ומצמידים מאזינים, כך שהשם אף פעם לא הופך לקוד.
     body.innerHTML = '';
+    _renderAdminCodesUI(body); // 🎫 מחולל קודי שדרוג
+    if (!names.length) { const n = document.createElement('div'); n.className = 'admin-row-meta'; n.style.padding = '12px 8px'; n.textContent = 'אין משתמשים רשומים.'; body.appendChild(n); return; }
     names.forEach(name => {
         const u = cloudUsers[name];
         const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('he-IL') : '—';
@@ -2334,6 +2358,67 @@ async function adminSetTier(username, tierId) {
     }
     const untilStr = until ? new Date(until).toLocaleDateString('he-IL') : '';
     _tierToast(`הגרסה של ${username} שונתה ל-${TIERS[tierId].name}${untilStr ? ' עד ' + untilStr : ''}`);
+}
+
+/* ── קודי שדרוג — המשתמש מזין קוד ומשדרג את עצמו (תשלום מחוץ לאפליקציה: ביט/פייבוקס/מזומן) ── */
+async function redeemCode() {
+    const inp = document.getElementById('redeem-inp');
+    const msg = document.getElementById('redeem-msg');
+    const code = (inp.value || '').trim().toUpperCase();
+    if (!code) return;
+    if (!currentUser) { msg.style.color = '#ff8a80'; msg.textContent = 'התחבר קודם כדי לממש קוד.'; return; }
+    msg.style.color = 'var(--muted)'; msg.textContent = 'בודק קוד…';
+    let outcome = null;
+    const ok = await ghUpdate('db/ai_codes.json', codes => {
+        codes = codes || {};
+        const c = codes[code];
+        if (!c) { outcome = 'not_found'; return undefined; }
+        if (c.used) { outcome = 'used'; return undefined; }
+        if (!TIERS[c.tier]) { outcome = 'bad'; return undefined; }
+        c.used = true; c.usedBy = currentUser; c.usedAt = Date.now();
+        outcome = { tier: c.tier, days: c.days || 30 };
+        return codes;
+    });
+    if (outcome === 'not_found') { msg.style.color = '#ff8a80'; msg.textContent = '❌ קוד לא קיים.'; return; }
+    if (outcome === 'used')      { msg.style.color = '#ff8a80'; msg.textContent = '❌ הקוד כבר נוצל.'; return; }
+    if (!ok || typeof outcome !== 'object' || !outcome) { msg.style.color = '#ff8a80'; msg.textContent = '❌ שגיאה במימוש — נסה שוב.'; return; }
+    const until = Date.now() + outcome.days * 86400000;
+    await ghUpdate('db/ai_users.json', users => {
+        users = users || {};
+        if (!users[currentUser]) users[currentUser] = { createdAt: Date.now() };
+        users[currentUser].tier = outcome.tier;
+        users[currentUser].tierChangedAt = Date.now();
+        users[currentUser].tierUntil = until;
+        return users;
+    });
+    try { localStorage.setItem('birgsol_tier_' + currentUser, outcome.tier); } catch {}
+    checkPremium(); updateUserChip();
+    inp.value = '';
+    msg.style.color = '#34a853'; msg.textContent = `✓ שודרגת ל-${TIERS[outcome.tier].name}! בתוקף עד ${new Date(until).toLocaleDateString('he-IL')}`;
+    _tierToast(`שודרגת ל-${TIERS[outcome.tier].name} 🎉`);
+}
+
+async function adminGenCodes() {
+    if (!ADMIN_USERS.includes(currentUser)) return;
+    const tier  = document.getElementById('gc-tier').value;
+    const count = Math.min(50, Math.max(1, parseInt(document.getElementById('gc-count').value) || 1));
+    const days  = Math.min(3650, Math.max(1, parseInt(document.getElementById('gc-days').value) || 30));
+    const out   = document.getElementById('gc-out');
+    if (!TIERS[tier]) { out.textContent = 'בחר גרסה.'; return; }
+    out.textContent = 'מייצר…';
+    const gen = () => 'BIRGSOL-' + tier.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) + '-' + (Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 4)).toUpperCase();
+    const newCodes = [];
+    const ok = await ghUpdate('db/ai_codes.json', codes => {
+        codes = codes || {};
+        for (let i = 0; i < count; i++) { let c; do { c = gen(); } while (codes[c]); codes[c] = { tier, days, used: false, usedBy: null, createdAt: Date.now() }; newCodes.push(c); }
+        return codes;
+    });
+    if (!ok) { out.textContent = 'שגיאה בשמירה — נסה שוב.'; return; }
+    out.innerHTML = `<div style="margin:8px 0 4px;font-size:12px;color:var(--muted)">${count} קודים · ${TIERS[tier].name} · ${days} ימים — לחץ להעתקה:</div>` +
+        newCodes.map(c => `<div class="gc-code" style="font-family:monospace;font-size:13px;padding:5px 8px;margin:3px 0;background:var(--surf2);border-radius:8px;cursor:pointer;direction:ltr">${c}</div>`).join('') +
+        `<button id="gc-copyall" style="margin-top:8px;padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surf);color:var(--text);cursor:pointer;font-size:13px">העתק הכל</button>`;
+    out.querySelectorAll('.gc-code').forEach(el => el.addEventListener('click', () => { navigator.clipboard.writeText(el.textContent); el.style.color = '#34a853'; }));
+    const ca = out.querySelector('#gc-copyall'); if (ca) ca.addEventListener('click', () => { navigator.clipboard.writeText(newCodes.join('\n')); ca.textContent = '✓ הועתק'; });
 }
 
 /* ── סנכרון תוכנית מהענן + הודעה למשתמש על שינוי ── */
