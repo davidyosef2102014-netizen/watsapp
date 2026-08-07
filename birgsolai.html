@@ -1463,7 +1463,7 @@
             <div class="pill">
                 <div class="pill-inner">
                     <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
-                    <input type="file" id="fi" style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json" onchange="previewFile()">
+                    <input type="file" id="fi" style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov" onchange="previewFile()">
                     <textarea id="userInput" dir="auto" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
@@ -2972,6 +2972,7 @@ function setMode(mode) {
 
 
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
+let mediaFile = null; // קובץ אודיו/וידאו שממתין לתמלול (Whisper) בעת שליחה
 let _lastImg = ""; // התמונה האחרונה שהמשתמש העלה בשיחה — לזכירה בשאלות המשך ("תסתכל שוב", "ההבדל")
 let _groqCooldownUntil = 0; // כש-Groq מגיע למגבלת קצב, נותנים לו לנוח עד הזמן הזה (במקום לפסול לכל השיחה)
 let _abortCtrl = null;
@@ -3509,16 +3510,43 @@ function previewFile() {
     fileUrl = '';
     fileName = f.name;
     const isText = /\.(txt|md|csv|json)$/i.test(f.name) || f.type.startsWith('text/') || f.type === 'application/json';
+    const isMedia = f.type.startsWith('audio/') || f.type.startsWith('video/') || /\.(mp3|m4a|wav|ogg|mp4|webm|mov|aac|flac)$/i.test(f.name);
     if (isText) {
         const reader = new FileReader();
         reader.onload = e => { fileContent = e.target.result; _showDocPreview(f.name, f.size); };
         reader.readAsText(f, 'UTF-8');
     } else if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
         _loadPDF(f);
+    } else if (isMedia) {
+        // אודיו/וידאו — נתמלל בעת השליחה (Whisper), כדי לא לשרוף מכסה אם המשתמש מבטל
+        if (f.size > 24 * 1048576) { alert('הקובץ גדול מדי לתמלול (מקסימום ~24MB). נסה קובץ קצר יותר.'); document.getElementById('fi').value = ''; return; }
+        mediaFile = f; fileContent = ''; fileUrl = '';
+        const kind = (f.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(f.name)) ? '🎬 וידאו' : '🎵 אודיו';
+        _showDocPreview(f.name, f.size);
+        document.getElementById('file-size-label').textContent = kind + ' · יתומלל בשליחה';
     } else {
-        alert('סוג קובץ לא נתמך. נסה תמונה, TXT, PDF, CSV, MD או JSON.');
+        alert('סוג קובץ לא נתמך. נסה תמונה, TXT, PDF, CSV, MD, JSON, או אודיו/וידאו.');
         document.getElementById('fi').value = '';
     }
+}
+
+// ── תמלול אודיו/וידאו עם Whisper (דרך ה-Worker) — מחזיר את הטקסט המדובר ──
+async function _transcribeMedia(file) {
+    const b64 = await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result).split(',')[1] || '');
+        fr.onerror = () => rej(new Error('read failed'));
+        fr.readAsDataURL(file);
+    });
+    const lang = (localStorage.getItem('birgsol_lang') || 'he');
+    const res = await fetch(GH_WORKER, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'transcribe', audioB64: b64, filename: file.name, mime: file.type || 'audio/mpeg', language: lang }),
+        signal: AbortSignal.timeout(120000)
+    });
+    if (!res.ok) throw new Error('transcribe ' + res.status);
+    const j = await res.json().catch(() => ({}));
+    return (j.text || j.transcription || '').trim();
 }
 
 function _showDocPreview(name, size) {
@@ -3565,7 +3593,7 @@ async function _loadPDF(file) {
 }
 
 function clearFile() {
-    fileUrl = ""; fileContent = ""; fileName = "";
+    fileUrl = ""; fileContent = ""; fileName = ""; mediaFile = null;
     document.getElementById('img-prev').classList.remove('on');
     document.getElementById('img-prev-img').style.display = '';
     document.getElementById('img-prev-doc').style.display = 'none';
@@ -5394,11 +5422,27 @@ async function _fetchLinkInfo(text) {
 async function send() {
     if (busy) return;
     const inp = document.getElementById('userInput');
-    const q   = inp.value.trim();
-    if (!q && !fileUrl && !fileContent) return;
+    let   q   = inp.value.trim();
+    if (!q && !fileUrl && !fileContent && !mediaFile) return;
+
+    // Audio/Video → transcribe with Whisper, then treat the transcript as a document (normal flow below)
+    if (mediaFile) {
+        const mf = mediaFile; mediaFile = null;
+        busy = true; updateBtn();
+        const szLabel = document.getElementById('file-size-label');
+        if (szLabel) szLabel.textContent = '⏳ מתמלל…';
+        let transcript = '';
+        try { transcript = await _transcribeMedia(mf); }
+        catch (e) { busy = false; updateBtn(); if (szLabel) szLabel.textContent = '⚠️ התמלול נכשל'; alert('התמלול נכשל — ודא שהקובץ תקין ולא ארוך מדי (עד ~24MB).'); return; }
+        busy = false; updateBtn();
+        if (!transcript) { clearFile(); alert('לא זוהה דיבור בקובץ.'); return; }
+        fileContent = transcript; fileName = mf.name;
+        if (!q) { q = 'סכם בבקשה מה נאמר בהקלטה, בנקודות עיקריות.'; }
+        // נמשיך לזרם הרגיל — ההודעה תוצג עם שם הקובץ, והתמלול ינותח כמסמך (כולל מסמכים ארוכים)
+    }
 
     // Image generation — free, unlimited, no quota used
-    if (isImageRequest(q) && !fileUrl) {
+    if (isImageRequest(q) && !fileUrl && !fileContent) {
         addMsg('user', q);
         inp.value = ''; inp.style.height = 'auto';
         busy = true; updateBtn(); // נעילה — מונע התנגשות עם ההודעה הבאה בזמן יצירה איטית
