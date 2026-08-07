@@ -2830,7 +2830,11 @@ Write tool calls on their own line:
 [SEARCH: your search query]
 [BROWSE: https://full-url.com]
 [MAPS: business or brand, city/place]
-Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Use [MAPS] to find real businesses/shops near ANY place WORLDWIDE — any city, country, or address, not limited to Israel (format: "business name, location" e.g. "יונדאי, פרדס חנה" or "Hyundai, Pardes Hana" or "Starbucks, Paris France" or "pharmacy, Tokyo"). Up to 4 tool calls per answer.
+[IMAGE: a clear visual description of the picture to draw]
+[REMEMBER: a real fact about the user | category]
+Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Use [MAPS] to find real businesses/shops near ANY place WORLDWIDE — any city, country, or address, not limited to Israel (format: "business name, location" e.g. "יונדאי, פרדס חנה" or "Hyundai, Pardes Hana" or "Starbucks, Paris France" or "pharmacy, Tokyo"). Up to 5 tool calls per answer.
+[IMAGE] — use it when a picture would genuinely help and the user would appreciate seeing it (they asked to see/draw something, or a visual would make your explanation far clearer — e.g. "what does an axolotl look like", a design idea, an illustration). Write the description in vivid English for best quality. Do NOT use it for every answer — only when it truly adds value. After it, don't describe the image in words; it is already shown to the user.
+[REMEMBER] — use it the moment the user reveals something durable and real worth keeping for future conversations: a hard constraint (keeps kosher, vegetarian, an allergy), their speaking style/tone, a strong preference or taste, an interest/hobby, family/friends, or a life event. Format: [REMEMBER: fact | category] where category is one of family, friends, life, prefs, work, health, other. NEVER invent — remember only what the user actually said or clearly implied. Keep it short. This runs silently in the background; at most say naturally that you'll remember.
 IMPORTANT — ONE MAP ONLY: emit AT MOST ONE [MAPS] call per answer. A single [MAPS] call already returns MULTIPLE nearby results and shows them ALL as pins on ONE map. NEVER emit several [MAPS] calls (one per place) — that creates several separate maps, which is wrong and confusing. If the user wants several places, make one [MAPS] call for the category/area and let it pin them all together.
 NEVER invent search results, addresses, or business names.
 CRITICAL RULES:
@@ -2949,7 +2953,7 @@ function getPersona() {
         let body = '';
         for (const c of order) { if (groups[c] && groups[c].length) body += `\n[${MEM_CATS[c]}]\n` + groups[c].map(t => '• ' + t).join('\n') + '\n'; }
         const who = currentName ? currentName.trim().split(/\s+/)[0] : 'this user';
-        memLine = `\n\n=== מה שאתה כבר יודע על ${who} משיחות קודמות (הזיכרון שלך) ===${body}\nהשתמש בזה בטבעיות ובחום, כמו חבר קרוב שבאמת מכיר אותו — התעניין והמשך דברים שסיפר כשזה מתאים ("איך היה ה...?", "מה נשמע עם...?"), אבל אל תציף ואל תזכיר הכול בכוח. לעולם אל תגיד "לפי הזיכרון שלי" אלא אם נשאלת מה אתה זוכר. לעולם אל תמציא ואל תניח — אם המשתמש סותר משהו שזכרת, קבל את התיקון. אל תעלה נושא רגיש (בריאות, קשיים) אלא אם המשתמש פתח אותו קודם.\n`;
+        memLine = `\n\n=== מה שאתה כבר יודע על ${who} משיחות קודמות (הזיכרון שלך) ===${body}\nהשתמש בזה בטבעיות ובחום, כמו חבר קרוב שבאמת מכיר אותו — התעניין והמשך דברים שסיפר כשזה מתאים ("איך היה ה...?", "מה נשמע עם...?"), אבל אל תציף ואל תזכיר הכול בכוח. לעולם אל תגיד "לפי הזיכרון שלי" אלא אם נשאלת מה אתה זוכר. לעולם אל תמציא ואל תניח — אם המשתמש סותר משהו שזכרת, קבל את התיקון. אל תעלה נושא רגיש (בריאות, קשיים) אלא אם המשתמש פתח אותו קודם.\n⚠️ מגבלות מוחלטות: אם בזיכרון יש מגבלה (כשרות, צמחונות, אלרגיה, רגישות, גבול שהציב) — כבד אותה תמיד ובאופן אוטומטי. לעולם אל תציע משהו שמפר אותה (למשל אם הוא אוכל רק כשר — אל תציע מסעדה/מתכון לא כשרים; אם אלרגי למשהו — אל תכלול אותו). התאם גם את סגנון וטון התשובות שלך לאיך ש${who} מדבר ומעדיף.\n`;
     }
     if (currentMode === 'code') return dateLine + langLine + persLine + PERSONA_CODE + memLine + langEnd;
     if (currentMode === 'image') return dateLine + langLine + persLine + PERSONA_IMAGE + memLine + langEnd;
@@ -3018,7 +3022,8 @@ async function extractMemory(userMsg, aiReply) {
                 { role: 'system', content:
 `אתה הזיכרון ארוך-הטווח של עוזר AI אישי. תפקידך: לחלץ מהשיחה עובדות אמיתיות על המשתמש ועל עולמו, כדי שהעוזר יכיר אותו לעומק בשיחות הבאות — כמו חבר קרוב שזוכר.
 
-מה לחלץ (רק אם עולה מהשיחה): שם וכינויים; משפחה (בן/בת זוג, ילדים, הורים, אחים — שמות, גילאים, קשרים); חברים ואנשים חשובים בחייו; מקום מגורים, עבודה ולימודים; אירועי חיים (מעבר דירה, לידה, חתונה, טיול, מחלה, התחלה/סיום עבודה או לימודים); העדפות, טעמים וסגנון; פרויקטים, מטרות ותוכניות; ודברים שחשובים לו רגשית.
+מה לחלץ (רק אם עולה מהשיחה): שם וכינויים; משפחה (בן/בת זוג, ילדים, הורים, אחים — שמות, גילאים, קשרים); חברים ואנשים חשובים בחייו; מקום מגורים, עבודה ולימודים; אירועי חיים (מעבר דירה, לידה, חתונה, טיול, מחלה, התחלה/סיום עבודה או לימודים); תחומי עניין ותחביבים; העדפות וטעמים; **סגנון הדיבור והטון שלו** (רשמי/קליל, קצר/מפורט, אוהב אימוג'ים או לא, שפה שהוא מעדיף); **מגבלות מוחלטות שאסור להפר** — כשרות, צמחונות/טבעונות, אלרגיות, רגישות רפואית, ערכים/גבולות שביקש; פרויקטים, מטרות ותוכניות; ודברים שחשובים לו רגשית.
+מגבלות מוחלטות (כשרות, אלרגיה וכו') הן הכי חשובות לזכור — סווג אותן כ-prefs וכתוב אותן כהוראה ברורה (למשל "אוכל רק כשר", "אלרגי לבוטנים", "צמחוני").
 
 הסקה מותרת רק כשהיא חד-משמעית: אם אמר "הבן שלי בכיתה א'" אפשר להסיק "יש לו בן בגיל ~6". אם אמר "חזרתי מהעבודה" אפשר להסיק "הוא עובד".
 
@@ -4757,6 +4762,8 @@ function renderAddressMap(placeQuery, label) {
 const RE_SEARCH = /\[SEARCH:\s*(.+?)\]/gi;
 const RE_BROWSE = /\[BROWSE:\s*(https?:\/\/[^\]\s]+)\]/gi;
 const RE_MAPS   = /\[MAPS:\s*(.+?)\]/gi;
+const RE_IMAGE  = /\[IMAGE:\s*(.+?)\]/gi;       // כלי סוכן: הסוכן מחליט לבד לצייר תמונה באמצע תשובה
+const RE_REMEMBER = /\[REMEMBER:\s*(.+?)\]/gi;  // כלי סוכן: הסוכן מחליט לבד לשמור עובדה אמיתית על המשתמש
 
 async function executeTool(match, type, statusEl, cw) {
     if (type === 'search') {
@@ -4798,6 +4805,25 @@ async function executeTool(match, type, statusEl, cw) {
         }
         return `\n\n---\n**🗺️ תוצאות מפה: "${q}"**\n${mapsResult.text}\n---\n`;
     }
+    if (type === 'image') {
+        // כלי סוכן: המודל החליט לבד שכדאי לצייר תמונה כדי להמחיש. יוצרים אותה ומציגים בשיחה.
+        const prompt = match[1].trim();
+        statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>🎨 ${esc2(prompt.length>40?prompt.slice(0,40)+'…':prompt)}</b></span>`;
+        statusEl.style.display = 'flex';
+        try { await generateImage(prompt); }
+        catch (e) { return `\n\n---\n[יצירת התמונה נכשלה. התנצל בקצרה או המשך בלי התמונה.]\n---\n`; }
+        statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>🎨 ${esc2(prompt.length>40?prompt.slice(0,40)+'…':prompt)}</b></span>`;
+        return `\n\n---\n[התמונה נוצרה וכבר מוצגת למשתמש בשיחה. אל תתאר אותה במילים ואל תכתוב קישור — רק המשך בטבעיות, למשל "הנה התמונה 🙂".]\n---\n`;
+    }
+    if (type === 'remember') {
+        // כלי סוכן: המודל החליט לבד לשמור עובדה אמיתית על המשתמש (סגנון, מגבלה, העדפה, אירוע).
+        const raw = match[1].trim();
+        const parts = raw.split('|').map(s => s.trim());
+        const fact = parts[0];
+        const cat = (parts[1] && MEM_CATS[parts[1]]) ? parts[1] : 'other';
+        if (fact) { try { await rememberFacts([{ t: fact, c: cat }]); } catch {} }
+        return `\n\n---\n[נשמר בזיכרון לטווח ארוך. אל תכריז על כך בהתלהבות — לכל היותר אמור בטבעיות שתזכור.]\n---\n`;
+    }
     return '';
 }
 
@@ -4827,15 +4853,17 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4, signal=null) 
         } else {
             fullText = await callAI(messages, _streamCb, signal);
         }
-        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0;
 
         // Collect tool calls
         const searchMatches = [...fullText.matchAll(RE_SEARCH)];
         const browseMatches = [...fullText.matchAll(RE_BROWSE)];
         const mapsMatches   = [...fullText.matchAll(RE_MAPS)];
-        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
+        const imageMatches  = [...fullText.matchAll(RE_IMAGE)];
+        const rememberMatches = [...fullText.matchAll(RE_REMEMBER)];
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0;
 
-        if (!searchMatches.length && !browseMatches.length && !mapsMatches.length) break; // no tools → done
+        if (!searchMatches.length && !browseMatches.length && !mapsMatches.length && !imageMatches.length && !rememberMatches.length) break; // no tools → done
 
         // Show agent status area
         if (!statusEl.innerHTML) {
@@ -4846,14 +4874,16 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4, signal=null) 
         const toolPromises = [
             ...searchMatches.map(m => executeTool(m, 'search', statusEl, cw)),
             ...browseMatches.map(m => executeTool(m, 'browse',  statusEl, cw)),
-            ...mapsMatches.map(m => executeTool(m, 'maps',  statusEl, cw))
+            ...mapsMatches.map(m => executeTool(m, 'maps',  statusEl, cw)),
+            ...imageMatches.map(m => executeTool(m, 'image', statusEl, cw)),
+            ...rememberMatches.map(m => executeTool(m, 'remember', statusEl, cw))
         ];
         const toolResults = await Promise.all(toolPromises);
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
         // Add to conversation: AI said X, here are tool results
-        const cleanResponse = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').trim();
-        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0;
+        const cleanResponse = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').replace(RE_IMAGE,'').replace(RE_REMEMBER,'').trim();
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0;
         messages.push({ role: 'assistant', content: cleanResponse || fullText });
         messages.push({ role: 'user',      content: toolResults.join('\n') + '\n\nעכשיו ענה על בסיס המידע שקיבלת.' });
     }
@@ -5578,8 +5608,8 @@ async function send() {
         setTimeout(() => { status.style.display = 'none'; status.innerHTML = ''; status.style.opacity = ''; status.style.transition = ''; }, 420);
 
         // Strip leftover tool call lines
-        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
-        let cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').trim();
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0;
+        let cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').replace(RE_IMAGE,'').replace(RE_REMEMBER,'').trim();
         // רשת ביטחון: אם התשובה בעברית ומודל-גיבוי הדליף שפה זרה/ניקוד — מנקים ניקוד, ערבית ו-CJK (סינית/יפנית)
         if ((cleanText.match(/[א-ת]/g) || []).length >= 8) {
             cleanText = cleanText.replace(/[֑-ׇֽֿׁׂׅׄ؀-ۿݐ-ݿ一-鿿぀-ヿ㐀-䶿]/g, '').replace(/ {2,}/g, ' ');
