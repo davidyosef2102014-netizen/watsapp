@@ -1069,7 +1069,7 @@
         <div class="or-divider"><span data-i18n="or">או</span></div>
         <div id="google-btn-login" class="gbtn-holder"></div>
         <button class="auth-choice-btn" style="margin-top:10px" onclick="showEmailCard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg> המשך עם מייל</button>
-        <button class="auth-choice-btn" disabled style="margin-top:2px;opacity:.5;cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> טלפון + SMS · בקרוב</button>
+        <button class="auth-choice-btn" style="margin-top:2px" onclick="showPhoneCard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> המשך עם טלפון (SMS)</button>
 
         <p class="login-bank-note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> <span data-i18n="login_note">שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם</span></p>
         <div style="text-align:center;margin-top:14px;">
@@ -1180,6 +1180,22 @@
         <div class="login-field"><label>סיסמה</label><input type="password" id="em-pass" placeholder="לפחות 4 תווים" autocomplete="current-password" onkeydown="if(event.key==='Enter')doEmailAuth()"></div>
         <button class="login-btn" onclick="doEmailAuth()">המשך ←</button>
         <div id="em-err" class="login-err"></div>
+    </div>
+
+    <div class="login-card" id="phone-card" style="display:none;">
+        <button class="auth-back" onclick="showLogin()">← חזרה</button>
+        <div class="login-logo"><div class="l-star"></div><h1>כניסה עם טלפון</h1><p>נשלח לך קוד חד-פעמי ב-SMS</p></div>
+        <div id="phone-step-1">
+            <div class="login-field"><label>מספר טלפון</label><input type="tel" id="ph-num" placeholder="050-1234567" autocomplete="tel" dir="ltr" onkeydown="if(event.key==='Enter')doPhoneSend()"></div>
+            <button class="login-btn" id="ph-send-btn" onclick="doPhoneSend()">שלח קוד ←</button>
+        </div>
+        <div id="phone-step-2" style="display:none;">
+            <div class="login-field"><label>הקוד שקיבלת ב-SMS</label><input type="tel" id="ph-code" placeholder="123456" maxlength="6" dir="ltr" onkeydown="if(event.key==='Enter')doPhoneVerify()"></div>
+            <button class="login-btn" id="ph-verify-btn" onclick="doPhoneVerify()">אמת והתחבר ←</button>
+            <button class="auth-back" style="position:static;margin-top:8px" onclick="_phoneReset()">שנה מספר</button>
+        </div>
+        <div id="phone-recaptcha"></div>
+        <div id="ph-err" class="login-err"></div>
     </div>
 
     </div><!-- /auth-form-side -->
@@ -2355,7 +2371,7 @@ function consumeFreeMsg() {
 
 /* ── register ── */
 function _authShow(id) {
-    ['login-card-main','email-card','register-card','forgot-card'].forEach(c => {
+    ['login-card-main','email-card','register-card','forgot-card','phone-card'].forEach(c => {
         const el = document.getElementById(c); if (el) el.style.display = (c === id) ? 'block' : 'none';
     });
     if (typeof _loadGIS === 'function') { _loadGIS(); setTimeout(_renderGoogleBtns, 350); }
@@ -2363,6 +2379,97 @@ function _authShow(id) {
 function showRegister() { _authShow('register-card'); document.getElementById('reg-user').focus(); }
 function showLogin()    { _authShow('login-card-main'); document.getElementById('li-user').focus(); }
 function showEmailCard(){ _authShow('email-card'); setTimeout(() => document.getElementById('em-mail').focus(), 50); }
+function showPhoneCard(){ _authShow('phone-card'); _phoneReset(); setTimeout(() => document.getElementById('ph-num').focus(), 50); }
+
+/* ── Firebase Phone Auth (SMS OTP) — SDK compat נטען דינמית, המפתחות client-side (לא סודיים) ── */
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyA3M0_bg13tl0bmZPWSv-LKNsQt77_mBw8",
+    authDomain: "birgsol-ai.firebaseapp.com",
+    projectId: "birgsol-ai",
+    storageBucket: "birgsol-ai.firebasestorage.app",
+    messagingSenderId: "954787152503",
+    appId: "1:954787152503:web:fc4055ffca7977c7fc7c72",
+    measurementId: "G-EH7YLRN5XF"
+};
+let _fbAuth = null, _fbConfirm = null, _fbRecaptcha = null;
+function _loadFirebase() {
+    return new Promise((resolve, reject) => {
+        if (window.firebase && firebase.auth) return resolve();
+        const add = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+        add('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
+            .then(() => add('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js'))
+            .then(resolve).catch(reject);
+    });
+}
+async function _initFirebase() {
+    await _loadFirebase();
+    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    _fbAuth = firebase.auth();
+    try { _fbAuth.languageCode = localStorage.getItem('birgsol_lang') || 'he'; } catch {}
+}
+function _phoneReset() {
+    _fbConfirm = null;
+    const s1 = document.getElementById('phone-step-1'), s2 = document.getElementById('phone-step-2'), err = document.getElementById('ph-err');
+    if (s1) s1.style.display = 'block';
+    if (s2) s2.style.display = 'none';
+    if (err) err.style.display = 'none';
+    const cb = document.getElementById('ph-code'); if (cb) cb.value = '';
+}
+function _normPhoneIL(raw) {
+    let p = String(raw || '').replace(/[\s\-()]/g, '');
+    if (p.startsWith('+')) return p;                 // כבר בפורמט בינלאומי
+    if (p.startsWith('00')) return '+' + p.slice(2);
+    if (p.startsWith('0')) return '+972' + p.slice(1); // מספר ישראלי מקומי
+    return '+972' + p;
+}
+async function doPhoneSend() {
+    const err = document.getElementById('ph-err'); err.style.display = 'none';
+    const phone = _normPhoneIL(document.getElementById('ph-num').value);
+    if (!/^\+\d{9,15}$/.test(phone)) { err.textContent = '❌ מספר טלפון לא תקין. נסה למשל 050-1234567.'; err.style.display = 'block'; return; }
+    const btn = document.getElementById('ph-send-btn'); btn.disabled = true; btn.textContent = 'שולח…';
+    try {
+        await _initFirebase();
+        if (!_fbRecaptcha) {
+            _fbRecaptcha = new firebase.auth.RecaptchaVerifier('phone-recaptcha', { size: 'invisible' }, _fbAuth);
+            await _fbRecaptcha.render();
+        }
+        _fbConfirm = await _fbAuth.signInWithPhoneNumber(phone, _fbRecaptcha);
+        document.getElementById('phone-step-1').style.display = 'none';
+        document.getElementById('phone-step-2').style.display = 'block';
+        setTimeout(() => document.getElementById('ph-code').focus(), 50);
+    } catch (e) {
+        console.warn('phone send failed', e);
+        let msg = 'שליחת הקוד נכשלה. נסה שוב.';
+        if (/invalid-phone-number/.test(e.code || '')) msg = '❌ מספר טלפון לא תקין.';
+        else if (/too-many-requests/.test(e.code || '')) msg = '❌ יותר מדי ניסיונות — נסה שוב מאוחר יותר.';
+        else if (/captcha|domain|unauthorized/i.test((e.code || '') + (e.message || ''))) msg = '❌ הדומיין עדיין לא מאושר ב-Firebase. הוסף אותו ל-Authorized domains.';
+        err.textContent = msg; err.style.display = 'block';
+        try { if (_fbRecaptcha) { _fbRecaptcha.clear(); _fbRecaptcha = null; } } catch {}
+    } finally { btn.disabled = false; btn.textContent = 'שלח קוד ←'; }
+}
+async function doPhoneVerify() {
+    const err = document.getElementById('ph-err'); err.style.display = 'none';
+    const code = document.getElementById('ph-code').value.replace(/\D/g, '');
+    if (code.length < 4 || !_fbConfirm) { err.textContent = '❌ הזן את הקוד שקיבלת ב-SMS.'; err.style.display = 'block'; return; }
+    const btn = document.getElementById('ph-verify-btn'); btn.disabled = true; btn.textContent = 'מאמת…';
+    try {
+        const result = await _fbConfirm.confirm(code);
+        const phone = (result.user && result.user.phoneNumber) || '';
+        const username = phone; // מזוהה לפי מספר הטלפון
+        await ghUpdate('db/ai_users.json', users => {
+            users = users || {};
+            if (users[username]) return undefined;
+            users[username] = { phone: true, phoneNumber: phone, createdAt: Date.now(), lang: localStorage.getItem('birgsol_lang') || 'he' };
+            return users;
+        });
+        await _finishLogin(username);
+    } catch (e) {
+        console.warn('phone verify failed', e);
+        err.textContent = /code-expired/.test(e.code || '') ? '❌ הקוד פג תוקף — שלח קוד חדש.' : '❌ קוד שגוי. נסה שוב.';
+        err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'אמת והתחבר ←';
+    }
+}
 async function doEmailAuth() {
     const mail = document.getElementById('em-mail').value.trim().toLowerCase();
     const pass = document.getElementById('em-pass').value;
