@@ -1,6 +1,6 @@
 /* BIRGSOL AI service worker — network-first, cache fallback (עובד גם בלי אינטרנט) */
 
-const CACHE = 'birgsol-ai-v65';
+const CACHE = 'birgsol-ai-v66';
 
 const ASSETS = ['./birgsolai.html', './birgsol-icon-192.png', './birgsol-icon-512.png'];
 
