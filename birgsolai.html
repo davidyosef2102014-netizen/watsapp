@@ -2092,6 +2092,12 @@ const PREM_COST   = 200;
 
 let currentUser = null;
 let currentName = null; // שם תצוגה (מ-Google) — מוצג ב-chip ובברכה במקום כתובת המייל
+// שם התצוגה הטוב ביותר: שם פרטי אם יש; אחרת החלק שלפני ה-@ (לעולם לא כתובת מייל מלאה); אחרת שם המשתמש
+function _displayName() {
+    if (currentName && currentName.trim()) return currentName.trim().split(/\s+/)[0];
+    if (currentUser && currentUser.includes('@')) return currentUser.split('@')[0];
+    return currentUser || '';
+}
 let isPremium   = false;
 let currentTier = 'free';
 let freeLeft    = FREE_LIMIT;
@@ -2223,7 +2229,7 @@ function updateUserChip() {
     const dot   = document.getElementById('user-dot');
     const label = document.getElementById('user-label');
     if (!currentUser || !chip) return;
-    const disp = currentName ? currentName.trim().split(/\s+/)[0] : currentUser;
+    const disp = _displayName();
     dot.textContent = disp[0];
     const t = TIERS[currentTier] || TIERS.free;
     label.innerHTML = isPremium
@@ -2497,7 +2503,7 @@ function updateGreeting() {
     const el = document.getElementById('gem-hello');
     if (!el) return;
     const greet = localStorage.getItem('sp_greet') || 'שלום';
-    el.textContent = currentUser ? `${greet}, ${currentName ? currentName.trim().split(/\s+/)[0] : currentUser}` : greet;
+    el.textContent = currentUser ? `${greet}, ${_displayName()}` : greet;
 }
 
 /* ── settings panel ── */
@@ -2741,6 +2747,8 @@ window.addEventListener('DOMContentLoaded', async () => {
             } else if (cloudUsers && cloudUsers[savedUser]) {
                 localStorage.setItem('birgsol_instr_' + savedUser, cloudUsers[savedUser].instructions || '');
                 syncTierFromCloud(savedUser, cloudUsers[savedUser]);
+                // טען שם התצוגה (מ-Google/הרשמה) — כדי שהברכה וה-chip יראו שם ולא כתובת מייל
+                if (cloudUsers[savedUser].name) { currentName = cloudUsers[savedUser].name; updateUserChip(); updateGreeting(); }
             }
         }).catch(() => { /* אופליין — נשאר מחובר */ });
     } else {
@@ -5109,8 +5117,8 @@ async function callAI(messages, onChunk, signal=null) {
 
     const _tw = async (t) => { await _typewriter(t, onChunk, 10); return t; };
     // ── שרשרת המודלים ──
-    // צ'אט: Groq llama → Gemini → gpt-oss-120b → Mistral → Cohere → Qwen (Qwen אחרון — מדליף ערבית/סינית/ניקוד).
-    // קוד: gpt-oss-120b → llama → Gemini → Mistral → Cohere → Qwen. GitHub/OpenRouter/Pollinations הוסרו (מתים).
+    // צ'אט: Groq llama → Gemini → gpt-oss-120b → Mistral → Cohere. Qwen הוסר מהצ'אט — הדליף ערבית/סינית/הינדית/ניקוד (החלטת דוד 2026-08-07).
+    // קוד: gpt-oss-120b → llama → Gemini → Mistral → Cohere. GitHub/OpenRouter/Pollinations/Qwen הוסרו.
     const isCode = (typeof currentMode !== 'undefined' && currentMode === 'code');
     const _codeCfg = { temperature: 0.2, max_tokens: 6000 }; // 6000<8000 = תקרת ה-TPM של gpt-oss-120b ב-Groq; 8192 גרם ל-413 והפלה ל-llama (קוד קטוע)
     const _chatCfg = { temperature: 0.7, max_tokens: 2048 };
@@ -5123,14 +5131,12 @@ async function callAI(messages, onChunk, signal=null) {
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
         { name: 'Mistral (code)',            fn: () => _tryMistral().then(_tw) },
         { name: 'Cohere (code)',             fn: () => _tryCohere().then(_tw) },
-        { name: 'Qwen (code, last)',         fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._codeCfg }) },
     ] : [
         { name: 'Groq stream',         fn: () => _groqGuard({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
         { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
         { name: 'Groq gpt-oss-120b',   fn: () => _stream('groq', { model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
         { name: 'Mistral',           fn: () => _tryMistral().then(_tw) },
         { name: 'Cohere',            fn: () => _tryCohere().then(_tw) },
-        { name: 'Qwen (last resort)', fn: () => _stream('qwen', { model: 'qwen-plus', messages, ..._chatCfg }) },
     ];
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
