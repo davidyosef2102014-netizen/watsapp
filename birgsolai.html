@@ -961,6 +961,14 @@
         }
         .live-mute-btn:hover { background:rgba(255,255,255,.16); color:white; }
         .live-mute-btn.muted { background:rgba(220,50,50,.22); border-color:rgba(220,50,50,.4); color:#ff8a80; }
+        .live-mute-btn.cam-on { background:rgba(94,234,212,.22); border-color:rgba(94,234,212,.5); color:#5eead4; }
+        #live-cam-video {
+            position:absolute; top:64px; right:16px; width:110px; height:150px; object-fit:cover;
+            border-radius:16px; border:2px solid rgba(255,255,255,.22); box-shadow:0 6px 24px rgba(0,0,0,.5);
+            transform:scaleX(-1); z-index:6; display:none; background:#000;
+        }
+        #live-cam-video.on { display:block; }
+        #live-cam-video.seeing { border-color:rgba(94,234,212,.9); box-shadow:0 0 20px rgba(94,234,212,.5); }
         .live-ptt-btn {
             padding:18px 48px; border-radius:50px;
             background:linear-gradient(135deg,#6c63ff,#3b82f6);
@@ -1271,6 +1279,8 @@
 <!-- ══ LIVE VOICE OVERLAY ══ -->
 <div id="live-overlay">
     <canvas id="live-glow-canvas"></canvas>
+    <video id="live-cam-video" autoplay playsinline muted></video>
+    <canvas id="live-cam-canvas" style="display:none"></canvas>
     <button class="live-sidebar-btn" onclick="toggleSidebar()" title="תפריט"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <div class="live-header">
         <span class="live-header-logo"></span>
@@ -1281,6 +1291,7 @@
     <div class="live-transcript" id="live-transcript">BIRGSOL AI 3.5 מוכן לשיחה קולית</div>
     <div class="live-controls">
         <button class="live-mute-btn" id="live-mute-btn" onclick="toggleLiveMute()" title="השתק מיקרופון"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+        <button class="live-mute-btn" id="live-cam-btn" onclick="toggleLiveCam()" title="מצלמה"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
         <button class="live-end-btn" onclick="endLive()">✕ סיים שיחה</button>
     </div>
 </div>
@@ -5849,6 +5860,9 @@ function startLive() {
 function endLive() {
     _liveActive = false; _liveStopped = true;
     _stopThinkSound();
+    if (_liveCam) { try { _liveCam.getTracks().forEach(t => t.stop()); } catch(e) {} _liveCam = null;
+        const v = document.getElementById('live-cam-video'); if (v) { v.srcObject = null; v.classList.remove('on','seeing'); }
+        const cb = document.getElementById('live-cam-btn'); if (cb) cb.classList.remove('cam-on'); }
     if (_liveRec)   { try { _liveRec.stop(); } catch(e) {} _liveRec = null; }
     window.speechSynthesis.cancel();
     if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(e) {} _liveCurrentAudio = null; }
@@ -5935,6 +5949,51 @@ function _stopThinkSound() {
     if (_thinkCtx) { try { _thinkCtx.close(); } catch(_) {} _thinkCtx = null; }
 }
 
+// ── לייב-מצלמה — ה-AI רואה בזמן אמת מה קורה מול המצלמה ומבין לבד ──
+let _liveCam = null; // MediaStream של המצלמה במצב לייב
+async function toggleLiveCam() {
+    const btn = document.getElementById('live-cam-btn');
+    const v = document.getElementById('live-cam-video');
+    if (_liveCam) {
+        _liveCam.getTracks().forEach(t => t.stop());
+        _liveCam = null; v.srcObject = null; v.classList.remove('on', 'seeing'); btn.classList.remove('cam-on');
+        return;
+    }
+    try {
+        _liveCam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        v.srcObject = _liveCam; v.classList.add('on'); btn.classList.add('cam-on');
+    } catch (e) {
+        _liveCam = null;
+        alert('לא ניתן לגשת למצלמה — בדוק הרשאות בדפדפן.');
+    }
+}
+function _captureFrame() {
+    const v = document.getElementById('live-cam-video');
+    if (!v || !v.videoWidth) return null;
+    const c = document.getElementById('live-cam-canvas');
+    const w = 640, h = Math.round(w * v.videoHeight / v.videoWidth) || 480;
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(v, 0, 0, w, h);
+    try { return c.toDataURL('image/jpeg', 0.7); } catch { return null; }
+}
+async function _describeFrameLive(dataUrl) {
+    const messages = [{ role: 'user', content: [
+        { type: 'text', text: 'תאר בעברית במשפט אחד קצר וברור מה רואים בתמונה מהמצלמה כרגע — האובייקטים, האנשים או הפעולה העיקרית. בלי הקדמות, רק התיאור.' },
+        { type: 'image_url', image_url: { url: dataUrl } }
+    ]}];
+    try {
+        const r = await _ghProxy('qwen', '/compatible-mode/v1/chat/completions',
+            { model: 'qwen-vl-plus', messages, temperature: 0.4, max_tokens: 120 },
+            { signal: AbortSignal.timeout(12000) });
+        if (!r.ok) return '';
+        const j = await r.json();
+        let t = (j?.choices?.[0]?.message?.content || '').trim();
+        // ניקוי דליפת שפה זרה (Qwen) אם התיאור בעברית
+        if ((t.match(/[א-ת]/g) || []).length >= 4) t = t.replace(/[֑-ׇ؀-ۿ一-鿿぀-ヿ]/g, '').replace(/ {2,}/g, ' ').trim();
+        return t;
+    } catch { return ''; }
+}
+
 async function _liveLoop() {
     if (!_liveActive || _liveStopped || _liveBusy) return;
     _liveBusy = true;
@@ -5969,11 +6028,23 @@ async function _liveLoop() {
             if (sr) liveSearchCtx = '\n\n[תוצאות חיפוש עדכניות]:\n' + sr;
         } catch {}
     }
+    // ── ראייה חיה מהמצלמה — אם המצלמה פועלת, לוכדים פריים ומתארים כדי שה-AI "יראה" מה קורה ──
+    let liveVisionCtx = '';
+    if (_liveCam) {
+        const v = document.getElementById('live-cam-video');
+        if (v) v.classList.add('seeing');
+        try {
+            const frame = _captureFrame();
+            if (frame) { const desc = await _describeFrameLive(frame); if (desc) liveVisionCtx = '\n\n[מה שנראה במצלמה של המשתמש כרגע]: ' + desc; }
+        } catch {}
+        if (v) v.classList.remove('seeing');
+    }
     const messages = [
         { role:'system', content: getPersona() +
-          '\n\nIMPORTANT — LIVE VOICE MODE: Give SHORT, natural conversational answers (2-4 sentences). NO markdown, NO asterisks, NO bullet points, NO code blocks — speak like a human. Hebrew by default unless user writes English.' },
+          '\n\nIMPORTANT — LIVE VOICE MODE: Give SHORT, natural conversational answers (2-4 sentences). NO markdown, NO asterisks, NO bullet points, NO code blocks — speak like a human. Hebrew by default unless user writes English.' +
+          '\nYou can SEE through the user\'s camera in real time when it is on. When a "[מה שנראה במצלמה של המשתמש כרגע]" note appears, treat it as what you are seeing right now and answer about it naturally, as if you are looking together. Do not say "based on the description" — just talk about what you see.' },
         ...hist.slice(-30).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
-        { role:'user', content: transcript + liveSearchCtx }
+        { role:'user', content: transcript + liveSearchCtx + liveVisionCtx }
     ];
     let reply = '';
     try {
