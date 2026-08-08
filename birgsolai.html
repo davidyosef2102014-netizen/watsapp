@@ -1069,7 +1069,8 @@
         <div class="or-divider"><span data-i18n="or">או</span></div>
         <div id="google-btn-login" class="gbtn-holder"></div>
         <button class="auth-choice-btn" style="margin-top:10px" onclick="showEmailCard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg> המשך עם מייל</button>
-        <button class="auth-choice-btn" style="margin-top:2px" onclick="showPhoneCard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> המשך עם טלפון (SMS)</button>
+        <!-- כפתור טלפון/SMS מוסתר — Firebase Phone Auth דורש תוכנית Blaze עם כרטיס אשראי (auth/billing-not-enabled). כל הקוד מוכן; להדלקה: הסר את display:none -->
+        <button class="auth-choice-btn" style="margin-top:2px;display:none" onclick="showPhoneCard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> המשך עם טלפון (SMS)</button>
 
         <p class="login-bank-note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> <span data-i18n="login_note">שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם</span></p>
         <div style="text-align:center;margin-top:14px;">
@@ -4087,23 +4088,8 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
         } catch { /* ניפול לשרשרת FLUX למטה */ }
     }
 
-    // 1st: Qwen image (Alibaba) — מודל התמונות הראשי (החלטת הצוות). איכות מעולה (≈FLUX), גם עצמאי מארה"ב.
-    // איטי יותר (~10ש') אבל מקובל ליצירת תמונה. כל המחזור האסינכרוני קורה ב-Worker ומחזיר base64.
-    if (!imgSrc) try {
-        const qRes = await fetch(GH_WORKER, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ op: 'qwen-image', prompt: styledPrompt, size: '1024*1024' }),
-            signal: AbortSignal.timeout(45000)
-        });
-        if (qRes.ok) {
-            const qData = await qRes.json();
-            if (qData.image && qData.image.length > 1000) imgSrc = `data:image/png;base64,${qData.image}`;
-        }
-    } catch { /* ניפול לגיבוי הבא */ }
-
-    // 2nd: FLUX.1-schnell via Cloudflare — גיבוי מהיר (~2ש') אם Qwen נכשל / איטי / נגמרה המכסה.
-    // מנסים עד 3 פעמים — הסינון NSFW של FLUX אקראי בכל קריאה, כך שניסיון חוזר כמעט תמיד עובר.
+    // Qwen-image הוסר (החלטת דוד 2026-08-08) — חזרה ל-FLUX כמודל התמונות הראשי.
+    // 1st: FLUX.1-schnell via Cloudflare — מהיר (~2ש'). מנסים עד 3 פעמים — הסינון NSFW של FLUX אקראי בכל קריאה, כך שניסיון חוזר כמעט תמיד עובר.
     for (let cfTry = 0; cfTry < 3 && !imgSrc; cfTry++) {
         try {
             const cfRes = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
@@ -5308,20 +5294,37 @@ async function callAI(messages, onChunk, signal=null) {
         const _ghVision = (model) => _ghAI({ model, messages, temperature: 0.8, max_tokens: 1024 }, AbortSignal.timeout(18000))
           .then(r => { if (!r.ok) throw new Error('gh-v ' + r.status); return r.json(); })
           .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
-        // ראייה ראשית — Qwen-VL של עליבאבא (חזק ומדויק). מקבל את התמונה כ-base64 ישירות.
-        const _qwenVision = (model) => _ghProxy('qwen', '/compatible-mode/v1/chat/completions', { model, messages, temperature: 0.7, max_tokens: 1024 }, { signal: AbortSignal.timeout(22000) })
-          .then(r => { if (!r.ok) throw new Error('qwen-v ' + r.status); return r.json(); })
-          .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
+        // ראייה ראשית — Gemini (תומך בתמונות, יציב). Qwen-VL הוסר (החלטת דוד 2026-08-08); GitHub מת.
+        const _geminiVision = () => {
+            const sys = messages.find(m => m.role === 'system');
+            const parts = [];
+            for (const m of messages) {
+                if (Array.isArray(m.content)) {
+                    for (const c of m.content) {
+                        if (c.type === 'text' && c.text) parts.push({ text: c.text });
+                        else if (c.type === 'image_url' && c.image_url && c.image_url.url) {
+                            const url = c.image_url.url;
+                            const mt = (url.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
+                            const b64 = url.includes(',') ? url.split(',')[1] : '';
+                            if (b64) parts.push({ inlineData: { mimeType: mt, data: b64 } });
+                        }
+                    }
+                } else if (typeof m.content === 'string' && m.content && m.role !== 'system') {
+                    parts.push({ text: m.content });
+                }
+            }
+            const body = { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 1024 } };
+            if (sys && typeof sys.content === 'string') body.systemInstruction = { parts: [{ text: sys.content }] };
+            return _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', body, { signal: AbortSignal.timeout(20000) })
+                .then(r => { if (!r.ok) throw new Error('gemini-v ' + r.status); return r.json(); })
+                .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
+        };
 
-        // 1st: Qwen-VL (ראייה ראשית). 2nd: GitHub GPT-4o (גיבוי). 3rd: Pollinations.
+        // 1st: Gemini vision. 2nd: Pollinations.
         try {
-            const text = await Promise.any([_qwenVision('qwen-vl-max'), _qwenVision('qwen-vl-plus')]);
+            const text = await _geminiVision();
             await _typewriter(text, onChunk, 8); return text;
-        } catch(e) { console.warn('Qwen vision failed:', e.message); }
-        try {
-            const text = await Promise.any([_ghVision('openai/gpt-4o'), _ghVision('openai/gpt-4o-mini')]);
-            await _typewriter(text, onChunk, 8); return text;
-        } catch(e) { console.warn('GitHub vision failed:', e.message); }
+        } catch(e) { console.warn('Gemini vision failed:', e.message); }
 
         // Pollinations fallback
         try {
@@ -6222,20 +6225,19 @@ function _captureFrame() {
     try { return c.toDataURL('image/jpeg', 0.7); } catch { return null; }
 }
 async function _describeFrameLive(dataUrl) {
-    const messages = [{ role: 'user', content: [
-        { type: 'text', text: 'תאר בעברית במשפט אחד קצר וברור מה רואים בתמונה מהמצלמה כרגע — האובייקטים, האנשים או הפעולה העיקרית. בלי הקדמות, רק התיאור.' },
-        { type: 'image_url', image_url: { url: dataUrl } }
-    ]}];
+    // ראייה חיה דרך Gemini (Qwen-VL הוסר — היה נכשל, לכן הלייב "לא קלט")
+    const mt = (dataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
+    const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
+    if (!b64) return '';
+    const body = { contents: [{ role: 'user', parts: [
+        { text: 'תאר בעברית במשפט אחד קצר וברור מה רואים בתמונה מהמצלמה כרגע — האובייקטים, האנשים או הפעולה העיקרית. בלי הקדמות, רק התיאור.' },
+        { inlineData: { mimeType: mt, data: b64 } }
+    ]}], generationConfig: { maxOutputTokens: 150 } };
     try {
-        const r = await _ghProxy('qwen', '/compatible-mode/v1/chat/completions',
-            { model: 'qwen-vl-plus', messages, temperature: 0.4, max_tokens: 120 },
-            { signal: AbortSignal.timeout(12000) });
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', body, { signal: AbortSignal.timeout(12000) });
         if (!r.ok) return '';
         const j = await r.json();
-        let t = (j?.choices?.[0]?.message?.content || '').trim();
-        // ניקוי דליפת שפה זרה (Qwen) אם התיאור בעברית
-        if ((t.match(/[א-ת]/g) || []).length >= 4) t = t.replace(/[֑-ׇ؀-ۿ一-鿿぀-ヿ]/g, '').replace(/ {2,}/g, ' ').trim();
-        return t;
+        return (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
     } catch { return ''; }
 }
 
