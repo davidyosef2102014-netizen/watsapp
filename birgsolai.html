@@ -969,6 +969,12 @@
         }
         #live-cam-video.on { display:block; }
         #live-cam-video.seeing { border-color:rgba(94,234,212,.9); box-shadow:0 0 20px rgba(94,234,212,.5); }
+        #live-cam-flip {
+            position:absolute; top:200px; right:20px; width:34px; height:34px; border-radius:50%;
+            background:rgba(0,0,0,.55); border:1.5px solid rgba(255,255,255,.35); color:#fff;
+            display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:7; backdrop-filter:blur(6px);
+        }
+        #live-cam-flip svg { width:17px; height:17px; }
         .live-ptt-btn {
             padding:18px 48px; border-radius:50px;
             background:linear-gradient(135deg,#6c63ff,#3b82f6);
@@ -1303,6 +1309,7 @@
     <canvas id="live-glow-canvas"></canvas>
     <video id="live-cam-video" autoplay playsinline muted></video>
     <canvas id="live-cam-canvas" style="display:none"></canvas>
+    <button id="live-cam-flip" onclick="flipLiveCam()" title="החלף מצלמה (קדמית/אחורית)" style="display:none"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
     <button class="live-sidebar-btn" onclick="toggleSidebar()" title="תפריט"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <div class="live-header">
         <span class="live-header-logo"></span>
@@ -5007,10 +5014,10 @@ async function executeTool(match, type, statusEl, cw) {
     }
     if (type === 'maps') {
         const q = match[1].trim();
-        statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>🗺️ ${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
+        statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:4px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
         statusEl.style.display = 'flex';
         const mapsResult = await webMaps(q);
-        statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>🗺️ ${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
+        statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:4px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
         if (mapsResult.results?.length && cw) {
             const widget = renderMapWidget(mapsResult.center, mapsResult.results);
             cw.appendChild(widget);
@@ -5026,11 +5033,11 @@ async function executeTool(match, type, statusEl, cw) {
     if (type === 'image') {
         // כלי סוכן: המודל החליט לבד שכדאי לצייר תמונה כדי להמחיש. יוצרים אותה ומציגים בשיחה.
         const prompt = match[1].trim();
-        statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>🎨 ${esc2(prompt.length>40?prompt.slice(0,40)+'…':prompt)}</b></span>`;
+        statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:4px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>${esc2(prompt.length>40?prompt.slice(0,40)+'…':prompt)}</b></span>`;
         statusEl.style.display = 'flex';
         try { await generateImage(prompt); }
         catch (e) { return `\n\n---\n[יצירת התמונה נכשלה. התנצל בקצרה או המשך בלי התמונה.]\n---\n`; }
-        statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>🎨 ${esc2(prompt.length>40?prompt.slice(0,40)+'…':prompt)}</b></span>`;
+        statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:4px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>${esc2(prompt.length>40?prompt.slice(0,40)+'…':prompt)}</b></span>`;
         return `\n\n---\n[התמונה נוצרה וכבר מוצגת למשתמש בשיחה. אל תתאר אותה במילים ואל תכתוב קישור — רק המשך בטבעיות, למשל "הנה התמונה 🙂".]\n---\n`;
     }
     if (type === 'remember') {
@@ -5092,7 +5099,8 @@ const AGENT_TOOLS = [
     { type:'function', function:{ name:'remember', description:'שמירת עובדה אמיתית וקבועה על המשתמש (מגבלה כמו כשרות/אלרגיה, העדפה, סגנון דיבור, משפחה, אירוע). לעולם אל תמציא.', parameters:{ type:'object', properties:{ fact:{ type:'string' }, category:{ type:'string', enum:['family','friends','life','prefs','work','health','other'] } }, required:['fact'] } } },
 ];
 async function _groqToolCall(messages, tools, signal) {
-    const payload = { model:'llama-3.3-70b-versatile', messages, temperature:0.7, max_tokens:2048 };
+    // gpt-oss-120b עושה tool-calls בפורמט תקין; llama-3.3-70b מייצר <function=...> שגוי → 400 tool_use_failed
+    const payload = { model:'openai/gpt-oss-120b', messages, temperature:0.7, max_tokens:2048 };
     if (tools && tools.length) { payload.tools = tools; payload.tool_choice = 'auto'; }
     const res = await _ghProxy('groq', '/openai/v1/chat/completions', payload, { signal });
     if (!res.ok) throw new Error('groq-fc ' + res.status);
@@ -6076,12 +6084,14 @@ function _setLiveState(state) {
     const status = document.getElementById('live-status');
     const trans  = document.getElementById('live-transcript');
     trans.classList.remove('ai-speaking');
+    const _icMic = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    const _icSpk = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
     if (state === 'idle')          { status.textContent = 'מוכן…'; }
     else if (state === 'waiting')   { status.textContent = '…'; }
-    else if (state === 'listening') { status.textContent = '🎤 מקשיב…'; }
-    else if (state === 'recording') { status.textContent = '🔴 מקליט…'; }
-    else if (state === 'thinking')  { status.textContent = '⏳ חושב…'; }
-    else if (state === 'speaking')  { status.textContent = '🔊 מדבר…'; trans.classList.add('ai-speaking'); }
+    else if (state === 'listening') { status.innerHTML = _icMic + ' מקשיב…'; }
+    else if (state === 'recording') { status.innerHTML = '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:currentColor;vertical-align:middle;margin-left:5px"></span>מקליט…'; }
+    else if (state === 'thinking')  { status.textContent = 'חושב…'; }
+    else if (state === 'speaking')  { status.innerHTML = _icSpk + ' מדבר…'; trans.classList.add('ai-speaking'); }
 }
 
 async function _preloadVoices() {
@@ -6146,7 +6156,7 @@ async function _callAILive(messages) {
     const cfg = { temperature: 0.7, max_tokens: 400 };
     const _pick = j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; };
 
-    const tryGroq = () => _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: short, ...cfg }, { signal: AbortSignal.timeout(12000) })
+    const tryGroq = () => _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: short, ...cfg }, { signal: AbortSignal.timeout(9000) })
         .then(r => { if (!r.ok) throw new Error('groq ' + r.status); return r.json(); }).then(_pick);
 
     const tryGeminiLive = () => {
@@ -6163,8 +6173,7 @@ async function _callAILive(messages) {
         .then(r => { if (!r.ok) throw new Error('c ' + r.status); return r.json(); })
         .then(j => { const t = (j?.message?.content || []).map(x => x.text || '').join('').trim(); if (!t) throw new Error('empty'); return t; });
 
-    // Groq ראשי (מהיר); אם נפל — מירוץ Groq(חשבון אחר)+Gemini; ואז Mistral; ואז Cohere.
-    try { return await tryGroq(); } catch(_) {}
+    // מירוץ מקבילי Groq+Gemini מההתחלה — הראשון שעונה מנצח (מהיר יותר מטור). ואז Mistral, ואז Cohere.
     try { return await Promise.any([tryGroq(), tryGeminiLive()]); } catch(_) {}
     try { return await tryMistralLive(); } catch(_) {}
     try { return await tryCohereLive(); } catch(_) {}
@@ -6198,22 +6207,34 @@ function _stopThinkSound() {
 }
 
 // ── לייב-מצלמה — ה-AI רואה בזמן אמת מה קורה מול המצלמה ומבין לבד ──
-let _liveCam = null; // MediaStream של המצלמה במצב לייב
+let _liveCam = null;                    // MediaStream של המצלמה במצב לייב
+let _liveCamFacing = 'environment';     // 'environment' = אחורית, 'user' = סלפי
+async function _startCamStream(facing) {
+    if (_liveCam) { _liveCam.getTracks().forEach(t => t.stop()); _liveCam = null; }
+    _liveCam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false });
+    const v = document.getElementById('live-cam-video');
+    v.srcObject = _liveCam; v.classList.add('on');
+    v.style.transform = (facing === 'user') ? 'scaleX(-1)' : 'none'; // סלפי מוצג כמראה
+    document.getElementById('live-cam-btn').classList.add('cam-on');
+    document.getElementById('live-cam-flip').style.display = 'flex';
+}
 async function toggleLiveCam() {
-    const btn = document.getElementById('live-cam-btn');
     const v = document.getElementById('live-cam-video');
     if (_liveCam) {
         _liveCam.getTracks().forEach(t => t.stop());
-        _liveCam = null; v.srcObject = null; v.classList.remove('on', 'seeing'); btn.classList.remove('cam-on');
+        _liveCam = null; v.srcObject = null; v.classList.remove('on', 'seeing');
+        document.getElementById('live-cam-btn').classList.remove('cam-on');
+        document.getElementById('live-cam-flip').style.display = 'none';
         return;
     }
-    try {
-        _liveCam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
-        v.srcObject = _liveCam; v.classList.add('on'); btn.classList.add('cam-on');
-    } catch (e) {
-        _liveCam = null;
-        alert('לא ניתן לגשת למצלמה — בדוק הרשאות בדפדפן.');
-    }
+    try { await _startCamStream(_liveCamFacing); }
+    catch (e) { _liveCam = null; alert('לא ניתן לגשת למצלמה — בדוק הרשאות בדפדפן.'); }
+}
+async function flipLiveCam() {
+    if (!_liveCam) return;
+    _liveCamFacing = (_liveCamFacing === 'environment') ? 'user' : 'environment';
+    try { await _startCamStream(_liveCamFacing); }
+    catch (e) { alert('לא ניתן להחליף מצלמה במכשיר הזה.'); }
 }
 function _captureFrame() {
     const v = document.getElementById('live-cam-video');
