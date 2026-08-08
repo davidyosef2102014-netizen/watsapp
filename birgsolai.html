@@ -5139,7 +5139,7 @@ async function _execFCTool(tc, statusEl, cw) {
 async function agentLoopNative(messages, txtEl, statusEl, cw, maxIter, signal) {
     const msgs = messages.slice();
     if (msgs[0] && msgs[0].role === 'system') {
-        msgs[0] = { role:'system', content: msgs[0].content + '\n\n🛠️ יש לך כלים (functions): web_search, browse, maps, generate_image, remember. כשצריך מידע חי, מפה, תמונה או זכירת עובדה — קרא לכלי המתאים דרך function-calling (אל תכתוב תגיות טקסט כמו [SEARCH]). אחרי שקיבלת תוצאות מהכלים, ענה למשתמש בשפה שלו.' };
+        msgs[0] = { role:'system', content: msgs[0].content + '\n\n🛠️ יש לך כלים אמיתיים (functions): web_search, browse, maps, generate_image, remember.\nחובה מוחלטת: לכל שאלה על מידע עדכני או עובדתי על העולם — מזג אוויר, חדשות, מחירים, ספורט, מקומות, "היום", "עכשיו", האם משהו קיים — אתה חייב לקרוא ל-web_search לפני שאתה עונה. לעולם אל תגיד "אין לי גישה לאינטרנט", "אין לי מידע בזמן אמת" או "המידע שלי עד שנה כלשהי" — יש לך גישה מלאה לאינטרנט דרך הכלים, פשוט השתמש בהם. קרא לכלי דרך function-calling (לא תגיות טקסט). אחרי שקיבלת תוצאות — ענה בשפת המשתמש על סמך התוצאות בלבד.' };
     }
     const _draw = (p) => { txtEl.innerHTML = '<span class="stream-raw">' + p.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span><span class="stream-cursor"></span>'; if (cw.scrollTop >= cw.scrollHeight - cw.clientHeight - 80) cw.scrollTop = cw.scrollHeight; };
     let last = '';
