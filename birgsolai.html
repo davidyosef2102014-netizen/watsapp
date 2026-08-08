@@ -5337,7 +5337,7 @@ async function callAI(messages, onChunk, signal=null) {
                     parts.push({ text: m.content });
                 }
             }
-            const body = { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 1024 } };
+            const body = { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 128 } } };
             if (sys && typeof sys.content === 'string') body.systemInstruction = { parts: [{ text: sys.content }] };
             return _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', body, { signal: AbortSignal.timeout(20000) })
                 .then(r => { if (!r.ok) throw new Error('gemini-v ' + r.status); return r.json(); })
@@ -5995,7 +5995,7 @@ async function send() {
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0;
         let cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').replace(RE_IMAGE,'').replace(RE_REMEMBER,'').trim();
         // רשת ביטחון: אם התשובה בעברית ומודל-גיבוי הדליף שפה זרה/ניקוד — מנקים ניקוד, ערבית ו-CJK (סינית/יפנית)
-        if ((cleanText.match(/[א-ת]/g) || []).length >= 8) {
+        if (!['zh','ja','ko'].includes((typeof _resolveLang === 'function') ? _resolveLang() : 'he')) {
             cleanText = cleanText.replace(/[֑-ׇֽֿׁׂׅׄ؀-ۿݐ-ݿ一-鿿぀-ヿ㐀-䶿]/g, '').replace(/ {2,}/g, ' ');
         }
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
@@ -6179,7 +6179,7 @@ async function _callAILive(messages) {
         const sys = short.find(m => m.role === 'system')?.content || '';
         const contents = short.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
-        return _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', { contents, generationConfig: { maxOutputTokens: 400 } }, { signal: AbortSignal.timeout(10000) })
+        return _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', { contents, generationConfig: { maxOutputTokens: 600, thinkingConfig: { thinkingBudget: 128 } } }, { signal: AbortSignal.timeout(10000) })
             .then(r => { if (!r.ok) throw new Error('g ' + r.status); return r.json(); })
             .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
     };
@@ -6269,7 +6269,7 @@ async function _describeFrameLive(dataUrl) {
     const body = { contents: [{ role: 'user', parts: [
         { text: 'תאר בעברית במשפט אחד קצר וברור מה רואים בתמונה מהמצלמה כרגע — האובייקטים, האנשים או הפעולה העיקרית. בלי הקדמות, רק התיאור.' },
         { inlineData: { mimeType: mt, data: b64 } }
-    ]}], generationConfig: { maxOutputTokens: 150 } };
+    ]}], generationConfig: { maxOutputTokens: 400, thinkingConfig: { thinkingBudget: 128 } } };
     try {
         const r = await _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', body, { signal: AbortSignal.timeout(12000) });
         if (!r.ok) return '';
