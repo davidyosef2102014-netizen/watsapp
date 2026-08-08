@@ -391,6 +391,7 @@
         .src-chip { font-size:10px; color:var(--muted); background:var(--border); border-radius:9px; padding:2px 8px; white-space:nowrap; }
         .agent-step { font-size:11px; color:var(--muted); display:inline-flex; align-items:center; gap:4px; opacity:.8; animation:fadeUp .15s ease; }
         .agent-step-dot { width:5px; height:5px; border-radius:50%; background:var(--blue); animation:blink .8s infinite; flex-shrink:0; }
+        .agent-ic-pulse { animation:blink .9s infinite; flex-shrink:0; }
         .agent-step b { color:var(--muted); font-weight:500; }
         /* image generation */
         .img-skeleton {
@@ -3148,7 +3149,7 @@ function getPersona() {
     const now = new Date();
     const dateStr = now.toLocaleDateString('he-IL', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
     const timeStr = now.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
-    const dateLine = `📅 Today is ${dateStr}, ${timeStr}.\n`;
+    const dateLine = `📅 Today is ${dateStr}, ${timeStr}. This is the REAL current date. For any "today / latest / news today / what's happening now" question, use ONLY this date and FRESH search results — report only events dated on or very near today. NEVER present events from your training data (from earlier months) as if they are today's news; if the search results contain only old items, say you didn't find today's news rather than summarizing old news as current.\n`;
     const lang = _resolveLang();
     const langName = LANG_NAMES[lang] || 'English';
     const langLine = `🌐🌐 CRITICAL — YOU MUST WRITE YOUR ENTIRE REPLY IN ${langName}. This is the user's chosen interface language and it OVERRIDES every other instruction below, even instructions written in Hebrew. Do NOT reply in any other language unless the user explicitly writes to you in another language and asks. Default and current language = ${langName}.\n`;
@@ -4997,7 +4998,8 @@ async function executeTool(match, type, statusEl, cw) {
             return `\n\n---\n[SYSTEM: The user's daily web-search quota is used up. Tell them in their language: "נגמרה לך המכסה היומית של חיפושים באינטרנט — שדרג את הגרסה כדי להמשיך". Answer from your own knowledge only, and mention the info may not be current.]\n---\n`;
         }
         quotaUse('search');
-        statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
+        const _icSearch = '<svg class="agent-ic-pulse" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:4px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+        statusEl.innerHTML = `<span class="agent-step">${_icSearch}<b>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
         statusEl.style.display = 'flex';
         const result = await webSearch(q);
         statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
@@ -5099,11 +5101,25 @@ const AGENT_TOOLS = [
     { type:'function', function:{ name:'remember', description:'שמירת עובדה אמיתית וקבועה על המשתמש (מגבלה כמו כשרות/אלרגיה, העדפה, סגנון דיבור, משפחה, אירוע). לעולם אל תמציא.', parameters:{ type:'object', properties:{ fact:{ type:'string' }, category:{ type:'string', enum:['family','friends','life','prefs','work','health','other'] } }, required:['fact'] } } },
 ];
 async function _groqToolCall(messages, tools, signal) {
-    // gpt-oss-120b עושה tool-calls בפורמט תקין; llama-3.3-70b מייצר <function=...> שגוי → 400 tool_use_failed
     const payload = { model:'openai/gpt-oss-120b', messages, temperature:0.7, max_tokens:2048 };
     if (tools && tools.length) { payload.tools = tools; payload.tool_choice = 'auto'; }
     const res = await _ghProxy('groq', '/openai/v1/chat/completions', payload, { signal });
-    if (!res.ok) throw new Error('groq-fc ' + res.status);
+    if (!res.ok) {
+        // הצלת קריאת כלי שהמודל פרמט שגוי (400 tool_use_failed) — מחלצים אותה מ-failed_generation במקום להיכשל
+        if (res.status === 400) {
+            try {
+                const err = await res.json();
+                const fg = err && err.error && err.error.failed_generation;
+                if (fg) {
+                    const calls = [];
+                    const re = /<function=([a-zA-Z_]+)\s*(\{[\s\S]*?\})\s*(?:<\/function>|>)/g;
+                    let mm; while ((mm = re.exec(fg))) calls.push({ id: 'call_' + calls.length, type: 'function', function: { name: mm[1], arguments: mm[2] } });
+                    if (calls.length) return { role: 'assistant', content: '', tool_calls: calls };
+                }
+            } catch {}
+        }
+        throw new Error('groq-fc ' + res.status);
+    }
     const j = await res.json();
     const m = j?.choices?.[0]?.message;
     if (!m) throw new Error('groq-fc empty');
