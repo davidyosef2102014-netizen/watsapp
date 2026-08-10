@@ -1170,6 +1170,10 @@
                 <button class="lang-opt" data-lang="fr" onclick="pickRegLang(this)">🇫🇷 Français</button>
             </div>
         </div>
+        <div style="display:flex;align-items:center;gap:8px;margin:4px 2px 10px">
+            <input type="checkbox" id="reg-agree" style="width:18px;height:18px;flex:none;accent-color:#4285F4;cursor:pointer">
+            <label for="reg-agree" style="font-size:12.5px;color:var(--muted);cursor:pointer;line-height:1.4">אני מאשר/ת את <button type="button" onclick="openPrivacyPolicy()" style="background:none;border:none;color:var(--blue,#4285F4);text-decoration:underline;cursor:pointer;font-size:12.5px;padding:0;font-family:inherit">מדיניות הפרטיות</button></label>
+        </div>
         <button class="login-btn" id="reg-btn" onclick="doRegister()" data-i18n="reg_btn">צור חשבון</button>
         <div id="reg-err" class="login-err"></div>
         <div class="or-divider"><span data-i18n="or">או</span></div>
@@ -1390,6 +1394,14 @@
                     <option value="fr">Français</option>
                 </select>
             </div>
+            <div class="sp-row" style="cursor:pointer" onclick="openMemoryPanel()">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px">🧠 מה BIRGSOL זוכר עליי</span>
+                <span style="color:var(--muted)">›</span>
+            </div>
+            <div class="sp-row" style="cursor:pointer" onclick="openPrivacyPolicy()">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px">🔒 מדיניות פרטיות</span>
+                <span style="color:var(--muted)">›</span>
+            </div>
         </div>
         <button class="sb-settings-btn" onclick="toggleSettings()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1428,6 +1440,35 @@
         </div>
         <div class="admin-body" id="admin-body">טוען…</div>
     </div>
+</div>
+
+<!-- ══ PRIVACY POLICY ══ -->
+<div id="privacy-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9700;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--surf,#fff);color:var(--text,#111);max-width:560px;width:100%;max-height:85vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
+      <h3 style="font-size:16px;font-weight:700;margin:0">מדיניות פרטיות — BIRGSOL AI</h3>
+      <button onclick="closePrivacyPolicy()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div id="privacy-body" style="overflow-y:auto;padding:16px 20px;font-size:13.5px;line-height:1.75"></div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);text-align:left">
+      <button onclick="closePrivacyPolicy()" style="padding:9px 22px;border-radius:12px;border:none;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;font-weight:700;cursor:pointer">הבנתי</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MY MEMORY ══ -->
+<div id="memory-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9700;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--surf,#fff);color:var(--text,#111);max-width:520px;width:100%;max-height:85vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
+      <h3 style="font-size:16px;font-weight:700;margin:0">🧠 מה BIRGSOL זוכר עליי</h3>
+      <button onclick="closeMemoryPanel()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div id="memory-body" style="overflow-y:auto;padding:12px 18px;font-size:13.5px">טוען…</div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <label style="font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="mem-off-toggle" onchange="toggleMemoryOff()" style="width:16px;height:16px;accent-color:#4285F4"> כבה זיכרון (אל תלמד עליי)</label>
+      <button onclick="clearAllMemory()" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(220,50,50,.35);background:rgba(220,50,50,.12);color:#ff5a5a;font-weight:700;cursor:pointer;font-size:13px">מחק הכל</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══ MAIN ══ -->
@@ -2276,6 +2317,67 @@ async function _suspendAndAlert(reason, snippet) {
     return true;
 }
 
+/* ── מדיניות פרטיות ── */
+function openPrivacyPolicy() {
+    const b = document.getElementById('privacy-body');
+    if (b && !b.dataset.filled) {
+        b.innerHTML =
+`<p><b>BIRGSOL AI</b> מכבד את הפרטיות שלך. המסמך מסביר בקצרה איזה מידע נאסף, למה, ומה הזכויות שלך.</p>
+<p><b>1. איזה מידע נאסף</b><br>• פרטי החשבון: שם משתמש או כתובת מייל, וסיסמה (נשמרת <b>מוצפנת</b>, לעולם לא כטקסט גלוי).<br>• תוכן השיחות שלך עם ה-AI.<br>• עובדות ש-BIRGSOL לומד עליך כדי להכיר אותך (למשל תחומי עניין, העדפות, מגבלות כמו כשרות). אפשר לראות ולמחוק אותן בכל רגע דרך "מה BIRGSOL זוכר עליי", או לכבות את הלמידה לגמרי.<br>• העדפות: שפה, גרסה, ערכת נושא.</p>
+<p><b>2. למה משתמשים במידע</b><br>כדי לספק את השירות, לזכור אותך בין שיחות ולשפר את איכות התשובות. <b>לא מוכרים ולא משתפים</b> את המידע שלך לצורכי פרסום.</p>
+<p><b>3. אחסון ואבטחה</b><br>הנתונים נשמרים בענן דרך שרת מאובטח; כל המפתחות והסודות מוחזקים בצד השרת בלבד. המערכת מזהה פעילות חשודה (ניסיונות פריצה) ועלולה להשהות חשבון כדי להגן על המשתמשים.</p>
+<p><b>4. צד שלישי</b><br>לצורך עיבוד ההודעות נעשה שימוש בספקי בינה מלאכותית, ולצורך התחברות — בשירות של Google. אלה כפופים למדיניות הפרטיות שלהם.</p>
+<p><b>5. הזכויות שלך</b><br>• לראות ולמחוק כל עובדה שנשמרה עליך.<br>• לכבות את הזיכרון.<br>• לבקש מחיקת חשבון — פנייה למנהל המערכת.</p>
+<p><b>6. יצירת קשר</b><br>לשאלות בנושא פרטיות ניתן לפנות למנהל המערכת (דוד).</p>
+<p style="color:var(--muted);font-size:12px">השימוש ב-BIRGSOL AI מהווה הסכמה למדיניות זו.</p>`;
+        b.dataset.filled = '1';
+    }
+    document.getElementById('privacy-overlay').style.display = 'flex';
+}
+function closePrivacyPolicy() { document.getElementById('privacy-overlay').style.display = 'none'; }
+
+/* ── פאנל "מה BIRGSOL זוכר עליי" — צפייה, מחיקה, וכיבוי זיכרון ── */
+function openMemoryPanel() {
+    if (!currentUser) return;
+    document.getElementById('memory-overlay').style.display = 'flex';
+    document.getElementById('mem-off-toggle').checked = localStorage.getItem('birgsol_mem_off_' + currentUser) === '1';
+    _renderMemoryPanel();
+}
+function closeMemoryPanel() { document.getElementById('memory-overlay').style.display = 'none'; }
+function _renderMemoryPanel() {
+    const body = document.getElementById('memory-body');
+    if (!userMemory.length) { body.innerHTML = '<div style="color:var(--muted);padding:14px 0">עדיין לא נשמרו עליך עובדות. ככל שתשוחח, BIRGSOL יזכור דברים חשובים — ותוכל לראות ולמחוק אותם כאן.</div>'; return; }
+    const groups = {};
+    for (const f of userMemory) { const n = _memNorm(f); if (n.t) (groups[n.c] = groups[n.c] || []).push(n.t); }
+    const order = ['family', 'friends', 'life', 'work', 'prefs', 'health', 'other'];
+    let html = '';
+    for (const c of order) {
+        if (groups[c] && groups[c].length) {
+            html += `<div style="font-weight:700;margin:10px 0 4px;color:var(--blue,#4285F4)">${esc2(MEM_CATS[c])}</div>`;
+            for (const tt of groups[c]) html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="flex:1">${esc2(tt)}</span><button class="mem-del" data-t="${esc2(tt).replace(/"/g, '&quot;')}" style="background:none;border:none;color:#ff5a5a;cursor:pointer;font-size:16px" title="מחק">🗑</button></div>`;
+        }
+    }
+    body.innerHTML = html;
+    body.querySelectorAll('.mem-del').forEach(btn => btn.addEventListener('click', () => deleteMemoryItem(btn.dataset.t)));
+}
+async function deleteMemoryItem(text) {
+    userMemory = userMemory.filter(f => _memNorm(f).t !== text);
+    try { await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: userMemory }); } catch {}
+    _renderMemoryPanel();
+}
+async function clearAllMemory() {
+    if (!confirm('למחוק את כל מה ש-BIRGSOL זוכר עליך? אי אפשר לשחזר.')) return;
+    userMemory = [];
+    try { await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: [] }); } catch {}
+    _renderMemoryPanel();
+    _tierToast('הזיכרון נמחק');
+}
+function toggleMemoryOff() {
+    const off = document.getElementById('mem-off-toggle').checked;
+    localStorage.setItem('birgsol_mem_off_' + currentUser, off ? '1' : '0');
+    _tierToast(off ? 'הזיכרון כבוי — לא אלמד עליך דברים חדשים' : 'הזיכרון פעיל שוב');
+}
+
 /* ── Google Sign-In — התחברות/יצירת חשבון בקליק אחד (client-side, רק Client ID) ── */
 const GOOGLE_CLIENT_ID = '176622606802-f3ksjengb6cqftslv1o3bgv5d0ltdlf6.apps.googleusercontent.com';
 function _decodeJwt(token) {
@@ -2720,6 +2822,8 @@ async function doRegister() {
     const btn   = document.getElementById('reg-btn');
     err.style.display = 'none';
 
+    const agree = document.getElementById('reg-agree');
+    if (agree && !agree.checked) { err.textContent = '❌ יש לאשר את מדיניות הפרטיות כדי לפתוח חשבון.'; err.style.display='block'; return; }
     if (!user)          { err.textContent = '❌ יש להזין שם משתמש.'; err.style.display='block'; return; }
     // אבטחה + ניקיון: שם משתמש = אותיות/ספרות/רווח/מקף/קו-תחתון/נקודה בלבד (עברית ולטינית), 2-24 תווים
     if (!/^[֐-׿a-zA-Z0-9 ._-]{2,24}$/.test(user)) {
@@ -3298,6 +3402,7 @@ async function rememberFacts(facts) {
 // Includes existing memories to avoid redundant storage.
 async function extractMemory(userMsg, aiReply) {
     if (!currentUser || !userMsg) return;
+    if (localStorage.getItem('birgsol_mem_off_' + currentUser) === '1') return; // המשתמש כיבה את הזיכרון
     try {
         const existing = userMemory.length
             ? 'מה שכבר ידוע (אל תחזור על זה):\n' + userMemory.slice(-25).map(f => { const n = _memNorm(f); return `- [${n.c}] ${n.t}`; }).join('\n') + '\n\n'
