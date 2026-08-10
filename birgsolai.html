@@ -4095,8 +4095,23 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
         } catch { /* ניפול לשרשרת FLUX למטה */ }
     }
 
-    // Qwen-image הוסר (החלטת דוד 2026-08-08) — חזרה ל-FLUX כמודל התמונות הראשי.
-    // 1st: FLUX.1-schnell via Cloudflare — מהיר (~2ש'). מנסים עד 3 פעמים — הסינון NSFW של FLUX אקראי בכל קריאה, כך שניסיון חוזר כמעט תמיד עובר.
+    // Qwen-image הוסר — FLUX ראשי. איכות קודם: FLUX.1-dev (28 צעדים, איכותי) ראשי; Cloudflare schnell (מהיר, ~ללא הגבלה) כגיבוי.
+    // 1st: FLUX.1-dev via fal-ai (HuggingFace) — האיכות הטובה ביותר שיש לנו בחינם
+    if (!imgSrc) try {
+        const devRes = await _ghFetch('https://router.huggingface.co/fal-ai/fal-ai/flux/dev', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: styledPrompt, image_size: 'square_hd', num_inference_steps: 28, guidance_scale: 3.5 }),
+            signal: AbortSignal.timeout(60000)
+        });
+        if (devRes.ok) {
+            const devData = await devRes.json();
+            const url = devData?.images?.[0]?.url;
+            if (url) imgSrc = url;
+        }
+    } catch { /* ניפול ל-Cloudflare schnell */ }
+
+    // 2nd: FLUX.1-schnell via Cloudflare — מהיר (~2ש', ~ללא הגבלה). 3 ניסיונות (הסינון NSFW של FLUX אקראי בכל קריאה).
     for (let cfTry = 0; cfTry < 3 && !imgSrc; cfTry++) {
         try {
             const cfRes = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
@@ -4113,21 +4128,6 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
             }
         } catch { /* ננסה שוב / ניפול לגיבוי */ }
     }
-
-    // 3rd: FLUX.1-dev via fal-ai (HuggingFace — פועל כשיש קרדיטים)
-    if (!imgSrc) try {
-        const devRes = await _ghFetch('https://router.huggingface.co/fal-ai/fal-ai/flux/dev', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: styledPrompt, image_size: 'square_hd', num_inference_steps: 28, guidance_scale: 3 }),
-            signal: AbortSignal.timeout(60000)
-        });
-        if (devRes.ok) {
-            const devData = await devRes.json();
-            const url = devData?.images?.[0]?.url;
-            if (url) imgSrc = url;
-        }
-    } catch { /* fall through */ }
 
     // 3rd: FLUX.1-schnell via nscale (fast fallback)
     if (!imgSrc) try {
