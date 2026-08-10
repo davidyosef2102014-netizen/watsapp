@@ -1962,14 +1962,22 @@ function renderAdminUsers(cloudUsers) {
 
         acts.appendChild(sel); acts.appendChild(resetBtn); acts.appendChild(delBtn);
 
-        // מושהה מטעמי אבטחה — תג + כפתור ביטול השהיה
+        // מושהה מטעמי אבטחה — תג + הסבר AI + החלטה: אשר חסימה / שחרר
         if (u.suspended) {
-            meta.innerHTML += ` · <span style="color:#ff8a80;font-weight:700">⛔ מושהה${u.suspendReason ? ' (' + esc2(String(u.suspendReason).slice(0,30)) + ')' : ''}</span>`;
+            meta.innerHTML += `<br><span style="color:#ff8a80;font-weight:700">${u.blocked ? '🚫 חסום לצמיתות' : '⏸️ מושהה — ממתין להחלטתך'}</span>`;
+            if (u.suspendExplain) meta.innerHTML += `<br><span style="opacity:.8;font-size:11px">📋 ${esc2(String(u.suspendExplain).slice(0, 120))}</span>`;
             const unsBtn = document.createElement('button'); unsBtn.className = 'admin-reset-btn';
             unsBtn.style.cssText = 'background:rgba(52,168,83,.18);border-color:rgba(52,168,83,.4);color:#34a853';
-            unsBtn.textContent = 'בטל השהיה';
+            unsBtn.textContent = 'שחרר';
             unsBtn.addEventListener('click', () => adminUnsuspend(name));
             acts.appendChild(unsBtn);
+            if (!u.blocked) {
+                const blkBtn = document.createElement('button'); blkBtn.className = 'admin-reset-btn';
+                blkBtn.style.cssText = 'background:rgba(220,50,50,.18);border-color:rgba(220,50,50,.4);color:#ff8a80';
+                blkBtn.textContent = 'אשר חסימה';
+                blkBtn.addEventListener('click', () => adminConfirmBlock(name));
+                acts.appendChild(blkBtn);
+            }
         }
 
         rowEl.appendChild(info); rowEl.appendChild(acts);
@@ -1979,8 +1987,15 @@ function renderAdminUsers(cloudUsers) {
 
 async function adminUnsuspend(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
-    const ok = await ghUpdate('db/ai_users.json', u => { if (!u || !u[username]) return undefined; u[username].suspended = false; delete u[username].suspendReason; delete u[username].suspendedAt; return u; });
-    if (ok) { _tierToast('ההשהיה של ' + username + ' בוטלה'); openAdminPanel(); }
+    const ok = await ghUpdate('db/ai_users.json', u => { if (!u || !u[username]) return undefined; u[username].suspended = false; u[username].blocked = false; delete u[username].suspendReason; delete u[username].suspendExplain; delete u[username].suspendedAt; return u; });
+    if (ok) { _tierToast('החשבון של ' + username + ' שוחרר'); openAdminPanel(); }
+    else alert('שגיאה — נסה שוב.');
+}
+async function adminConfirmBlock(username) {
+    if (!ADMIN_USERS.includes(currentUser)) return;
+    if (!confirm('לחסום את "' + username + '" לצמיתות? (אפשר לשחרר בהמשך)')) return;
+    const ok = await ghUpdate('db/ai_users.json', u => { if (!u || !u[username]) return undefined; u[username].suspended = true; u[username].blocked = true; return u; });
+    if (ok) { _tierToast(username + ' נחסם לצמיתות'); openAdminPanel(); }
     else alert('שגיאה — נסה שוב.');
 }
 
@@ -1996,7 +2011,7 @@ async function _renderAdminAlerts(body) {
         if (!Array.isArray(alerts) || !alerts.length) { out.textContent = 'אין התראות.'; return; }
         out.innerHTML = alerts.slice(0, 30).map(a => {
             const d = a.time ? new Date(a.time).toLocaleString('he-IL') : '';
-            return `<div style="padding:6px 0;border-bottom:1px solid var(--border)"><b style="color:#ff8a80">${esc2(a.user || '?')}</b> · ${esc2(d)}<br><span style="opacity:.8">סיבה: ${esc2(String(a.reason || '').slice(0,50))}</span>${a.snippet ? '<br><span style="opacity:.6">"' + esc2(String(a.snippet).slice(0,120)) + '"</span>' : ''}</div>`;
+            return `<div style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:#ff8a80">${esc2(a.user || '?')}</b> · ${esc2(d)}${a.explanation ? '<br><span style="opacity:.9">📋 ' + esc2(String(a.explanation).slice(0,140)) + '</span>' : ''}<br><span style="opacity:.6;font-size:11px">דפוס: ${esc2(String(a.reason || '').slice(0,40))}</span>${a.snippet ? '<br><span style="opacity:.55;font-size:11px">"' + esc2(String(a.snippet).slice(0,120)) + '"</span>' : ''}</div>`;
         }).join('');
     } catch { const out = document.getElementById('sec-alerts-out'); if (out) out.textContent = 'שגיאה בטעינת התראות.'; }
 }
@@ -2310,9 +2325,18 @@ function _securityScan(text) {
 async function _suspendAndAlert(reason, snippet) {
     if (ADMIN_USERS.includes(currentUser)) return false; // דוד לעולם לא נחסם
     const who = currentUser;
+    // ה-AI מסביר במשפט למה זה חשוד — כדי שדוד יבין על מה ההתראה לפני שהוא מחליט
+    let explanation = '';
     try {
-        await ghUpdate('db/ai_users.json', u => { u = u || {}; if (u[who]) { u[who].suspended = true; u[who].suspendReason = reason; u[who].suspendedAt = Date.now(); } return u; });
-        await ghUpdate('db/ai_alerts.json', a => { a = Array.isArray(a) ? a : []; a.unshift({ user: who, reason, snippet: String(snippet || '').slice(0, 200), time: Date.now() }); return a.slice(0, 300); });
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: [
+            { role: 'system', content: 'אתה מנתח אבטחה. הסבר במשפט אחד קצר וברור בעברית למה הודעת המשתמש הבאה חשודה כניסיון פריצה/מניפולציה/הזרקת-פרומפט למערכת AI. החזר רק את המשפט.' },
+            { role: 'user', content: String(snippet || '').slice(0, 400) }
+        ], temperature: 0.2, max_tokens: 80 }, { signal: AbortSignal.timeout(8000) });
+        if (r.ok) { const j = await r.json(); explanation = (j?.choices?.[0]?.message?.content || '').trim(); }
+    } catch {}
+    try {
+        await ghUpdate('db/ai_users.json', u => { u = u || {}; if (u[who]) { u[who].suspended = true; u[who].suspendReason = reason; u[who].suspendExplain = explanation; u[who].suspendedAt = Date.now(); } return u; });
+        await ghUpdate('db/ai_alerts.json', a => { a = Array.isArray(a) ? a : []; a.unshift({ user: who, reason, explanation, snippet: String(snippet || '').slice(0, 200), time: Date.now(), status: 'pending' }); return a.slice(0, 300); });
     } catch {}
     return true;
 }
