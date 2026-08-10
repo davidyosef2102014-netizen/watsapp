@@ -4048,12 +4048,10 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
             { role: 'system', content: 'Translate the following image description to simple, literal English. Output ONLY the translation, max 20 words, no explanation, no quotes.' },
             { role: 'user', content: prompt }
         ];
-        // Try GitHub Models first (reliable, no bot-check), then Pollinations as backup
+        // תרגום דרך Groq (מהיר ואמין; GitHub Models מת ולכן החזיר פרומפט גולמי → טקסט זר בתמונה), Pollinations כגיבוי
         try {
-            const r = await _ghAI({ model: 'openai/gpt-4o-mini', messages: transMessages, temperature: 0.3, max_tokens: 60 }, AbortSignal.timeout(10000));
-            const j = await r.json();
-            const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, '');
-            if (t && !_looksLikeError(t) && t.length > 2 && t.length < 300) engPrompt = t;
+            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: transMessages, temperature: 0.2, max_tokens: 60 }, { signal: AbortSignal.timeout(9000) });
+            if (r.ok) { const j = await r.json(); const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, ''); if (t && !_looksLikeError(t) && t.length > 2 && t.length < 300) engPrompt = t; }
         } catch { /* fall through to Pollinations */ }
 
         if (engPrompt === prompt) {
@@ -4073,7 +4071,8 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     // ── 3. Cloudflare FLUX → HuggingFace → Pollinations ──
     const safePrompt = engPrompt.slice(0, 400);
     const seed = Math.floor(Math.random() * 999999);
-    const styledPrompt = safePrompt + ', ' + imgStyle.suffix;
+    // "no text/letters" מונע מ-FLUX להדביק אותיות זר/ג'יבריש בתוך התמונה
+    const styledPrompt = safePrompt + ', ' + imgStyle.suffix + '. No text, no letters, no words, no captions, no watermark, no signage.';
 
     let imgSrc = null;
 
@@ -4227,29 +4226,23 @@ async function editImage(imgDataUrl, instruction) {
     cw.appendChild(row);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
-    // Step 1: describe image with GPT-4o vision
+    // Step 1: describe image with Gemini vision (לגיבוי FLUX). לא-קריטי — העריכה האמיתית דרך gptimage
+    // עובדת על הפיקסלים עצמם, לכן ממשיכים גם אם התיאור נכשל. (GitHub Models GPT-4o מת ולכן הוחלף.)
     let description = '';
     try {
-        const r = await _ghAI({
-            model: 'openai/gpt-4o',
-            messages: [
-                { role: 'system', content: 'Describe the image in detail for image generation re-creation. Be specific about object type, shape, materials, colors, background, style. Output ONLY the description in English, max 60 words, no explanation.' },
-                { role: 'user', content: [
-                    { type: 'image_url', image_url: { url: imgDataUrl } },
-                    { type: 'text', text: 'Describe this image precisely for re-generation.' }
-                ]}
-            ],
-            max_tokens: 130
-        }, AbortSignal.timeout(15000));
-        const j = await r.json();
-        description = j?.choices?.[0]?.message?.content?.trim() || '';
+        const mt = (imgDataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
+        const b64 = imgDataUrl.includes(',') ? imgDataUrl.split(',')[1] : '';
+        if (b64) {
+            const r = await _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', {
+                contents: [{ role: 'user', parts: [
+                    { text: 'Describe this image for re-creation: object type, shape, materials, colors, background, style. Output ONLY the description in English, max 60 words.' },
+                    { inlineData: { mimeType: mt, data: b64 } }
+                ]}],
+                generationConfig: { maxOutputTokens: 400, thinkingConfig: { thinkingBudget: 128 } }
+            }, { signal: AbortSignal.timeout(15000) });
+            if (r.ok) { const j = await r.json(); description = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); }
+        }
     } catch(e) {}
-
-    if (!description) {
-        skelTxt.textContent = '⚠️ לא הצלחתי לנתח את התמונה.';
-        skelEl.style.display = 'none';
-        return;
-    }
 
     // Step 2: translate instruction to English if needed
     let engInstruction = instruction;
@@ -4257,17 +4250,15 @@ async function editImage(imgDataUrl, instruction) {
     const ascL = (instruction.match(/[a-zA-Z]/g) || []).length;
     if (allL > 0 && ascL / allL < 0.6) {
         try {
-            const r = await _ghAI({
-                model: 'openai/gpt-4o-mini',
+            const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
+                model: 'llama-3.3-70b-versatile',
                 messages: [
                     { role: 'system', content: 'Translate to English. Output ONLY the translation, no explanation.' },
                     { role: 'user', content: instruction }
                 ],
-                max_tokens: 60
-            }, AbortSignal.timeout(8000));
-            const j = await r.json();
-            const t = j?.choices?.[0]?.message?.content?.trim();
-            if (t && t.length > 0) engInstruction = t;
+                temperature: 0.2, max_tokens: 60
+            }, { signal: AbortSignal.timeout(8000) });
+            if (r.ok) { const j = await r.json(); const t = j?.choices?.[0]?.message?.content?.trim(); if (t && t.length > 0) engInstruction = t; }
         } catch {}
     }
 
@@ -4275,7 +4266,7 @@ async function editImage(imgDataUrl, instruction) {
     // (passes the actual image). If editing fails, generateImage falls back to FLUX re-creation
     // from the description below. Hosting failure → editSrc null → pure FLUX re-creation (old behavior).
     skelTxt.textContent = 'עורך את התמונה…';
-    const finalPrompt = description + '. Change: ' + engInstruction;
+    const finalPrompt = (description ? description + '. ' : '') + 'Change: ' + engInstruction;
     const imgStyle = { model: 'flux-realism', suffix: 'photorealistic, product photography, highly detailed, sharp focus, 8k' };
     let editSrc = null;
     try { editSrc = await _hostImage(imgDataUrl); } catch {}
@@ -5097,9 +5088,9 @@ const AGENT_TOOLS = [
     { type:'function', function:{ name:'web_search', description:'חיפוש מידע עדכני ואמיתי באינטרנט (מחירים, חדשות, עובדות, ספורט, מזג אוויר). השתמש לפני שאתה טוען עובדה ספציפית על העולם האמיתי.', parameters:{ type:'object', properties:{ query:{ type:'string', description:'מחרוזת החיפוש' } }, required:['query'] } } },
     { type:'function', function:{ name:'browse', description:'קריאת התוכן המלא של דף אינטרנט לפי כתובת URL, לחילוץ פרטים מדויקים.', parameters:{ type:'object', properties:{ url:{ type:'string' } }, required:['url'] } } },
     { type:'function', function:{ name:'maps', description:'מציאת עסקים/מקומות אמיתיים ליד מקום כלשהו בעולם והצגתם על מפה. פורמט: "שם עסק, עיר".', parameters:{ type:'object', properties:{ query:{ type:'string' } }, required:['query'] } } },
-    { type:'function', function:{ name:'generate_image', description:'יצירת תמונה כשהמשתמש רוצה לראות משהו או כשתמונה תמחיש טוב יותר. השתמש רק כשזה באמת מוסיף ערך.', parameters:{ type:'object', properties:{ prompt:{ type:'string', description:'תיאור התמונה, עדיף באנגלית' } }, required:['prompt'] } } },
     { type:'function', function:{ name:'remember', description:'שמירת עובדה אמיתית וקבועה על המשתמש (מגבלה כמו כשרות/אלרגיה, העדפה, סגנון דיבור, משפחה, אירוע). לעולם אל תמציא.', parameters:{ type:'object', properties:{ fact:{ type:'string' }, category:{ type:'string', enum:['family','friends','life','prefs','work','health','other'] } }, required:['fact'] } } },
 ];
+// הערה: generate_image הוסר מכלי הסוכן — היה מפעיל יצירת תמונה מהקשר ישן (למשל שעון כמה הודעות אחרי). יצירת תמונה נשארת במסלול הייעודי (isImageRequest) + התגית [IMAGE].
 async function _groqToolCall(messages, tools, signal) {
     const payload = { model:'openai/gpt-oss-120b', messages, temperature:0.7, max_tokens:2048 };
     if (tools && tools.length) { payload.tools = tools; payload.tool_choice = 'auto'; }
@@ -5128,7 +5119,7 @@ async function _groqToolCall(messages, tools, signal) {
 async function _execFCTool(tc, statusEl, cw) {
     const name = tc.function && tc.function.name;
     let args = {}; try { args = JSON.parse((tc.function && tc.function.arguments) || '{}'); } catch {}
-    const MAP = { web_search:['search','query'], browse:['browse','url'], maps:['maps','query'], generate_image:['image','prompt'], remember:['remember','fact'] };
+    const MAP = { web_search:['search','query'], browse:['browse','url'], maps:['maps','query'], remember:['remember','fact'] };
     const spec = MAP[name];
     if (!spec) return 'כלי לא מוכר';
     let val = args[spec[1]] || '';
@@ -5139,7 +5130,7 @@ async function _execFCTool(tc, statusEl, cw) {
 async function agentLoopNative(messages, txtEl, statusEl, cw, maxIter, signal) {
     const msgs = messages.slice();
     if (msgs[0] && msgs[0].role === 'system') {
-        msgs[0] = { role:'system', content: msgs[0].content + '\n\n🛠️ יש לך כלים אמיתיים (functions): web_search, browse, maps, generate_image, remember.\nמתי לחפש (web_search) — חובה: מידע עדכני או משתנה, או עובדה ספציפית על העולם האמיתי — חדשות, מזג אוויר, מחירים, ספורט, שערים, "היום"/"עכשיו", אירועים אחרונים, מקום/עסק ספציפי, או כל דבר שאתה לא בטוח בו. במקרים אלה חובה לחפש לפני שעונה, ולעולם אל תגיד "אין לי גישה לאינטרנט" או "המידע שלי מיושן/עד שנה כלשהי" — יש לך גישה מלאה, פשוט השתמש בכלי.\nמתי לא לחפש: ידע כללי, הסברים, הגדרות, מתמטיקה, קוד, כתיבה יצירתית ושיחה — ענה ישירות בלי כלים (אל תבזבז חיפוש). maps למקומות, generate_image ליצירת תמונה, remember לעובדה קבועה על המשתמש. קרא לכלים דרך function-calling (לא תגיות טקסט), וענה בשפת המשתמש.' };
+        msgs[0] = { role:'system', content: msgs[0].content + '\n\n🛠️ יש לך כלים אמיתיים (functions): web_search, browse, maps, remember.\nמתי לחפש (web_search) — חובה: מידע עדכני או משתנה, או עובדה ספציפית על העולם האמיתי — חדשות, מזג אוויר, מחירים, ספורט, שערים, "היום"/"עכשיו", אירועים אחרונים, מקום/עסק ספציפי, או כל דבר שאתה לא בטוח בו. במקרים אלה חובה לחפש לפני שעונה, ולעולם אל תגיד "אין לי גישה לאינטרנט" או "המידע שלי מיושן/עד שנה כלשהי" — יש לך גישה מלאה, פשוט השתמש בכלי.\nמתי לא לחפש: ידע כללי, הסברים, הגדרות, מתמטיקה, קוד, כתיבה יצירתית ושיחה — ענה ישירות בלי כלים (אל תבזבז חיפוש). maps למקומות, remember לעובדה קבועה על המשתמש. קרא לכלי רק כשההודעה הנוכחית דורשת — לעולם לא על סמך הודעות קודמות. קרא לכלים דרך function-calling (לא תגיות טקסט), וענה בשפת המשתמש.' };
     }
     const _draw = (p) => { txtEl.innerHTML = '<span class="stream-raw">' + p.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span><span class="stream-cursor"></span>'; if (cw.scrollTop >= cw.scrollHeight - cw.clientHeight - 80) cw.scrollTop = cw.scrollHeight; };
     let last = '';
