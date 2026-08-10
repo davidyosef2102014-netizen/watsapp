@@ -1887,12 +1887,26 @@ function updateAdminVisibility() {
 
 async function openAdminPanel() {
     if (!ADMIN_USERS.includes(currentUser)) return;
+    // API טרי — ה-CDN מפגר בכ-5 דקות והיה מציג גרסאות ישנות אחרי שינוי
+    const cloudUsers = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
+    // 🛡️ קוד-מנהל (2FA) — הגנה על פאנל הניהול גם אם הסיסמה דלפה
+    const adminRec = cloudUsers[currentUser] || {};
+    if (!adminRec.adminPin) {
+        const p = prompt('הגדרת אבטחה חד-פעמית: בחר קוד-מנהל (PIN, לפחות 4 ספרות) שיידרש בכל כניסה לפאנל הניהול:');
+        if (!p || p.trim().length < 4) { alert('קוד לא תקין (לפחות 4 תווים). הפאנל לא נפתח.'); return; }
+        const h = await hashPassword(p.trim());
+        const ok = await ghUpdate('db/ai_users.json', u => { if (u && u[currentUser]) u[currentUser].adminPin = h; return u; });
+        if (!ok) { alert('שגיאה בשמירת הקוד — נסה שוב.'); return; }
+        alert('✅ קוד-המנהל הוגדר. מעכשיו יידרש בכל כניסה לפאנל.');
+    } else {
+        const p = prompt('הזן קוד-מנהל כדי להיכנס לפאנל הניהול:');
+        if (!p) return;
+        if (await hashPassword(p.trim()) !== adminRec.adminPin) { alert('⛔ קוד-מנהל שגוי.'); return; }
+    }
     document.getElementById('admin-overlay').classList.add('on');
     closeSidebar();
     const body = document.getElementById('admin-body');
     body.textContent = 'טוען…';
-    // API טרי — ה-CDN מפגר בכ-5 דקות והיה מציג גרסאות ישנות אחרי שינוי
-    const cloudUsers = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
     renderAdminUsers(cloudUsers);
 }
 
@@ -2284,13 +2298,25 @@ async function doLogin() {
     err.style.display = 'none';
     if (!user || !pass) { err.textContent = '❌ מלא שם משתמש וסיסמה.'; err.style.display='block'; return; }
 
+    // הגנת ניחוש-סיסמה (brute-force) — נעילה זמנית אחרי 5 ניסיונות שגויים. דוד פטור.
+    const _lk = _loginLock(user);
+    if (_lk && _lk.until > Date.now() && !ADMIN_USERS.includes(user)) {
+        err.textContent = `⛔ נעול זמנית עקב ניסיונות שגויים. נסה שוב בעוד ${Math.ceil((_lk.until - Date.now()) / 60000)} דקות.`; err.style.display = 'block'; return;
+    }
+
     btn.textContent = '⏳ מתחבר...'; btn.disabled = true;
     try {
         // API טרי קודם — משתמש שנרשם/אופס לו סיסמה לפני רגע לא יופיע ב-CDN עד 5 דקות
         const cloudUsers = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
         if (!cloudUsers[user]) { err.textContent = '❌ שם המשתמש לא נמצא. צור חשבון חדש.'; err.style.display='block'; return; }
         const hashed = await hashPassword(pass);
-        if (cloudUsers[user].password !== hashed) { err.textContent = '❌ סיסמה שגויה.'; err.style.display='block'; return; }
+        if (cloudUsers[user].password !== hashed) {
+            const fails = ((_lk && _lk.count) || 0) + 1;
+            if (fails >= 5 && !ADMIN_USERS.includes(user)) { _setLoginLock(user, { count: fails, until: Date.now() + 15 * 60000 }); _bruteAlert(user); err.textContent = '⛔ יותר מדי ניסיונות שגויים — החשבון ננעל ל-15 דקות.'; }
+            else { _setLoginLock(user, { count: fails, until: 0 }); err.textContent = `❌ סיסמה שגויה. (${Math.max(0, 5 - fails)} ניסיונות נותרו)`; }
+            err.style.display = 'block'; return;
+        }
+        _clearLoginLock(user);
         if (cloudUsers[user].suspended && !ADMIN_USERS.includes(user)) { err.textContent = '⛔ החשבון הושהה עקב פעילות חשודה. פנה למנהל המערכת.'; err.style.display='block'; return; }
         await _finishLogin(user);
     } catch(e) {
@@ -2340,6 +2366,15 @@ async function _suspendAndAlert(reason, snippet) {
     } catch {}
     return true;
 }
+
+/* ── אבטחה נוספת: סיסמה חזקה + הגנת ניחוש-סיסמה (brute-force) ── */
+function _isStrongPassword(p) { return typeof p === 'string' && p.length >= 8 && /[A-Za-zא-ת]/.test(p) && /[0-9]/.test(p); }
+async function _bruteAlert(user) {
+    try { await ghUpdate('db/ai_alerts.json', a => { a = Array.isArray(a) ? a : []; a.unshift({ user, reason: 'brute-force', explanation: 'ניסיונות התחברות כושלים מרובים — ייתכן ניסיון ניחוש סיסמה בכוח.', time: Date.now(), status: 'pending' }); return a.slice(0, 300); }); } catch {}
+}
+function _loginLock(user) { try { return JSON.parse(localStorage.getItem('birgsol_lock_' + user) || 'null'); } catch { return null; } }
+function _setLoginLock(user, obj) { try { localStorage.setItem('birgsol_lock_' + user, JSON.stringify(obj)); } catch {} }
+function _clearLoginLock(user) { try { localStorage.removeItem('birgsol_lock_' + user); } catch {} }
 
 /* ── מדיניות פרטיות ── */
 function openPrivacyPolicy() {
@@ -2854,7 +2889,7 @@ async function doRegister() {
         err.textContent = '❌ שם המשתמש יכול להכיל אותיות, ספרות, רווח, נקודה, מקף וקו תחתון בלבד (2-24 תווים).';
         err.style.display='block'; return;
     }
-    if (pass.length < 4){ err.textContent = '❌ הסיסמה חייבת להכיל לפחות 4 תווים.'; err.style.display='block'; return; }
+    if (!_isStrongPassword(pass)) { err.textContent = '❌ הסיסמה חייבת להכיל לפחות 8 תווים, כולל אותיות וגם ספרות.'; err.style.display='block'; return; }
     if (pass !== pass2) { err.textContent = '❌ הסיסמאות אינן תואמות.'; err.style.display='block'; return; }
 
     btn.textContent = '⏳ יוצר חשבון...'; btn.disabled = true;
