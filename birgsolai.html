@@ -1881,7 +1881,8 @@ async function hashPassword(pass) {
    password. Shows registered usernames + signup date only — passwords are one-way hashed and were
    never recoverable, so there is nothing to display there; "reset password" generates a fresh
    temporary one instead. */
-const ADMIN_USERS = ['דוד'];
+// כל זהויות המנהל (דוד) — כולל התחברות עם גוגל/מייל. חייב לכלול את כולן אחרת חסינות-המנהל לא חלה והמנהל עלול להינעל.
+const ADMIN_USERS = ['דוד', 'davidyosef2102014@gmail.com', 'gil.zeevi@gmail.com', 'plainsoil@gmail.com'];
 
 function updateAdminVisibility() {
     const btn = document.getElementById('sb-admin-btn');
@@ -2501,7 +2502,7 @@ async function _finishLogin(user) {
     ghReadFresh('db/ai_users.json').then(u => {
         if (u && u[user]) {
             // חשבון מושהה (אבטחה) — דוד חסין; כל השאר מנותקים מיד
-            if (u[user].suspended && !ADMIN_USERS.includes(user)) { alert('⛔ החשבון הושהה עקב פעילות חשודה. פנה למנהל המערכת.'); doLogout(); return; }
+            if (u[user].suspended && !ADMIN_USERS.includes(user)) { alert('⛔ החשבון הושהה עקב פעילות חשודה. פנה למנהל המערכת.'); doLogout(true); return; }
             localStorage.setItem('birgsol_instr_' + user, u[user].instructions || '');
             syncTierFromCloud(user, u[user]);
             if (u[user].name) { currentName = u[user].name; updateUserChip(); updateGreeting(); }
@@ -2929,8 +2930,11 @@ async function doRegister() {
 }
 
 /* ── logout ── */
-function doLogout() {
-    if (!confirm('להתנתק מ-Birgsol AI?')) return;
+function doLogout(force) {
+    if (!force && !confirm('להתנתק מ-Birgsol AI?')) return;
+    // סגירת כל חלון צף כדי שכלום לא יחסום קליקים (תיקון "הכפתורים נתקעים")
+    ['admin-overlay','privacy-overlay','memory-overlay','pricing-modal','live-overlay'].forEach(id => { const el = document.getElementById(id); if (el) { el.classList.remove('on'); el.style.display = 'none'; } });
+    try { busy = false; if (typeof updateBtn === 'function') updateBtn(); } catch {}
     localStorage.removeItem(AI_AUTH_KEY);
     currentUser = null; currentName = null; isPremium = false; freeLeft = FREE_LIMIT; hist = []; currentConvId = null; convList = []; userMemory = [];
     document.getElementById('chat-window').innerHTML = '';
@@ -3280,10 +3284,10 @@ Write tool calls on their own line:
 [SEARCH: your search query]
 [BROWSE: https://full-url.com]
 [MAPS: business or brand, city/place]
-[IMAGE: a clear visual description of the picture to draw]
 [REMEMBER: a real fact about the user | category]
-Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Use [MAPS] to find real businesses/shops near ANY place WORLDWIDE — any city, country, or address, not limited to Israel (format: "business name, location" e.g. "יונדאי, פרדס חנה" or "Hyundai, Pardes Hana" or "Starbucks, Paris France" or "pharmacy, Tokyo"). Up to 5 tool calls per answer.
-[IMAGE] — use it when a picture would genuinely help and the user would appreciate seeing it (they asked to see/draw something, or a visual would make your explanation far clearer — e.g. "what does an axolotl look like", a design idea, an illustration). Write the description in vivid English for best quality. Do NOT use it for every answer — only when it truly adds value. After it, don't describe the image in words; it is already shown to the user.
+Use [SEARCH] for live info. Use [BROWSE] to actually READ a page and extract its content. Use [MAPS] to find real businesses/shops near ANY place WORLDWIDE — any city, country, or address, not limited to Israel (format: "business name, location" e.g. "יונדאי, פרדס חנה" or "Hyundai, Pardes Hana" or "Starbucks, Paris France" or "pharmacy, Tokyo"). Up to 4 tool calls per answer.
+⚠️ מתי לחפש (חשוב — חוסך מכסה): חפש רק כשבאמת צריך מידע עדכני/משתנה או עובדה ספציפית על העולם האמיתי — חדשות, מחירים, מזג אוויר, תוצאות ספורט, "היום/עכשיו", אירוע אחרון, או מקום/עסק ספציפי. אל תחפש לשאלות של ידע כללי, המלצות, דעות, רשימות ("שירים לניצחון"), הסברים, יצירתיות או שיחה — לאלה ענה ישירות מהידע שלך בלי כלים. עדיף לא לחפש מאשר לחפש מיותר.
+🚫 אתה לא יוצר תמונות בעצמך. תמונה נוצרת אך ורק כשהמשתמש מבקש במפורש "צור תמונה של…". לעולם אל תנסה ליצור תמונה מיוזמתך או על סמך בקשה קודמת בשיחה.
 [REMEMBER] — use it the moment the user reveals something durable and real worth keeping for future conversations: a hard constraint (keeps kosher, vegetarian, an allergy), their speaking style/tone, a strong preference or taste, an interest/hobby, family/friends, or a life event. Format: [REMEMBER: fact | category] where category is one of family, friends, life, prefs, work, health, other. NEVER invent — remember only what the user actually said or clearly implied. Keep it short. This runs silently in the background; at most say naturally that you'll remember.
 IMPORTANT — ONE MAP ONLY: emit AT MOST ONE [MAPS] call per answer. A single [MAPS] call already returns MULTIPLE nearby results and shows them ALL as pins on ONE map. NEVER emit several [MAPS] calls (one per place) — that creates several separate maps, which is wrong and confusing. If the user wants several places, make one [MAPS] call for the category/area and let it pin them all together.
 NEVER invent search results, addresses, or business names.
@@ -5369,7 +5373,7 @@ async function _execFCTool(tc, statusEl, cw) {
 async function agentLoopNative(messages, txtEl, statusEl, cw, maxIter, signal) {
     const msgs = messages.slice();
     if (msgs[0] && msgs[0].role === 'system') {
-        msgs[0] = { role:'system', content: msgs[0].content + '\n\n🛠️ יש לך כלים אמיתיים (functions): web_search, browse, maps, remember.\nמתי לחפש (web_search) — חובה: מידע עדכני או משתנה, או עובדה ספציפית על העולם האמיתי — חדשות, מזג אוויר, מחירים, ספורט, שערים, "היום"/"עכשיו", אירועים אחרונים, מקום/עסק ספציפי, או כל דבר שאתה לא בטוח בו. במקרים אלה חובה לחפש לפני שעונה, ולעולם אל תגיד "אין לי גישה לאינטרנט" או "המידע שלי מיושן/עד שנה כלשהי" — יש לך גישה מלאה, פשוט השתמש בכלי.\nמתי לא לחפש: ידע כללי, הסברים, הגדרות, מתמטיקה, קוד, כתיבה יצירתית ושיחה — ענה ישירות בלי כלים (אל תבזבז חיפוש). maps למקומות, remember לעובדה קבועה על המשתמש. קרא לכלי רק כשההודעה הנוכחית דורשת — לעולם לא על סמך הודעות קודמות. קרא לכלים דרך function-calling (לא תגיות טקסט), וענה בשפת המשתמש.' };
+        msgs[0] = { role:'system', content: msgs[0].content + '\n\n🛠️ יש לך כלים אמיתיים (functions): web_search, browse, maps, remember.\nמתי לחפש (web_search) — חובה: מידע עדכני או משתנה, או עובדה ספציפית על העולם האמיתי — חדשות, מזג אוויר, מחירים, ספורט, שערים, "היום"/"עכשיו", אירועים אחרונים, מקום/עסק ספציפי, או כל דבר שאתה לא בטוח בו. במקרים אלה חובה לחפש לפני שעונה, ולעולם אל תגיד "אין לי גישה לאינטרנט" או "המידע שלי מיושן/עד שנה כלשהי" — יש לך גישה מלאה, פשוט השתמש בכלי.\nמתי לא לחפש (חשוב — חוסך מכסה): ידע כללי, הסברים, הגדרות, מתמטיקה, קוד, כתיבה יצירתית, שיחה, **המלצות, דעות, ורשימות** (למשל "שירים טובים לניצחון") — ענה ישירות מהידע שלך בלי שום כלי. עדיף לא לחפש מאשר לחפש מיותר. maps רק לשאלת "איפה"; remember רק לעובדה קבועה שהמשתמש חשף עכשיו. קרא לכלי רק כשההודעה **הנוכחית** באמת דורשת — לעולם לא על סמך הודעות קודמות. 🚫 אין לך כלי ליצירת תמונות — לעולם אל תיצור תמונה. קרא לכלים דרך function-calling (לא תגיות טקסט), וענה בשפת המשתמש.' };
     }
     const _draw = (p) => { txtEl.innerHTML = '<span class="stream-raw">' + p.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span><span class="stream-cursor"></span>'; if (cw.scrollTop >= cw.scrollHeight - cw.clientHeight - 80) cw.scrollTop = cw.scrollHeight; };
     let last = '';
@@ -5431,11 +5435,11 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4, signal=null) 
         const searchMatches = [...fullText.matchAll(RE_SEARCH)];
         const browseMatches = [...fullText.matchAll(RE_BROWSE)];
         const mapsMatches   = [...fullText.matchAll(RE_MAPS)];
-        const imageMatches  = [...fullText.matchAll(RE_IMAGE)];
         const rememberMatches = [...fullText.matchAll(RE_REMEMBER)];
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0;
+        // [IMAGE] הוסר מהסוכן בכוונה — הסוכן לא יוצר תמונות (יצירת תמונה רק דרך "צור תמונה של…"). תגית [IMAGE] אם תיפלט — רק תנוקה, לא תבוצע.
 
-        if (!searchMatches.length && !browseMatches.length && !mapsMatches.length && !imageMatches.length && !rememberMatches.length) break; // no tools → done
+        if (!searchMatches.length && !browseMatches.length && !mapsMatches.length && !rememberMatches.length) break; // no tools → done
 
         // Show agent status area
         if (!statusEl.innerHTML) {
@@ -5447,7 +5451,6 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4, signal=null) 
             ...searchMatches.map(m => executeTool(m, 'search', statusEl, cw)),
             ...browseMatches.map(m => executeTool(m, 'browse',  statusEl, cw)),
             ...mapsMatches.map(m => executeTool(m, 'maps',  statusEl, cw)),
-            ...imageMatches.map(m => executeTool(m, 'image', statusEl, cw)),
             ...rememberMatches.map(m => executeTool(m, 'remember', statusEl, cw))
         ];
         const toolResults = await Promise.all(toolPromises);
@@ -5956,7 +5959,7 @@ async function send() {
     if (_sec) {
         const suspended = await _suspendAndAlert(_sec, q);
         inp.value = '';
-        if (suspended) { alert('⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. פנה למנהל המערכת.'); doLogout(); return; }
+        if (suspended) { alert('⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. פנה למנהל המערכת.'); doLogout(true); return; }
     }
 
     // Audio/Video → transcribe with Whisper, then treat the transcript as a document (normal flow below)
