@@ -1398,11 +1398,11 @@
                 </select>
             </div>
             <div class="sp-row" style="cursor:pointer" onclick="openMemoryPanel()">
-                <span class="sp-label" style="display:flex;align-items:center;gap:6px">🧠 מה BIRGSOL זוכר עליי</span>
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg> מה BIRGSOL זוכר עליי</span>
                 <span style="color:var(--muted)">›</span>
             </div>
             <div class="sp-row" style="cursor:pointer" onclick="openPrivacyPolicy()">
-                <span class="sp-label" style="display:flex;align-items:center;gap:6px">🔒 מדיניות פרטיות</span>
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> מדיניות פרטיות</span>
                 <span style="color:var(--muted)">›</span>
             </div>
         </div>
@@ -1463,7 +1463,7 @@
 <div id="memory-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9700;align-items:center;justify-content:center;padding:16px">
   <div style="background:var(--surf,#fff);color:var(--text,#111);max-width:520px;width:100%;max-height:85vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
-      <h3 style="font-size:16px;font-weight:700;margin:0">🧠 מה BIRGSOL זוכר עליי</h3>
+      <h3 style="font-size:16px;font-weight:700;margin:0;display:flex;align-items:center;gap:7px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg> מה BIRGSOL זוכר עליי</h3>
       <button onclick="closeMemoryPanel()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
     </div>
     <div id="memory-body" style="overflow-y:auto;padding:12px 18px;font-size:13.5px">טוען…</div>
@@ -1923,7 +1923,7 @@ function _renderAdminCodesUI(body) {
     box.style.cssText = 'padding:12px 8px;border-bottom:2px solid var(--border);margin-bottom:6px';
     const tierOpts = Object.keys(TIERS).filter(t => t !== 'free').map(t => `<option value="${t}">${esc2(TIERS[t].name)}</option>`).join('');
     box.innerHTML =
-        `<div style="font-weight:700;font-size:14px;margin-bottom:8px">🎫 ייצור קודי שדרוג</div>
+        `<div style="font-weight:700;font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v14"/></svg> ייצור קודי שדרוג</div>
          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
            <select id="gc-tier" class="sp-select">${tierOpts}</select>
            <input id="gc-count" type="number" min="1" max="50" value="5" title="כמות קודים" style="width:60px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf);color:var(--text)">
@@ -2021,7 +2021,7 @@ async function adminConfirmBlock(username) {
 async function _renderAdminAlerts(body) {
     const box = document.createElement('div');
     box.style.cssText = 'padding:12px 8px;border-bottom:2px solid var(--border);margin-bottom:6px';
-    box.innerHTML = '<div style="font-weight:700;font-size:14px;margin-bottom:8px">🔔 התראות אבטחה</div><div id="sec-alerts-out" style="font-size:12px;color:var(--muted)">טוען…</div>';
+    box.innerHTML = '<div style="font-weight:700;font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> התראות אבטחה</div><div id="sec-alerts-out" style="font-size:12px;color:var(--muted)">טוען…</div>';
     body.appendChild(box);
     try {
         const alerts = await ghReadFresh('db/ai_alerts.json');
@@ -2347,6 +2347,7 @@ const SECURITY_PATTERNS = [
     /תתעלם\s+מ(ה|כל\s+ה)?(הוראות|הנחיות|פרומפט|כללים)/i,
     /(תגלה|תחשוף|תראה\s+לי)\s+.{0,20}(הפרומפט|ההוראות|המערכת|מפתח)/i,
 ];
+let _reqTimes = []; // חותמות-זמן של הודעות אחרונות — להגבלת-קצב בצד-הלקוח
 function _securityScan(text) {
     if (!text || ADMIN_USERS.includes(currentUser)) return null; // דוד חסין
     for (const p of SECURITY_PATTERNS) if (p.test(text)) return p.source.slice(0, 60);
@@ -5960,6 +5961,14 @@ async function send() {
         const suspended = await _suspendAndAlert(_sec, q);
         inp.value = '';
         if (suspended) { alert('⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. פנה למנהל המערכת.'); doLogout(true); return; }
+    }
+
+    // הגבלת-קצב בצד-הלקוח — הגנה מפני הצפה (25 הודעות/דקה). דוד פטור.
+    if (!ADMIN_USERS.includes(currentUser)) {
+        const _now = Date.now();
+        _reqTimes = _reqTimes.filter(t => _now - t < 60000);
+        if (_reqTimes.length >= 25) { inp.value = ''; alert('שלחת יותר מדי הודעות בזמן קצר. המתן דקה ונסה שוב.'); return; }
+        _reqTimes.push(_now);
     }
 
     // Audio/Video → transcribe with Whisper, then treat the transcript as a document (normal flow below)
