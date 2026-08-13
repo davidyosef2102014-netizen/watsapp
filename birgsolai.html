@@ -4377,7 +4377,10 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     saveConversation();
 }
 
-// עריכת תמונה עם Nano Banana (Gemini image) — עריכה אמיתית מבוססת פיקסלים, חינם במכסה. מבין עברית. מחזיר data URL או null.
+// Nano Banana (Gemini image) דורש תוכנית בתשלום ב-Google (נבדק: 429 "billing"). כבוי כברירת מחדל.
+// ← הפוך ל-true ברגע שתפעיל billing ב-Google AI, והעריכה תעבור אוטומטית ל-Nano Banana (עם נפילה ל-FLUX).
+const NANO_BANANA_ENABLED = false;
+// עריכת תמונה עם Nano Banana (Gemini image) — עריכה אמיתית מבוססת פיקסלים. מבין עברית. מחזיר data URL או null.
 async function _geminiImageEdit(imgDataUrl, instruction) {
     const mt = (imgDataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/png';
     const b64 = imgDataUrl.includes(',') ? imgDataUrl.split(',')[1] : '';
@@ -4420,12 +4423,14 @@ async function editImage(imgDataUrl, instruction) {
     cw.appendChild(row);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
-    // Step 0: Nano Banana (Gemini image edit) — הבחירה הראשונה לעריכה אמיתית (חינם במכסה). אם מצליח — סיימנו.
-    skelTxt.textContent = 'עורך את התמונה…';
-    try {
-        const nano = await _geminiImageEdit(imgDataUrl, instruction);
-        if (nano) { await generateImage(instruction, row, { model: 'flux-realism', suffix: '' }, null, null, nano); return; }
-    } catch (e) { if (e.name === 'AbortError') return; }
+    // Step 0: Nano Banana (Gemini image edit) — הבחירה הראשונה לעריכה אמיתית. פעיל רק אם יש billing (אחרת מדלגים ישר לגיבוי).
+    if (NANO_BANANA_ENABLED) {
+        skelTxt.textContent = 'עורך את התמונה…';
+        try {
+            const nano = await _geminiImageEdit(imgDataUrl, instruction);
+            if (nano) { await generateImage(instruction, row, { model: 'flux-realism', suffix: '' }, null, null, nano); return; }
+        } catch (e) { if (e.name === 'AbortError') return; }
+    }
 
     // Step 1: describe image with Gemini vision (לגיבוי FLUX). לא-קריטי — העריכה האמיתית דרך gptimage
     // עובדת על הפיקסלים עצמם, לכן ממשיכים גם אם התיאור נכשל. (GitHub Models GPT-4o מת ולכן הוחלף.)
