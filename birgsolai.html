@@ -4196,6 +4196,21 @@ async function _hostImage(dataUrl) {
     } catch { return null; }
 }
 
+// שומר לצמיתות במאגר גם קישור תמונה חיצוני (fal.media/פולינציות) — מוריד את התמונה וממיר ל-data ואז מארח.
+// כך הקישור עובד תמיד ובכל מכשיר (fal.media הוא זמני). fal.media שולח CORS:* ולכן ה-fetch מצליח.
+async function _hostRemoteImage(url) {
+    try {
+        if (typeof url !== 'string' || !url) return null;
+        if (url.startsWith('data:')) return await _hostImage(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        if (!blob || blob.size < 200) return null;
+        const dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.onerror = () => r(null); fr.readAsDataURL(blob); });
+        return dataUrl ? await _hostImage(dataUrl) : null;
+    } catch { return null; }
+}
+
 async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInstruction, preMadeImage) {
     showChat();
     const cw = document.getElementById('chat-window');
@@ -4405,12 +4420,15 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
 
     if (loaded && img.naturalWidth > 0) {
         quotaUse('img');
-        // מארח את התמונה כקובץ קבוע (איכות מלאה, נשמר לתמיד). אם האירוח נכשל — שומר base64 כגיבוי.
+        // מארח את התמונה כקובץ קבוע במאגר שלנו — גם data: וגם קישורים חיצוניים זמניים (fal.media פג בהמשך).
+        // כך הקישור עובד תמיד ובכל מכשיר. אם כבר מאורח אצלנו — משאירים.
         let storedSrc = imgSrc;
-        if (imgSrc.startsWith('data:')) {
-            const hosted = await _hostImage(imgSrc);
+        if (!/raw\.githubusercontent\.com|\/db\/img\//.test(imgSrc)) {
+            const hosted = await _hostRemoteImage(imgSrc);
             if (hosted) storedSrc = hosted;
         }
+        // אם התמונה מוצגת עדיין מקישור זמני — נעדכן אותה לקישור הקבוע (שלא תישבר בהמשך)
+        if (storedSrc !== imgSrc && img && document.body.contains(img)) { img.src = storedSrc; img.onclick = () => window.open(storedSrc, '_blank'); }
         hist.push({ role: 'assistant', content: `[GENERATED_IMAGE:${storedSrc}§§${engPrompt.replace(/§/g,'')}]` });
     } else {
         hist.push({ role: 'assistant', content: `[תמונה נוצרה: ${prompt}] (היצירה נכשלה)` });
