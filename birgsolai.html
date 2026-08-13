@@ -1405,6 +1405,10 @@
                     <option value="fr">Français</option>
                 </select>
             </div>
+            <div class="sp-row" id="install-app-row" style="cursor:pointer;display:none" onclick="installApp()">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px;color:var(--blue,#4285F4);font-weight:700"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> התקן כאפליקציה</span>
+                <span style="color:var(--blue,#4285F4)">›</span>
+            </div>
             <div class="sp-row" style="cursor:pointer" onclick="openMemoryPanel()">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg> מה BIRGSOL זוכר עליי</span>
                 <span style="color:var(--muted)">›</span>
@@ -3105,6 +3109,7 @@ function applyLang(val) {
 }
 
 function initSettings() {
+    if (typeof _updateInstallBtn === 'function') _updateInstallBtn(); // הצג כפתור התקנה אם לא רץ כאפליקציה
     const greet = localStorage.getItem('sp_greet')     || 'שלום';
     const cards = localStorage.getItem('sp_cards') === '1';
     const lang  = _resolveLang();
@@ -3158,6 +3163,28 @@ function startApp() {
 /* ── PWA: רישום service worker ── */
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('birgsolai-sw.js').catch(() => {});
+}
+
+/* ── PWA: התקנה כאפליקציה (כפתור גלוי + הוראות iPhone) ── */
+let _deferredPrompt = null;
+function _isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
+function _updateInstallBtn() { const row = document.getElementById('install-app-row'); if (row) row.style.display = _isStandalone() ? 'none' : 'flex'; }
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _deferredPrompt = e; _updateInstallBtn(); });
+window.addEventListener('appinstalled', () => { _deferredPrompt = null; _updateInstallBtn(); if (typeof _tierToast === 'function') _tierToast('BIRGSOL AI הותקן! 🎉'); });
+async function installApp() {
+    if (_isStandalone()) { _tierToast('האפליקציה כבר מותקנת 🙂'); return; }
+    if (_deferredPrompt) {
+        _deferredPrompt.prompt();
+        try { await _deferredPrompt.userChoice; } catch {}
+        _deferredPrompt = null; _updateInstallBtn();
+        return;
+    }
+    const ua = navigator.userAgent;
+    if (/iphone|ipad|ipod/i.test(ua)) {
+        alert('התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ גלול ובחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא, בלי סרגל דפדפן — כמו אפליקציה רגילה.');
+    } else {
+        alert('התקנה:\n\nפתח את תפריט הדפדפן (⋮ למעלה) ובחר "התקן אפליקציה" או "הוסף למסך הבית".\n\n(אם האפשרות לא מופיעה — פתח בדפדפן Chrome, ורענן את הדף.)');
+    }
 }
 
 /* ── מובייל: הרם את תיבת ההקלדה מעל המקלדת (visualViewport) — אחרת המקלדת הפתוחה מסתירה אותה ── */
