@@ -3166,24 +3166,21 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ── PWA: התקנה כאפליקציה (כפתור גלוי + הוראות iPhone) ── */
-let _deferredPrompt = null;
-function _isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
-function _updateInstallBtn() { const row = document.getElementById('install-app-row'); if (row) row.style.display = _isStandalone() ? 'none' : 'flex'; }
-window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _deferredPrompt = e; _updateInstallBtn(); });
-window.addEventListener('appinstalled', () => { _deferredPrompt = null; _updateInstallBtn(); if (typeof _tierToast === 'function') _tierToast('BIRGSOL AI הותקן! 🎉'); });
-async function installApp() {
-    if (_isStandalone()) { _tierToast('האפליקציה כבר מותקנת 🙂'); return; }
-    if (_deferredPrompt) {
-        _deferredPrompt.prompt();
-        try { await _deferredPrompt.userChoice; } catch {}
-        _deferredPrompt = null; _updateInstallBtn();
-        return;
-    }
+const APK_URL = 'https://davidyosef2102014-netizen.github.io/watsapp/BIRGSOL-AI.apk';
+function _inBirgsolApp() { return /BirgsolApp/.test(navigator.userAgent); } // רץ בתוך ה-APK שלנו
+function _updateInstallBtn() { const row = document.getElementById('install-app-row'); if (row) row.style.display = _inBirgsolApp() ? 'none' : 'flex'; }
+window.addEventListener('appinstalled', () => { _updateInstallBtn(); if (typeof _tierToast === 'function') _tierToast('BIRGSOL AI הותקן! 🎉'); });
+function installApp() {
+    if (_inBirgsolApp()) { _tierToast('אתה כבר באפליקציה 🙂'); return; }
     const ua = navigator.userAgent;
     if (/iphone|ipad|ipod/i.test(ua)) {
-        alert('התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ גלול ובחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא, בלי סרגל דפדפן — כמו אפליקציה רגילה.');
+        // iOS לא תומך ב-APK — מתקינים כ-PWA דרך "הוסף למסך הבית"
+        alert('התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)');
     } else {
-        alert('התקנה:\n\nפתח את תפריט הדפדפן (⋮ למעלה) ובחר "התקן אפליקציה" או "הוסף למסך הבית".\n\n(אם האפשרות לא מופיעה — פתח בדפדפן Chrome, ורענן את הדף.)');
+        // אנדרואיד — הורדת ה-APK העצמאי (עובד גם בלי דפדפן)
+        if (confirm('להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)')) {
+            window.location.href = APK_URL;
+        }
     }
 }
 
