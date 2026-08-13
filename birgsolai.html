@@ -667,7 +667,7 @@
         .conv-item:hover { background:var(--surf2); }
         .conv-item.active { background:rgba(138,180,248,.12); }
         .conv-item .ci-icon { flex-shrink:0; font-size:15px; }
-        .conv-item .ci-title { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+        .conv-item .ci-title { flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
         .ci-del {
             opacity:0; transition:opacity .15s; flex-shrink:0;
             background:none; border:none; cursor:pointer;
@@ -1784,7 +1784,7 @@ function renderMsgOnly(role, text, histIdx) {
                 <div class="ai-ava"></div>
                 <div class="ai-body">
                     <div class="ai-name">Birgsol AI</div>
-                    <div class="ai-txt"><div class="ai-img-wrap"><img class="ai-gen-img" src="${url}" loading="lazy" style="display:block"><div class="ai-img-caption">${esc2(caption)}</div></div></div>
+                    <div class="ai-txt"><div class="ai-img-wrap"><img class="ai-gen-img" src="${url}" loading="lazy" style="display:block;cursor:pointer" title="פתח תמונה" onclick="window.open('${url}','_blank')"></div></div>
                     <div class="ai-acts">
                         <a class="ai-act" href="${url}" target="_blank" rel="noopener" style="text-decoration:none">${IC.extLink} פתח</a>
                         <a class="ai-act" href="${url}" download="birgsol-image.jpg" style="text-decoration:none">${IC.download} הורד</a>
@@ -4154,7 +4154,7 @@ async function _hostImage(dataUrl) {
     } catch { return null; }
 }
 
-async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInstruction) {
+async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInstruction, preMadeImage) {
     showChat();
     const cw = document.getElementById('chat-window');
 
@@ -4247,7 +4247,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     // "no text/letters" מונע מ-FLUX להדביק אותיות זר/ג'יבריש בתוך התמונה
     const styledPrompt = safePrompt + ', ' + imgStyle.suffix + '. No text, no letters, no words, no captions, no watermark, no signage.';
 
-    let imgSrc = null;
+    let imgSrc = preMadeImage || null; // תמונה מוכנה מראש (למשל תוצאת עריכת Nano Banana) — מדלגים על היצירה ורק מציגים
 
     // ── מצב עריכה: אם עורכים תמונה שהמשתמש העלה — עריכה אמיתית שמותנית בפיקסלים המקוריים
     //    (Pollinations gptimage, חינם, מקבל את התמונה עצמה). אם נכשל — ממשיך לשרשרת FLUX למטה
@@ -4333,13 +4333,12 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     // ── 4. Show result ──
     if (loaded && img.naturalWidth > 0) {
         img.className = 'ai-gen-img';
-        img.style.cssText = 'opacity:0;transition:opacity .5s;display:block';
-        const cap = document.createElement('div');
-        cap.className = 'ai-img-caption';
-        cap.textContent = engPrompt.length > 90 ? engPrompt.slice(0,90)+'…' : engPrompt;
+        img.style.cssText = 'opacity:0;transition:opacity .5s;display:block;cursor:pointer';
+        img.title = 'פתח תמונה';
+        img.onclick = () => window.open(imgSrc, '_blank'); // לחיצה על התמונה פותחת אותה בכל מכשיר
         if (skelEl) skelEl.remove();
         if (skelTxt) skelTxt.remove();
-        wrapEl.appendChild(img); wrapEl.appendChild(cap);
+        wrapEl.appendChild(img); // בלי כיתוב — רק התמונה (בקשת דוד)
         requestAnimationFrame(() => { img.style.opacity = '1'; });
 
         const openBtn = document.createElement('button');
@@ -4378,6 +4377,28 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     saveConversation();
 }
 
+// עריכת תמונה עם Nano Banana (Gemini image) — עריכה אמיתית מבוססת פיקסלים, חינם במכסה. מבין עברית. מחזיר data URL או null.
+async function _geminiImageEdit(imgDataUrl, instruction) {
+    const mt = (imgDataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/png';
+    const b64 = imgDataUrl.includes(',') ? imgDataUrl.split(',')[1] : '';
+    if (!b64) return null;
+    const body = { contents: [{ role: 'user', parts: [
+        { text: instruction || 'ערוך את התמונה לפי הבקשה' },
+        { inlineData: { mimeType: mt, data: b64 } }
+    ]}], generationConfig: { responseModalities: ['IMAGE'] } };
+    for (const model of ['gemini-2.5-flash-image', 'gemini-2.0-flash-preview-image-generation']) {
+        try {
+            const r = await _ghProxy('gemini', '/v1beta/models/' + model + ':generateContent', body, { signal: AbortSignal.timeout(45000) });
+            if (!r.ok) continue;
+            const j = await r.json();
+            const parts = j?.candidates?.[0]?.content?.parts || [];
+            const p = parts.find(x => x.inlineData && x.inlineData.data);
+            if (p) return 'data:' + (p.inlineData.mimeType || 'image/png') + ';base64,' + p.inlineData.data;
+        } catch (e) { if (e.name === 'AbortError') throw e; }
+    }
+    return null;
+}
+
 async function editImage(imgDataUrl, instruction) {
     showChat();
     const cw = document.getElementById('chat-window');
@@ -4398,6 +4419,13 @@ async function editImage(imgDataUrl, instruction) {
     row.appendChild(ava); row.appendChild(bodyEl);
     cw.appendChild(row);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+
+    // Step 0: Nano Banana (Gemini image edit) — הבחירה הראשונה לעריכה אמיתית (חינם במכסה). אם מצליח — סיימנו.
+    skelTxt.textContent = 'עורך את התמונה…';
+    try {
+        const nano = await _geminiImageEdit(imgDataUrl, instruction);
+        if (nano) { await generateImage(instruction, row, { model: 'flux-realism', suffix: '' }, null, null, nano); return; }
+    } catch (e) { if (e.name === 'AbortError') return; }
 
     // Step 1: describe image with Gemini vision (לגיבוי FLUX). לא-קריטי — העריכה האמיתית דרך gptimage
     // עובדת על הפיקסלים עצמם, לכן ממשיכים גם אם התיאור נכשל. (GitHub Models GPT-4o מת ולכן הוחלף.)
