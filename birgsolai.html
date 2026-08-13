@@ -287,6 +287,14 @@
         .ai-img-wrap { margin:12px 0; }
         .ai-gen-img { width:100%; max-width:800px; border-radius:16px; display:block; box-shadow:0 4px 32px rgba(0,0,0,.5); }
         .ai-img-caption { font-size:12px; color:var(--muted); margin-top:6px; }
+        .followups { display:flex; flex-wrap:wrap; gap:7px; margin-top:11px; }
+        .followup-chip {
+            background:var(--surf2); border:1px solid var(--border); color:var(--text);
+            border-radius:16px; padding:7px 13px; font-size:12.5px; cursor:pointer;
+            font-family:inherit; text-align:start; transition:background .15s, border-color .15s, transform .1s;
+        }
+        .followup-chip:hover { background:var(--surf); border-color:rgba(66,133,244,.45); transform:translateY(-1px); }
+        .followup-chip::before { content:"↳ "; opacity:.5; }
 
         /* ── Maps widget ── */
         .map-widget { margin:12px 0; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--surf); flex-shrink:0; width:100%; position:relative; z-index:0; }
@@ -3396,6 +3404,40 @@ async function rememberFacts(facts) {
 
 // Fire-and-forget: after each exchange, extract up to 3 durable facts about the user.
 // Includes existing memories to avoid redundant storage.
+// 💬 שאלות המשך — אחרי כל תשובה מציע 3 שאלות קצרות שהמשתמש יכול ללחוץ עליהן. מודל זול ומהיר (8b) כדי לא לשרוף מכסה.
+async function _suggestFollowups(userMsg, aiReply, bodyEl) {
+    if (!bodyEl || (typeof currentMode !== 'undefined' && currentMode === 'image')) return;
+    try {
+        const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
+            model: 'llama-3.1-8b-instant',
+            messages: [
+                { role: 'system', content: 'הצע בדיוק 3 שאלות המשך קצרות (עד 6 מילים כל אחת) שהמשתמש עשוי לשאול אחרי התשובה, בשפת המשתמש, טבעיות וספציפיות להקשר. ענה JSON בלבד: {"q":["...","...","..."]}' },
+                { role: 'user', content: `שאלה: ${userMsg}\nתשובה: ${(aiReply || '').slice(0, 600)}` }
+            ],
+            temperature: 0.6, max_tokens: 120
+        }, { signal: AbortSignal.timeout(9000) });
+        if (!res.ok) return;
+        const j = await res.json();
+        let arr = [];
+        try { arr = (JSON.parse(j?.choices?.[0]?.message?.content?.trim() || '{}').q) || []; } catch {}
+        arr = arr.filter(x => x && typeof x === 'string' && x.length < 60).slice(0, 3);
+        if (!arr.length || !document.body.contains(bodyEl)) return;
+        const wrap = document.createElement('div'); wrap.className = 'followups';
+        arr.forEach(qq => {
+            const chip = document.createElement('button'); chip.className = 'followup-chip';
+            chip.textContent = qq;
+            chip.addEventListener('click', () => {
+                if (busy) return;
+                const inp = document.getElementById('userInput');
+                inp.value = qq; wrap.remove(); send();
+            });
+            wrap.appendChild(chip);
+        });
+        bodyEl.appendChild(wrap);
+        const _cw = document.getElementById('chat-window'); if (_cw) _cw.scrollTo({ top: _cw.scrollHeight, behavior: 'smooth' });
+    } catch {}
+}
+
 async function extractMemory(userMsg, aiReply) {
     if (!currentUser || !userMsg) return;
     if (localStorage.getItem('birgsol_mem_off_' + currentUser) === '1') return; // המשתמש כיבה את הזיכרון
@@ -6237,6 +6279,7 @@ async function send() {
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
         saveConversation();
         extractMemory(q, cleanText || fullText);
+        _suggestFollowups(q, cleanText || fullText, body); // 💬 שאלות המשך לחיצות
         // Auto-name the conversation after the very first exchange
         if (hist.filter(m => m.role === 'assistant').length === 1) _autoNameConv();
     }
