@@ -1,0 +1,51 @@
+name: Build BIRGSOL AI APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'androidapp/**'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug APK
+        working-directory: androidapp
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: cp androidapp/app/build/outputs/apk/debug/app-debug.apk BIRGSOL-AI.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BIRGSOL-AI-apk
+          path: BIRGSOL-AI.apk
+
+      - name: Publish to Release (permanent download link)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: BIRGSOL AI — APK
+          body: הורד את הקובץ BIRGSOL-AI.apk והתקן בטלפון (אפשר "התקנה ממקור לא ידוע"). עובד בלי Chrome.
+          files: BIRGSOL-AI.apk
