@@ -1426,15 +1426,15 @@
                 </select>
             </div>
             <div class="sp-row" id="install-app-row" style="cursor:pointer;display:none" onclick="installApp()">
-                <span class="sp-label" style="display:flex;align-items:center;gap:6px;color:var(--blue,#4285F4);font-weight:700"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> התקן כאפליקציה</span>
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px;color:var(--blue,#4285F4);font-weight:700"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> <span data-i18n="install_app">התקן כאפליקציה</span></span>
                 <span style="color:var(--blue,#4285F4)">›</span>
             </div>
             <div class="sp-row" style="cursor:pointer" onclick="openMemoryPanel()">
-                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg> מה BIRGSOL זוכר עליי</span>
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg> <span data-i18n="mem_row">מה BIRGSOL זוכר עליי</span></span>
                 <span style="color:var(--muted)">›</span>
             </div>
             <div class="sp-row" style="cursor:pointer" onclick="openPrivacyPolicy()">
-                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> מדיניות פרטיות</span>
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> <span data-i18n="privacy_row">מדיניות פרטיות</span></span>
                 <span style="color:var(--muted)">›</span>
             </div>
         </div>
@@ -1481,12 +1481,12 @@
 <div id="privacy-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9700;align-items:center;justify-content:center;padding:16px">
   <div style="background:var(--surf,#fff);color:var(--text,#111);max-width:560px;width:100%;max-height:85vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
-      <h3 style="font-size:16px;font-weight:700;margin:0">מדיניות פרטיות — BIRGSOL AI</h3>
+      <h3 style="font-size:16px;font-weight:700;margin:0" data-i18n="privacy_title">מדיניות פרטיות — BIRGSOL AI</h3>
       <button onclick="closePrivacyPolicy()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
     </div>
     <div id="privacy-body" style="overflow-y:auto;padding:16px 20px;font-size:13.5px;line-height:1.75"></div>
     <div style="padding:12px 20px;border-top:1px solid var(--border);text-align:left">
-      <button onclick="closePrivacyPolicy()" style="padding:9px 22px;border-radius:12px;border:none;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;font-weight:700;cursor:pointer">הבנתי</button>
+      <button onclick="closePrivacyPolicy()" style="padding:9px 22px;border-radius:12px;border:none;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;font-weight:700;cursor:pointer" data-i18n="got_it">הבנתי</button>
     </div>
   </div>
 </div>
@@ -1495,13 +1495,13 @@
 <div id="memory-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9700;align-items:center;justify-content:center;padding:16px">
   <div style="background:var(--surf,#fff);color:var(--text,#111);max-width:520px;width:100%;max-height:85vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
-      <h3 style="font-size:16px;font-weight:700;margin:0;display:flex;align-items:center;gap:7px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg> מה BIRGSOL זוכר עליי</h3>
+      <h3 style="font-size:16px;font-weight:700;margin:0;display:flex;align-items:center;gap:7px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg> <span data-i18n="mem_row">מה BIRGSOL זוכר עליי</span></h3>
       <button onclick="closeMemoryPanel()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
     </div>
-    <div id="memory-body" style="overflow-y:auto;padding:12px 18px;font-size:13.5px">טוען…</div>
+    <div id="memory-body" style="overflow-y:auto;padding:12px 18px;font-size:13.5px" data-i18n="mem_loading">טוען…</div>
     <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-      <label style="font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="mem-off-toggle" onchange="toggleMemoryOff()" style="width:16px;height:16px;accent-color:#4285F4"> כבה זיכרון (אל תלמד עליי)</label>
-      <button onclick="clearAllMemory()" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(220,50,50,.35);background:rgba(220,50,50,.12);color:#ff5a5a;font-weight:700;cursor:pointer;font-size:13px">מחק הכל</button>
+      <label style="font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="mem-off-toggle" onchange="toggleMemoryOff()" style="width:16px;height:16px;accent-color:#4285F4"> <span data-i18n="mem_off">כבה זיכרון (אל תלמד עליי)</span></label>
+      <button onclick="clearAllMemory()" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(220,50,50,.35);background:rgba(220,50,50,.12);color:#ff5a5a;font-weight:700;cursor:pointer;font-size:13px" data-i18n="clear_all">מחק הכל</button>
     </div>
   </div>
 </div>
@@ -1560,7 +1560,7 @@
             <div id="mode-chip" style="display:none;margin-bottom:7px">
                 <span style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;border-radius:14px;padding:5px 12px;font-size:12.5px;font-weight:700">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-                    @תמונות · כל הודעה יוצרת תמונה
+                    <span data-i18n="mode_chip_image">@תמונות · כל הודעה יוצרת תמונה</span>
                 </span>
             </div>
             <!-- Free tier banner -->
@@ -2421,10 +2421,8 @@ function _setLoginLock(user, obj) { try { localStorage.setItem('birgsol_lock_' +
 function _clearLoginLock(user) { try { localStorage.removeItem('birgsol_lock_' + user); } catch {} }
 
 /* ── מדיניות פרטיות ── */
-function openPrivacyPolicy() {
-    const b = document.getElementById('privacy-body');
-    if (b && !b.dataset.filled) {
-        b.innerHTML =
+const PRIVACY_HTML = {
+    he:
 `<p><b>BIRGSOL AI</b> מכבד את הפרטיות שלך. המסמך מסביר בקצרה איזה מידע נאסף, למה, ומה הזכויות שלך.</p>
 <p><b>1. איזה מידע נאסף</b><br>• פרטי החשבון: שם משתמש או כתובת מייל, וסיסמה (נשמרת <b>מוצפנת</b>, לעולם לא כטקסט גלוי).<br>• תוכן השיחות שלך עם ה-AI.<br>• עובדות ש-BIRGSOL לומד עליך כדי להכיר אותך (למשל תחומי עניין, העדפות, מגבלות כמו כשרות). אפשר לראות ולמחוק אותן בכל רגע דרך "מה BIRGSOL זוכר עליי", או לכבות את הלמידה לגמרי.<br>• העדפות: שפה, גרסה, ערכת נושא.</p>
 <p><b>2. למה משתמשים במידע</b><br>כדי לספק את השירות, לזכור אותך בין שיחות ולשפר את איכות התשובות. <b>לא מוכרים ולא משתפים</b> את המידע שלך לצורכי פרסום.</p>
@@ -2432,8 +2430,22 @@ function openPrivacyPolicy() {
 <p><b>4. צד שלישי</b><br>לצורך עיבוד ההודעות נעשה שימוש בספקי בינה מלאכותית, ולצורך התחברות — בשירות של Google. אלה כפופים למדיניות הפרטיות שלהם.</p>
 <p><b>5. הזכויות שלך</b><br>• לראות ולמחוק כל עובדה שנשמרה עליך.<br>• לכבות את הזיכרון.<br>• לבקש מחיקת חשבון — פנייה למנהל המערכת.</p>
 <p><b>6. יצירת קשר</b><br>לשאלות בנושא פרטיות ניתן לפנות למנהל המערכת (דוד).</p>
-<p style="color:var(--muted);font-size:12px">השימוש ב-BIRGSOL AI מהווה הסכמה למדיניות זו.</p>`;
-        b.dataset.filled = '1';
+<p style="color:var(--muted);font-size:12px">השימוש ב-BIRGSOL AI מהווה הסכמה למדיניות זו.</p>`,
+    en:
+`<p><b>BIRGSOL AI</b> respects your privacy. This document briefly explains what information is collected, why, and what your rights are.</p>
+<p><b>1. What information is collected</b><br>• Account details: a username or email address, and a password (stored <b>encrypted</b>, never as plain text).<br>• The content of your chats with the AI.<br>• Facts BIRGSOL learns about you to get to know you (e.g. interests, preferences, constraints such as keeping kosher). You can view and delete them at any time via "What BIRGSOL remembers about me", or turn learning off entirely.<br>• Preferences: language, plan, theme.</p>
+<p><b>2. How the information is used</b><br>To provide the service, remember you between chats, and improve answer quality. Your information is <b>never sold or shared</b> for advertising.</p>
+<p><b>3. Storage and security</b><br>Data is stored in the cloud via a secure server; all keys and secrets are kept server-side only. The system detects suspicious activity (hacking attempts) and may suspend an account to protect users.</p>
+<p><b>4. Third parties</b><br>AI providers are used to process messages, and Google is used for sign-in. These are subject to their own privacy policies.</p>
+<p><b>5. Your rights</b><br>• View and delete any fact saved about you.<br>• Turn memory off.<br>• Request account deletion — contact the administrator.</p>
+<p><b>6. Contact</b><br>For privacy questions, contact the administrator (David).</p>
+<p style="color:var(--muted);font-size:12px">Using BIRGSOL AI constitutes agreement to this policy.</p>`
+};
+function openPrivacyPolicy() {
+    const b = document.getElementById('privacy-body');
+    if (b) {
+        const lang = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+        b.innerHTML = PRIVACY_HTML[lang] || PRIVACY_HTML.en;
     }
     document.getElementById('privacy-overlay').style.display = 'flex';
 }
@@ -2449,15 +2461,16 @@ function openMemoryPanel() {
 function closeMemoryPanel() { document.getElementById('memory-overlay').style.display = 'none'; }
 function _renderMemoryPanel() {
     const body = document.getElementById('memory-body');
-    if (!userMemory.length) { body.innerHTML = '<div style="color:var(--muted);padding:14px 0">עדיין לא נשמרו עליך עובדות. ככל שתשוחח, BIRGSOL יזכור דברים חשובים — ותוכל לראות ולמחוק אותם כאן.</div>'; return; }
+    if (!userMemory.length) { body.innerHTML = '<div style="color:var(--muted);padding:14px 0">' + esc2(_t('mem_empty')) + '</div>'; return; }
     const groups = {};
+    const cats = _memCats();
     for (const f of userMemory) { const n = _memNorm(f); if (n.t) (groups[n.c] = groups[n.c] || []).push(n.t); }
     const order = ['family', 'friends', 'life', 'work', 'prefs', 'health', 'other'];
     let html = '';
     for (const c of order) {
         if (groups[c] && groups[c].length) {
-            html += `<div style="font-weight:700;margin:10px 0 4px;color:var(--blue,#4285F4)">${esc2(MEM_CATS[c])}</div>`;
-            for (const tt of groups[c]) html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="flex:1">${esc2(tt)}</span><button class="mem-del" data-t="${esc2(tt).replace(/"/g, '&quot;')}" style="background:none;border:none;color:#ff5a5a;cursor:pointer;font-size:16px" title="מחק">🗑</button></div>`;
+            html += `<div style="font-weight:700;margin:10px 0 4px;color:var(--blue,#4285F4)">${esc2(cats[c])}</div>`;
+            for (const tt of groups[c]) html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="flex:1">${esc2(tt)}</span><button class="mem-del" data-t="${esc2(tt).replace(/"/g, '&quot;')}" style="background:none;border:none;color:#ff5a5a;cursor:pointer;font-size:16px" title="${esc2(_t('mem_delete'))}">🗑</button></div>`;
         }
     }
     body.innerHTML = html;
@@ -2469,16 +2482,16 @@ async function deleteMemoryItem(text) {
     _renderMemoryPanel();
 }
 async function clearAllMemory() {
-    if (!await _confirm('למחוק את כל מה ש-BIRGSOL זוכר עליך? אי אפשר לשחזר.')) return;
+    if (!await _confirm(_t('mem_confirm_clear'))) return;
     userMemory = [];
     try { await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: [] }); } catch {}
     _renderMemoryPanel();
-    _tierToast('הזיכרון נמחק');
+    _tierToast(_t('mem_cleared'));
 }
 function toggleMemoryOff() {
     const off = document.getElementById('mem-off-toggle').checked;
     localStorage.setItem('birgsol_mem_off_' + currentUser, off ? '1' : '0');
-    _tierToast(off ? 'הזיכרון כבוי — לא אלמד עליך דברים חדשים' : 'הזיכרון פעיל שוב');
+    _tierToast(off ? _t('mem_off_on') : _t('mem_off_off'));
 }
 
 /* ── Google Sign-In — התחברות/יצירת חשבון בקליק אחד (client-side, רק Client ID) ── */
@@ -3110,6 +3123,47 @@ const L10N_REG = {
 };
 Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
 
+/* מחרוזות של הפיצ'רים החדשים (התקנה, זיכרון, פרטיות, קנבס, מצב תמונות, דיאלוגים).
+   מוגדר עברית + אנגלית; שאר השפות נופלות לאנגלית כדי שלא יישארו בעברית. */
+const L10N_EXTRA = {
+    he: {
+        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות',
+        privacy_title:'מדיניות פרטיות — BIRGSOL AI', got_it:'הבנתי',
+        mem_off:'כבה זיכרון (אל תלמד עליי)', clear_all:'מחק הכל', mem_loading:'טוען…',
+        mem_empty:'עדיין לא נשמרו עובדות עליך. ככל שתשוחח יותר, BIRGSOL ילמד ויזכור כאן דברים.',
+        mem_delete:'מחק', mem_cleared:'הזיכרון נמחק', mem_confirm_clear:'למחוק את כל מה ש-BIRGSOL זוכר עליך? אי אפשר לשחזר.',
+        mem_off_on:'הזיכרון כבוי — לא אלמד עליך דברים חדשים', mem_off_off:'הזיכרון פעיל שוב',
+        canvas_title:'Canvas — תצוגה חיה', canvas_live:'תצוגה חיה', canvas_code:'קוד',
+        code_completing:'משלים את הקוד…',
+        mode_chip_image:'@תמונות · כל הודעה יוצרת תמונה', ph_image:'תאר תמונה ליצירה…',
+        install_ios:'התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)',
+        install_android:'להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)',
+        install_done:'BIRGSOL AI הותקן! 🎉', install_already:'אתה כבר באפליקציה 🙂'
+    },
+    en: {
+        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy',
+        privacy_title:'Privacy Policy — BIRGSOL AI', got_it:'Got it',
+        mem_off:'Turn off memory (don\'t learn about me)', clear_all:'Delete all', mem_loading:'Loading…',
+        mem_empty:'No facts saved about you yet. The more you chat, the more BIRGSOL will learn and remember here.',
+        mem_delete:'Delete', mem_cleared:'Memory cleared', mem_confirm_clear:'Delete everything BIRGSOL remembers about you? This cannot be undone.',
+        mem_off_on:'Memory off — I won\'t learn new things about you', mem_off_off:'Memory active again',
+        canvas_title:'Canvas — live preview', canvas_live:'Live preview', canvas_code:'Code',
+        code_completing:'Completing the code…',
+        mode_chip_image:'@images · every message creates an image', ph_image:'Describe an image to create…',
+        install_ios:'Install on iPhone (Safari):\n\n1️⃣ Tap the Share button ⬆️ at the bottom of the screen\n2️⃣ Choose "Add to Home Screen"\n3️⃣ Tap "Add"\n\nThe app will open in full screen like a regular app.\n\n(Installing is optional — you can just keep using the site.)',
+        install_android:'Download the BIRGSOL AI app?\n\nIt\'s standalone — with its own icon, works even without Chrome.\nAfter downloading: open the file and install (if asked, allow "Install from unknown source").\n\n(Optional — you can also just keep using the site.)',
+        install_done:'BIRGSOL AI installed! 🎉', install_already:'You\'re already in the app 🙂'
+    }
+};
+Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
+
+/* מחזיר טקסט מתורגם לפי השפה הנוכחית; נופל לעברית ואז למפתח עצמו */
+function _t(key) {
+    const lang = (typeof _resolveLang === 'function') ? _resolveLang() : (localStorage.getItem('birgsol_lang') || 'he');
+    const t = L10N[lang] || L10N.en;
+    return (t[key] !== undefined) ? t[key] : (L10N.he[key] !== undefined ? L10N.he[key] : key);
+}
+
 const RTL_LANGS = ['he','ar'];
 
 /* קביעת שפת ברירת מחדל: אם המשתמש בחר — לפי בחירתו.
@@ -3230,16 +3284,16 @@ if ('serviceWorker' in navigator) {
 const APK_URL = 'https://davidyosef2102014-netizen.github.io/watsapp/BIRGSOL-AI.apk';
 function _inBirgsolApp() { return /BirgsolApp/.test(navigator.userAgent); } // רץ בתוך ה-APK שלנו
 function _updateInstallBtn() { const row = document.getElementById('install-app-row'); if (row) row.style.display = _inBirgsolApp() ? 'none' : 'flex'; }
-window.addEventListener('appinstalled', () => { _updateInstallBtn(); if (typeof _tierToast === 'function') _tierToast('BIRGSOL AI הותקן! 🎉'); });
+window.addEventListener('appinstalled', () => { _updateInstallBtn(); if (typeof _tierToast === 'function') _tierToast(_t('install_done')); });
 async function installApp() {
-    if (_inBirgsolApp()) { _tierToast('אתה כבר באפליקציה 🙂'); return; }
+    if (_inBirgsolApp()) { _tierToast(_t('install_already')); return; }
     const ua = navigator.userAgent;
     if (/iphone|ipad|ipod/i.test(ua)) {
         // iOS לא תומך ב-APK — מתקינים כ-PWA דרך "הוסף למסך הבית"
-        _alert('התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)');
+        _alert(_t('install_ios'));
     } else {
         // אנדרואיד — הורדת ה-APK העצמאי (עובד גם בלי דפדפן)
-        if (await _confirm('להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)')) {
+        if (await _confirm(_t('install_android'))) {
             window.location.href = APK_URL;
         }
     }
@@ -3454,14 +3508,14 @@ function _updateModeChip() {
     const inp = document.getElementById('userInput');
     const isImg = (typeof currentMode !== 'undefined' && currentMode === 'image');
     if (chip) chip.style.display = isImg ? 'block' : 'none';
-    if (inp) inp.placeholder = isImg ? 'תאר תמונה ליצירה…' : 'שאל את Birgsol AI...';
+    if (inp) inp.placeholder = isImg ? _t('ph_image') : _t('ph');
 }
 // מצב קוד — פותח קנבס מפוצל (65%) עם תצוגה חיה, כמו Gemini
 function _enterCodeCanvas() {
     if (window.innerWidth < 701) return; // במובייל הקנבס נפתח מלא בעת יצירת קוד, לא פיצול
     document.body.classList.add('code-split');
     const p = document.getElementById('canvas-panel'); if (p) p.classList.add('open');
-    document.getElementById('canvas-title').textContent = 'Canvas — תצוגה חיה';
+    document.getElementById('canvas-title').textContent = _t('canvas_title');
     const frame = document.getElementById('canvas-frame');
     if (frame && !document.getElementById('canvas-code').value) {
         frame.srcdoc = '<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#9aa;text-align:center;direction:rtl;padding:20px">בקש קוד — ותראה אותו כאן חי בזמן אמת ✨</body></html>';
@@ -3481,7 +3535,12 @@ let _groqCooldownUntil = 0; // כש-Groq מגיע למגבלת קצב, נותנ�
 let _abortCtrl = null;
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
 // כל פריט זיכרון: {t:"טקסט העובדה", c:"קטגוריה", d:חותמת_זמן}. תאימות לאחור: מחרוזות ישנות מומרות ל-{t,c:'other'}.
-const MEM_CATS = { family:'משפחה', friends:'חברים ואנשים קרובים', life:'אירועי חיים', prefs:'העדפות וטעמים', work:'עבודה, לימודים ופרויקטים', health:'בריאות ורגש', other:'שונות' };
+const MEM_CATS_I18N = {
+    he: { family:'משפחה', friends:'חברים ואנשים קרובים', life:'אירועי חיים', prefs:'העדפות וטעמים', work:'עבודה, לימודים ופרויקטים', health:'בריאות ורגש', other:'שונות' },
+    en: { family:'Family', friends:'Friends & close people', life:'Life events', prefs:'Preferences & tastes', work:'Work, studies & projects', health:'Health & emotions', other:'Other' }
+};
+function _memCats() { const lang = (typeof _resolveLang === 'function') ? _resolveLang() : 'he'; return MEM_CATS_I18N[lang] || MEM_CATS_I18N.en; }
+const MEM_CATS = MEM_CATS_I18N.he;  // תאימות לאחור
 function _memNorm(f) {
     if (typeof f === 'string') return { t: f.trim(), c: 'other', d: 0 };
     return { t: (f && f.t || '').trim(), c: (f && MEM_CATS[f.c] ? f.c : 'other'), d: (f && f.d) || 0 };
@@ -6399,7 +6458,7 @@ async function send() {
         let tries = 0;
         while (tries < 4 && (fullText.match(/```/g) || []).length % 2 === 1) {
             tries++;
-            try { status.style.display = 'flex'; status.innerHTML = '<span class="agent-step"><span class="agent-step-dot"></span><b>משלים את הקוד…</b></span>'; } catch {}
+            try { status.style.display = 'flex'; status.innerHTML = '<span class="agent-step"><span class="agent-step-dot"></span><b>' + _t('code_completing') + '</b></span>'; } catch {}
             const contMsgs = [
                 { role: 'system', content: 'אתה משלים קוד שנקטע באמצע. המשך בדיוק מהתו האחרון שנכתב, בלי לחזור על שום דבר קודם, בלי הקדמות או הסברים — רק המשך הקוד עד הסוף, כולל סגירת בלוק הקוד (```).' },
                 { role: 'assistant', content: fullText.slice(-3500) },
