@@ -280,6 +280,12 @@
         }
         #canvas-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: none; background: white; }
         @media (max-width: 700px) { .canvas-panel { width: 100%; min-width: 0; } }
+        /* מצב קוד — פיצול 65% קנבס (שמאל) / 35% צ'אט (ימין), כמו Gemini. רק בדסקטופ. */
+        @media (min-width: 701px) {
+            body.code-split { padding-left: 65%; }
+            body.code-split .canvas-panel { width: 65%; }
+            body.code-split #sidebar { display: none; } /* הצ'אט מקבל את כל ה-35% */
+        }
         .code-block pre { background: none; border: none; border-radius: 0; padding: 14px 16px; margin: 0; overflow-x: auto; }
         .code-block pre code { background: none; padding: 0; font-size: 13.5px; color: #e8eaed; }
         .code-preview { width:100%; min-height:180px; border:none; border-top:1px solid var(--border); border-radius:0 0 12px 12px; background:#fff; display:none; }
@@ -295,6 +301,16 @@
         }
         .followup-chip:hover { background:var(--surf); border-color:rgba(66,133,244,.45); transform:translateY(-1px); }
         .followup-chip::before { content:"↳ "; opacity:.5; }
+        /* חלונות דיאלוג פנימיים (במקום alert/confirm/prompt של הדפדפן) */
+        .app-modal-ov { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; animation:ovfade .15s ease; }
+        @keyframes ovfade { from{opacity:0} to{opacity:1} }
+        .app-modal { background:var(--surf,#fff); color:var(--text,#111); border-radius:18px; max-width:400px; width:100%; padding:22px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+        .app-modal-msg { font-size:14.5px; line-height:1.6; white-space:pre-wrap; margin-bottom:16px; }
+        .app-modal-input { width:100%; padding:11px 13px; border-radius:12px; border:1.5px solid var(--border); background:var(--surf2,#f1f3f4); color:var(--text); font-size:14px; margin-bottom:16px; font-family:inherit; box-sizing:border-box; }
+        .app-modal-btns { display:flex; gap:8px; justify-content:flex-end; }
+        .app-modal-btns button { padding:9px 20px; border-radius:12px; border:none; font-weight:700; cursor:pointer; font-family:inherit; font-size:14px; }
+        .amb-ok { background:linear-gradient(135deg,#4285F4,#9C6ADE); color:#fff; }
+        .amb-cancel { background:var(--surf2,#eef); color:var(--text,#333); }
 
         /* ── Maps widget ── */
         .map-widget { margin:12px 0; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--surf); flex-shrink:0; width:100%; position:relative; z-index:0; }
@@ -3110,6 +3126,11 @@ function applyLang(val) {
 
 function initSettings() {
     if (typeof _updateInstallBtn === 'function') _updateInstallBtn(); // הצג כפתור התקנה אם לא רץ כאפליקציה
+    // סנכרון מצב (שיחה/קוד/תמונה) בטעינה + פתיחת קנבס אם מצב קוד
+    try {
+        ['normal','code','image'].forEach(m => { const b = document.getElementById('mode-' + m); if (b) b.classList.toggle('active', m === currentMode); });
+        if (currentMode === 'code' && typeof _enterCodeCanvas === 'function') _enterCodeCanvas();
+    } catch {}
     const greet = localStorage.getItem('sp_greet')     || 'שלום';
     const cards = localStorage.getItem('sp_cards') === '1';
     const lang  = _resolveLang();
@@ -3384,7 +3405,24 @@ function setMode(mode) {
         const btn = document.getElementById('mode-' + m);
         if (btn) btn.classList.toggle('active', m === mode);
     });
+    if (mode === 'code') _enterCodeCanvas(); else _exitCodeCanvas();
     startNew();
+}
+// מצב קוד — פותח קנבס מפוצל (65%) עם תצוגה חיה, כמו Gemini
+function _enterCodeCanvas() {
+    if (window.innerWidth < 701) return; // במובייל הקנבס נפתח מלא בעת יצירת קוד, לא פיצול
+    document.body.classList.add('code-split');
+    const p = document.getElementById('canvas-panel'); if (p) p.classList.add('open');
+    document.getElementById('canvas-title').textContent = 'Canvas — תצוגה חיה';
+    const frame = document.getElementById('canvas-frame');
+    if (frame && !document.getElementById('canvas-code').value) {
+        frame.srcdoc = '<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#9aa;text-align:center;direction:rtl;padding:20px">בקש קוד — ותראה אותו כאן חי בזמן אמת ✨</body></html>';
+        canvasTab('view');
+    }
+}
+function _exitCodeCanvas() {
+    document.body.classList.remove('code-split');
+    const p = document.getElementById('canvas-panel'); if (p) p.classList.remove('open');
 }
 
 
@@ -3714,6 +3752,32 @@ function openCanvas(btn, lang, ext) {
 
 function closeCanvas() {
     document.getElementById('canvas-panel').classList.remove('open');
+    document.body.classList.remove('code-split');
+}
+
+// טעינה אוטומטית של הקוד שנוצר לתוך הקנבס (מצב קוד) — תצוגה חיה, עדכון בכל שיפור
+function _autoCanvasFromMsg(txtEl) {
+    if (typeof currentMode === 'undefined' || currentMode !== 'code' || !txtEl) return;
+    const blocks = [...txtEl.querySelectorAll('.code-block')];
+    if (!blocks.length) return;
+    let best = null, bestLen = 0, bestLang = '';
+    for (const b of blocks) {
+        const codeEl = b.querySelector('code'); if (!codeEl) continue;
+        const lang = (b.querySelector('.code-lang')?.textContent || '').toLowerCase();
+        const t = codeEl.innerText || '';
+        if (lang === 'html') { best = t; bestLang = 'html'; break; } // HTML עדיף (תצוגה חיה מלאה)
+        if (t.length > bestLen) { bestLen = t.length; best = t; bestLang = lang; }
+    }
+    if (!best) return;
+    if (window.innerWidth >= 701) document.body.classList.add('code-split');
+    document.getElementById('canvas-panel').classList.add('open');
+    _canvasLang = bestLang || 'plaintext';
+    _canvasExt = ({ html:'html', javascript:'js', js:'js', css:'css', python:'py', json:'json' })[_canvasLang] || 'txt';
+    document.getElementById('canvas-code').value = best;
+    document.getElementById('canvas-title').textContent = 'Canvas — ' + _canvasLang;
+    const previewable = ['html','javascript','js','css'].includes(_canvasLang);
+    document.getElementById('ctab-view').style.display = previewable ? '' : 'none';
+    canvasTab(previewable ? 'view' : 'code');
 }
 
 function canvasTab(t) {
@@ -6034,7 +6098,8 @@ async function send() {
     }
 
     // Image generation — free, unlimited, no quota used
-    if (isImageRequest(q) && !fileUrl && !fileContent) {
+    // מצב תמונה — כל הודעה היא בקשת תמונה (המצב מתמחה ביצירת תמונות בלבד)
+    if ((currentMode === 'image' && q && !fileUrl && !fileContent) || (isImageRequest(q) && !fileUrl && !fileContent)) {
         addMsg('user', q);
         inp.value = ''; inp.style.height = 'auto';
         busy = true; updateBtn(); // נעילה — מונע התנגשות עם ההודעה הבאה בזמן יצירה איטית
@@ -6301,6 +6366,7 @@ async function send() {
             txt.innerHTML = mdSafe(cleanText || fullText);
             enhanceCodeBlocks(txt);
             _renderMath(txt); // fire-and-forget KaTeX
+            _autoCanvasFromMsg(txt); // מצב קוד — טען את הקוד לקנבס החי
         } catch(renderErr) {}
 
         if (_stopped) {
