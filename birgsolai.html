@@ -1421,6 +1421,10 @@
                 <button class="sp-toggle" id="sp-sources" onclick="toggleSources()"></button>
             </div>
             <div class="sp-row">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> <span data-i18n="followups_label">שאלות המשך</span></span>
+                <button class="sp-toggle" id="sp-followups" onclick="toggleFollowups()"></button>
+            </div>
+            <div class="sp-row">
                 <span class="sp-label" data-i18n="ai_lang">שפת AI</span>
                 <select class="sp-select" id="sp-lang" onchange="applyLang(this.value)">
                     <option value="he">עברית</option>
@@ -3137,6 +3141,12 @@ function toggleSources() {
     const isOn = btn.classList.toggle('on');
     localStorage.setItem('birgsol_show_sources', isOn ? '1' : '0');
 }
+// שאלות המשך — כברירת מחדל דולק. כיבוי: לא יוצע 3 שאלות המשך אחרי כל תשובה.
+function toggleFollowups() {
+    const btn = document.getElementById('sp-followups');
+    const isOn = btn.classList.toggle('on');
+    localStorage.setItem('birgsol_followups_off', isOn ? '0' : '1');
+}
 // מחלץ דומיינים ייחודיים מטקסט תוצאות החיפוש; מסנן שירותי-חיפוש/פרוקסי פנימיים (לא "אתרים" למשתמש).
 function _extractDomains(text) {
     const urls = String(text || '').match(/https?:\/\/[^\s)"'\]]+/g) || [];
@@ -3199,7 +3209,7 @@ Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
    מוגדר עברית + אנגלית; שאר השפות נופלות לאנגלית כדי שלא יישארו בעברית. */
 const L10N_EXTRA = {
     he: {
-        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות',
+        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך',
         privacy_title:'מדיניות פרטיות — BIRGSOL AI', got_it:'הבנתי',
         mem_off:'כבה זיכרון (אל תלמד עליי)', clear_all:'מחק הכל', mem_loading:'טוען…',
         mem_empty:'עדיין לא נשמרו עובדות עליך. ככל שתשוחח יותר, BIRGSOL ילמד ויזכור כאן דברים.',
@@ -3213,7 +3223,7 @@ const L10N_EXTRA = {
         install_done:'BIRGSOL AI הותקן! 🎉', install_already:'אתה כבר באפליקציה 🙂'
     },
     en: {
-        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy',
+        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions',
         privacy_title:'Privacy Policy — BIRGSOL AI', got_it:'Got it',
         mem_off:'Turn off memory (don\'t learn about me)', clear_all:'Delete all', mem_loading:'Loading…',
         mem_empty:'No facts saved about you yet. The more you chat, the more BIRGSOL will learn and remember here.',
@@ -3321,6 +3331,8 @@ function initSettings() {
     // search-sources toggle (default off)
     const showSrc = localStorage.getItem('birgsol_show_sources') === '1';
     document.getElementById('sp-sources')?.classList.toggle('on', showSrc);
+    const foOn = localStorage.getItem('birgsol_followups_off') !== '1'; // דולק כברירת מחדל
+    document.getElementById('sp-followups')?.classList.toggle('on', foOn);
 
     // deep-think feature toggle (default on)
     const deepFeature = localStorage.getItem('sp_deep_feature') !== '0';
@@ -3647,6 +3659,7 @@ async function rememberFacts(facts) {
 // Includes existing memories to avoid redundant storage.
 // 💬 שאלות המשך — אחרי כל תשובה מציע 3 שאלות קצרות שהמשתמש יכול ללחוץ עליהן. מודל זול ומהיר (8b) כדי לא לשרוף מכסה.
 async function _suggestFollowups(userMsg, aiReply, bodyEl) {
+    if (localStorage.getItem('birgsol_followups_off') === '1') return; // כובה בהגדרות
     if (!bodyEl || (typeof currentMode !== 'undefined' && currentMode === 'image')) return;
     try {
         const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
