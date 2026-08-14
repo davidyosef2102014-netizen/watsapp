@@ -4582,7 +4582,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     const safePrompt = engPrompt.slice(0, 400);
     const seed = Math.floor(Math.random() * 999999);
     // "no text/letters" מונע מ-FLUX להדביק אותיות זר/ג'יבריש בתוך התמונה
-    const styledPrompt = safePrompt + ', ' + imgStyle.suffix + '. No text, no letters, no words, no captions, no watermark, no signage.';
+    const styledPrompt = safePrompt + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality. No text, no letters, no words, no captions, no watermark, no signage.';
 
     let imgSrc = preMadeImage || null; // תמונה מוכנה מראש (למשל תוצאת עריכת Nano Banana) — מדלגים על היצירה ורק מציגים
 
@@ -4622,7 +4622,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     } catch { /* ניפול ל-Cloudflare schnell */ }
 
     // 2nd: FLUX.1-schnell via Cloudflare — מהיר (~2ש', ~ללא הגבלה). 3 ניסיונות (הסינון NSFW של FLUX אקראי בכל קריאה).
-    for (let cfTry = 0; cfTry < 3 && !imgSrc; cfTry++) {
+    for (let cfTry = 0; cfTry < 4 && !imgSrc; cfTry++) {
         try {
             const cfRes = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
                 method: 'POST',
@@ -4654,9 +4654,11 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
         }
     } catch { /* fall through to Pollinations */ }
 
-    // Fallback to Pollinations
+    // Fallback to Pollinations — מודל flux מלא + enhance (מרחיב את הפרומפט לפרטים עשירים) ברזולוציה מלאה.
+    // enhance=true נותן קפיצת איכות אמיתית בחינם — כך שגם נתיב הגיבוי נראה מצוין, לא "רך".
     if (!imgSrc) {
-        imgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=${imgStyle.model}`;
+        const _pModel = imgStyle.model || 'flux';
+        imgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&enhance=true&model=${_pModel}`;
     }
 
     const img = new Image();
