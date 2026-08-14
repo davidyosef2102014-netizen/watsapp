@@ -2045,12 +2045,12 @@ function renderAdminUsers(cloudUsers) {
 async function adminUnsuspend(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
     const ok = await ghUpdate('db/ai_users.json', u => { if (!u || !u[username]) return undefined; u[username].suspended = false; u[username].blocked = false; delete u[username].suspendReason; delete u[username].suspendExplain; delete u[username].suspendedAt; return u; });
-    if (ok) { _tierToast('החשבון של ' + username + ' שוחרר'); openAdminPanel(); }
+    if (ok) { _tierToast(_trf('החשבון של {u} שוחרר', { u: username })); openAdminPanel(); }
     else _alert('שגיאה — נסה שוב.');
 }
 async function adminConfirmBlock(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
-    if (!await _confirm('לחסום את "' + username + '" לצמיתות? (אפשר לשחרר בהמשך)')) return;
+    if (!await _confirm(_trf('לחסום את "{u}" לצמיתות? (אפשר לשחרר בהמשך)', { u: username }))) return;
     const ok = await ghUpdate('db/ai_users.json', u => { if (!u || !u[username]) return undefined; u[username].suspended = true; u[username].blocked = true; return u; });
     if (ok) { _tierToast(username + ' נחסם לצמיתות'); openAdminPanel(); }
     else _alert('שגיאה — נסה שוב.');
@@ -2075,7 +2075,7 @@ async function _renderAdminAlerts(body) {
 
 async function adminResetPassword(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
-    if (!await _confirm(`לאפס את הסיסמה של "${username}"? תיווצר סיסמה זמנית חדשה.`)) return;
+    if (!await _confirm(_trf('לאפס את הסיסמה של "{u}"? תיווצר סיסמה זמנית חדשה.', { u: username }))) return;
     const tempPass = Math.random().toString(36).slice(-8);
     const newHash = await hashPassword(tempPass);
     let rpNotFound = false;
@@ -2085,14 +2085,14 @@ async function adminResetPassword(username) {
         return users;
     });
     if (rpNotFound) { _alert('משתמש לא נמצא.'); return; }
-    if (ok) _alert(`✅ הסיסמה הזמנית של "${username}" היא:\n\n${tempPass}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.`);
+    if (ok) _alert(_trf('✅ הסיסמה הזמנית של "{u}" היא:\n\n{p}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.', { u: username, p: tempPass }));
     else _alert('❌ שגיאה בשמירת הסיסמה החדשה — נסה שוב.');
 }
 
 async function adminDeleteUser(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
     if (username === currentUser) { _alert('לא ניתן למחוק את המשתמש המחובר כרגע.'); return; }
-    if (!await _confirm(`למחוק את המשתמש "${username}" לצמיתות? הפעולה אינה הפיכה.`)) return;
+    if (!await _confirm(_trf('למחוק את המשתמש "{u}" לצמיתות? הפעולה אינה הפיכה.', { u: username }))) return;
     let delNotFound = false;
     const ok = await ghUpdate('db/ai_users.json', users => {
         if (!users || !users[username]) { delNotFound = true; return undefined; }
@@ -2100,7 +2100,7 @@ async function adminDeleteUser(username) {
         return users;
     });
     if (delNotFound) { _alert('משתמש לא נמצא.'); return; }
-    if (ok) { _alert(`✅ המשתמש "${username}" נמחק.`); openAdminPanel(); }
+    if (ok) { _alert(_trf('✅ המשתמש "{u}" נמחק.', { u: username })); openAdminPanel(); }
     else _alert('❌ שגיאה במחיקה — נסה שוב.');
 }
 
@@ -2614,7 +2614,7 @@ function closePremiumModal() { closePricingModal(); }
 async function doPurchaseTier(tierId) {
     if (!currentUser || !TIERS[tierId] || tierId === 'free') return;
     const tier = TIERS[tierId];
-    const code = await _prompt(`להפעלת ${tier.name} הזן קוד הפעלה:`);
+    const code = await _prompt(_trf('להפעלת {name} הזן קוד הפעלה:', { name: tier.name }));
     if (!code) return;
     const validCodes = { basic:'BIRG50', pro:'BIRG200', ultra:'BIRG450' };
     if (code.toUpperCase() !== validCodes[tierId]) { _alert('קוד שגוי.'); return; }
@@ -2631,7 +2631,7 @@ async function doPurchaseTier(tierId) {
         users[currentUser].tierUntil = Date.now() + 30 * 24 * 60 * 60 * 1000;
         return users;
     }).catch(() => {});
-    _alert(`${tier.name} הופעל!`);
+    _alert(_trf('{name} הופעל!', { name: tier.name }));
 }
 
 /* ── מנהל קובע גרסה למשתמש ── */
@@ -2655,7 +2655,7 @@ async function adminSetTier(username, tierId) {
         checkPremium(); updateUserChip();
     }
     const untilStr = until ? new Date(until).toLocaleDateString('he-IL') : '';
-    _tierToast(`הגרסה של ${username} שונתה ל-${TIERS[tierId].name}${untilStr ? ' עד ' + untilStr : ''}`);
+    _tierToast(_trf('הגרסה של {u} שונתה ל-{name}{until}', { u: username, name: TIERS[tierId].name, until: untilStr ? _tr(' עד ') + untilStr : '' }));
 }
 
 /* ── קודי שדרוג — המשתמש מזין קוד ומשדרג את עצמו (תשלום מחוץ לאפליקציה: ביט/פייבוקס/מזומן) ── */
@@ -2692,8 +2692,9 @@ async function redeemCode() {
     try { localStorage.setItem('birgsol_tier_' + currentUser, outcome.tier); } catch {}
     checkPremium(); updateUserChip();
     inp.value = '';
-    msg.style.color = '#34a853'; msg.textContent = `✓ שודרגת ל-${TIERS[outcome.tier].name}! בתוקף עד ${new Date(until).toLocaleDateString('he-IL')}`;
-    _tierToast(`שודרגת ל-${TIERS[outcome.tier].name} 🎉`);
+    const _upLang = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+    msg.style.color = '#34a853'; msg.textContent = _trf('✓ שודרגת ל-{name}! בתוקף עד {date}', { name: TIERS[outcome.tier].name, date: new Date(until).toLocaleDateString(_upLang === 'he' ? 'he-IL' : _upLang) });
+    _tierToast(_trf('שודרגת ל-{name} 🎉', { name: TIERS[outcome.tier].name }));
 }
 
 async function adminGenCodes() {
@@ -2732,29 +2733,94 @@ function syncTierFromCloud(user, rec) {
             _tierToast(expired ? 'התוכנית שלך הסתיימה — חזרת ל-Birgsol Free' : 'התוכנית שלך עודכנה ל-Birgsol Free');
         } else {
             const until = rec.tierUntil ? new Date(rec.tierUntil).toLocaleDateString('he-IL') : '';
-            _tierToast(`התוכנית שלך הוחלפה ל-${TIERS[cloudTier].name}${until ? ' עד ' + until : ''}`);
+            _tierToast(_trf('התוכנית שלך הוחלפה ל-{name}{until}', { name: TIERS[cloudTier].name, until: until ? _tr(' עד ') + until : '' }));
         }
     }
     checkPremium(); updateUserChip();
 }
 
 /* ── חלונות דיאלוג פנימיים מעוצבים (מחליפים alert/confirm/prompt של הדפדפן — בלי "התראות מבחוץ") ── */
+/* תרגום מרכזי של הודעות דיאלוג/טוסט — HE→שפה. מוחל אוטומטית בתוך _modal ו-_tierToast,
+   כך שאין צורך לגעת בכל קריאה. הודעות דינמיות משתמשות ב-_trf(key, vars). */
+const _MSGS = {
+    'ביטול': { en:'Cancel' }, 'אישור': { en:'OK' }, 'הבנתי': { en:'Got it' },
+    'הגדרת אבטחה חד-פעמית: בחר קוד-מנהל (PIN, לפחות 4 ספרות) שיידרש בכל כניסה לפאנל הניהול:': { en:'One-time security setup: choose an admin code (PIN, at least 4 digits) that will be required every time you open the admin panel:' },
+    'קוד לא תקין (לפחות 4 תווים). הפאנל לא נפתח.': { en:'Invalid code (at least 4 characters). The panel was not opened.' },
+    'שגיאה בשמירת הקוד — נסה שוב.': { en:'Error saving the code — try again.' },
+    '✅ קוד-המנהל הוגדר. מעכשיו יידרש בכל כניסה לפאנל.': { en:'✅ Admin code set. It will now be required every time you open the panel.' },
+    'הזן קוד-מנהל כדי להיכנס לפאנל הניהול:': { en:'Enter the admin code to open the admin panel:' },
+    '⛔ קוד-מנהל שגוי.': { en:'⛔ Wrong admin code.' },
+    'שגיאה — נסה שוב.': { en:'Error — try again.' },
+    'משתמש לא נמצא.': { en:'User not found.' },
+    '❌ שגיאה בשמירת הסיסמה החדשה — נסה שוב.': { en:'❌ Error saving the new password — try again.' },
+    'לא ניתן למחוק את המשתמש המחובר כרגע.': { en:"Can't delete the currently logged-in user." },
+    '❌ שגיאה במחיקה — נסה שוב.': { en:'❌ Error deleting — try again.' },
+    'שגיאת התחברות עם Google. נסה שוב.': { en:'Google sign-in error. Try again.' },
+    'שגיאת חיבור — נסה שוב.': { en:'Connection error — try again.' },
+    '⛔ החשבון הושהה עקב פעילות חשודה. פנה למנהל המערכת.': { en:'⛔ The account was suspended due to suspicious activity. Contact the administrator.' },
+    '⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. פנה למנהל המערכת.': { en:'⛔ The account was suspended due to detected suspicious activity. Contact the administrator.' },
+    'קוד שגוי.': { en:'Wrong code.' },
+    'שגיאה בשמירה — נסה שוב.': { en:'Error saving — try again.' },
+    'להתנתק מ-Birgsol AI?': { en:'Log out of Birgsol AI?' },
+    'אין שיחה לשיתוף עדיין': { en:'No chat to share yet' },
+    'שגיאה בשיתוף — נסה שוב': { en:'Error sharing — try again' },
+    'קישור השיתוף הועתק!\nכל מי שיש לו את הקישור יוכל לצפות בשיחה.': { en:'Share link copied!\nAnyone with the link can view the chat.' },
+    'העתק את הקישור:': { en:'Copy the link:' },
+    'השיחה המשותפת לא נמצאה': { en:'Shared chat not found' },
+    'הדפדפן שלך לא תומך בהקלטת קול. נסה Chrome.': { en:'Your browser does not support voice recording. Try Chrome.' },
+    'הקובץ גדול מדי לתמלול (מקסימום ~24MB). נסה קובץ קצר יותר.': { en:'File too large to transcribe (max ~24MB). Try a shorter file.' },
+    'סוג קובץ לא נתמך. נסה תמונה, TXT, PDF, CSV, MD, JSON, או אודיו/וידאו.': { en:'Unsupported file type. Try an image, TXT, PDF, CSV, MD, JSON, or audio/video.' },
+    'שלחת יותר מדי הודעות בזמן קצר. המתן דקה ונסה שוב.': { en:'You sent too many messages in a short time. Wait a minute and try again.' },
+    'התמלול נכשל — ודא שהקובץ תקין ולא ארוך מדי (עד ~24MB).': { en:'Transcription failed — make sure the file is valid and not too long (up to ~24MB).' },
+    '⚠️ התמלול נכשל': { en:'⚠️ Transcription failed' },
+    'לא זוהה דיבור בקובץ.': { en:'No speech detected in the file.' },
+    'לא ניתן לגשת למצלמה — בדוק הרשאות בדפדפן.': { en:'Cannot access the camera — check browser permissions.' },
+    'לא ניתן להחליף מצלמה במכשיר הזה.': { en:'Cannot switch camera on this device.' },
+    'החשבון של {u} שוחרר': { en:'{u}\'s account was unblocked' },
+    'לחסום את "{u}" לצמיתות? (אפשר לשחרר בהמשך)': { en:'Permanently block "{u}"? (can be unblocked later)' },
+    'לאפס את הסיסמה של "{u}"? תיווצר סיסמה זמנית חדשה.': { en:'Reset the password for "{u}"? A new temporary password will be created.' },
+    '✅ הסיסמה הזמנית של "{u}" היא:\n\n{p}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.': { en:'✅ The temporary password for "{u}" is:\n\n{p}\n\nGive it to the user — it is shown here only once and is not saved anywhere.' },
+    'למחוק את המשתמש "{u}" לצמיתות? הפעולה אינה הפיכה.': { en:'Permanently delete the user "{u}"? This action is irreversible.' },
+    '✅ המשתמש "{u}" נמחק.': { en:'✅ The user "{u}" was deleted.' },
+    'להפעלת {name} הזן קוד הפעלה:': { en:'To activate {name}, enter an activation code:' },
+    '{name} הופעל!': { en:'{name} activated!' },
+    'הגרסה של {u} שונתה ל-{name}{until}': { en:'{u}\'s plan was changed to {name}{until}' },
+    'שודרגת ל-{name} 🎉': { en:'You were upgraded to {name} 🎉' },
+    '✓ שודרגת ל-{name}! בתוקף עד {date}': { en:'✓ Upgraded to {name}! Valid until {date}' },
+    'התוכנית שלך הוחלפה ל-{name}{until}': { en:'Your plan was changed to {name}{until}' },
+    '✅ הסיסמה של "{u}" עודכנה!': { en:'✅ The password for "{u}" was updated!' },
+    '✅ חשבון "{u}" נוצר! ברוך הבא ל-Birgsol AI 🎉': { en:'✅ Account "{u}" created! Welcome to Birgsol AI 🎉' },
+    ' עד ': { en:' until ' }
+};
+function _tr(s) {
+    const lang = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+    if (lang === 'he' || s == null) return s;
+    const m = _MSGS[s];
+    return m ? (m[lang] || m.en || s) : s;
+}
+/* הודעה דינמית: מתרגמת את התבנית לפי השפה ואז מציבה משתנים {k} */
+function _trf(heTemplate, vars) {
+    let s = _tr(heTemplate);
+    if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+    return s;
+}
+
 function _modal(opts) {
     return new Promise(resolve => {
         const isPrompt = opts.type === 'prompt', isConfirm = opts.type === 'confirm';
         const ov = document.createElement('div'); ov.className = 'app-modal-ov';
         const card = document.createElement('div'); card.className = 'app-modal';
-        const msg = document.createElement('div'); msg.className = 'app-modal-msg'; msg.textContent = opts.message || '';
+        const msg = document.createElement('div'); msg.className = 'app-modal-msg'; msg.textContent = _tr(opts.message || '');
         card.appendChild(msg);
         let inp = null;
         if (isPrompt) { inp = document.createElement('input'); inp.className = 'app-modal-input'; inp.type = 'text'; if (opts.defaultVal) inp.value = opts.defaultVal; card.appendChild(inp); }
         const btns = document.createElement('div'); btns.className = 'app-modal-btns';
         const done = (v) => { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
         if (isConfirm || isPrompt) {
-            const c = document.createElement('button'); c.className = 'amb-cancel'; c.textContent = 'ביטול';
+            const c = document.createElement('button'); c.className = 'amb-cancel'; c.textContent = _tr('ביטול');
             c.onclick = () => done(isPrompt ? null : false); btns.appendChild(c);
         }
-        const ok = document.createElement('button'); ok.className = 'amb-ok'; ok.textContent = (isConfirm || isPrompt) ? 'אישור' : 'הבנתי';
+        const ok = document.createElement('button'); ok.className = 'amb-ok'; ok.textContent = (isConfirm || isPrompt) ? _tr('אישור') : _tr('הבנתי');
         ok.onclick = () => done(isPrompt ? (inp ? inp.value : '') : true); btns.appendChild(ok);
         card.appendChild(btns); ov.appendChild(card); document.body.appendChild(ov);
         const onKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); ok.click(); } else if (e.key === 'Escape') done(isPrompt ? null : (isConfirm ? false : true)); };
@@ -2767,6 +2833,7 @@ function _confirm(message) { return _modal({ message, type: 'confirm' }); }
 function _prompt(message, defaultVal) { return _modal({ message, type: 'prompt', defaultVal }); }
 
 function _tierToast(msg) {
+    msg = _tr(msg);
     const el = document.createElement('div');
     el.style.cssText = 'position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-80px);background:linear-gradient(135deg,#4285F4,#C58AF9);color:#fff;padding:13px 26px;border-radius:16px;font-size:14.5px;font-weight:700;z-index:9500;box-shadow:0 10px 34px rgba(66,133,244,.4);transition:transform .4s cubic-bezier(.2,.9,.3,1.2);max-width:88vw;text-align:center';
     el.textContent = msg;
@@ -2951,7 +3018,7 @@ async function doResetPass() {
         });
         if (fpNotFound) { err.textContent = '❌ משתמש לא נמצא.'; err.style.display='block'; return; }
         if (!ok) { err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block'; return; }
-        _alert(`✅ הסיסמה של "${fpUsername}" עודכנה!`);
+        _alert(_trf('✅ הסיסמה של "{u}" עודכנה!', { u: fpUsername }));
         showLogin();
         document.getElementById('li-user').value = fpUsername;
     } catch(e) {
@@ -3004,7 +3071,7 @@ async function doRegister() {
         document.getElementById('register-card').style.display = 'none';
         document.getElementById('login-card-main').style.display = 'block';
         await _finishLogin(user);
-        _alert(`✅ חשבון "${user}" נוצר! ברוך הבא ל-Birgsol AI 🎉`);
+        _alert(_trf('✅ חשבון "{u}" נוצר! ברוך הבא ל-Birgsol AI 🎉', { u: user }));
     } finally {
         btn.textContent = 'צור חשבון'; btn.disabled = false;
     }
@@ -6196,7 +6263,7 @@ async function send() {
         if (szLabel) szLabel.textContent = '⏳ מתמלל…';
         let transcript = '';
         try { transcript = await _transcribeMedia(mf); }
-        catch (e) { busy = false; updateBtn(); if (szLabel) szLabel.textContent = '⚠️ התמלול נכשל'; _alert('התמלול נכשל — ודא שהקובץ תקין ולא ארוך מדי (עד ~24MB).'); return; }
+        catch (e) { busy = false; updateBtn(); if (szLabel) szLabel.textContent = _tr('⚠️ התמלול נכשל'); _alert('התמלול נכשל — ודא שהקובץ תקין ולא ארוך מדי (עד ~24MB).'); return; }
         busy = false; updateBtn();
         if (!transcript) { clearFile(); _alert('לא זוהה דיבור בקובץ.'); return; }
         fileContent = transcript; fileName = mf.name;
@@ -6319,8 +6386,20 @@ async function send() {
             'ספורט','ניקוד','תוצאה','ליגה','גביע','מזג אוויר','טמפרטורה',
             'שקל','דולר','אירו','price','cheapest','best','latest','buy'
         ];
-        const newsQuery = q.replace(/^(תסביר לי על|ספר לי על|מה זה|מי זה|מה הוא|תגיד לי על|תאר לי את|תסביר|ספר|תגיד)\s*/i,'').trim();
+        let newsQuery = q.replace(/^(תסביר לי על|ספר לי על|מה זה|מי זה|מה הוא|תגיד לי על|תאר לי את|תסביר|ספר|תגיד)\s*/i,'').trim();
         const isMilitaryOrNews = ['מלחמה','פיגוע','חדשות','התקפה','ירי','טיל','לחימה','כוחות','חיזבאלה','חמאס','צה"ל','רצח','הפגנה','שב"כ','מוסד'].some(k => q.includes(k));
+        // מבזק חדשות: "תסכם לי את חדשות היום", "מה קורה היום", "כותרות היום", "today's news" —
+        // מחפשים את החדשות המובילות בישראל של היום עם התאריך, במקום לחפש את המשפט המילולי.
+        const _newsDigest = /(חדשות|מבזק|כותרות|מה\s*קורה|מה\s*חדש|מה\s*התחדש|עדכן\s*אותי|today'?s\s*news|latest\s*news|news\s*today|top\s*news|headlines|what'?s\s*happening)/i.test(q);
+        let _newsDateStr = '';
+        if (_newsDigest) {
+            const _nd = new Date();
+            const _lg = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+            const _loc = (_lg === 'he') ? 'he-IL' : _lg;
+            _newsDateStr = _nd.toLocaleDateString(_loc, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+            newsQuery = (_lg === 'he' ? 'חדשות מובילות בישראל היום ' : 'top news in Israel today ')
+                + _nd.toLocaleDateString(_loc, { day:'numeric', month:'long', year:'numeric' });
+        }
         // בקשת תרגום לעולם לא צריכה חיפוש חי — הזרקת תוצאות לתוך "תרגם את הטקסט" גרמה לדליפת הבלוק הפנימי לפלט
         const _isTranslate = /תרגם|תתרגם|לתרגם|תרגום|translate|traduc|übersetz|переве|ترجم/i.test(q);
         // "מבצע" כשם-עצם (הנחה / מבצע צבאי) — אך לא הפועל "מבצעת/מבצעים/מבצעות" (שהכיל בטעות "מבצע")
@@ -6338,7 +6417,7 @@ async function send() {
             'price','prices','cost','costs','how','much','color','size']);
         const _subjectWords = q.replace(/[?!.,״"'׳]/g,'').split(/\s+/).filter(w => w && !_fillers.has(w.toLowerCase()));
         const _hasSubject = _subjectWords.join('').length >= 2;
-        if (!_isTranslate && (searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews || _dealOrOp) && _hasSubject) {
+        if (!_isTranslate && (searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews || _dealOrOp || _newsDigest) && (_hasSubject || _newsDigest)) {
             const preview = (newsQuery||q).length > 38 ? (newsQuery||q).slice(0,38)+'…' : (newsQuery||q);
             status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(preview)}</b></span>`;
             status.style.display = 'flex';
@@ -6363,7 +6442,11 @@ async function send() {
             }
             const lastMsg = messages[messages.length - 1];
             if (lastMsg && typeof lastMsg.content === 'string') {
-                lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nאם המידע לעיל מכיל תשובה — ענה לפיו ישירות. אם לא מצאת מידע ספציפי על הנושא — כתוב בדיוק: "לא מצאתי מידע עדכני על זה." ואל תוסיף שום מידע נוסף מהאימון שלך.`;
+                if (_newsDigest) {
+                    lastMsg.content += `\n\n[מבזק חדשות — תוצאות חיפוש חי על החדשות בישראל של היום]:\n${results}\n\nכתוב מבזק חדשות מסודר בשפת המשתמש: פתח בשורת התאריך של היום (${_newsDateStr}), ואז הצג את 4–6 הידיעות/הכותרות המובילות בישראל להיום כרשימה — כל ידיעה בכותרת קצרה ומשפט הסבר. הסתמך אך ורק על תוצאות החיפוש לעיל; דווח רק על אירועים מהיום או סמוך לו. אם אין ידיעות עדכניות של היום בתוצאות — כתוב שלא מצאת חדשות עדכניות של היום, ואל תמציא ואל תשתמש בחדשות ישנות מהאימון שלך.`;
+                } else {
+                    lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nאם המידע לעיל מכיל תשובה — ענה לפיו ישירות. אם לא מצאת מידע ספציפי על הנושא — כתוב בדיוק: "לא מצאתי מידע עדכני על זה." ואל תוסיף שום מידע נוסף מהאימון שלך.`;
+                }
             }
         }
 
