@@ -283,8 +283,12 @@
         /* מצב קוד — פיצול 65% קנבס (שמאל) / 35% צ'אט (ימין), כמו Gemini. רק בדסקטופ. */
         @media (min-width: 701px) {
             body.code-split { padding-left: 65%; }
-            body.code-split .canvas-panel { width: 65%; }
             body.code-split #sidebar { display: none; } /* הצ'אט מקבל את כל ה-35% */
+            /* קנבס = כרטיס מרחף עם פינות עגולות */
+            body.code-split .canvas-panel {
+                width: calc(65% - 20px); top: 12px; bottom: 12px; left: 12px;
+                border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.22);
+            }
         }
         .code-block pre { background: none; border: none; border-radius: 0; padding: 14px 16px; margin: 0; overflow-x: auto; }
         .code-block pre code { background: none; padding: 0; font-size: 13.5px; color: #e8eaed; }
@@ -1552,6 +1556,13 @@
     <!-- INPUT -->
     <div class="input-area">
         <div class="input-wrap">
+            <!-- תווית מצב תמונות (@תמונות) — מוצגת רק במצב תמונה -->
+            <div id="mode-chip" style="display:none;margin-bottom:7px">
+                <span style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;border-radius:14px;padding:5px 12px;font-size:12.5px;font-weight:700">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    @תמונות · כל הודעה יוצרת תמונה
+                </span>
+            </div>
             <!-- Free tier banner -->
             <div id="free-banner" style="display:none">
                 <div class="banner-txt">נותרו לך <strong id="msgs-left">150</strong> הודעות חינמיות · שדרג לפרמיום</div>
@@ -1713,7 +1724,7 @@ let deletedConvIds = new Set();
 async function deleteConversation(convId) {
     const _lang = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
     const _msg = (L10N[_lang] && L10N[_lang].del_confirm) || L10N.he.del_confirm;
-    if (!confirm(_msg)) return;
+    if (!await _confirm(_msg)) return;
     convList = convList.filter(c => c.id !== convId);
     deletedConvIds.add(convId);
     if (currentConvId === convId) startNew();
@@ -1924,16 +1935,16 @@ async function openAdminPanel() {
     // 🛡️ קוד-מנהל (2FA) — הגנה על פאנל הניהול גם אם הסיסמה דלפה
     const adminRec = cloudUsers[currentUser] || {};
     if (!adminRec.adminPin) {
-        const p = prompt('הגדרת אבטחה חד-פעמית: בחר קוד-מנהל (PIN, לפחות 4 ספרות) שיידרש בכל כניסה לפאנל הניהול:');
-        if (!p || p.trim().length < 4) { alert('קוד לא תקין (לפחות 4 תווים). הפאנל לא נפתח.'); return; }
+        const p = await _prompt('הגדרת אבטחה חד-פעמית: בחר קוד-מנהל (PIN, לפחות 4 ספרות) שיידרש בכל כניסה לפאנל הניהול:');
+        if (!p || p.trim().length < 4) { _alert('קוד לא תקין (לפחות 4 תווים). הפאנל לא נפתח.'); return; }
         const h = await hashPassword(p.trim());
         const ok = await ghUpdate('db/ai_users.json', u => { if (u && u[currentUser]) u[currentUser].adminPin = h; return u; });
-        if (!ok) { alert('שגיאה בשמירת הקוד — נסה שוב.'); return; }
-        alert('✅ קוד-המנהל הוגדר. מעכשיו יידרש בכל כניסה לפאנל.');
+        if (!ok) { _alert('שגיאה בשמירת הקוד — נסה שוב.'); return; }
+        _alert('✅ קוד-המנהל הוגדר. מעכשיו יידרש בכל כניסה לפאנל.');
     } else {
-        const p = prompt('הזן קוד-מנהל כדי להיכנס לפאנל הניהול:');
+        const p = await _prompt('הזן קוד-מנהל כדי להיכנס לפאנל הניהול:');
         if (!p) return;
-        if (await hashPassword(p.trim()) !== adminRec.adminPin) { alert('⛔ קוד-מנהל שגוי.'); return; }
+        if (await hashPassword(p.trim()) !== adminRec.adminPin) { _alert('⛔ קוד-מנהל שגוי.'); return; }
     }
     document.getElementById('admin-overlay').classList.add('on');
     closeSidebar();
@@ -2035,14 +2046,14 @@ async function adminUnsuspend(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
     const ok = await ghUpdate('db/ai_users.json', u => { if (!u || !u[username]) return undefined; u[username].suspended = false; u[username].blocked = false; delete u[username].suspendReason; delete u[username].suspendExplain; delete u[username].suspendedAt; return u; });
     if (ok) { _tierToast('החשבון של ' + username + ' שוחרר'); openAdminPanel(); }
-    else alert('שגיאה — נסה שוב.');
+    else _alert('שגיאה — נסה שוב.');
 }
 async function adminConfirmBlock(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
-    if (!confirm('לחסום את "' + username + '" לצמיתות? (אפשר לשחרר בהמשך)')) return;
+    if (!await _confirm('לחסום את "' + username + '" לצמיתות? (אפשר לשחרר בהמשך)')) return;
     const ok = await ghUpdate('db/ai_users.json', u => { if (!u || !u[username]) return undefined; u[username].suspended = true; u[username].blocked = true; return u; });
     if (ok) { _tierToast(username + ' נחסם לצמיתות'); openAdminPanel(); }
-    else alert('שגיאה — נסה שוב.');
+    else _alert('שגיאה — נסה שוב.');
 }
 
 // טוען ומציג את התראות האבטחה בראש פאנל הניהול
@@ -2064,7 +2075,7 @@ async function _renderAdminAlerts(body) {
 
 async function adminResetPassword(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
-    if (!confirm(`לאפס את הסיסמה של "${username}"? תיווצר סיסמה זמנית חדשה.`)) return;
+    if (!await _confirm(`לאפס את הסיסמה של "${username}"? תיווצר סיסמה זמנית חדשה.`)) return;
     const tempPass = Math.random().toString(36).slice(-8);
     const newHash = await hashPassword(tempPass);
     let rpNotFound = false;
@@ -2073,24 +2084,24 @@ async function adminResetPassword(username) {
         users[username].password = newHash;
         return users;
     });
-    if (rpNotFound) { alert('משתמש לא נמצא.'); return; }
-    if (ok) alert(`✅ הסיסמה הזמנית של "${username}" היא:\n\n${tempPass}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.`);
-    else alert('❌ שגיאה בשמירת הסיסמה החדשה — נסה שוב.');
+    if (rpNotFound) { _alert('משתמש לא נמצא.'); return; }
+    if (ok) _alert(`✅ הסיסמה הזמנית של "${username}" היא:\n\n${tempPass}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.`);
+    else _alert('❌ שגיאה בשמירת הסיסמה החדשה — נסה שוב.');
 }
 
 async function adminDeleteUser(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
-    if (username === currentUser) { alert('לא ניתן למחוק את המשתמש המחובר כרגע.'); return; }
-    if (!confirm(`למחוק את המשתמש "${username}" לצמיתות? הפעולה אינה הפיכה.`)) return;
+    if (username === currentUser) { _alert('לא ניתן למחוק את המשתמש המחובר כרגע.'); return; }
+    if (!await _confirm(`למחוק את המשתמש "${username}" לצמיתות? הפעולה אינה הפיכה.`)) return;
     let delNotFound = false;
     const ok = await ghUpdate('db/ai_users.json', users => {
         if (!users || !users[username]) { delNotFound = true; return undefined; }
         delete users[username];
         return users;
     });
-    if (delNotFound) { alert('משתמש לא נמצא.'); return; }
-    if (ok) { alert(`✅ המשתמש "${username}" נמחק.`); openAdminPanel(); }
-    else alert('❌ שגיאה במחיקה — נסה שוב.');
+    if (delNotFound) { _alert('משתמש לא נמצא.'); return; }
+    if (ok) { _alert(`✅ המשתמש "${username}" נמחק.`); openAdminPanel(); }
+    else _alert('❌ שגיאה במחיקה — נסה שוב.');
 }
 
 /* קרא JSON מ-GitHub (ללא rate-limit) */
@@ -2458,7 +2469,7 @@ async function deleteMemoryItem(text) {
     _renderMemoryPanel();
 }
 async function clearAllMemory() {
-    if (!confirm('למחוק את כל מה ש-BIRGSOL זוכר עליך? אי אפשר לשחזר.')) return;
+    if (!await _confirm('למחוק את כל מה ש-BIRGSOL זוכר עליך? אי אפשר לשחזר.')) return;
     userMemory = [];
     try { await ghWrite('db/ai_memory_' + currentUser + '.json', { facts: [] }); } catch {}
     _renderMemoryPanel();
@@ -2481,7 +2492,7 @@ function _decodeJwt(token) {
 }
 async function handleGoogleLogin(response) {
     const p = _decodeJwt(response && response.credential);
-    if (!p || !p.email) { alert('שגיאת התחברות עם Google. נסה שוב.'); return; }
+    if (!p || !p.email) { _alert('שגיאת התחברות עם Google. נסה שוב.'); return; }
     const username = p.email.trim().toLowerCase();
     try {
         // יצירה אטומית אם חדש; אם קיים — פשוט מתחברים
@@ -2493,7 +2504,7 @@ async function handleGoogleLogin(response) {
         });
         currentName = p.name || null;
         await _finishLogin(username);
-    } catch (e) { alert('שגיאת חיבור — נסה שוב.'); }
+    } catch (e) { _alert('שגיאת חיבור — נסה שוב.'); }
 }
 let _gisInited = false;
 function _loadGIS() {
@@ -2531,7 +2542,7 @@ async function _finishLogin(user) {
     ghReadFresh('db/ai_users.json').then(u => {
         if (u && u[user]) {
             // חשבון מושהה (אבטחה) — דוד חסין; כל השאר מנותקים מיד
-            if (u[user].suspended && !ADMIN_USERS.includes(user)) { alert('⛔ החשבון הושהה עקב פעילות חשודה. פנה למנהל המערכת.'); doLogout(true); return; }
+            if (u[user].suspended && !ADMIN_USERS.includes(user)) { _alert('⛔ החשבון הושהה עקב פעילות חשודה. פנה למנהל המערכת.'); doLogout(true); return; }
             localStorage.setItem('birgsol_instr_' + user, u[user].instructions || '');
             syncTierFromCloud(user, u[user]);
             if (u[user].name) { currentName = u[user].name; updateUserChip(); updateGreeting(); }
@@ -2590,10 +2601,10 @@ function closePremiumModal() { closePricingModal(); }
 async function doPurchaseTier(tierId) {
     if (!currentUser || !TIERS[tierId] || tierId === 'free') return;
     const tier = TIERS[tierId];
-    const code = prompt(`להפעלת ${tier.name} הזן קוד הפעלה:`);
+    const code = await _prompt(`להפעלת ${tier.name} הזן קוד הפעלה:`);
     if (!code) return;
     const validCodes = { basic:'BIRG50', pro:'BIRG200', ultra:'BIRG450' };
-    if (code.toUpperCase() !== validCodes[tierId]) { alert('קוד שגוי.'); return; }
+    if (code.toUpperCase() !== validCodes[tierId]) { _alert('קוד שגוי.'); return; }
 
     localStorage.setItem('birgsol_tier_' + currentUser, tierId);
     checkPremium();
@@ -2607,7 +2618,7 @@ async function doPurchaseTier(tierId) {
         users[currentUser].tierUntil = Date.now() + 30 * 24 * 60 * 60 * 1000;
         return users;
     }).catch(() => {});
-    alert(`${tier.name} הופעל!`);
+    _alert(`${tier.name} הופעל!`);
 }
 
 /* ── מנהל קובע גרסה למשתמש ── */
@@ -2623,8 +2634,8 @@ async function adminSetTier(username, tierId) {
         users[username].tierUntil = until;
         return users;
     });
-    if (notFound) { alert('משתמש לא נמצא.'); return; }
-    if (!ok) { alert('שגיאה בשמירה — נסה שוב.'); return; }
+    if (notFound) { _alert('משתמש לא נמצא.'); return; }
+    if (!ok) { _alert('שגיאה בשמירה — נסה שוב.'); return; }
     if (username === currentUser) {
         localStorage.setItem('birgsol_tier_' + currentUser, tierId);
         localStorage.setItem('birgsol_tiernotif_' + currentUser, changedAt);
@@ -2713,6 +2724,34 @@ function syncTierFromCloud(user, rec) {
     }
     checkPremium(); updateUserChip();
 }
+
+/* ── חלונות דיאלוג פנימיים מעוצבים (מחליפים alert/confirm/prompt של הדפדפן — בלי "התראות מבחוץ") ── */
+function _modal(opts) {
+    return new Promise(resolve => {
+        const isPrompt = opts.type === 'prompt', isConfirm = opts.type === 'confirm';
+        const ov = document.createElement('div'); ov.className = 'app-modal-ov';
+        const card = document.createElement('div'); card.className = 'app-modal';
+        const msg = document.createElement('div'); msg.className = 'app-modal-msg'; msg.textContent = opts.message || '';
+        card.appendChild(msg);
+        let inp = null;
+        if (isPrompt) { inp = document.createElement('input'); inp.className = 'app-modal-input'; inp.type = 'text'; if (opts.defaultVal) inp.value = opts.defaultVal; card.appendChild(inp); }
+        const btns = document.createElement('div'); btns.className = 'app-modal-btns';
+        const done = (v) => { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+        if (isConfirm || isPrompt) {
+            const c = document.createElement('button'); c.className = 'amb-cancel'; c.textContent = 'ביטול';
+            c.onclick = () => done(isPrompt ? null : false); btns.appendChild(c);
+        }
+        const ok = document.createElement('button'); ok.className = 'amb-ok'; ok.textContent = (isConfirm || isPrompt) ? 'אישור' : 'הבנתי';
+        ok.onclick = () => done(isPrompt ? (inp ? inp.value : '') : true); btns.appendChild(ok);
+        card.appendChild(btns); ov.appendChild(card); document.body.appendChild(ov);
+        const onKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); ok.click(); } else if (e.key === 'Escape') done(isPrompt ? null : (isConfirm ? false : true)); };
+        document.addEventListener('keydown', onKey);
+        if (inp) setTimeout(() => inp.focus(), 50); else setTimeout(() => ok.focus(), 50);
+    });
+}
+function _alert(message) { return _modal({ message, type: 'alert' }); }
+function _confirm(message) { return _modal({ message, type: 'confirm' }); }
+function _prompt(message, defaultVal) { return _modal({ message, type: 'prompt', defaultVal }); }
 
 function _tierToast(msg) {
     const el = document.createElement('div');
@@ -2899,7 +2938,7 @@ async function doResetPass() {
         });
         if (fpNotFound) { err.textContent = '❌ משתמש לא נמצא.'; err.style.display='block'; return; }
         if (!ok) { err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block'; return; }
-        alert(`✅ הסיסמה של "${fpUsername}" עודכנה!`);
+        _alert(`✅ הסיסמה של "${fpUsername}" עודכנה!`);
         showLogin();
         document.getElementById('li-user').value = fpUsername;
     } catch(e) {
@@ -2952,15 +2991,15 @@ async function doRegister() {
         document.getElementById('register-card').style.display = 'none';
         document.getElementById('login-card-main').style.display = 'block';
         await _finishLogin(user);
-        alert(`✅ חשבון "${user}" נוצר! ברוך הבא ל-Birgsol AI 🎉`);
+        _alert(`✅ חשבון "${user}" נוצר! ברוך הבא ל-Birgsol AI 🎉`);
     } finally {
         btn.textContent = 'צור חשבון'; btn.disabled = false;
     }
 }
 
 /* ── logout ── */
-function doLogout(force) {
-    if (!force && !confirm('להתנתק מ-Birgsol AI?')) return;
+async function doLogout(force) {
+    if (!force && !await _confirm('להתנתק מ-Birgsol AI?')) return;
     // סגירת כל חלון צף כדי שכלום לא יחסום קליקים (תיקון "הכפתורים נתקעים")
     ['admin-overlay','privacy-overlay','memory-overlay','pricing-modal','live-overlay'].forEach(id => { const el = document.getElementById(id); if (el) { el.classList.remove('on'); el.style.display = 'none'; } });
     try { busy = false; if (typeof updateBtn === 'function') updateBtn(); } catch {}
@@ -3130,6 +3169,7 @@ function initSettings() {
     try {
         ['normal','code','image'].forEach(m => { const b = document.getElementById('mode-' + m); if (b) b.classList.toggle('active', m === currentMode); });
         if (currentMode === 'code' && typeof _enterCodeCanvas === 'function') _enterCodeCanvas();
+        if (typeof _updateModeChip === 'function') _updateModeChip();
     } catch {}
     const greet = localStorage.getItem('sp_greet')     || 'שלום';
     const cards = localStorage.getItem('sp_cards') === '1';
@@ -3191,15 +3231,15 @@ const APK_URL = 'https://davidyosef2102014-netizen.github.io/watsapp/BIRGSOL-AI.
 function _inBirgsolApp() { return /BirgsolApp/.test(navigator.userAgent); } // רץ בתוך ה-APK שלנו
 function _updateInstallBtn() { const row = document.getElementById('install-app-row'); if (row) row.style.display = _inBirgsolApp() ? 'none' : 'flex'; }
 window.addEventListener('appinstalled', () => { _updateInstallBtn(); if (typeof _tierToast === 'function') _tierToast('BIRGSOL AI הותקן! 🎉'); });
-function installApp() {
+async function installApp() {
     if (_inBirgsolApp()) { _tierToast('אתה כבר באפליקציה 🙂'); return; }
     const ua = navigator.userAgent;
     if (/iphone|ipad|ipod/i.test(ua)) {
         // iOS לא תומך ב-APK — מתקינים כ-PWA דרך "הוסף למסך הבית"
-        alert('התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)');
+        _alert('התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)');
     } else {
         // אנדרואיד — הורדת ה-APK העצמאי (עובד גם בלי דפדפן)
-        if (confirm('להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)')) {
+        if (await _confirm('להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)')) {
             window.location.href = APK_URL;
         }
     }
@@ -3406,7 +3446,15 @@ function setMode(mode) {
         if (btn) btn.classList.toggle('active', m === mode);
     });
     if (mode === 'code') _enterCodeCanvas(); else _exitCodeCanvas();
+    _updateModeChip();
     startNew();
+}
+function _updateModeChip() {
+    const chip = document.getElementById('mode-chip');
+    const inp = document.getElementById('userInput');
+    const isImg = (typeof currentMode !== 'undefined' && currentMode === 'image');
+    if (chip) chip.style.display = isImg ? 'block' : 'none';
+    if (inp) inp.placeholder = isImg ? 'תאר תמונה ליצירה…' : 'שאל את Birgsol AI...';
 }
 // מצב קוד — פותח קנבס מפוצל (65%) עם תצוגה חיה, כמו Gemini
 function _enterCodeCanvas() {
@@ -3691,7 +3739,7 @@ async function deepStream(messages, onChunk, signal) {
 
 /* ══════════════ SHARE CONVERSATION ══════════════ */
 async function shareConversation() {
-    if (!hist.length) { alert('אין שיחה לשיתוף עדיין'); return; }
+    if (!hist.length) { _alert('אין שיחה לשיתוף עדיין'); return; }
     const btn = document.getElementById('share-btn');
     if (btn) btn.style.opacity = '.4';
     try {
@@ -3703,10 +3751,10 @@ async function shareConversation() {
             ts: Date.now(),
             msgs: hist.slice(-200)
         });
-        if (!ok) { alert('שגיאה בשיתוף — נסה שוב'); return; }
+        if (!ok) { _alert('שגיאה בשיתוף — נסה שוב'); return; }
         const link = location.origin + location.pathname + '?share=' + id;
-        try { await navigator.clipboard.writeText(link); alert('קישור השיתוף הועתק!\nכל מי שיש לו את הקישור יוכל לצפות בשיחה.'); }
-        catch { prompt('העתק את הקישור:', link); }
+        try { await navigator.clipboard.writeText(link); _alert('קישור השיתוף הועתק!\nכל מי שיש לו את הקישור יוכל לצפות בשיחה.'); }
+        catch { await _prompt('העתק את הקישור:', link); }
     } finally { if (btn) btn.style.opacity = ''; }
 }
 
@@ -3718,7 +3766,7 @@ async function loadSharedView(id) {
     // API קודם (טרי מיד אחרי שיתוף) — raw CDN עלול לפגר בכמה דקות
     const data = await ghReadFresh(`db/ai_share_${id}.json`) || await ghRead(`db/ai_share_${id}.json`);
     if (!data || !Array.isArray(data.msgs)) {
-        alert('השיחה המשותפת לא נמצאה');
+        _alert('השיחה המשותפת לא נמצאה');
         location.href = location.pathname;
         return;
     }
@@ -3891,7 +3939,7 @@ let _voiceActive = false;
 function toggleVoice() {
     if (_voiceActive) { _stopVoice(); return; }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert('הדפדפן שלך לא תומך בהקלטת קול. נסה Chrome.'); return; }
+    if (!SR) { _alert('הדפדפן שלך לא תומך בהקלטת קול. נסה Chrome.'); return; }
     _voiceRec = new SR();
     _voiceRec.lang = 'he-IL';
     _voiceRec.interimResults = true;
@@ -4035,13 +4083,13 @@ function previewFile() {
         _loadPDF(f);
     } else if (isMedia) {
         // אודיו/וידאו — נתמלל בעת השליחה (Whisper), כדי לא לשרוף מכסה אם המשתמש מבטל
-        if (f.size > 24 * 1048576) { alert('הקובץ גדול מדי לתמלול (מקסימום ~24MB). נסה קובץ קצר יותר.'); document.getElementById('fi').value = ''; return; }
+        if (f.size > 24 * 1048576) { _alert('הקובץ גדול מדי לתמלול (מקסימום ~24MB). נסה קובץ קצר יותר.'); document.getElementById('fi').value = ''; return; }
         mediaFile = f; fileContent = ''; fileUrl = '';
         const kind = (f.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(f.name)) ? '🎬 וידאו' : '🎵 אודיו';
         _showDocPreview(f.name, f.size);
         document.getElementById('file-size-label').textContent = kind + ' · יתומלל בשליחה';
     } else {
-        alert('סוג קובץ לא נתמך. נסה תמונה, TXT, PDF, CSV, MD, JSON, או אודיו/וידאו.');
+        _alert('סוג קובץ לא נתמך. נסה תמונה, TXT, PDF, CSV, MD, JSON, או אודיו/וידאו.');
         document.getElementById('fi').value = '';
     }
 }
@@ -6070,14 +6118,14 @@ async function send() {
     if (_sec) {
         const suspended = await _suspendAndAlert(_sec, q);
         inp.value = '';
-        if (suspended) { alert('⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. פנה למנהל המערכת.'); doLogout(true); return; }
+        if (suspended) { _alert('⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. פנה למנהל המערכת.'); doLogout(true); return; }
     }
 
     // הגבלת-קצב בצד-הלקוח — הגנה מפני הצפה (25 הודעות/דקה). דוד פטור.
     if (!ADMIN_USERS.includes(currentUser)) {
         const _now = Date.now();
         _reqTimes = _reqTimes.filter(t => _now - t < 60000);
-        if (_reqTimes.length >= 25) { inp.value = ''; alert('שלחת יותר מדי הודעות בזמן קצר. המתן דקה ונסה שוב.'); return; }
+        if (_reqTimes.length >= 25) { inp.value = ''; _alert('שלחת יותר מדי הודעות בזמן קצר. המתן דקה ונסה שוב.'); return; }
         _reqTimes.push(_now);
     }
 
@@ -6089,9 +6137,9 @@ async function send() {
         if (szLabel) szLabel.textContent = '⏳ מתמלל…';
         let transcript = '';
         try { transcript = await _transcribeMedia(mf); }
-        catch (e) { busy = false; updateBtn(); if (szLabel) szLabel.textContent = '⚠️ התמלול נכשל'; alert('התמלול נכשל — ודא שהקובץ תקין ולא ארוך מדי (עד ~24MB).'); return; }
+        catch (e) { busy = false; updateBtn(); if (szLabel) szLabel.textContent = '⚠️ התמלול נכשל'; _alert('התמלול נכשל — ודא שהקובץ תקין ולא ארוך מדי (עד ~24MB).'); return; }
         busy = false; updateBtn();
-        if (!transcript) { clearFile(); alert('לא זוהה דיבור בקובץ.'); return; }
+        if (!transcript) { clearFile(); _alert('לא זוהה דיבור בקובץ.'); return; }
         fileContent = transcript; fileName = mf.name;
         if (!q) { q = 'סכם בבקשה מה נאמר בהקלטה, בנקודות עיקריות.'; }
         // נמשיך לזרם הרגיל — ההודעה תוצג עם שם הקובץ, והתמלול ינותח כמסמך (כולל מסמכים ארוכים)
@@ -6607,13 +6655,13 @@ async function toggleLiveCam() {
         return;
     }
     try { await _startCamStream(_liveCamFacing); }
-    catch (e) { _liveCam = null; alert('לא ניתן לגשת למצלמה — בדוק הרשאות בדפדפן.'); }
+    catch (e) { _liveCam = null; _alert('לא ניתן לגשת למצלמה — בדוק הרשאות בדפדפן.'); }
 }
 async function flipLiveCam() {
     if (!_liveCam) return;
     _liveCamFacing = (_liveCamFacing === 'environment') ? 'user' : 'environment';
     try { await _startCamStream(_liveCamFacing); }
-    catch (e) { alert('לא ניתן להחליף מצלמה במכשיר הזה.'); }
+    catch (e) { _alert('לא ניתן להחליף מצלמה במכשיר הזה.'); }
 }
 function _captureFrame() {
     const v = document.getElementById('live-cam-video');
