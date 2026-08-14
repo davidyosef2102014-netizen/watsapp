@@ -6394,6 +6394,25 @@ async function send() {
     }
     _abortCtrl = null;
 
+    // ── המשך-אוטומטי לקוד שנקטע — אם יש בלוק קוד לא-סגור (מספר אי-זוגי של ```), ממשיכים מאיפה שנעצר ──
+    if (typeof currentMode !== 'undefined' && currentMode === 'code' && fullText && !_stopped) {
+        let tries = 0;
+        while (tries < 4 && (fullText.match(/```/g) || []).length % 2 === 1) {
+            tries++;
+            try { status.style.display = 'flex'; status.innerHTML = '<span class="agent-step"><span class="agent-step-dot"></span><b>משלים את הקוד…</b></span>'; } catch {}
+            const contMsgs = [
+                { role: 'system', content: 'אתה משלים קוד שנקטע באמצע. המשך בדיוק מהתו האחרון שנכתב, בלי לחזור על שום דבר קודם, בלי הקדמות או הסברים — רק המשך הקוד עד הסוף, כולל סגירת בלוק הקוד (```).' },
+                { role: 'assistant', content: fullText.slice(-3500) },
+                { role: 'user', content: 'המשך מכאן, רק את המשך הקוד.' }
+            ];
+            let cont = '';
+            try { cont = await callAI(contMsgs, () => {}, null); } catch { break; }
+            if (!cont || !cont.trim()) break;
+            cont = cont.replace(/^\s*```[a-zA-Z0-9]*\n?/, ''); // הסר גדר פותחת חוזרת אם המודל פתח בלוק מחדש
+            fullText += (fullText.endsWith('\n') ? '' : '\n') + cont;
+        }
+    }
+
     try {
     if (fullText) {
         // Hide search indicator
