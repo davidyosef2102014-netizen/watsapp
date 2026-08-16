@@ -1446,6 +1446,10 @@
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> <span data-i18n="privacy_row">מדיניות פרטיות</span></span>
                 <span style="color:var(--muted)">›</span>
             </div>
+            <div class="sp-row" style="cursor:pointer" onclick="connectFilesFolder()">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> <span data-i18n="files_row">תיקיית הקבצים (BIRGSOL AI)</span></span>
+                <span id="sp-files-status" style="color:var(--muted);font-size:12px"></span>
+            </div>
         </div>
         <button class="sb-settings-btn" onclick="toggleSettings()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -3209,7 +3213,7 @@ Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
    מוגדר עברית + אנגלית; שאר השפות נופלות לאנגלית כדי שלא יישארו בעברית. */
 const L10N_EXTRA = {
     he: {
-        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך',
+        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)',
         privacy_title:'מדיניות פרטיות — BIRGSOL AI', got_it:'הבנתי',
         mem_off:'כבה זיכרון (אל תלמד עליי)', clear_all:'מחק הכל', mem_loading:'טוען…',
         mem_empty:'עדיין לא נשמרו עובדות עליך. ככל שתשוחח יותר, BIRGSOL ילמד ויזכור כאן דברים.',
@@ -3223,7 +3227,7 @@ const L10N_EXTRA = {
         install_done:'BIRGSOL AI הותקן! 🎉', install_already:'אתה כבר באפליקציה 🙂'
     },
     en: {
-        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions',
+        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)',
         privacy_title:'Privacy Policy — BIRGSOL AI', got_it:'Got it',
         mem_off:'Turn off memory (don\'t learn about me)', clear_all:'Delete all', mem_loading:'Loading…',
         mem_empty:'No facts saved about you yet. The more you chat, the more BIRGSOL will learn and remember here.',
@@ -3333,6 +3337,7 @@ function initSettings() {
     document.getElementById('sp-sources')?.classList.toggle('on', showSrc);
     const foOn = localStorage.getItem('birgsol_followups_off') !== '1'; // דולק כברירת מחדל
     document.getElementById('sp-followups')?.classList.toggle('on', foOn);
+    try { if (typeof _restoreFilesFolder === 'function') _restoreFilesFolder(); } catch (e) {} // שחזר תיקיית "BIRGSOL AI" אם חוברה
 
     // deep-think feature toggle (default on)
     const deepFeature = localStorage.getItem('sp_deep_feature') !== '0';
@@ -3970,6 +3975,8 @@ function _autoCanvasFromMsg(txtEl) {
     const previewable = ['html','javascript','js','css'].includes(_canvasLang);
     document.getElementById('ctab-view').style.display = previewable ? '' : 'none';
     canvasTab(previewable ? 'view' : 'code');
+    // שמירה אוטומטית של הקוד לתיקיית "BIRGSOL AI" (אם חוברה) — אישור בפעם הראשונה לכל קובץ, אח"כ אוטומטי
+    try { if (typeof bsAutoSaveCode === 'function' && _bsDir) bsAutoSaveCode(best); } catch (e) {}
 }
 
 function canvasTab(t) {
@@ -6251,6 +6258,84 @@ async function _fetchLinkInfo(text) {
         } catch {}
     }
     return '';
+}
+
+/* ══════════════ קבצים — תיקיית "BIRGSOL AI" על המחשב (File System Access API) ══════════════
+   BIRGSOL שומר קוד ומסמכים לתיקייה בשם "BIRGSOL AI" שהמשתמש מאשר פעם אחת. כל כתיבה/שינוי — עם אישור.
+   הידית נשמרת ב-IndexedDB כדי לשרוד רענון. עובד ב-Chrome/Edge במחשב. */
+let _bsDir = null;                 // ידית התיקייה "BIRGSOL AI"
+const _bsApproved = new Set();     // שמות קבצים שכבר אושרו לשמירה בסשן הזה
+function _idbOpen() {
+    return new Promise((res, rej) => {
+        const r = indexedDB.open('birgsol_fs', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('h');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+    });
+}
+async function _idbSet(k, v) { const db = await _idbOpen(); return new Promise((res, rej) => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').put(v, k); t.oncomplete = () => res(); t.onerror = () => rej(t.error); }); }
+async function _idbGet(k) { try { const db = await _idbOpen(); return await new Promise((res) => { const t = db.transaction('h', 'readonly'); const q = t.objectStore('h').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } catch (e) { return null; } }
+
+function _filesSupported() { return typeof window.showDirectoryPicker === 'function'; }
+async function connectFilesFolder() {
+    if (!_filesSupported()) { _alert('גישה לקבצים נתמכת ב-Chrome או Edge במחשב בלבד (לא בנייד).'); return false; }
+    try {
+        const parent = await window.showDirectoryPicker({ mode: 'readwrite' });
+        _bsDir = await parent.getDirectoryHandle('BIRGSOL AI', { create: true });
+        try { await _idbSet('bsdir', _bsDir); } catch (e) {}
+        _bsApproved.clear();
+        _tierToast('📁 תיקיית "BIRGSOL AI" חוברה');
+        _updateFilesUI();
+        return true;
+    } catch (e) { return false; }
+}
+async function _restoreFilesFolder() {
+    const h = await _idbGet('bsdir');
+    if (h) { _bsDir = h; _updateFilesUI(); }
+}
+async function _ensureFolderPerm() {
+    if (!_bsDir) return false;
+    try {
+        let p = await _bsDir.queryPermission({ mode: 'readwrite' });
+        if (p === 'granted') return true;
+        p = await _bsDir.requestPermission({ mode: 'readwrite' });
+        return p === 'granted';
+    } catch (e) { return false; }
+}
+function _updateFilesUI() {
+    const el = document.getElementById('sp-files-status');
+    if (el) el.textContent = _bsDir ? ('📁 ' + _bsDir.name) : '';
+}
+// כתיבת קובץ לתיקייה — עם אישור (בפעם הראשונה לכל קובץ בסשן), אחר כך עדכון אוטומטי עם הודעה
+async function bsWriteFile(name, content, opts) {
+    opts = opts || {};
+    if (!_bsDir) { if (!opts.silent) _alert('אין תיקייה מחוברת. חבר את תיקיית "BIRGSOL AI" בהגדרות.'); return false; }
+    if (!opts.noConfirm && !_bsApproved.has(name)) {
+        const ok = await _confirm('לשמור/לעדכן את הקובץ "' + name + '" בתיקיית BIRGSOL AI?\n(עדכונים הבאים לקובץ זה יישמרו אוטומטית)');
+        if (!ok) return false;
+        _bsApproved.add(name);
+    }
+    if (!await _ensureFolderPerm()) { if (!opts.silent) _alert('אין הרשאה לתיקייה — חבר אותה מחדש בהגדרות.'); return false; }
+    try {
+        const fh = await _bsDir.getFileHandle(name, { create: true });
+        const w = await fh.createWritable();
+        await w.write(content);
+        await w.close();
+        _tierToast('💾 נשמר: ' + name);
+        return true;
+    } catch (e) { if (!opts.silent) _alert('שגיאה בשמירה: ' + (e && e.message || e)); return false; }
+}
+// שם קובץ לקוד לפי שפת הקנבס (יציב לכל השיחה — כך עדכונים דורסים את אותו קובץ)
+function _bsCodeName() {
+    const lang = (typeof _canvasLang !== 'undefined' ? _canvasLang : '') || '';
+    const ext = (typeof _canvasExt !== 'undefined' ? _canvasExt : '') || 'txt';
+    const base = ({ html: 'index', js: 'script', javascript: 'script', css: 'styles', py: 'main', python: 'main', json: 'data' })[lang.toLowerCase()] || 'code';
+    return base + '.' + ext;
+}
+// מצב קוד — שמירה אוטומטית של הקוד שנוצר לתיקייה (רק אם תיקייה מחוברת)
+async function bsAutoSaveCode(code) {
+    if (!_bsDir || !code || !code.trim()) return;
+    await bsWriteFile(_bsCodeName(), code, {});
 }
 
 /* ══ זרוע הדפדפן — BIRGSOL מסתכל בדף שאתה גולש בו דרך תוסף Chrome (רק PRO/ULTRA) ══
