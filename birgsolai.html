@@ -6253,11 +6253,99 @@ async function _fetchLinkInfo(text) {
     return '';
 }
 
+/* ══ זרוע הדפדפן — BIRGSOL מסתכל בדף שאתה גולש בו דרך תוסף Chrome (רק PRO/ULTRA) ══
+   האפליקציה = המוח; התוסף = הזרוע. אומרים "תסתכל בדפדפן" → פוקד על התוסף → מקבל טקסט+צילום → מנתח ועונה. */
+const BIRGSOL_EXT_ID = 'icnpkodpacgfbdjcopkhbfgcnfjljamp';
+function _extSend(msg, timeoutMs = 25000) {
+    return new Promise((resolve) => {
+        if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) { resolve({ ok: false, error: 'no-ext' }); return; }
+        let done = false;
+        const to = setTimeout(() => { if (!done) { done = true; resolve({ ok: false, error: 'timeout' }); } }, timeoutMs);
+        try {
+            chrome.runtime.sendMessage(BIRGSOL_EXT_ID, msg, (resp) => {
+                if (done) return; done = true; clearTimeout(to);
+                const le = chrome.runtime.lastError;
+                if (le) { resolve({ ok: false, error: /establish|Receiving end|does not exist/i.test(le.message || '') ? 'no-ext' : (le.message || 'ext-error') }); return; }
+                resolve(resp || { ok: false, error: 'no-response' });
+            });
+        } catch (e) { if (!done) { done = true; clearTimeout(to); resolve({ ok: false, error: 'no-ext' }); } }
+    });
+}
+function _isBrowserLook(q) {
+    if (!q) return false;
+    const mentions = /דפדפן|בדפדפן|\bbrowser\b|\btab\b|טאב|הדף הפתוח|הדף שפתוח|העמוד הפתוח|האתר הפתוח|הכרטיסייה|current page|open page/i.test(q);
+    const looks = /תסתכל|תסתכלי|הסתכל|תראה|תראי|תבדוק|תקרא|קרא|נתח|תנתח|סכם|תסכם|מה יש|מה כתוב|מה פתוח|מה רואים|מה קורה|look|read|check|analyz|summar|what/i.test(q);
+    return mentions && looks;
+}
+async function browserLook(q) {
+    // שער PRO/ULTRA
+    if (currentTier !== 'pro' && currentTier !== 'ultra') {
+        addMsg('user', q);
+        const r = addMsg('ai', '🔒 ראיית הדפדפן זמינה ל-Pro ו-Ultra בלבד. שדרג כדי ש-BIRGSOL יוכל להסתכל בדפדפן שלך.');
+        return;
+    }
+    addMsg('user', q);
+    const inp = document.getElementById('userInput');
+    if (inp) { inp.value = ''; inp.style.height = 'auto'; }
+    if (isFirstMsg) { addToHistory(q); isFirstMsg = false; }
+    busy = true; updateBtn();
+    const row = addMsg('ai', '👀 מסתכל בדפדפן…');
+    const body = row.querySelector('.ai-body');
+    const txt = row.querySelector('.ai-txt');
+    try {
+        const resp = await _extSend({ type: 'birgsol-look' });
+        if (!resp || !resp.ok) {
+            let m;
+            if (resp && resp.error === 'no-ext') m = 'כדי שאסתכל בדפדפן צריך את זרוע BIRGSOL (תוסף Chrome). ודא שהתוסף מותקן ומופעל, ורענן את הדף.';
+            else if (resp && resp.error === 'no-page') m = 'לא מצאתי דף פתוח בדפדפן להסתכל עליו. פתח אתר בטאב אחר ונסה שוב.';
+            else if (resp && resp.error === 'timeout') m = 'הזרוע לא הגיבה בזמן. נסה שוב.';
+            else m = 'לא הצלחתי להסתכל בדפדפן' + (resp && resp.error ? ' (' + resp.error + ')' : '') + '.';
+            txt.innerHTML = escHtml(m).replace(/\n/g, '<br>');
+            hist[hist.length - 1].content = m;
+            return;
+        }
+        // ניתוח: טקסט הדף + צילום המסך (ראייה)
+        const pageText = (resp.text || '').slice(0, 7000);
+        const sys = { role: 'system', content: 'אתה BIRGSOL AI. אתה מסתכל עכשיו על הדף שהמשתמש גולש בו בדפדפן (מצורף טקסט הדף וגם צילום מסך). ענה בשפת המשתמש, קצר וברור, על סמך מה שבדף בלבד. אל תמציא.' };
+        const parts = [{ type: 'text', text: 'הדף בדפדפן — כותרת: ' + (resp.title || '') + ' | כתובת: ' + (resp.url || '') + '\n\nטקסט הדף:\n' + pageText + '\n\nהבקשה שלי: ' + (q || 'סכם מה יש בדף.') }];
+        if (resp.screenshot) parts.push({ type: 'image_url', image_url: { url: resp.screenshot } });
+        const messages = [sys, { role: 'user', content: parts }];
+        let answer = '';
+        try { answer = await callAI(messages, () => {}, null); } catch (e) { answer = ''; }
+        if (!answer || !answer.trim()) answer = 'הסתכלתי על הדף אבל לא הצלחתי לנתח אותו כרגע. נסה שוב.';
+        txt.innerHTML = '';
+        if (resp.screenshot) {
+            const im = document.createElement('img');
+            im.src = resp.screenshot;
+            im.style.cssText = 'max-width:100%;border-radius:12px;margin-bottom:9px;display:block;border:1px solid var(--border);cursor:pointer';
+            im.title = 'הדף שהסתכלתי עליו'; im.onclick = () => window.open(resp.screenshot, '_blank');
+            txt.appendChild(im);
+        }
+        const ans = document.createElement('div');
+        try { ans.innerHTML = mdSafe(answer); } catch (e) { ans.textContent = answer; }
+        txt.appendChild(ans);
+        try { enhanceCodeBlocks(txt); _renderMath(txt); } catch (e) {}
+        const acts = document.createElement('div'); acts.className = 'ai-acts';
+        acts.innerHTML = '<button class="ai-act" onclick="copyIt(this)">' + IC.copy + ' העתק</button>' +
+            '<button class="ai-act" onclick="_extSend({type:\'birgsol-stop\'})">⏹ STOP BIRGSOL</button>';
+        body.appendChild(acts);
+        hist[hist.length - 1].content = answer;
+        const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    } catch (e) {
+        txt.textContent = 'שגיאה: ' + (e && e.message || e);
+    } finally {
+        busy = false; updateBtn();
+    }
+}
+
 async function send() {
     if (busy) return;
     const inp = document.getElementById('userInput');
     let   q   = inp.value.trim();
     if (!q && !fileUrl && !fileContent && !mediaFile) return;
+
+    // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף (PRO/ULTRA) ──
+    if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile) { await browserLook(q); return; }
 
     // ── אבטחה: סריקת ניסיון פריצה/הזרקה לפני שליחה. דוד חסין. ──
     const _sec = _securityScan(q);
