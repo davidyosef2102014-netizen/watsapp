@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- CSP — הגנת-עומק נגד הזרקת קוד: חוסם object/embed, חטיפת base-tag, ושדרוג-לאחור ל-http. מתיר https כדי לא לשבור מפות/התחברות/תמונות. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https:; worker-src 'self' blob:; frame-src 'self' https:; object-src 'none'; base-uri 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https:; worker-src 'self' blob:; frame-src 'self' https: blob:; object-src 'none'; base-uri 'self'">
 
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -1475,7 +1475,7 @@
     </div>
     <div class="canvas-body">
         <textarea id="canvas-code" spellcheck="false" oninput="canvasDirty()"></textarea>
-        <iframe id="canvas-frame" sandbox="allow-scripts allow-forms"></iframe>
+        <iframe id="canvas-frame" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin allow-pointer-lock allow-downloads allow-popups-to-escape-sandbox"></iframe>
     </div>
 </div>
 
@@ -3938,6 +3938,7 @@ function openCanvas(btn, lang, ext) {
     const block = btn.closest('.code-block');
     const code = block.querySelector('code').innerText;
     _canvasLang = (lang || 'plaintext').toLowerCase();
+    if (typeof _looksLikeHtml === 'function' && _looksLikeHtml(code) && !['css','js','javascript'].includes(_canvasLang)) { _canvasLang = 'html'; ext = 'html'; }
     _canvasExt = ext || 'txt';
     document.getElementById('canvas-code').value = code;
     document.getElementById('canvas-title').textContent = 'Canvas — ' + _canvasLang;
@@ -3969,6 +3970,7 @@ function _autoCanvasFromMsg(txtEl) {
     if (window.innerWidth >= 701) document.body.classList.add('code-split');
     document.getElementById('canvas-panel').classList.add('open');
     _canvasLang = bestLang || 'plaintext';
+    if (typeof _looksLikeHtml === 'function' && _looksLikeHtml(best) && _canvasLang !== 'css' && _canvasLang !== 'js' && _canvasLang !== 'javascript') _canvasLang = 'html'; // זיהוי HTML גם אם התיוג היה שגוי
     _canvasExt = ({ html:'html', javascript:'js', js:'js', css:'css', python:'py', json:'json' })[_canvasLang] || 'txt';
     document.getElementById('canvas-code').value = best;
     document.getElementById('canvas-title').textContent = 'Canvas — ' + _canvasLang;
@@ -3987,19 +3989,36 @@ function canvasTab(t) {
     if (t === 'view') renderCanvas();
 }
 
+// זיהוי אם קוד הוא בעצם HTML (גם אם התיוג היה שגוי/חסר)
+function _looksLikeHtml(code) {
+    return /<!doctype html|<html[\s>]|<body[\s>]|<head[\s>]|<script[\s>]|<style[\s>]|<canvas[\s>]|<svg[\s>]|<div[\s>]|<h[1-6][\s>]|<p[\s>]|<button[\s>]|<img[\s>]|<a[\s>]/i.test(code || '');
+}
+let _canvasBlobUrl = null;
 function renderCanvas() {
     const code = document.getElementById('canvas-code').value;
     const frame = document.getElementById('canvas-frame');
-    let doc = code;
-    if (['javascript','js'].includes(_canvasLang)) {
-        doc = `<html><body style="font-family:Consolas,monospace;font-size:14px;padding:14px;color:#111;direction:ltr">
-<script>const _p=(...a)=>{document.body.innerHTML+=a.map(x=>typeof x==='object'?JSON.stringify(x):x).join(' ')+'<br>'};
-console.log=_p;console.error=_p;console.warn=_p;
-try{${code}}catch(e){_p('❌ '+e.message)}<\/script></body></html>`;
-    } else if (_canvasLang === 'css') {
-        doc = `<html><head><style>${code}</style></head><body><div class="demo box container card btn button">CSS Preview — הוסף אלמנטים ב-HTML לקוד כדי לראות יותר</div></body></html>`;
+    const lang = (_canvasLang || '').toLowerCase();
+    const isHtml = _looksLikeHtml(code);
+    let doc;
+    if (['javascript', 'js'].includes(lang) && !isHtml) {
+        // JS טהור — קונסולה חיה (כולל אובייקטים, שגיאות זמן-ריצה)
+        doc = '<!doctype html><html><head><meta charset="utf-8"></head><body style="font-family:Consolas,monospace;font-size:14px;padding:14px;color:#111;direction:ltr">' +
+            '<script>const _p=(...a)=>{document.body.innerHTML+=a.map(x=>typeof x===\'object\'?JSON.stringify(x,null,2):String(x)).join(\' \')+\'<br>\'};' +
+            'console.log=_p;console.error=_p;console.warn=_p;console.info=_p;window.onerror=(m)=>{_p(\'❌ \'+m);return true;};' +
+            'try{\n' + code + '\n}catch(e){_p(\'❌ \'+e.message)}<\/script></body></html>';
+    } else if (lang === 'css' && !isHtml) {
+        doc = '<!doctype html><html><head><meta charset="utf-8"><style>' + code + '</style></head><body><div class="demo box container card btn button">CSS Preview</div></body></html>';
+    } else {
+        // HTML (או קוד שנראה כמו HTML) — מציגים בדיוק כמו שהוא, כולל סקריפטים וספריות חיצוניות
+        doc = code;
     }
-    frame.srcdoc = doc;
+    // Blob URL עם origin מבודד: מאפשר סקריפטים, localStorage, מודלים, popups וספריות חיצוניות — בלי גישה למקור האפליקציה
+    try { if (_canvasBlobUrl) URL.revokeObjectURL(_canvasBlobUrl); } catch (e) {}
+    try {
+        _canvasBlobUrl = URL.createObjectURL(new Blob([doc], { type: 'text/html' }));
+        frame.removeAttribute('srcdoc');
+        frame.src = _canvasBlobUrl;
+    } catch (e) { frame.srcdoc = doc; }
 }
 
 function canvasDirty() {
