@@ -6377,8 +6377,10 @@ function _extSend(msg, timeoutMs = 25000) {
 }
 function _isBrowserLook(q) {
     if (!q) return false;
+    // טריגר ישיר וחזק: "תתחבר לדפדפן" / "חבר לדף" / "connect to browser"
+    if (/(תתחבר|התחבר|תחבר|חבר|connect)\s*(ל|to)?\s*(ה?דפדפן|ה?דף|ה?אתר|ה?עמוד|ה?טאב|browser|tab|page)/i.test(q)) return true;
     const mentions = /דפדפן|בדפדפן|\bbrowser\b|\btab\b|טאב|הדף הפתוח|הדף שפתוח|העמוד הפתוח|האתר הפתוח|הכרטיסייה|current page|open page/i.test(q);
-    const looks = /תסתכל|תסתכלי|הסתכל|תראה|תראי|תבדוק|תקרא|קרא|נתח|תנתח|סכם|תסכם|מה יש|מה כתוב|מה פתוח|מה רואים|מה קורה|look|read|check|analyz|summar|what/i.test(q);
+    const looks = /תסתכל|תסתכלי|הסתכל|תראה|תראי|תבדוק|תקרא|קרא|נתח|תנתח|סכם|תסכם|תתחבר|התחבר|תחבר|חבר|מה יש|מה כתוב|מה פתוח|מה קורה|מה רוא|מה ראו|רוא|ראו|לראות|look|read|check|analyz|summar|connect|what|see/i.test(q);
     return mentions && looks;
 }
 async function browserLook(q) {
