@@ -4531,7 +4531,15 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     }
 
     // ── 0. Ask style first (skip if regenerating with a known style) ──
-    if (!imgStyle) imgStyle = await _askImageStyle();
+    // בקשת לוגו/אייקון — סגנון עיצוב גרפי ייעודי (וקטור שטוח נקי), בלי בורר סגנון (צילום ריאליסטי לא מתאים ללוגו)
+    const _isLogoReq = /לוגו|\blogo\b|אייקון|\bicon\b|סמל מסחרי|emblem|branding/i.test(promptRaw || '');
+    if (!imgStyle) {
+        if (_isLogoReq) {
+            imgStyle = { name: 'לוגו', model: 'flux', suffix: 'professional flat vector logo, clean minimal modern brand design, ONE simple relevant icon/symbol only, centered, plain solid background, crisp geometric shapes, balanced, high-end graphic design — NOT a photo, no unrelated symbols, no Star of David unless asked' };
+        } else {
+            imgStyle = await _askImageStyle();
+        }
+    }
 
     const prompt = promptRaw;
 
@@ -4604,28 +4612,37 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
             } catch { /* fall through */ }
         }
     }
-    // האם המשתמש רוצה טקסט/כיתוב בתמונה? (אז נאפשר עברית) — וחילוץ הטקסט העברי מתוך מרכאות
-    const _wantsText = /כיתוב|טקסט|כתוב|כתובת|שלט|מילים|לוגו|כותרת|באנר|\btext\b|\bsign\b|written|caption|title|logo|banner|label/i.test(prompt);
-    let _hebText = '';
+    // האם המשתמש רוצה טקסט/כיתוב בתמונה, ובאיזו שפה (אנגלית/עברית)
+    const _wantsText = /כיתוב|טקסט|כתוב|כתובת|שלט|מילים|לוגו|כותרת|באנר|שם\b|\btext\b|\bsign\b|written|caption|title|logo|banner|label|name/i.test(prompt);
+    let _brandText = '';
     const _qm = prompt.match(/["'“”‘’«»]([^"'“”‘’«»]{1,50})["'“”‘’«»]/);
-    if (_qm && /[֐-׿]/.test(_qm[1])) _hebText = _qm[1].trim();
+    if (_qm) _brandText = _qm[1].trim();
+    const _wantEng = /באנגלית|אנגלית|in english|\benglish\b|latin/i.test(prompt);
+    const _wantHeb = !_wantEng && (/בעברית|עברית|hebrew/i.test(prompt) || /[֐-׿]/.test(_brandText));
 
-    // רשת ביטחון: ערבית מוסרת תמיד (מונע כיתוב זר). עברית מוסרת רק אם לא ביקשו טקסט בתמונה.
+    // רשת ביטחון: ערבית מוסרת תמיד. עברית מוסרת אלא אם המשתמש רוצה טקסט עברי.
     if (/[؀-ۿݐ-ݿ]/.test(engPrompt)) engPrompt = engPrompt.replace(/[؀-ۿݐ-ݿ]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
-    if (!_wantsText && /[֐-׿]/.test(engPrompt)) engPrompt = engPrompt.replace(/[֐-׿]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    if (!(_wantsText && _wantHeb) && /[֐-׿]/.test(engPrompt)) engPrompt = engPrompt.replace(/[֐-׿]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
     if (engPrompt.length < 3) engPrompt = 'a highly detailed, high quality illustration';
 
     // ── 3. Cloudflare FLUX → HuggingFace → Pollinations ──
     const safePrompt = engPrompt.slice(0, 400);
     const seed = Math.floor(Math.random() * 999999);
+    const _anat = ', anatomically correct, one single subject with exactly one head and the correct number of limbs, no duplicate or extra heads/faces/limbs';
     let styledPrompt;
     if (_wantsText) {
-        // רוצים טקסט — מאפשרים עברית (בלבד), אוסרים ערבית/ג'יבריש
-        const _tc = _hebText ? `, with the Hebrew text "${_hebText}" written clearly and correctly in Hebrew letters` : ', with clear correct Hebrew text';
-        styledPrompt = safePrompt + _tc + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality, anatomically correct, one single subject with exactly one head and the correct number of limbs, no duplicate or extra heads/faces/limbs. Text must be in HEBREW letters only — never Arabic, never any other script, no gibberish.';
+        let _tc, _rule;
+        if (_wantHeb) {
+            _tc = (_brandText && /[֐-׿]/.test(_brandText)) ? `, with the Hebrew text "${_brandText}" written clearly and correctly in Hebrew letters` : ', with clear correct Hebrew text';
+            _rule = ' Text must be in HEBREW letters only — never Arabic, no gibberish.';
+        } else {
+            // אנגלית (או ברירת מחדל) — FLUX מאיית אנגלית טוב בהרבה
+            _tc = (_brandText && /[A-Za-z]/.test(_brandText)) ? `, with the text "${_brandText}" written clearly in clean English letters` : ', with clear correctly-spelled English text';
+            _rule = ' Text must be in clean correctly-spelled English/Latin letters — never Arabic or Hebrew, no gibberish.';
+        }
+        styledPrompt = safePrompt + _tc + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality.' + _rule;
     } else {
-        // בלי טקסט — מונע מ-FLUX להדביק אותיות זר/ג'יבריש
-        styledPrompt = safePrompt + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality, anatomically correct, one single subject with exactly one head and the correct number of limbs, no duplicate or extra heads/faces/limbs. No text, no letters, no words, no captions, no watermark, no signage.';
+        styledPrompt = safePrompt + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality' + _anat + '. No text, no letters, no words, no captions, no watermark, no signage.';
     }
 
     let imgSrc = preMadeImage || null; // תמונה מוכנה מראש (למשל תוצאת עריכת Nano Banana) — מדלגים על היצירה ורק מציגים
