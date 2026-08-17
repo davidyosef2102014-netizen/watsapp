@@ -3388,7 +3388,8 @@ if ('serviceWorker' in navigator) {
             nw.addEventListener('statechange', () => {
                 // גרסה חדשה הותקנה ויש כבר SW פעיל = עדכון (לא התקנה ראשונה) → רענן פעם אחת לטעינת ה-HTML החדש
                 if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                    if (!window.__bsReloaded) { window.__bsReloaded = true; location.reload(); }
+                    // רענן רק כשלא עסוק (לא באמצע יצירת תמונה/תשובה) — אחרת נמתין לרענון הבא של המשתמש
+                    if (!window.__bsReloaded && !(typeof busy !== 'undefined' && busy)) { window.__bsReloaded = true; location.reload(); }
                 }
             });
         });
@@ -4685,7 +4686,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     // ── 3. Cloudflare FLUX → HuggingFace → Pollinations ──
     const safePrompt = engPrompt.slice(0, 400);
     const seed = Math.floor(Math.random() * 999999);
-    const _anat = ', anatomically correct, one single subject with exactly one head and the correct number of limbs, no duplicate or extra heads/faces/limbs';
+    const _anat = ', anatomically correct, no duplicate, extra, or malformed heads, faces, or limbs';
     let styledPrompt;
     if (_wantsText) {
         let _tc, _rule;
@@ -6885,7 +6886,7 @@ async function send() {
                 return;
             }
             // אם המודל צייר לוגו/גרפיקה כ-SVG — נרנדר אותו כתמונה (טקסט מושלם) במקום להציג קוד גולמי
-            const _svgM = fullText.match(/<svg[\s\S]*?<\/svg>/i);
+            const _svgM = (typeof currentMode === 'undefined' || currentMode !== 'code') ? fullText.match(/<svg[\s\S]*?<\/svg>/i) : null;
             if (_svgM) {
                 try { status.style.display = 'none'; status.innerHTML = ''; } catch (e) {}
                 let _svg = _svgM[0].replace(/<script[\s\S]*?<\/script>/gi, ''); // הסר סקריפטים ליתר ביטחון
