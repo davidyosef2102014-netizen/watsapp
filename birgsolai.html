@@ -4604,17 +4604,29 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
             } catch { /* fall through */ }
         }
     }
-    // רשת ביטחון: אם עדיין נשאר טקסט עברי/ערבי בפרומפט — הסר אותו כדי ש-FLUX לא יצייר ג'יבריש/כיתוב זר
-    if (/[֐-׿؀-ۿ]/.test(engPrompt)) {
-        engPrompt = engPrompt.replace(/[֐-׿؀-ۿ]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
-        if (engPrompt.length < 3) engPrompt = 'a highly detailed, high quality illustration';
-    }
+    // האם המשתמש רוצה טקסט/כיתוב בתמונה? (אז נאפשר עברית) — וחילוץ הטקסט העברי מתוך מרכאות
+    const _wantsText = /כיתוב|טקסט|כתוב|כתובת|שלט|מילים|לוגו|כותרת|באנר|\btext\b|\bsign\b|written|caption|title|logo|banner|label/i.test(prompt);
+    let _hebText = '';
+    const _qm = prompt.match(/["'“”‘’«»]([^"'“”‘’«»]{1,50})["'“”‘’«»]/);
+    if (_qm && /[֐-׿]/.test(_qm[1])) _hebText = _qm[1].trim();
+
+    // רשת ביטחון: ערבית מוסרת תמיד (מונע כיתוב זר). עברית מוסרת רק אם לא ביקשו טקסט בתמונה.
+    if (/[؀-ۿݐ-ݿ]/.test(engPrompt)) engPrompt = engPrompt.replace(/[؀-ۿݐ-ݿ]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    if (!_wantsText && /[֐-׿]/.test(engPrompt)) engPrompt = engPrompt.replace(/[֐-׿]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    if (engPrompt.length < 3) engPrompt = 'a highly detailed, high quality illustration';
 
     // ── 3. Cloudflare FLUX → HuggingFace → Pollinations ──
     const safePrompt = engPrompt.slice(0, 400);
     const seed = Math.floor(Math.random() * 999999);
-    // "no text/letters" מונע מ-FLUX להדביק אותיות זר/ג'יבריש בתוך התמונה
-    const styledPrompt = safePrompt + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality. No text, no letters, no words, no captions, no watermark, no signage.';
+    let styledPrompt;
+    if (_wantsText) {
+        // רוצים טקסט — מאפשרים עברית (בלבד), אוסרים ערבית/ג'יבריש
+        const _tc = _hebText ? `, with the Hebrew text "${_hebText}" written clearly and correctly in Hebrew letters` : ', with clear correct Hebrew text';
+        styledPrompt = safePrompt + _tc + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality. Text must be in HEBREW letters only — never Arabic, never any other script, no gibberish.';
+    } else {
+        // בלי טקסט — מונע מ-FLUX להדביק אותיות זר/ג'יבריש
+        styledPrompt = safePrompt + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality. No text, no letters, no words, no captions, no watermark, no signage.';
+    }
 
     let imgSrc = preMadeImage || null; // תמונה מוכנה מראש (למשל תוצאת עריכת Nano Banana) — מדלגים על היצירה ורק מציגים
 
