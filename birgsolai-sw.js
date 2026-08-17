@@ -1,6 +1,6 @@
 /* BIRGSOL AI service worker — network-first, cache fallback (עובד גם בלי אינטרנט) */
 
-const CACHE = 'birgsol-ai-v117';
+const CACHE = 'birgsol-ai-v118';
 
 const ASSETS = ['./birgsolai.html', './birgsol-icon-192.png', './birgsol-icon-512.png'];
 
@@ -38,9 +38,13 @@ self.addEventListener('fetch', e => {
 
     if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
 
+    // ה-HTML הראשי — תמיד טרי (עוקף את מטמון ה-HTTP של GitHub Pages בן 10 הדקות), כדי שעדכונים יעלו מיד
+
+    const _isDoc = e.request.mode === 'navigate' || /birgsolai\.html$|\/$/.test(url.pathname);
+
     e.respondWith(
 
-        fetch(e.request).then(res => {
+        fetch(e.request, _isDoc ? { cache: 'no-store' } : {}).then(res => {
 
             if (res.ok) {
 
