@@ -6782,10 +6782,12 @@ async function send() {
         if (!_stopped) {
             RE_IMAGE.lastIndex = 0;
             const _imgM = RE_IMAGE.exec(fullText);
-            if (_imgM && _imgM[1] && _imgM[1].trim().length > 1) {
+            const _imgDesc = (_imgM && _imgM[1] && _imgM[1].trim().length > 1) ? _imgM[1].trim() : null;
+            const _bareImg = /\[IMAGE\]/i.test(fullText); // המודל לפעמים פולט [IMAGE] בלי תיאור
+            if (_imgDesc || _bareImg) {
                 try { status.style.display = 'none'; status.innerHTML = ''; } catch (e) {}
                 try { row.remove(); } catch (e) {}
-                await generateImage(_imgM[1].trim());
+                await generateImage(_imgDesc || q);   // בלי תיאור — משתמשים בהודעת המשתמש כפרומפט
                 saveConversation();
                 return;
             }
