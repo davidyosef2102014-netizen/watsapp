@@ -2286,7 +2286,7 @@ async function _genSmartTitle(convId) {
             .map(m => typeof m.content === 'string' ? m.content.slice(0, 200) : '[תמונה]')
             .join('\n---\n');
         const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
-            model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 60,
+            model: 'openai/gpt-oss-120b', temperature: 0.2, max_tokens: 60,
             messages: [
                 { role: 'system', content: 'אתה נותן שמות לשיחות. קבל קטע שיחה והחזר נושא קצר של 2-4 מילים בשפת השיחה. בסס את הכותרת אך ורק על מה שנכתב בשיחה בפועל — אסור בהחלט להמציא נושא, שם או פרט שלא הופיע. אם אין נושא ברור (למשל רק ברכה או שיחת חולין), החזר את המילים הראשונות של המשתמש כמו שהן. דוגמאות טובות: "השוואת טלוויזיות", "מתכון פסטה", "עזרה בקוד פייתון". אסור מילים משתמש/עוזר/שיחה/כותרת, אסור נקודתיים, מרכאות או נקודה. החזר את הנושא בלבד.' },
                 { role: 'user', content: sample }
@@ -2411,7 +2411,7 @@ async function _suspendAndAlert(reason, snippet) {
     // ה-AI מסביר במשפט למה זה חשוד — כדי שדוד יבין על מה ההתראה לפני שהוא מחליט
     let explanation = '';
     try {
-        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: [
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [
             { role: 'system', content: 'אתה מנתח אבטחה. הסבר במשפט אחד קצר וברור בעברית למה הודעת המשתמש הבאה חשודה כניסיון פריצה/מניפולציה/הזרקת-פרומפט למערכת AI. החזר רק את המשפט.' },
             { role: 'user', content: String(snippet || '').slice(0, 400) }
         ], temperature: 0.2, max_tokens: 80 }, { signal: AbortSignal.timeout(8000) });
@@ -3668,7 +3668,7 @@ async function _suggestFollowups(userMsg, aiReply, bodyEl) {
     if (!bodyEl || (typeof currentMode !== 'undefined' && currentMode === 'image')) return;
     try {
         const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
-            model: 'llama-3.1-8b-instant',
+            model: 'openai/gpt-oss-20b',
             messages: [
                 { role: 'system', content: 'הצע בדיוק 3 שאלות המשך קצרות (עד 6 מילים כל אחת) שהמשתמש עשוי לשאול אחרי התשובה, בשפת המשתמש, טבעיות וספציפיות להקשר. ענה JSON בלבד: {"q":["...","...","..."]}' },
                 { role: 'user', content: `שאלה: ${userMsg}\nתשובה: ${(aiReply || '').slice(0, 600)}` }
@@ -3705,7 +3705,7 @@ async function extractMemory(userMsg, aiReply) {
             ? 'מה שכבר ידוע (אל תחזור על זה):\n' + userMemory.slice(-25).map(f => { const n = _memNorm(f); return `- [${n.c}] ${n.t}`; }).join('\n') + '\n\n'
             : '';
         const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
-            model: 'llama-3.3-70b-versatile',
+            model: 'openai/gpt-oss-120b',
             messages: [
                 { role: 'system', content:
 `אתה הזיכרון ארוך-הטווח של עוזר AI אישי. תפקידך: לחלץ מהשיחה עובדות אמיתיות על המשתמש ועל עולמו, כדי שהעוזר יכיר אותו לעומק בשיחות הבאות — כמו חבר קרוב שזוכר.
@@ -4584,12 +4584,13 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
             { role: 'system', content: 'Translate the following image description to simple, literal English. Output ONLY the translation, max 20 words, no explanation, no quotes.' },
             { role: 'user', content: prompt }
         ];
-        // תרגום דרך Groq (מהיר ואמין; GitHub Models מת ולכן החזיר פרומפט גולמי → טקסט זר בתמונה), Pollinations כגיבוי
+        // תרגום דרך Groq gpt-oss-20b (reasoning_effort:low כדי שלא יחזיר ריק). llama מת (404) — היה גורם לפרומפט עברי → ג'יבריש/ערבית בתמונה.
         try {
-            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: transMessages, temperature: 0.2, max_tokens: 60 }, { signal: AbortSignal.timeout(9000) });
-            if (r.ok) { const j = await r.json(); const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, ''); if (t && !_looksLikeError(t) && t.length > 2 && t.length < 300) engPrompt = t; }
-        } catch { /* fall through to Pollinations */ }
+            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: transMessages, temperature: 0.2, max_tokens: 200, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(12000) });
+            if (r.ok) { const j = await r.json(); const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, ''); if (t && !_looksLikeError(t) && t.length > 2 && t.length < 400) engPrompt = t; }
+        } catch { /* fall through */ }
 
+        // גיבוי: Pollinations text
         if (engPrompt === prompt) {
             try {
                 const r = await fetch('https://text.pollinations.ai/', {
@@ -4599,9 +4600,14 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
                     signal: AbortSignal.timeout(10000)
                 });
                 const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
-                if (t && !_looksLikeError(t) && t.length > 2 && t.length < 300) engPrompt = t;
-            } catch { /* fall back to original prompt */ }
+                if (t && !_looksLikeError(t) && t.length > 2 && t.length < 400) engPrompt = t;
+            } catch { /* fall through */ }
         }
+    }
+    // רשת ביטחון: אם עדיין נשאר טקסט עברי/ערבי בפרומפט — הסר אותו כדי ש-FLUX לא יצייר ג'יבריש/כיתוב זר
+    if (/[֐-׿؀-ۿ]/.test(engPrompt)) {
+        engPrompt = engPrompt.replace(/[֐-׿؀-ۿ]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+        if (engPrompt.length < 3) engPrompt = 'a highly detailed, high quality illustration';
     }
 
     // ── 3. Cloudflare FLUX → HuggingFace → Pollinations ──
@@ -4825,7 +4831,7 @@ async function editImage(imgDataUrl, instruction) {
     if (allL > 0 && ascL / allL < 0.6) {
         try {
             const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
-                model: 'llama-3.3-70b-versatile',
+                model: 'openai/gpt-oss-120b',
                 messages: [
                     { role: 'system', content: 'Translate to English. Output ONLY the translation, no explanation.' },
                     { role: 'user', content: instruction }
@@ -5180,7 +5186,7 @@ async function _mapsViaSearch(query) {
         const tav = await _tryTavily(q + ' כתובת מדויקת בישראל').catch(() => '');
         if (!tav || tav.length < 25) return null;
         const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
-            model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 140,
+            model: 'openai/gpt-oss-120b', temperature: 0, max_tokens: 140,
             messages: [
                 { role: 'system', content: 'Extract a real Israeli street address from the search results to place ONE map pin. Rules: (1) Copy the street name + house number EXACTLY as they appear — never invent a street or number. (2) Output in HEBREW — if the street appears transliterated in English, convert it to its standard Hebrew spelling (same street, same number). (3) If no explicit street address WITH a house number appears, use null. Respond ONLY compact JSON: {"street":"<hebrew street + number>","city":"<hebrew city>","name":"<business name>"} or {"street":null}.' },
                 { role: 'user', content: `Requested: ${query}\n\nResults:\n${tav.slice(0, 1600)}` }
@@ -5266,7 +5272,7 @@ async function _nearestOf(q) {
         // 1) חילוץ קטגוריה + מקום-ייחוס דרך המודל (עמיד לעברית חופשית ולנוסחים שונים)
         const keys = Object.keys(NEAREST_SEL).join(', ');
         const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
-            model: 'llama-3.3-70b-versatile', temperature: 0, max_tokens: 120,
+            model: 'openai/gpt-oss-120b', temperature: 0, max_tokens: 120,
             response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: `You are a strict JSON extraction function for a "what is the nearest X to Y?" question. You NEVER refuse, NEVER apologize, NEVER answer in prose, and NEVER say you can't find the place — you only PARSE the question into fields (finding the actual business is done elsewhere). Output five fields as JSON. category = a key from this fixed list [${keys}] — but ONLY if it clearly and specifically matches the thing asked for; otherwise "other" (never force an unrelated key: a hair salon/מספרה is NOT a dentist; a gym is NOT a clinic). When category is "other", also fill osm_key and osm_value = the single most appropriate OpenStreetMap tag as two plain lowercase words (no quotes, no brackets): osm_key is one of shop/amenity/leisure/tourism/craft, osm_value is the tag value. Examples: hair salon→osm_key "shop", osm_value "hairdresser"; gym→"leisure","fitness_centre"; pizzeria→"amenity","fast_food"; butcher→"shop","butcher"; mosque→"amenity","place_of_worship". When category is a real list key, set osm_key and osm_value to null. place = the reference location Y in Hebrew (a landmark / place / address / city — NOT the category word). For place: never write "ב" before a city name; if a city is mentioned, format as "שם המקום, עיר" (comma, no "ב"). self = true ONLY if the reference is the user themselves ("אליי","לידי","כאן","near me","to me"), else false. Example: "מה המספרה הכי קרובה לכיכר המדינה בתל אביב?" → {"category":"hairdresser","osm_key":null,"osm_value":null,"place":"כיכר המדינה, תל אביב","self":false}. Example: "איפה הקצביה הכי קרובה לשוק הכרמל?" → {"category":"other","osm_key":"shop","osm_value":"butcher","place":"שוק הכרמל, תל אביב","self":false}. Respond with ONLY the JSON object.` },
@@ -5643,7 +5649,7 @@ async function _analyzeLongDoc(text, question, onStatus, signal) {
         if (onStatus) onStatus(`קורא חלק ${c + 1}/${chunks.length}…`);
         try {
             const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
-                model: 'llama-3.3-70b-versatile',
+                model: 'openai/gpt-oss-120b',
                 messages: [
                     { role: 'system', content: 'קיבלת קטע ממסמך ארוך. חלץ בתמצות רק מידע ועובדות מהקטע שרלוונטיים לשאלת המשתמש. אם אין בקטע כלום רלוונטי, כתוב בדיוק "—". אל תמציא — ציטוט או פרפרזה נאמנה בלבד.' },
                     { role: 'user', content: `שאלת המשתמש: ${q}\n\nקטע ${c + 1} מתוך ${chunks.length}:\n${chunks[c]}` }
@@ -5842,7 +5848,7 @@ async function _consolidateMemory() {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
+                model: 'openai/gpt-oss-120b',
                 messages: [
                     { role: 'system', content: 'קבל רשימת פריטי זיכרון על משתמש, כל שורה בפורמט "קטגוריה | עובדה". מזג כפילויות ועובדות סותרות (שמור את העדכני), הסר רק מידע חולף לגמרי, אבל שמור בנדיבות — עד 80 הפריטים הקבועים והמשמעותיים ביותר. שמור לכל עובדה את הקטגוריה שלה (family/friends/life/prefs/work/health/other). ענה ב-JSON בלבד: {"facts":[{"t":"עובדה","c":"family"}]}' },
                     { role: 'user', content: userMemory.map(f => { const n = _memNorm(f); return `${n.c} | ${n.t}`; }).join('\n') }
@@ -6111,17 +6117,16 @@ async function callAI(messages, onChunk, signal=null) {
     const stages = isCode ? [
         { name: 'Groq gpt-oss-120b (code)', fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Groq gpt-oss (acct 2)',    fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
-        { name: 'Groq llama (code fb)',      fn: () => _groqTry({ model: 'llama-3.3-70b-versatile', messages, ..._codeCfg }) },
-        { name: 'Groq llama (acct 3)',       fn: () => _groqTry({ model: 'llama-3.3-70b-versatile', messages, ..._codeCfg }) },
+        { name: 'Groq llama (code fb)',      fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
+        { name: 'Groq llama (acct 3)',       fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
         { name: 'Mistral (code)',            fn: () => _tryMistral().then(_tw) },
         { name: 'Cohere (code)',             fn: () => _tryCohere().then(_tw) },
     ] : [
-        { name: 'Groq stream',         fn: () => _groqGuard({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
-        { name: 'Groq (acct 2)',       fn: () => _groqTry({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
-        { name: 'Groq (acct 3)',       fn: () => _groqTry({ model: 'llama-3.3-70b-versatile', messages, ..._chatCfg }) },
-        { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },
-        { name: 'Groq gpt-oss-120b',   fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
+        { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },   // המשקל הראשי — מהיר, יציב, עברית טובה
+        { name: 'Groq gpt-oss-120b',   fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
+        { name: 'Groq gpt-oss (acct2)',fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
+        { name: 'Groq gpt-oss (acct3)',fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
         { name: 'Mistral',           fn: () => _tryMistral().then(_tw) },
         { name: 'Cohere',            fn: () => _tryCohere().then(_tw) },
     ];
@@ -6195,7 +6200,7 @@ async function _autoNameConv() {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + groqKey(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
+                model: 'openai/gpt-oss-120b',
                 messages: [
                     { role: 'system', content: 'צור שם קצר לשיחה (3-5 מילים, ללא פיסוק, ללא גרשיים). ענה בשם בלבד.' },
                     { role: 'user', content: 'משתמש: ' + String(firstUser).slice(0, 200) + '\nAI: ' + String(firstAI).slice(0, 100) }
@@ -6958,7 +6963,7 @@ async function _callAILive(messages) {
     const cfg = { temperature: 0.7, max_tokens: 400 };
     const _pick = j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; };
 
-    const tryGroq = () => _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: short, ...cfg }, { signal: AbortSignal.timeout(9000) })
+    const tryGroq = () => _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: short, ...cfg }, { signal: AbortSignal.timeout(9000) })
         .then(r => { if (!r.ok) throw new Error('groq ' + r.status); return r.json(); }).then(_pick);
 
     const tryGeminiLive = () => {
