@@ -4586,7 +4586,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
         ];
         // תרגום דרך Groq gpt-oss-20b (reasoning_effort:low כדי שלא יחזיר ריק). llama מת (404) — היה גורם לפרומפט עברי → ג'יבריש/ערבית בתמונה.
         try {
-            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: transMessages, temperature: 0.2, max_tokens: 200, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(12000) });
+            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: transMessages, temperature: 0.2, max_tokens: 220, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(14000) });
             if (r.ok) { const j = await r.json(); const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, ''); if (t && !_looksLikeError(t) && t.length > 2 && t.length < 400) engPrompt = t; }
         } catch { /* fall through */ }
 
@@ -4622,10 +4622,10 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     if (_wantsText) {
         // רוצים טקסט — מאפשרים עברית (בלבד), אוסרים ערבית/ג'יבריש
         const _tc = _hebText ? `, with the Hebrew text "${_hebText}" written clearly and correctly in Hebrew letters` : ', with clear correct Hebrew text';
-        styledPrompt = safePrompt + _tc + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality. Text must be in HEBREW letters only — never Arabic, never any other script, no gibberish.';
+        styledPrompt = safePrompt + _tc + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality, anatomically correct, one single subject with exactly one head and the correct number of limbs, no duplicate or extra heads/faces/limbs. Text must be in HEBREW letters only — never Arabic, never any other script, no gibberish.';
     } else {
         // בלי טקסט — מונע מ-FLUX להדביק אותיות זר/ג'יבריש
-        styledPrompt = safePrompt + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality. No text, no letters, no words, no captions, no watermark, no signage.';
+        styledPrompt = safePrompt + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality, anatomically correct, one single subject with exactly one head and the correct number of limbs, no duplicate or extra heads/faces/limbs. No text, no letters, no words, no captions, no watermark, no signage.';
     }
 
     let imgSrc = preMadeImage || null; // תמונה מוכנה מראש (למשל תוצאת עריכת Nano Banana) — מדלגים על היצירה ורק מציגים
