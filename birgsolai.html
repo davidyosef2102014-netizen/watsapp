@@ -4543,6 +4543,34 @@ async function _hostRemoteImage(url) {
     } catch { return null; }
 }
 
+// המרת SVG (שהמודל צייר) לתמונת PNG אמיתית דרך canvas — כדי שיוצג ויישמר כתמונה רגילה
+function _svgToPng(svgCode, scale) {
+    return new Promise((resolve) => {
+        try {
+            let svg = svgCode;
+            if (!/xmlns=/.test(svg)) svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+            const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const w = img.naturalWidth || 800, h = img.naturalHeight || 500;
+                    const s = scale || 2;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(w * s); canvas.height = Math.round(h * s);
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+                    resolve(canvas.toDataURL('image/png'));
+                } catch (e) { URL.revokeObjectURL(url); resolve(null); }
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+            img.src = url;
+        } catch (e) { resolve(null); }
+    });
+}
+
 async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInstruction, preMadeImage) {
     showChat();
     const cw = document.getElementById('chat-window');
@@ -6862,20 +6890,30 @@ async function send() {
                 try { status.style.display = 'none'; status.innerHTML = ''; } catch (e) {}
                 let _svg = _svgM[0].replace(/<script[\s\S]*?<\/script>/gi, ''); // הסר סקריפטים ליתר ביטחון
                 const _before = fullText.slice(0, _svgM.index).replace(RE_IMAGE, '').replace(RE_SEARCH, '').trim();
+                const _png = await _svgToPng(_svg, 2); // המרה לתמונת PNG אמיתית
                 txt.innerHTML = '';
                 if (_before) { const p = document.createElement('div'); try { p.innerHTML = mdSafe(_before); } catch (e) { p.textContent = _before; } txt.appendChild(p); }
-                const wrap = document.createElement('div');
-                wrap.style.cssText = 'background:#fff;border-radius:12px;padding:12px;margin-top:6px;display:block;max-width:100%;overflow:auto;border:1px solid var(--border)';
-                wrap.innerHTML = _svg;
-                const svgEl = wrap.querySelector('svg'); if (svgEl) { svgEl.style.maxWidth = '100%'; svgEl.style.height = 'auto'; }
-                txt.appendChild(wrap);
-                const acts = document.createElement('div'); acts.className = 'ai-acts';
-                const dl = document.createElement('a');
-                dl.className = 'ai-act'; dl.textContent = '⬇ הורד SVG';
-                dl.href = URL.createObjectURL(new Blob([_svg], { type: 'image/svg+xml' }));
-                dl.download = 'birgsol-logo.svg'; dl.style.textDecoration = 'none';
-                acts.appendChild(dl); body.appendChild(acts);
-                hist.push({ role: 'assistant', content: fullText });
+                if (_png) {
+                    const im = document.createElement('img'); im.className = 'ai-gen-img'; im.src = _png;
+                    im.style.cssText = 'max-width:100%;border-radius:12px;display:block;cursor:pointer;margin-top:6px'; im.title = 'פתח תמונה';
+                    im.onclick = () => window.open(im.src, '_blank');
+                    txt.appendChild(im);
+                    const acts = document.createElement('div'); acts.className = 'ai-acts';
+                    const openB = document.createElement('button'); openB.className = 'ai-act'; openB.innerHTML = IC.extLink + ' פתח'; openB.onclick = () => window.open(im.src, '_blank');
+                    const dlA = document.createElement('a'); dlA.className = 'ai-act'; dlA.download = 'birgsol-image.png'; dlA.href = _png; dlA.innerHTML = IC.download + ' הורד'; dlA.style.textDecoration = 'none';
+                    acts.appendChild(openB); acts.appendChild(dlA); body.appendChild(acts);
+                    let _stored = _png;
+                    try { const h = await _hostImage(_png); if (h) { _stored = h; im.src = h; dlA.href = h; } } catch (e) {}
+                    hist.push({ role: 'assistant', content: `[GENERATED_IMAGE:${_stored}§§logo]` });
+                } else {
+                    // גיבוי אם ההמרה נכשלה — נרנדר SVG מוטבע
+                    const wrap = document.createElement('div');
+                    wrap.style.cssText = 'background:#fff;border-radius:12px;padding:12px;margin-top:6px;display:block;max-width:100%;overflow:auto;border:1px solid var(--border)';
+                    wrap.innerHTML = _svg;
+                    const svgEl = wrap.querySelector('svg'); if (svgEl) { svgEl.style.maxWidth = '100%'; svgEl.style.height = 'auto'; }
+                    txt.appendChild(wrap);
+                    hist.push({ role: 'assistant', content: fullText });
+                }
                 if (isFirstMsg) isFirstMsg = false;
                 cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
                 saveConversation();
