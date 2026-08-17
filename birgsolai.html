@@ -6856,6 +6856,31 @@ async function send() {
                 saveConversation();
                 return;
             }
+            // אם המודל צייר לוגו/גרפיקה כ-SVG — נרנדר אותו כתמונה (טקסט מושלם) במקום להציג קוד גולמי
+            const _svgM = fullText.match(/<svg[\s\S]*?<\/svg>/i);
+            if (_svgM) {
+                try { status.style.display = 'none'; status.innerHTML = ''; } catch (e) {}
+                let _svg = _svgM[0].replace(/<script[\s\S]*?<\/script>/gi, ''); // הסר סקריפטים ליתר ביטחון
+                const _before = fullText.slice(0, _svgM.index).replace(RE_IMAGE, '').replace(RE_SEARCH, '').trim();
+                txt.innerHTML = '';
+                if (_before) { const p = document.createElement('div'); try { p.innerHTML = mdSafe(_before); } catch (e) { p.textContent = _before; } txt.appendChild(p); }
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'background:#fff;border-radius:12px;padding:12px;margin-top:6px;display:block;max-width:100%;overflow:auto;border:1px solid var(--border)';
+                wrap.innerHTML = _svg;
+                const svgEl = wrap.querySelector('svg'); if (svgEl) { svgEl.style.maxWidth = '100%'; svgEl.style.height = 'auto'; }
+                txt.appendChild(wrap);
+                const acts = document.createElement('div'); acts.className = 'ai-acts';
+                const dl = document.createElement('a');
+                dl.className = 'ai-act'; dl.textContent = '⬇ הורד SVG';
+                dl.href = URL.createObjectURL(new Blob([_svg], { type: 'image/svg+xml' }));
+                dl.download = 'birgsol-logo.svg'; dl.style.textDecoration = 'none';
+                acts.appendChild(dl); body.appendChild(acts);
+                hist.push({ role: 'assistant', content: fullText });
+                if (isFirstMsg) isFirstMsg = false;
+                cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+                saveConversation();
+                return;
+            }
         }
         // Hide search indicator
         status.style.transition = 'opacity .4s'; status.style.opacity = '0';
