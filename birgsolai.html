@@ -1628,13 +1628,12 @@
                 </div>
             </div>
             <!-- בורר מודלים — מתחת לתיבת הכתיבה. לחיצה פותחת רשימה לבחירה -->
-            <div id="model-chip-row" style="position:relative;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px">
+            <div id="model-chip-row" style="position:relative;text-align:center;margin-top:8px">
                 <button id="model-chip" type="button" onclick="_toggleModelMenu(event)" style="display:inline-flex;align-items:center;gap:5px;background:transparent;border:none;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:2px 5px;border-radius:9px">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.4" fill="currentColor"/><circle cx="15" cy="9" r="1.4" fill="currentColor"/><path d="M8.5 14.5c.9 1 2.1 1.5 3.5 1.5s2.6-.5 3.5-1.5"/></svg>
                     <span id="model-chip-name">BIRGSOL AI 3.5 FLASH</span>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
-                <span id="token-ring-slot" style="display:inline-flex;align-items:center"></span>
                 <div id="model-menu" style="display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:8px;background:var(--surf);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:6px;z-index:60;min-width:250px;text-align:right"></div>
             </div>
             <div class="foot-note" id="foot-note">Birgsol AI עשוי לטעות. בדוק מידע חשוב.</div>
@@ -6093,18 +6092,18 @@ function _tokenMeter() {
     }
     if (!el) {
         el = document.createElement('div'); el.id = 'token-ring';
-        el.title = ''; el.onclick = _openQuotaMenu;
-        const slot = document.getElementById('token-ring-slot');
-        if (slot) { el.style.cssText = 'width:30px;height:30px;cursor:pointer;flex-shrink:0;line-height:0'; slot.appendChild(el); }
-        else { el.style.cssText = 'position:fixed;left:12px;bottom:94px;z-index:9000;width:30px;height:30px;cursor:pointer;filter:drop-shadow(0 2px 7px rgba(0,0,0,.22))'; document.body.appendChild(el); }
+        el.onclick = _openQuotaMenu;
+        // פינה ימנית-תחתית (כמו שדוד סימן בצהוב)
+        el.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9000;width:32px;height:32px;cursor:pointer;filter:drop-shadow(0 2px 7px rgba(0,0,0,.22))';
+        document.body.appendChild(el);
     }
-    const R = 13, CIRC = 2 * Math.PI * R, off = CIRC * (1 - ringPct / 100);
-    const fs = center.length >= 4 ? 8 : 10;
+    const R = 14, CIRC = 2 * Math.PI * R, off = CIRC * (1 - ringPct / 100);
+    const fs = center.length >= 4 ? 8.5 : 10.5;
     el.innerHTML =
-        '<svg viewBox="0 0 30 30" width="30" height="30">' +
-        '<circle cx="15" cy="15" r="' + R + '" fill="var(--surf,#fff)" stroke="rgba(140,140,140,.28)" stroke-width="3"/>' +
-        '<circle cx="15" cy="15" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="3" stroke-linecap="round" stroke-dasharray="' + CIRC + '" stroke-dashoffset="' + off + '" transform="rotate(-90 15 15)" style="transition:stroke-dashoffset .5s ease"/>' +
-        '<text x="15" y="15" text-anchor="middle" dominant-baseline="central" font-size="' + fs + '" font-weight="800" fill="' + col + '" font-family="system-ui,sans-serif">' + center + '</text>' +
+        '<svg viewBox="0 0 32 32" width="32" height="32">' +
+        '<circle cx="16" cy="16" r="' + R + '" fill="var(--surf,#fff)" stroke="rgba(140,140,140,.28)" stroke-width="3"/>' +
+        '<circle cx="16" cy="16" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="3" stroke-linecap="round" stroke-dasharray="' + CIRC + '" stroke-dashoffset="' + off + '" transform="rotate(-90 16 16)" style="transition:stroke-dashoffset .5s ease"/>' +
+        '<text x="16" y="16" text-anchor="middle" dominant-baseline="central" font-size="' + fs + '" font-weight="800" fill="' + col + '" font-family="system-ui,sans-serif">' + center + '</text>' +
         '</svg>';
 }
 
