@@ -1450,7 +1450,7 @@
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> <span data-i18n="privacy_row">מדיניות פרטיות</span></span>
                 <span style="color:var(--muted)">›</span>
             </div>
-            <div class="sp-row" style="cursor:pointer" onclick="connectFilesFolder()">
+            <div class="sp-row" style="cursor:pointer" onclick="_filesRowClick()">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> <span data-i18n="files_row">תיקיית הקבצים (BIRGSOL AI)</span></span>
                 <span id="sp-files-status" style="color:var(--muted);font-size:12px"></span>
             </div>
@@ -3357,7 +3357,8 @@ const L10N_EXTRA = {
         pf_free_model:'מודלים 2.0 PRO ו-3.0 FLASH', pf_free_img:'4 תמונות ביום', pf_free_tok:'מכסת שימוש יומית · 60K טוקנים',
         pf_basic_model:'+ מודל 3.5 FLASH · חכם ומהיר', pf_basic_img:'10 תמונות ביום', pf_basic_tok:'מכסת שימוש · 300K טוקנים ביום', pf_basic_badge:'תג Basic',
         pf_pro_model:'+ מודל 3.5 PRO · מעולה לקוד', pf_pro_img:'25 תמונות ביום', pf_pro_tok:'מכסת שימוש · 1.2M טוקנים ביום', pf_pro_badge:'תג Pro',
-        pf_ultra_models:'כל המודלים · ללא הגבלה', pf_ultra_img:'תמונות ללא הגבלה', pf_ultra_use:'שימוש ללא הגבלה', pf_ultra_badge:'תג Ultra מיוחד'
+        pf_ultra_models:'כל המודלים · ללא הגבלה', pf_ultra_img:'תמונות ללא הגבלה', pf_ultra_use:'שימוש ללא הגבלה', pf_ultra_badge:'תג Ultra מיוחד',
+        files_connect:'חבר ›', files_change:'החלף', files_remove:'הסר'
     },
     en: {
         install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker',
@@ -3375,7 +3376,8 @@ const L10N_EXTRA = {
         pf_free_model:'2.0 PRO & 3.0 FLASH models', pf_free_img:'4 images/day', pf_free_tok:'Daily usage quota · 60K tokens',
         pf_basic_model:'+ 3.5 FLASH model · smart & fast', pf_basic_img:'10 images/day', pf_basic_tok:'Usage quota · 300K tokens/day', pf_basic_badge:'Basic badge',
         pf_pro_model:'+ 3.5 PRO model · great for code', pf_pro_img:'25 images/day', pf_pro_tok:'Usage quota · 1.2M tokens/day', pf_pro_badge:'Pro badge',
-        pf_ultra_models:'All models · unlimited', pf_ultra_img:'Unlimited images', pf_ultra_use:'Unlimited usage', pf_ultra_badge:'Special Ultra badge'
+        pf_ultra_models:'All models · unlimited', pf_ultra_img:'Unlimited images', pf_ultra_use:'Unlimited usage', pf_ultra_badge:'Special Ultra badge',
+        files_connect:'Connect ›', files_change:'Change', files_remove:'Remove'
     }
 };
 Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
@@ -3647,6 +3649,13 @@ If the user asks who created you, who built you, who made you, or similar, your 
 - Use modern syntax: ES2023+, Python 3.11+, latest framework patterns
 - Variable/function names: descriptive and self-documenting (NOT: x, tmp, data → YES: userProfile, fetchMessages, isLoading)
 - ALWAYS include: input validation, proper error handling with meaningful messages, loading/error states
+
+=== PROJECT FILES (auto-saved to the user's "BIRGSOL AI" folder) ===
+- If the user connected a project folder, EVERY code block you output is saved there as a REAL file automatically.
+- Keep filenames STABLE across edits so an update OVERWRITES the same file instead of creating duplicates. Reuse standard names: index.html, styles.css, script.js, main.py.
+- To set a file's exact name, make the FIRST line of the code block a comment: HTML → \`<!-- file: index.html -->\`, JS/CSS → \`// file: script.js\`, Python → \`# file: main.py\`.
+- Multi-file project: output ONE code block per file (each with its own file: header). Single self-contained app: one HTML block is enough.
+- When the user asks to CHANGE something, re-output the FULL updated file(s) with the SAME filename(s) — never a partial snippet or a diff.
 
 === UI/HTML EXCELLENCE ===
 - Write STUNNING, modern UIs with smooth CSS animations, transitions, and micro-interactions
@@ -4148,7 +4157,7 @@ function _autoCanvasFromMsg(txtEl) {
     document.getElementById('ctab-view').style.display = previewable ? '' : 'none';
     canvasTab(previewable ? 'view' : 'code');
     // שמירה אוטומטית של הקוד לתיקיית "BIRGSOL AI" (אם חוברה) — אישור בפעם הראשונה לכל קובץ, אח"כ אוטומטי
-    try { if (typeof bsAutoSaveCode === 'function' && _bsDir) bsAutoSaveCode(best); } catch (e) {}
+    try { if (typeof bsSaveCodeBlocks === 'function' && _bsDir) bsSaveCodeBlocks(blocks); } catch (e) {}
 }
 
 function canvasTab(t) {
@@ -6641,16 +6650,30 @@ async function _ensureFolderPerm() {
 function _updateFilesUI() {
     const el = document.getElementById('sp-files-status');
     if (!el) return;
+    const tr = (k) => (typeof _t === 'function' ? _t(k) : k);
+    el.innerHTML = '';
     if (_bsDir) {
-        el.innerHTML = '';
-        const nm = document.createElement('span'); nm.textContent = '📁 ' + _bsDir.name;
-        const x = document.createElement('span'); x.textContent = '✕'; x.title = 'נתק תיקייה';
-        x.style.cssText = 'cursor:pointer;color:#ff5a5a;margin-inline-start:8px;font-weight:800';
-        x.onclick = (e) => { e.stopPropagation(); disconnectFilesFolder(); };
-        el.appendChild(nm); el.appendChild(x);
-    } else { el.textContent = ''; }
+        const nm = document.createElement('span');
+        nm.textContent = '📁 ' + _bsDir.name;
+        nm.style.cssText = 'color:var(--text);font-weight:600';
+        const chg = document.createElement('button');
+        chg.type = 'button'; chg.textContent = tr('files_change');
+        chg.style.cssText = 'margin-inline-start:8px;background:var(--surf2);border:none;border-radius:7px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--text);font-family:inherit;font-weight:600';
+        chg.onclick = (e) => { e.stopPropagation(); connectFilesFolder(); };
+        const rm = document.createElement('button');
+        rm.type = 'button'; rm.textContent = tr('files_remove');
+        rm.style.cssText = 'margin-inline-start:6px;background:rgba(255,90,90,.14);border:none;border-radius:7px;padding:3px 10px;font-size:11px;cursor:pointer;color:#ff5a5a;font-family:inherit;font-weight:700';
+        rm.onclick = (e) => { e.stopPropagation(); disconnectFilesFolder(); };
+        el.appendChild(nm); el.appendChild(chg); el.appendChild(rm);
+    } else {
+        const c = document.createElement('span');
+        c.textContent = tr('files_connect'); c.style.color = 'var(--muted)';
+        el.appendChild(c);
+    }
 }
-// ניתוק/הסרת התיקייה המחוברת. (לחיצה על השורה עצמה = החלפה — בוחרת תיקייה חדשה)
+// לחיצה על השורה: אם אין תיקייה — חבר. אם יש — הכפתורים (החלף/הסר) מטפלים.
+function _filesRowClick() { if (!_bsDir) connectFilesFolder(); }
+// ניתוק/הסרת התיקייה המחוברת
 async function disconnectFilesFolder() {
     _bsDir = null; _bsApproved.clear();
     try { await _idbSet('bsdir', null); } catch (e) {}
@@ -6687,6 +6710,47 @@ function _bsCodeName() {
 async function bsAutoSaveCode(code) {
     if (!_bsDir || !code || !code.trim()) return;
     await bsWriteFile(_bsCodeName(), code, {});
+}
+// שם קובץ מפורש בראש בלוק הקוד: "// file: name.ext" או "<!-- file: name.ext -->" או "# file: name.ext"
+function _bsExplicitName(code) {
+    const head = (code || '').split('\n').slice(0, 3).join('\n');
+    const m = head.match(/(?:\/\/|#|<!--|\/\*)\s*file\s*[:=]\s*([\w.\-\/]+\.\w+)/i);
+    return m ? m[1].replace(/^\/+/, '').split('/').pop() : null; // שם קובץ בלבד (בלי נתיב), לבטיחות
+}
+// שם קובץ סטנדרטי לפי שפה, עם ספירה לכפילויות (script.js, script2.js…)
+function _bsNameForLang(lang, counts) {
+    const map = { html:'index.html', js:'script.js', javascript:'script.js', css:'styles.css', python:'main.py', py:'main.py', json:'data.json', ts:'script.ts', typescript:'script.ts', jsx:'App.jsx', tsx:'App.tsx', md:'README.md', sql:'query.sql', sh:'script.sh', bash:'script.sh' };
+    const base = map[(lang || '').toLowerCase()] || ('code.' + ((lang || 'txt').toLowerCase().replace(/[^\w]/g, '') || 'txt'));
+    const n = (counts[base] = (counts[base] || 0) + 1);
+    if (n === 1) return base;
+    const dot = base.lastIndexOf('.');
+    return base.slice(0, dot) + n + base.slice(dot);
+}
+// שמירת כל בלוקי הקוד מתשובת המודל כקבצים בתיקייה — אישור אחד לכל הקבוצה, אח"כ אוטומטי
+async function bsSaveCodeBlocks(blocks) {
+    if (!_bsDir || !blocks || !blocks.length) return;
+    const counts = {}, files = [];
+    for (const b of blocks) {
+        const codeEl = b.querySelector('code'); if (!codeEl) continue;
+        const code = codeEl.innerText; if (!code || !code.trim()) continue;
+        let lang = (b.querySelector('.code-lang')?.textContent || '').toLowerCase().trim();
+        if (!lang && typeof _looksLikeHtml === 'function' && _looksLikeHtml(code)) lang = 'html';
+        const name = _bsExplicitName(code) || _bsNameForLang(lang, counts);
+        files.push({ name, code });
+    }
+    if (!files.length) return;
+    const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
+    const isNew = files.filter(f => !_bsApproved.has(f.name));
+    if (isNew.length) {
+        const list = files.map(f => '• ' + f.name).join('\n');
+        const ok = await _confirm((en ? 'Save/update these files in the BIRGSOL AI folder?\n' : 'לשמור/לעדכן את הקבצים האלה בתיקיית BIRGSOL AI?\n') + list + (en ? '\n(Later updates save automatically)' : '\n(עדכונים הבאים יישמרו אוטומטית)'));
+        if (!ok) return;
+        isNew.forEach(f => _bsApproved.add(f.name));
+    }
+    if (typeof _ensureFolderPerm === 'function' && !await _ensureFolderPerm()) return;
+    let saved = 0;
+    for (const f of files) { if (await bsWriteFile(f.name, f.code, { noConfirm: true, silent: true })) saved++; }
+    if (saved) _tierToast('💾 ' + (en ? 'Saved ' + saved + ' file' + (saved > 1 ? 's' : '') : 'נשמרו ' + saved + ' קבצים'));
 }
 
 /* ══ זרוע הדפדפן — BIRGSOL מסתכל בדף שאתה גולש בו דרך תוסף Chrome (רק PRO/ULTRA) ══
