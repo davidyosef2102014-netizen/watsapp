@@ -1273,9 +1273,9 @@
           <div class="tier-tagline">הגרסה הבסיסית · לכולם</div>
           <div class="tier-divider"></div>
           <ul class="tier-feats">
-            <li><span class="ck">✓</span> 4 תמונות ביום</li>
-            <li><span class="ck">✓</span> 5 חיפושים באינטרנט ביום</li>
-            <li><span class="ck">✓</span> שיחות ללא הגבלה</li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_free_model">מודל BIRGSOL AI 2.0</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_free_img">4 תמונות ביום</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_free_tok">מכסת שימוש יומית · 60K טוקנים</span></li>
           </ul>
           <div class="tier-buy" style="background:var(--surf2);color:var(--muted);cursor:default;text-align:center">גרסת הבסיס</div>
         </div>
@@ -1290,10 +1290,10 @@
           <div class="tier-tagline">למתחילים · כניסה לעולם ה-AI</div>
           <div class="tier-divider"></div>
           <ul class="tier-feats">
-            <li><span class="ck">✓</span> 10 תמונות ביום</li>
-            <li><span class="ck">✓</span> 20 חיפושים באינטרנט ביום</li>
-            <li><span class="ck">✓</span> שיחות ללא הגבלה</li>
-            <li><span class="ck">✓</span> תג Basic</li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_basic_model">+ מודל 3.5 FLASH · חכם ומהיר</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_basic_img">10 תמונות ביום</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_basic_tok">מכסת שימוש · 300K טוקנים ביום</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_basic_badge">תג Basic</span></li>
           </ul>
           <div class="tier-buy" style="background:linear-gradient(135deg,#4285F4,#5fa8ff);text-align:center;cursor:default">לשדרוג פנה למנהל</div>
         </div>
@@ -1308,10 +1308,10 @@
           <div class="tier-tagline">למשתמשים כבדים · הרבה יותר כוח</div>
           <div class="tier-divider"></div>
           <ul class="tier-feats">
-            <li><span class="ck">✓</span> 25 תמונות ביום</li>
-            <li><span class="ck">✓</span> 40 חיפושים באינטרנט ביום</li>
-            <li><span class="ck">✓</span> שיחות ללא הגבלה</li>
-            <li><span class="ck">✓</span> תג Pro</li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_pro_model">+ מודל 3.5 PRO · מעולה לקוד</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_pro_img">25 תמונות ביום</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_pro_tok">מכסת שימוש · 1.2M טוקנים ביום</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_pro_badge">תג Pro</span></li>
           </ul>
           <div class="tier-buy" style="background:linear-gradient(135deg,#9C6ADE,#C58AF9);text-align:center;cursor:default">לשדרוג פנה למנהל</div>
         </div>
@@ -1327,10 +1327,10 @@
           <div class="tier-tagline">בלי גבולות · הכי חזק</div>
           <div class="tier-divider"></div>
           <ul class="tier-feats">
-            <li><span class="ck">✓</span> תמונות ללא הגבלה</li>
-            <li><span class="ck">✓</span> חיפושים ללא הגבלה</li>
-            <li><span class="ck">✓</span> שיחות ללא הגבלה</li>
-            <li><span class="ck">✓</span> תג Ultra מיוחד</li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_ultra_models">כל המודלים · ללא הגבלה</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_ultra_img">תמונות ללא הגבלה</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_ultra_use">שימוש ללא הגבלה</span></li>
+            <li><span class="ck">✓</span> <span data-i18n="pf_ultra_badge">תג Ultra מיוחד</span></li>
           </ul>
           <div class="tier-buy" style="background:linear-gradient(135deg,#4285F4,#9C6ADE,#C58AF9);text-align:center;cursor:default">לשדרוג פנה למנהל</div>
         </div>
@@ -3327,7 +3327,11 @@ const L10N_EXTRA = {
         mode_chip_image:'@תמונות · כל הודעה יוצרת תמונה', ph_image:'תאר תמונה ליצירה…',
         install_ios:'התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)',
         install_android:'להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)',
-        install_done:'BIRGSOL AI הותקן! 🎉', install_already:'אתה כבר באפליקציה 🙂'
+        install_done:'BIRGSOL AI הותקן! 🎉', install_already:'אתה כבר באפליקציה 🙂',
+        pf_free_model:'מודל BIRGSOL AI 2.0', pf_free_img:'4 תמונות ביום', pf_free_tok:'מכסת שימוש יומית · 60K טוקנים',
+        pf_basic_model:'+ מודל 3.5 FLASH · חכם ומהיר', pf_basic_img:'10 תמונות ביום', pf_basic_tok:'מכסת שימוש · 300K טוקנים ביום', pf_basic_badge:'תג Basic',
+        pf_pro_model:'+ מודל 3.5 PRO · מעולה לקוד', pf_pro_img:'25 תמונות ביום', pf_pro_tok:'מכסת שימוש · 1.2M טוקנים ביום', pf_pro_badge:'תג Pro',
+        pf_ultra_models:'כל המודלים · ללא הגבלה', pf_ultra_img:'תמונות ללא הגבלה', pf_ultra_use:'שימוש ללא הגבלה', pf_ultra_badge:'תג Ultra מיוחד'
     },
     en: {
         install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker',
@@ -3341,7 +3345,11 @@ const L10N_EXTRA = {
         mode_chip_image:'@images · every message creates an image', ph_image:'Describe an image to create…',
         install_ios:'Install on iPhone (Safari):\n\n1️⃣ Tap the Share button ⬆️ at the bottom of the screen\n2️⃣ Choose "Add to Home Screen"\n3️⃣ Tap "Add"\n\nThe app will open in full screen like a regular app.\n\n(Installing is optional — you can just keep using the site.)',
         install_android:'Download the BIRGSOL AI app?\n\nIt\'s standalone — with its own icon, works even without Chrome.\nAfter downloading: open the file and install (if asked, allow "Install from unknown source").\n\n(Optional — you can also just keep using the site.)',
-        install_done:'BIRGSOL AI installed! 🎉', install_already:'You\'re already in the app 🙂'
+        install_done:'BIRGSOL AI installed! 🎉', install_already:'You\'re already in the app 🙂',
+        pf_free_model:'BIRGSOL AI 2.0 model', pf_free_img:'4 images/day', pf_free_tok:'Daily usage quota · 60K tokens',
+        pf_basic_model:'+ 3.5 FLASH model · smart & fast', pf_basic_img:'10 images/day', pf_basic_tok:'Usage quota · 300K tokens/day', pf_basic_badge:'Basic badge',
+        pf_pro_model:'+ 3.5 PRO model · great for code', pf_pro_img:'25 images/day', pf_pro_tok:'Usage quota · 1.2M tokens/day', pf_pro_badge:'Pro badge',
+        pf_ultra_models:'All models · unlimited', pf_ultra_img:'Unlimited images', pf_ultra_use:'Unlimited usage', pf_ultra_badge:'Special Ultra badge'
     }
 };
 Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
