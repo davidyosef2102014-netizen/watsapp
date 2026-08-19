@@ -2668,6 +2668,7 @@ function checkPremium() {
     if (!TIERS[currentTier]) currentTier = 'free';
     isPremium = currentTier !== 'free';
     if (typeof _updateModelChip === 'function') _updateModelChip(); // עדכן את בורר המודלים לפי הגרסה
+    if (typeof _tokenMeter === 'function') { try { _tokenMeter(); } catch (e) {} } // הצג מד מכסה אם המשתמש כבר באזור-אזהרה
 }
 
 /* ── update UI ── */
@@ -6030,22 +6031,25 @@ function downloadCode(btn, ext) {
     URL.revokeObjectURL(a.href);
 }
 
-/* התראה עדינה כשנשארו פחות מ-15% מהטוקנים היומיים — פעם אחת ליום, כדי לא להטריד */
-function _maybeTokenWarn() {
+/* מד מכסת-טוקנים חי — מציג אחוז ניצול מ-85% ומעלה. 85–89% צהוב, 90–100% אדום. נשאר על המסך באזור-האזהרה. */
+function _tokenMeter() {
     const lim = _quotaLimit('token');
-    if (lim === -1 || ADMIN_USERS.includes(currentUser)) return;
-    const left = quotaLeft('token');
-    if (left > lim * 0.15 || left <= 0) return; // עדיין הרבה, או שכבר נחסם (הודעת החסימה תטופל בנפרד)
-    const warnKey = 'birgsol_tokwarn_' + currentUser + '_' + new Date().toISOString().slice(0,10);
-    if (localStorage.getItem(warnKey)) return;
-    try { localStorage.setItem(warnKey, '1'); } catch (e) {}
+    let el = document.getElementById('token-meter');
+    if (lim === -1 || ADMIN_USERS.includes(currentUser)) { if (el) el.remove(); return; } // ללא הגבלה — אין מד
+    const used = Math.max(0, lim - quotaLeft('token'));
+    const pct = Math.min(100, Math.round(used / lim * 100));
+    if (pct < 85) { if (el) el.remove(); return; } // מתחת ל-85% — לא מציגים, לא מטרידים
     const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
-    const pct = Math.max(1, Math.round(left / lim * 100));
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.32);color:#fbbf24;padding:7px 16px;border-radius:20px;font-size:12px;z-index:9000;max-width:90vw;text-align:center';
-    el.textContent = en ? `⏳ ~${pct}% of your daily quota left — resets tomorrow` : `⏳ נשארו ~${pct}% מהמכסה היומית — מתאפסת מחר`;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 7000);
+    const red = pct >= 90;
+    const col = red ? '#ef4444' : '#f59e0b';
+    const bg  = red ? 'rgba(239,68,68,.15)'  : 'rgba(245,158,11,.15)';
+    const bd  = red ? 'rgba(239,68,68,.45)'  : 'rgba(245,158,11,.45)';
+    if (!el) { el = document.createElement('div'); el.id = 'token-meter'; document.body.appendChild(el); }
+    el.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:' + bg + ';border:1px solid ' + bd + ';color:' + col + ';padding:6px 15px;border-radius:20px;font-size:12px;font-weight:700;z-index:9000;max-width:90vw;text-align:center;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.14)';
+    const icon = pct >= 100 ? '⛔' : (red ? '🔴' : '🟡');
+    el.textContent = en
+        ? `${icon} ${pct}% of your daily quota used${pct >= 100 ? ' — limit reached, resets tomorrow' : ''}`
+        : `${icon} נוצלו ${pct}% מהמכסה היומית${pct >= 100 ? ' — נגמרה, מתאפסת מחר' : ''}`;
 }
 
 function _showQuotaNotice() {
@@ -7014,7 +7018,7 @@ async function send() {
     // ── חיוב מכסת הטוקנים היומית — אומדן על בסיס קלט המשתמש + תשובת המודל (הפרסונה הקבועה לא נספרת, כדי שהמכסה תישאר נדיבה) ──
     try {
         quotaUse('token', _estTokens(q) + _estTokens(attachedFile) + _estTokens(fullText));
-        _maybeTokenWarn();
+        _tokenMeter();
     } catch (e) {}
 
     // ── המשך-אוטומטי לקוד שנקטע — אם יש בלוק קוד לא-סגור (מספר אי-זוגי של ```), ממשיכים מאיפה שנעצר ──
