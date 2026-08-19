@@ -6579,6 +6579,25 @@ async function send() {
         // נמשיך לזרם הרגיל — ההודעה תוצג עם שם הקובץ, והתמלול ינותח כמסמך (כולל מסמכים ארוכים)
     }
 
+    // ── יצירה-מחדש/שיפור של תמונה שהרגע נוצרה — "תיצור שוב", "יותר ריאליסטי", "נסה שוב", "פחות כהה" ──
+    // אחרת בקשת המשך כזו הולכת למודל שעלול לענות בטקסט/קוד במקום לצייר מחדש.
+    if (q && !fileUrl && !fileContent && !mediaFile && q.length < 140) {
+        const _lastAsst = [...hist].reverse().find(m => m.role === 'assistant' && typeof m.content === 'string');
+        const _pm = _lastAsst && _lastAsst.content.match(/^\[GENERATED_IMAGE:.+?§§([\s\S]*?)\]$/);
+        const _isRegen = /שוב|עוד פעם|עוד אחת|נסה|תנסה|תיצור|ליצור|יותר|פחות|ריאליסט|realistic|again|regenerate|different|אחר|שנה|תשנה|תשפר|שפר/i.test(q);
+        if (_pm && _pm[1] && _isRegen) {
+            addMsg('user', q);
+            inp.value = ''; inp.style.height = 'auto';
+            busy = true; updateBtn();
+            const _newPrompt = _pm[1].trim() + '. ' + q; // הנושא הקודם + השינוי שהמשתמש ביקש
+            const _real = { name: 'ריאליסטי', model: 'flux', suffix: 'professional DSLR photograph, ultra realistic, highly detailed, natural lighting, sharp focus, 8k, high quality. Single clear subject, clean composition' };
+            const _forceReal = /ריאליסט|realistic|אמיתי|כמו אמיתי|כמו תמונה/i.test(q);
+            try { await generateImage(_newPrompt, null, _forceReal ? _real : undefined); }
+            finally { busy = false; updateBtn(); }
+            return;
+        }
+    }
+
     // Image generation — free, unlimited, no quota used
     // מצב תמונה — כל הודעה היא בקשת תמונה (המצב מתמחה ביצירת תמונות בלבד)
     if ((currentMode === 'image' && q && !fileUrl && !fileContent) || (isImageRequest(q) && !fileUrl && !fileContent)) {
