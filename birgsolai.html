@@ -1674,6 +1674,7 @@ const IC = {
   extLink:  `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
   refresh:  `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`,
   menu:     `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
+  warn:     `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13.5"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
   sun:      `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
   moon:     `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
   eye:      `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
@@ -2355,12 +2356,13 @@ const TIERS = {
 /* ── בורר מודלים: שמות מותג לפי המודל האמיתי + זמינות לפי גרסה ── */
 const TIER_RANK = { free:0, basic:1, pro:2, ultra:3 };
 const MODELS = [
-    { id:'2.0',   brand:'BIRGSOL AI 2.0',       kind:'weak',   minTier:'free',  desc:'מהיר ובסיסי' },
-    { id:'flash', brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini', minTier:'basic', desc:'חכם ומהיר' },
-    { id:'pro',   brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss', minTier:'pro',   desc:'הכי חזק, מעולה לקוד' },
+    { id:'2.0pro', brand:'BIRGSOL AI 2.0 PRO',   kind:'weak',   minTier:'free',  desc:'בסיסי' },
+    { id:'3.0',    brand:'BIRGSOL AI 3.0 FLASH', kind:'weak',   minTier:'free',  desc:'מהיר ובסיסי' },
+    { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini', minTier:'basic', desc:'חכם ומהיר' },
+    { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss', minTier:'pro',   desc:'הכי חזק, מעולה לקוד' },
 ];
 function _modelAllowed(m) { return (TIER_RANK[currentTier] || 0) >= (TIER_RANK[m.minTier] || 0); }
-function _bestModelForTier() { for (let i = MODELS.length - 1; i >= 0; i--) if (_modelAllowed(MODELS[i])) return MODELS[i].id; return '2.0'; }
+function _bestModelForTier() { for (let i = MODELS.length - 1; i >= 0; i--) if (_modelAllowed(MODELS[i])) return MODELS[i].id; return '2.0pro'; }
 function currentModelId() {
     let id = localStorage.getItem('birgsol_model_' + currentUser) || '';
     const m = MODELS.find(x => x.id === id);
@@ -2406,28 +2408,42 @@ function _buildModelMenu() {
 }
 document.addEventListener('click', (e) => { const mn = document.getElementById('model-menu'); const ch = document.getElementById('model-chip'); if (mn && mn.style.display === 'block' && !mn.contains(e.target) && ch && !ch.contains(e.target)) mn.style.display = 'none'; });
 
-/* ── מכסות יומיות — מפתח לפי תאריך, מתאפס אוטומטית כל יום ── */
-function _quotaKey(kind) { return `birgsol_q_${kind}_${currentUser}_${new Date().toISOString().slice(0,10)}`; }
+/* ── מכסות יומיות — מפתח לפי תאריך מקומי, מתאפס בחצות המקומית (00:00) ── */
+function _localDateStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function _quotaKey(kind) { return `birgsol_q_${kind}_${currentUser}_${_localDateStr()}`; }
 function _quotaLimit(kind) {
     const t = TIERS[currentTier] || TIERS.free;
     if (kind === 'img') return t.imgLimit;
     if (kind === 'token') return (t.tokenLimit != null ? t.tokenLimit : -1);
     return t.searchLimit; // legacy 'search' — נשמר לתאימות
 }
+function _quotaCount(kind) { return parseInt(localStorage.getItem(_quotaKey(kind)) || '0'); }
 function quotaLeft(kind) { // kind: 'img' | 'token' | 'search'
     const lim = _quotaLimit(kind);
     if (lim === -1) return Infinity;
-    return lim - parseInt(localStorage.getItem(_quotaKey(kind)) || '0');
+    return lim - _quotaCount(kind);
 }
 function quotaUse(kind, amount = 1) {
-    if (_quotaLimit(kind) === -1) return; // ללא הגבלה בדרגה הזאת
-    if (ADMIN_USERS.includes(currentUser)) return; // דוד/מנהלים פטורים
     const n = Math.max(0, Math.round(amount));
     if (!n) return;
-    localStorage.setItem(_quotaKey(kind), parseInt(localStorage.getItem(_quotaKey(kind)) || '0') + n);
+    // טוקנים — תמיד נספרים (גם ל-Ultra/מנהל) כדי שמד השימוש יעבוד; האכיפה נפרדת ב-_quotaOK
+    if (kind !== 'token') {
+        if (_quotaLimit(kind) === -1) return;          // ללא הגבלה בדרגה הזאת
+        if (ADMIN_USERS.includes(currentUser)) return; // דוד/מנהלים פטורים
+    }
+    localStorage.setItem(_quotaKey(kind), _quotaCount(kind) + n);
+    if (kind === 'token' && typeof _tokenMeter === 'function') { try { _tokenMeter(); } catch (e) {} }
 }
 /* אומדן טוקנים גס — עברית/מעורב ≈ 3 תווים/טוקן; מספיק להגבלת-קצב הוגנת */
 function _estTokens(str) { return str ? Math.ceil(String(str).length / 3) : 0; }
+function _tokenUsedToday() { return _quotaCount('token'); }
+function _quotaResetStr() { return '00:00'; } // המכסה מתאפסת בחצות המקומית
+function _fmtTokens(n) { return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'K' : String(n); }
+/* האם מותר לשלוח הודעה? (מכסת טוקנים) — דוד/מנהלים ו-Ultra ללא הגבלה */
+function _quotaOK() {
+    if (ADMIN_USERS.includes(currentUser)) return true;
+    return quotaLeft('token') > 0;
+}
 
 /* ── login — ענן בלבד ── */
 async function doLogin() {
@@ -2942,20 +2958,29 @@ function _tierToast(msg) {
 }
 
 /* ── message counter ── */
-function consumeFreeMsg() {
-    // מכסת טוקנים יומית נדיבה במקום ספירת-הודעות. דוד/מנהלים ו-Ultra ללא הגבלה.
-    if (ADMIN_USERS.includes(currentUser)) return true;
-    if (quotaLeft('token') <= 0) {
-        const t = TIERS[currentTier] || TIERS.free;
-        const nextName = currentTier === 'free' ? 'Basic' : currentTier === 'basic' ? 'Pro' : 'Ultra';
-        const he = `נגמרה לך מכסת הטוקנים היומית (${(t.tokenLimit/1000).toLocaleString()}K/יום בדרגת ${t.badge}). המכסה מתאפסת מחר, או שדרג ל-${nextName} להמשך מיידי.`;
-        const en = `You've used your daily token quota (${(t.tokenLimit/1000).toLocaleString()}K/day on ${t.badge}). It resets tomorrow, or upgrade to ${nextName} to continue now.`;
-        const _lg = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
-        _alert(_lg === 'en' ? en : he);
-        if (typeof openPricingModal === 'function') openPricingModal();
-        return false;
-    }
-    return true;
+function consumeFreeMsg() { return _quotaOK(); } // ללא חלון קופץ — החסימה מוצגת כסימן אזהרה על ההודעה (_quotaBlock)
+
+/* חסימת מכסה — במקום חלון: מוסיפים את ההודעה ומצמידים לה סימן אזהרה (משולש) בצד */
+function _quotaBlock(q, img) {
+    const row = addMsg('user', q || '', img || null);
+    _quotaBlockMark(row);
+    const inp = document.getElementById('userInput');
+    if (inp) { inp.value = ''; inp.style.height = 'auto'; }
+    try { clearFile(); } catch (e) {}
+}
+function _quotaBlockMark(row) {
+    if (!row) return;
+    const wrap = row.querySelector('.user-bub-wrap') || row;
+    if (wrap.querySelector('.quota-warn')) return;
+    const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
+    const tip = en ? ('Daily quota reached — renews tomorrow at ' + _quotaResetStr() + '. Tap to upgrade.')
+                   : ('נגמרה המכסה היומית — מתחדשת מחר ב-' + _quotaResetStr() + '. הקש לשדרוג.');
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'quota-warn'; b.title = tip; b.setAttribute('aria-label', tip);
+    b.style.cssText = 'background:none;border:none;cursor:pointer;padding:0 5px;display:inline-flex;align-items:center;align-self:center;color:#f59e0b;flex-shrink:0';
+    b.innerHTML = IC.warn;
+    b.onclick = () => { if (typeof openPricingModal === 'function') openPricingModal(); };
+    wrap.appendChild(b);
 }
 
 /* ── register ── */
@@ -3329,7 +3354,7 @@ const L10N_EXTRA = {
         install_ios:'התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)',
         install_android:'להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)',
         install_done:'BIRGSOL AI הותקן! 🎉', install_already:'אתה כבר באפליקציה 🙂',
-        pf_free_model:'מודל BIRGSOL AI 2.0', pf_free_img:'4 תמונות ביום', pf_free_tok:'מכסת שימוש יומית · 60K טוקנים',
+        pf_free_model:'מודלים 2.0 PRO ו-3.0 FLASH', pf_free_img:'4 תמונות ביום', pf_free_tok:'מכסת שימוש יומית · 60K טוקנים',
         pf_basic_model:'+ מודל 3.5 FLASH · חכם ומהיר', pf_basic_img:'10 תמונות ביום', pf_basic_tok:'מכסת שימוש · 300K טוקנים ביום', pf_basic_badge:'תג Basic',
         pf_pro_model:'+ מודל 3.5 PRO · מעולה לקוד', pf_pro_img:'25 תמונות ביום', pf_pro_tok:'מכסת שימוש · 1.2M טוקנים ביום', pf_pro_badge:'תג Pro',
         pf_ultra_models:'כל המודלים · ללא הגבלה', pf_ultra_img:'תמונות ללא הגבלה', pf_ultra_use:'שימוש ללא הגבלה', pf_ultra_badge:'תג Ultra מיוחד'
@@ -3347,7 +3372,7 @@ const L10N_EXTRA = {
         install_ios:'Install on iPhone (Safari):\n\n1️⃣ Tap the Share button ⬆️ at the bottom of the screen\n2️⃣ Choose "Add to Home Screen"\n3️⃣ Tap "Add"\n\nThe app will open in full screen like a regular app.\n\n(Installing is optional — you can just keep using the site.)',
         install_android:'Download the BIRGSOL AI app?\n\nIt\'s standalone — with its own icon, works even without Chrome.\nAfter downloading: open the file and install (if asked, allow "Install from unknown source").\n\n(Optional — you can also just keep using the site.)',
         install_done:'BIRGSOL AI installed! 🎉', install_already:'You\'re already in the app 🙂',
-        pf_free_model:'BIRGSOL AI 2.0 model', pf_free_img:'4 images/day', pf_free_tok:'Daily usage quota · 60K tokens',
+        pf_free_model:'2.0 PRO & 3.0 FLASH models', pf_free_img:'4 images/day', pf_free_tok:'Daily usage quota · 60K tokens',
         pf_basic_model:'+ 3.5 FLASH model · smart & fast', pf_basic_img:'10 images/day', pf_basic_tok:'Usage quota · 300K tokens/day', pf_basic_badge:'Basic badge',
         pf_pro_model:'+ 3.5 PRO model · great for code', pf_pro_img:'25 images/day', pf_pro_tok:'Usage quota · 1.2M tokens/day', pf_pro_badge:'Pro badge',
         pf_ultra_models:'All models · unlimited', pf_ultra_img:'Unlimited images', pf_ultra_use:'Unlimited usage', pf_ultra_badge:'Special Ultra badge'
@@ -6039,30 +6064,78 @@ function downloadCode(btn, ext) {
     URL.revokeObjectURL(a.href);
 }
 
-/* מד מכסת-טוקנים חי — טבעת עיגול קטנה בצד. מוצג מ-85% ומעלה. 85–89% צהוב, 90–100% אדום. */
+/* מד מכסת-טוקנים חי — טבעת עיגול קטנה בצד, תמיד גלויה. מוגבלים: אחוז ניצול (כחול<85, צהוב 85–89, אדום 90+).
+   ללא הגבלה (Ultra/מנהל): ספירת הטוקנים היומית בצבע נייטרלי. לחיצה פותחת תפריט מכסה. */
 function _tokenMeter() {
-    const lim = _quotaLimit('token');
     let el = document.getElementById('token-ring');
-    if (lim === -1 || ADMIN_USERS.includes(currentUser)) { if (el) el.remove(); return; } // ללא הגבלה — אין מד
-    const used = Math.max(0, lim - quotaLeft('token'));
-    const pct = Math.min(100, Math.round(used / lim * 100));
-    if (pct < 85) { if (el) el.remove(); return; } // מתחת ל-85% — לא מציגים, לא מטרידים
-    const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
-    const red = pct >= 90;
-    const col = red ? '#ef4444' : '#f59e0b';
+    if (!currentUser) { if (el) el.remove(); _closeQuotaMenu(); return; } // מסך התחברות — אין מד
+    const lim = _quotaLimit('token');
+    const unlimited = (lim === -1 || ADMIN_USERS.includes(currentUser));
+    const used = _tokenUsedToday();
+    let ringPct, col, center;
+    if (unlimited) {
+        ringPct = 100; col = '#8b95a5'; center = _fmtTokens(used);
+    } else {
+        const p = Math.min(100, Math.round(used / lim * 100));
+        ringPct = p;
+        col = p >= 90 ? '#ef4444' : (p >= 85 ? '#f59e0b' : '#4285F4');
+        center = p + '%';
+    }
     if (!el) {
         el = document.createElement('div'); el.id = 'token-ring';
-        el.style.cssText = 'position:fixed;left:12px;bottom:94px;z-index:9000;width:44px;height:44px;pointer-events:none;filter:drop-shadow(0 2px 7px rgba(0,0,0,.22))';
+        el.style.cssText = 'position:fixed;left:12px;bottom:94px;z-index:9000;width:44px;height:44px;cursor:pointer;filter:drop-shadow(0 2px 7px rgba(0,0,0,.22))';
+        el.onclick = _openQuotaMenu;
         document.body.appendChild(el);
     }
-    const R = 19, CIRC = 2 * Math.PI * R, off = CIRC * (1 - pct / 100);
+    const R = 19, CIRC = 2 * Math.PI * R, off = CIRC * (1 - ringPct / 100);
+    const fs = center.length >= 4 ? 9.5 : 11.5;
     el.innerHTML =
         '<svg viewBox="0 0 44 44" width="44" height="44">' +
         '<circle cx="22" cy="22" r="' + R + '" fill="var(--surf,#fff)" stroke="rgba(140,140,140,.28)" stroke-width="4"/>' +
         '<circle cx="22" cy="22" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + CIRC + '" stroke-dashoffset="' + off + '" transform="rotate(-90 22 22)" style="transition:stroke-dashoffset .5s ease"/>' +
-        '<text x="22" y="22" text-anchor="middle" dominant-baseline="central" font-size="11.5" font-weight="800" fill="' + col + '" font-family="system-ui,sans-serif">' + pct + '%</text>' +
+        '<text x="22" y="22" text-anchor="middle" dominant-baseline="central" font-size="' + fs + '" font-weight="800" fill="' + col + '" font-family="system-ui,sans-serif">' + center + '</text>' +
         '</svg>';
-    el.title = en ? (pct + '% of your daily quota used' + (pct >= 100 ? ' — resets tomorrow' : '')) : ('נוצלו ' + pct + '% מהמכסה היומית' + (pct >= 100 ? ' — מתאפסת מחר' : ''));
+}
+
+/* תפריט מכסה — נפתח בלחיצה על הטבעת (בסגנון "Plan usage limits" של Claude Code) */
+function _closeQuotaMenu() { const m = document.getElementById('quota-menu'); if (m) m.remove(); document.removeEventListener('click', _quotaMenuOutside); }
+function _quotaMenuOutside(e) {
+    const m = document.getElementById('quota-menu'), r = document.getElementById('token-ring');
+    if (m && !m.contains(e.target) && r && !r.contains(e.target)) _closeQuotaMenu();
+}
+function _openQuotaMenu(e) {
+    if (e) e.stopPropagation();
+    if (document.getElementById('quota-menu')) { _closeQuotaMenu(); return; }
+    if (!currentUser) return;
+    const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
+    const t = TIERS[currentTier] || TIERS.free;
+    const unlimited = (_quotaLimit('token') === -1 || ADMIN_USERS.includes(currentUser));
+    const usedTok = _tokenUsedToday();
+    const rows = [];
+    if (unlimited) {
+        rows.push([en ? 'Tokens' : 'טוקנים', (en ? 'Unlimited · ' : 'ללא הגבלה · ') + _fmtTokens(usedTok) + (en ? ' today' : ' היום'), '']);
+    } else {
+        const pct = Math.min(100, Math.round(usedTok / t.tokenLimit * 100));
+        rows.push([en ? 'Daily tokens' : 'טוקנים ליום', (en ? 'used ' : 'נוצל ') + pct + '%', (en ? 'Resets ' : 'מתחדש ') + _quotaResetStr()]);
+    }
+    if (t.imgLimit === -1) rows.push([en ? 'Images' : 'תמונות', en ? 'Unlimited' : 'ללא הגבלה', '']);
+    else rows.push([en ? 'Images' : 'תמונות', _quotaCount('img') + '/' + t.imgLimit, (en ? 'Resets ' : 'מתחדש ') + _quotaResetStr()]);
+
+    const m = document.createElement('div');
+    m.id = 'quota-menu';
+    m.style.cssText = 'position:fixed;left:12px;bottom:146px;z-index:9500;background:var(--surf,#fff);border:1px solid var(--border,#e3e3e3);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.24);padding:11px 13px;min-width:256px;max-width:88vw;font-family:inherit;direction:' + (en ? 'ltr' : 'rtl');
+    let html = '<div style="font-weight:800;font-size:13px;margin-bottom:9px;color:var(--text,#111)">' + (en ? 'Usage · ' : 'שימוש · ') + t.badge + '</div>';
+    rows.forEach(r => {
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 2px;font-size:12.5px;border-top:1px solid var(--border,#eee)">' +
+            '<span style="flex:1;color:var(--text,#111);font-weight:600">' + r[0] + '</span>' +
+            '<span style="color:var(--muted,#777)">' + r[1] + '</span>' +
+            (r[2] ? '<span style="color:var(--muted,#999);font-size:11px;white-space:nowrap">' + r[2] + '</span>' : '') +
+            '</div>';
+    });
+    if (currentTier !== 'ultra') html += '<button type="button" onclick="_closeQuotaMenu();openPricingModal()" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;border:none;border-radius:10px;padding:9px;font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit">' + (en ? 'Upgrade plan' : 'שדרג גרסה') + '</button>';
+    m.innerHTML = html;
+    document.body.appendChild(m);
+    setTimeout(() => document.addEventListener('click', _quotaMenuOutside), 0);
 }
 
 function _showQuotaNotice() {
@@ -6364,8 +6437,9 @@ async function callAI(messages, onChunk, signal=null) {
         const _sMis  = { name: 'Mistral',  fn: () => _tryMistral().then(_tw) };
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
         const _mid = (typeof currentModelId === 'function') ? currentModelId() : 'flash';
-        if (_mid === '2.0') return [_sMis, _sCoh, _sGem, _sGpt];              // BIRGSOL AI 2.0 — הבסיסי
-        if (_mid === 'pro') return [_sGpt, _sGpt2, _sGem, _sMis, _sCoh];      // 3.5 PRO — gpt-oss
+        if (_mid === '2.0pro') return [_sCoh, _sMis, _sGem, _sGpt];           // BIRGSOL AI 2.0 PRO — החלש ביותר (Cohere ראשי)
+        if (_mid === '3.0')    return [_sMis, _sCoh, _sGem, _sGpt];           // BIRGSOL AI 3.0 FLASH — הטוב מבין החלשים (Mistral ראשי)
+        if (_mid === 'pro')    return [_sGpt, _sGpt2, _sGem, _sMis, _sCoh];   // 3.5 PRO — gpt-oss
         return [_sGem, _sGpt, _sGpt2, _sMis, _sCoh];                         // 3.5 FLASH — Gemini (ברירת מחדל)
     })();
 
@@ -6784,7 +6858,7 @@ async function send() {
 
     // Image editing — uploaded image + transformation request
     if (fileUrl && q && isImageEditRequest(q)) {
-        if (!consumeFreeMsg()) return;
+        if (!_quotaOK()) { _quotaBlock(q, fileUrl); return; }
         const imgToEdit = fileUrl;
         addMsg('user', q, imgToEdit);
         inp.value = ''; inp.style.height = 'auto';
@@ -6795,7 +6869,7 @@ async function send() {
         return;
     }
 
-    if (!consumeFreeMsg()) return;
+    if (!_quotaOK()) { _quotaBlock(q, fileUrl); return; }
 
     const img = fileUrl;
     const attachedFile = fileContent;
