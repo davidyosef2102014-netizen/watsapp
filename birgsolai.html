@@ -1628,12 +1628,13 @@
                 </div>
             </div>
             <!-- בורר מודלים — מתחת לתיבת הכתיבה. לחיצה פותחת רשימה לבחירה -->
-            <div id="model-chip-row" style="position:relative;text-align:center;margin-top:8px">
-                <button id="model-chip" type="button" onclick="_toggleModelMenu(event)" style="display:inline-flex;align-items:center;gap:6px;background:transparent;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:2px 6px;border-radius:10px">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.4" fill="currentColor"/><circle cx="15" cy="9" r="1.4" fill="currentColor"/><path d="M8.5 14.5c.9 1 2.1 1.5 3.5 1.5s2.6-.5 3.5-1.5"/></svg>
+            <div id="model-chip-row" style="position:relative;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px">
+                <button id="model-chip" type="button" onclick="_toggleModelMenu(event)" style="display:inline-flex;align-items:center;gap:5px;background:transparent;border:none;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:2px 5px;border-radius:9px">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.4" fill="currentColor"/><circle cx="15" cy="9" r="1.4" fill="currentColor"/><path d="M8.5 14.5c.9 1 2.1 1.5 3.5 1.5s2.6-.5 3.5-1.5"/></svg>
                     <span id="model-chip-name">BIRGSOL AI 3.5 FLASH</span>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
+                <span id="token-ring-slot" style="display:inline-flex;align-items:center"></span>
                 <div id="model-menu" style="display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:8px;background:var(--surf);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:6px;z-index:60;min-width:250px;text-align:right"></div>
             </div>
             <div class="foot-note" id="foot-note">Birgsol AI עשוי לטעות. בדוק מידע חשוב.</div>
@@ -6092,17 +6093,18 @@ function _tokenMeter() {
     }
     if (!el) {
         el = document.createElement('div'); el.id = 'token-ring';
-        el.style.cssText = 'position:fixed;left:12px;bottom:94px;z-index:9000;width:44px;height:44px;cursor:pointer;filter:drop-shadow(0 2px 7px rgba(0,0,0,.22))';
-        el.onclick = _openQuotaMenu;
-        document.body.appendChild(el);
+        el.title = ''; el.onclick = _openQuotaMenu;
+        const slot = document.getElementById('token-ring-slot');
+        if (slot) { el.style.cssText = 'width:30px;height:30px;cursor:pointer;flex-shrink:0;line-height:0'; slot.appendChild(el); }
+        else { el.style.cssText = 'position:fixed;left:12px;bottom:94px;z-index:9000;width:30px;height:30px;cursor:pointer;filter:drop-shadow(0 2px 7px rgba(0,0,0,.22))'; document.body.appendChild(el); }
     }
-    const R = 19, CIRC = 2 * Math.PI * R, off = CIRC * (1 - ringPct / 100);
-    const fs = center.length >= 4 ? 9.5 : 11.5;
+    const R = 13, CIRC = 2 * Math.PI * R, off = CIRC * (1 - ringPct / 100);
+    const fs = center.length >= 4 ? 8 : 10;
     el.innerHTML =
-        '<svg viewBox="0 0 44 44" width="44" height="44">' +
-        '<circle cx="22" cy="22" r="' + R + '" fill="var(--surf,#fff)" stroke="rgba(140,140,140,.28)" stroke-width="4"/>' +
-        '<circle cx="22" cy="22" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + CIRC + '" stroke-dashoffset="' + off + '" transform="rotate(-90 22 22)" style="transition:stroke-dashoffset .5s ease"/>' +
-        '<text x="22" y="22" text-anchor="middle" dominant-baseline="central" font-size="' + fs + '" font-weight="800" fill="' + col + '" font-family="system-ui,sans-serif">' + center + '</text>' +
+        '<svg viewBox="0 0 30 30" width="30" height="30">' +
+        '<circle cx="15" cy="15" r="' + R + '" fill="var(--surf,#fff)" stroke="rgba(140,140,140,.28)" stroke-width="3"/>' +
+        '<circle cx="15" cy="15" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="3" stroke-linecap="round" stroke-dasharray="' + CIRC + '" stroke-dashoffset="' + off + '" transform="rotate(-90 15 15)" style="transition:stroke-dashoffset .5s ease"/>' +
+        '<text x="15" y="15" text-anchor="middle" dominant-baseline="central" font-size="' + fs + '" font-weight="800" fill="' + col + '" font-family="system-ui,sans-serif">' + center + '</text>' +
         '</svg>';
 }
 
@@ -6132,7 +6134,16 @@ function _openQuotaMenu(e) {
 
     const m = document.createElement('div');
     m.id = 'quota-menu';
-    m.style.cssText = 'position:fixed;left:12px;bottom:146px;z-index:9500;background:var(--surf,#fff);border:1px solid var(--border,#e3e3e3);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.24);padding:11px 13px;min-width:256px;max-width:88vw;font-family:inherit;direction:' + (en ? 'ltr' : 'rtl');
+    // מיקום מעל הטבעת (איפה שהיא נמצאת — ליד צ'יפ המודל)
+    const ring = document.getElementById('token-ring');
+    const rect = ring ? ring.getBoundingClientRect() : null;
+    let pos = 'left:50%;transform:translateX(-50%);bottom:120px';
+    if (rect && rect.width) {
+        const W = 256, cx = rect.left + rect.width / 2;
+        const left = Math.max(8, Math.min(cx - W / 2, window.innerWidth - W - 8));
+        pos = 'left:' + Math.round(left) + 'px;bottom:' + Math.round(window.innerHeight - rect.top + 8) + 'px';
+    }
+    m.style.cssText = 'position:fixed;' + pos + ';z-index:9500;background:var(--surf,#fff);border:1px solid var(--border,#e3e3e3);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.24);padding:11px 13px;width:256px;max-width:88vw;font-family:inherit;direction:' + (en ? 'ltr' : 'rtl');
     let html = '<div style="font-weight:800;font-size:13px;margin-bottom:9px;color:var(--text,#111)">' + (en ? 'Usage · ' : 'שימוש · ') + t.badge + '</div>';
     rows.forEach(r => {
         html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 2px;font-size:12.5px;border-top:1px solid var(--border,#eee)">' +
@@ -6223,18 +6234,24 @@ async function callAI(messages, onChunk, signal=null) {
                     parts.push({ text: m.content });
                 }
             }
-            const body = { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 128 } } };
+            const body = { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } } };
             if (sys && typeof sys.content === 'string') body.systemInstruction = { parts: [{ text: sys.content }] };
-            return _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', body, { signal: AbortSignal.timeout(20000) })
+            return _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', body, { signal: AbortSignal.timeout(22000) })
                 .then(r => { if (!r.ok) throw new Error('gemini-v ' + r.status); return r.json(); })
                 .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
         };
 
-        // 1st: Gemini vision. 2nd: Pollinations.
-        try {
-            const text = await _geminiVision();
-            await _typewriter(text, onChunk, 8); return text;
-        } catch(e) { console.warn('Gemini vision failed:', e.message); }
+        // ראייה: Gemini — עד 3 ניסיונות (כל קריאה = מפתח/חשבון Gemini טרי דרך ה-Worker), כי לרוב הכשל הוא עומס רגעי (429/timeout)
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const text = await _geminiVision();
+                await _typewriter(text, onChunk, 8); return text;
+            } catch (e) {
+                if (e.name === 'AbortError') throw e;
+                console.warn('Gemini vision try ' + (attempt + 1) + '/3 failed:', e.message);
+                if (attempt < 2) await new Promise(r => setTimeout(r, 700));
+            }
+        }
 
         // Pollinations fallback
         try {
