@@ -7320,6 +7320,22 @@ async function _describeFrameLive(dataUrl) {
         return (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
     } catch { return ''; }
 }
+// ראייה חיה ישירה — שולח את פריים המצלמה + שאלת המשתמש ישירות למודל הראייה, מקבל תשובה מדוברת בשלב אחד (מדויק יותר מתיאור-ואז-צ'אט)
+async function _callAILiveVision(dataUrl, userText, sys) {
+    const mt = (dataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
+    const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
+    if (!b64) return '';
+    const contents = [{ role: 'user', parts: [
+        { text: (sys || '') + '\n\nהמשתמש מדבר איתך בשיחה קולית ואתה רואה את מה שמול המצלמה שלו כרגע (התמונה מצורפת). ענה קצר וטבעי כאילו אתם מסתכלים יחד. מה שהוא אמר: ' + userText },
+        { inlineData: { mimeType: mt, data: b64 } }
+    ] }];
+    try {
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', { contents, generationConfig: { maxOutputTokens: 500, thinkingConfig: { thinkingBudget: 0 } } }, { signal: AbortSignal.timeout(12000) });
+        if (!r.ok) return '';
+        const j = await r.json();
+        return (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+    } catch { return ''; }
+}
 
 async function _liveLoop() {
     if (!_liveActive || _liveStopped || _liveBusy) return;
@@ -7355,37 +7371,38 @@ async function _liveLoop() {
             if (sr) liveSearchCtx = '\n\n[תוצאות חיפוש עדכניות]:\n' + sr;
         } catch {}
     }
-    // ── ראייה חיה מהמצלמה — אם המצלמה פועלת, לוכדים פריים ומתארים כדי שה-AI "יראה" מה קורה ──
-    let liveVisionCtx = '';
+    // ── ראייה חיה — אם המצלמה פועלת, שולחים את פריים המצלמה עצמו למודל הראייה (רואה באמת, לא רק תיאור) ──
+    let reply = '';
     if (_liveCam) {
         const v = document.getElementById('live-cam-video');
         if (v) v.classList.add('seeing');
         try {
             const frame = _captureFrame();
-            if (frame) { const desc = await _describeFrameLive(frame); if (desc) liveVisionCtx = '\n\n[מה שנראה במצלמה של המשתמש כרגע]: ' + desc; }
+            if (frame) {
+                const sysV = getPersona() + '\n\nLIVE VOICE+VISION — אתה רואה את מצלמת המשתמש בזמן אמת. ענה קצר וטבעי (2-4 משפטים), עברית כברירת מחדל, בלי markdown/כוכביות/רשימות. דבר על מה שאתה רואה ותענה טבעי — אל תגיד "לפי התמונה".';
+                reply = await _callAILiveVision(frame, transcript + liveSearchCtx, sysV);
+            }
         } catch {}
         if (v) v.classList.remove('seeing');
     }
-    const messages = [
-        { role:'system', content: getPersona() +
-          '\n\nIMPORTANT — LIVE VOICE MODE: Give SHORT, natural conversational answers (2-4 sentences). NO markdown, NO asterisks, NO bullet points, NO code blocks — speak like a human. Hebrew by default unless user writes English.' +
-          '\nYou can SEE through the user\'s camera in real time when it is on. When a "[מה שנראה במצלמה של המשתמש כרגע]" note appears, treat it as what you are seeing right now and answer about it naturally, as if you are looking together. Do not say "based on the description" — just talk about what you see.' },
-        ...hist.slice(-30).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
-        { role:'user', content: transcript + liveSearchCtx + liveVisionCtx }
-    ];
-    let reply = '';
-    try {
-        reply = await _callAILive(messages);
-        reply = reply
-            .replace(/```[\s\S]*?```/g, 'קוד')
-            .replace(/\*\*(.*?)\*\*/g, '$1')
-            .replace(/\*(.*?)\*/g, '$1')
-            .replace(/#{1,6}\s/g, '')
-            .replace(/`([^`]+)`/g, '$1')
-            .replace(/\[.*?\]/g, '')
-            .trim();
-        if (!reply) reply = 'מצטער, לא הצלחתי לקבל תשובה. נסה שוב.';
-    } catch(e) { reply = 'הייתה שגיאת חיבור. נסה שוב.'; }
+    // בלי מצלמה (או אם הראייה נכשלה) — צ'אט טקסט רגיל
+    if (!reply) {
+        const messages = [
+            { role:'system', content: getPersona() + '\n\nIMPORTANT — LIVE VOICE MODE: Give SHORT, natural conversational answers (2-4 sentences). NO markdown, NO asterisks, NO bullet points, NO code blocks — speak like a human. Hebrew by default unless user writes English.' },
+            ...hist.slice(-30).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
+            { role:'user', content: transcript + liveSearchCtx }
+        ];
+        try { reply = await _callAILive(messages); } catch(e) {}
+    }
+    reply = (reply || '')
+        .replace(/```[\s\S]*?```/g, 'קוד')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/#{1,6}\s/g, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\[.*?\]/g, '')
+        .trim();
+    if (!reply) reply = 'מצטער, לא הצלחתי לקבל תשובה. נסה שוב.';
 
     hist.push({ role:'user',      content: transcript });
     hist.push({ role:'assistant', content: reply });
