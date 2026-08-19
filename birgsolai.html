@@ -6495,7 +6495,22 @@ async function _ensureFolderPerm() {
 }
 function _updateFilesUI() {
     const el = document.getElementById('sp-files-status');
-    if (el) el.textContent = _bsDir ? ('📁 ' + _bsDir.name) : '';
+    if (!el) return;
+    if (_bsDir) {
+        el.innerHTML = '';
+        const nm = document.createElement('span'); nm.textContent = '📁 ' + _bsDir.name;
+        const x = document.createElement('span'); x.textContent = '✕'; x.title = 'נתק תיקייה';
+        x.style.cssText = 'cursor:pointer;color:#ff5a5a;margin-inline-start:8px;font-weight:800';
+        x.onclick = (e) => { e.stopPropagation(); disconnectFilesFolder(); };
+        el.appendChild(nm); el.appendChild(x);
+    } else { el.textContent = ''; }
+}
+// ניתוק/הסרת התיקייה המחוברת. (לחיצה על השורה עצמה = החלפה — בוחרת תיקייה חדשה)
+async function disconnectFilesFolder() {
+    _bsDir = null; _bsApproved.clear();
+    try { await _idbSet('bsdir', null); } catch (e) {}
+    _updateFilesUI();
+    if (typeof _tierToast === 'function') _tierToast('התיקייה נותקה');
 }
 // כתיבת קובץ לתיקייה — עם אישור (בפעם הראשונה לכל קובץ בסשן), אחר כך עדכון אוטומטי עם הודעה
 async function bsWriteFile(name, content, opts) {
