@@ -1580,6 +1580,13 @@
                     <span data-i18n="mode_chip_image">@תמונות · כל הודעה יוצרת תמונה</span>
                 </span>
             </div>
+            <!-- דוגמאות מהירות במצב תמונה -->
+            <div id="img-examples" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+                <button type="button" onclick="_imgExample('חתול אסטרונאוט על הירח')" style="background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit">🐱 חתול אסטרונאוט</button>
+                <button type="button" onclick="_imgExample('נוף הרים בשקיעה, פוטוריאליסטי')" style="background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit">🏔️ נוף שקיעה</button>
+                <button type="button" onclick="_imgExample('לוגו מודרני לבית קפה')" style="background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit">☕ לוגו בית קפה</button>
+                <button type="button" onclick="_imgExample('דרקון אפי יורק אש, פנטזיה')" style="background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit">🐉 דרקון פנטזיה</button>
+            </div>
             <!-- Free tier banner -->
             <div id="free-banner" style="display:none">
                 <div class="banner-txt">נותרו לך <strong id="msgs-left">150</strong> הודעות חינמיות · שדרג לפרמיום</div>
@@ -3700,7 +3707,12 @@ function _updateModeChip() {
     const isImg = (typeof currentMode !== 'undefined' && currentMode === 'image');
     if (chip) chip.style.display = isImg ? 'block' : 'none';
     if (inp) inp.placeholder = isImg ? _t('ph_image') : _t('ph');
+    document.body.classList.toggle('image-mode', isImg); // עיצוב ייעודי למצב תמונה
+    const ex = document.getElementById('img-examples');
+    if (ex) ex.style.display = isImg ? 'flex' : 'none';
 }
+// לחיצה על דוגמה במצב תמונה — ממלא ושולח
+function _imgExample(t) { const inp = document.getElementById('userInput'); if (inp) { inp.value = t; } if (typeof send === 'function') send(); }
 // מצב קוד — פותח קנבס מפוצל (65%) עם תצוגה חיה, כמו Gemini
 function _enterCodeCanvas() {
     if (window.innerWidth < 701) return; // במובייל הקנבס נפתח מלא בעת יצירת קוד, לא פיצול
