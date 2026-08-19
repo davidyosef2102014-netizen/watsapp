@@ -285,7 +285,9 @@
         /* מצב קוד — פיצול 65% קנבס (שמאל) / 35% צ'אט (ימין), כמו Gemini. רק בדסקטופ. */
         @media (min-width: 701px) {
             body.code-split { padding-left: 65%; }
-            body.code-split #sidebar { display: none; } /* הצ'אט מקבל את כל ה-35% */
+            /* במצב קנבס: הסיידבר מוסתר כברירת מחדל אך נפתח כ-overlay מעל הקנבס (לא display:none — כדי שאפשר יהיה לפתוח אותו) */
+            body.code-split #sidebar { position: fixed; right: 0; top: 0; height: 100%; width: 0; border-left-width: 0; overflow: hidden; }
+            body.code-split #sidebar.open { width: 260px; border-left: 1px solid var(--border); box-shadow: -4px 0 20px rgba(0,0,0,.15); }
             /* קנבס = כרטיס מרחף עם פינות עגולות */
             body.code-split .canvas-panel {
                 width: calc(65% - 20px); top: 12px; bottom: 12px; left: 12px;
