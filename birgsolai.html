@@ -1573,15 +1573,6 @@
     <!-- INPUT -->
     <div class="input-area">
         <div class="input-wrap">
-            <!-- בורר מודלים — בחירת המודל (BIRGSOL AI 2.0 / 3.5 FLASH / 3.5 PRO) לפי גרסה -->
-            <div id="model-chip-row" style="margin-bottom:7px;position:relative">
-                <button id="model-chip" type="button" onclick="_toggleModelMenu(event)" style="display:inline-flex;align-items:center;gap:6px;background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:14px;padding:5px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.4" fill="currentColor"/><circle cx="15" cy="9" r="1.4" fill="currentColor"/><path d="M8.5 14.5c.9 1 2.1 1.5 3.5 1.5s2.6-.5 3.5-1.5"/></svg>
-                    <span id="model-chip-name">BIRGSOL AI 3.5 FLASH</span>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div id="model-menu" style="display:none;position:absolute;bottom:100%;margin-bottom:8px;background:var(--surf);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:6px;z-index:60;min-width:250px"></div>
-            </div>
             <!-- תווית מצב תמונות (@תמונות) — מוצגת רק במצב תמונה -->
             <div id="mode-chip" style="display:none;margin-bottom:7px">
                 <span style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;border-radius:14px;padding:5px 12px;font-size:12.5px;font-weight:700">
@@ -1628,6 +1619,15 @@
                         </span>
                     </button>
                 </div>
+            </div>
+            <!-- בורר מודלים — מתחת לתיבת הכתיבה. לחיצה פותחת רשימה לבחירה -->
+            <div id="model-chip-row" style="position:relative;text-align:center;margin-top:8px">
+                <button id="model-chip" type="button" onclick="_toggleModelMenu(event)" style="display:inline-flex;align-items:center;gap:6px;background:transparent;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:2px 6px;border-radius:10px">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.4" fill="currentColor"/><circle cx="15" cy="9" r="1.4" fill="currentColor"/><path d="M8.5 14.5c.9 1 2.1 1.5 3.5 1.5s2.6-.5 3.5-1.5"/></svg>
+                    <span id="model-chip-name">BIRGSOL AI 3.5 FLASH</span>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="model-menu" style="display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:8px;background:var(--surf);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:6px;z-index:60;min-width:250px;text-align:right"></div>
             </div>
             <div class="foot-note" id="foot-note">Birgsol AI עשוי לטעות. בדוק מידע חשוב.</div>
         </div>
@@ -3551,6 +3551,7 @@ Talk like a real, warm, smart friend — not a formal corporate machine. In Hebr
 - Verify any specific real-world fact with [SEARCH] before stating it (a specific business/place, whether it exists, kosher/open/hours, address, "the nearest X", current prices). Your training data on local specifics is outdated.
 - Search results are the ONLY source of truth — drop your prior assumption; if results contradict memory, results win. Every specific fact must come from the results; never stitch in a half-remembered detail.
 - NEVER invent a business/place/station/address or an attribute like "kosher". If not found, say "לא מצאתי מידע אמין על זה" and stop — never fabricate.
+- NEVER output a URL / link that you are not 100% sure is real. Do NOT invent, guess, or construct links (no "example.com", no made-up article/product URLs). Only include a link if it came verbatim from a [SEARCH]/[BROWSE] result. When you have no verified link, give the answer WITHOUT any link — never a fake one.
 - Say when unsure ("אני לא בטוח"). Kosher/dietary/medical/legal/safety — never guess; verify or tell the user to check directly.
 
 === WEB TOOLS (you decide when — search SILENTLY, never say "I'm going to search") ===
@@ -6172,7 +6173,7 @@ async function callAI(messages, onChunk, signal=null) {
         const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-            body: JSON.stringify({ contents, generationConfig: { thinkingConfig: { thinkingBudget: 1024 } } }),
+            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } } }),
             signal: AbortSignal.timeout(14000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
