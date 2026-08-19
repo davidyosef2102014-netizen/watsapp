@@ -4753,9 +4753,8 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     const _wantEng = /באנגלית|אנגלית|in english|\benglish\b|latin/i.test(prompt);
     const _wantHeb = !_wantEng && (/בעברית|עברית|hebrew/i.test(prompt) || /[֐-׿]/.test(_brandText));
 
-    // רשת ביטחון: ערבית מוסרת תמיד. עברית מוסרת אלא אם המשתמש רוצה טקסט עברי.
-    if (/[؀-ۿݐ-ݿ]/.test(engPrompt)) engPrompt = engPrompt.replace(/[؀-ۿݐ-ݿ]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
-    if (!(_wantsText && _wantHeb) && /[֐-׿]/.test(engPrompt)) engPrompt = engPrompt.replace(/[֐-׿]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    // רשת ביטחון: FLUX מאיית רק אנגלית — מסירים תמיד ערבית ועברית מהפרומפט (מונע ג'יבריש/כיתוב זר בתמונה)
+    if (/[؀-ۿݐ-ݿ֐-׿]/.test(engPrompt)) engPrompt = engPrompt.replace(/[؀-ۿݐ-ݿ֐-׿]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
     if (engPrompt.length < 3) engPrompt = 'a highly detailed, high quality illustration';
 
     // ── 3. Cloudflare FLUX → HuggingFace → Pollinations ──
@@ -4764,15 +4763,10 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     const _anat = ', anatomically correct, no duplicate, extra, or malformed heads, faces, or limbs';
     let styledPrompt;
     if (_wantsText) {
-        let _tc, _rule;
-        if (_wantHeb) {
-            _tc = (_brandText && /[֐-׿]/.test(_brandText)) ? `, with the Hebrew text "${_brandText}" written clearly and correctly in Hebrew letters` : ', with clear correct Hebrew text';
-            _rule = ' Text must be in HEBREW letters only — never Arabic, no gibberish.';
-        } else {
-            // אנגלית (או ברירת מחדל) — FLUX מאיית אנגלית טוב בהרבה
-            _tc = (_brandText && /[A-Za-z]/.test(_brandText)) ? `, with the text "${_brandText}" written clearly in clean English letters` : ', with clear correctly-spelled English text';
-            _rule = ' Text must be in clean correctly-spelled English/Latin letters — never Arabic or Hebrew, no gibberish.';
-        }
+        // FLUX משלב טקסט טוב רק באנגלית. אם המשתמש ביקש עברית/לא-אנגלית — מיידעים ומייצרים באנגלית.
+        if (_wantHeb && typeof _tierToast === 'function') _tierToast('שילוב טקסט בתוך תמונה נתמך כרגע רק באנגלית — אשלב באנגלית');
+        const _tc = (_brandText && /[A-Za-z]/.test(_brandText)) ? `, with the text "${_brandText}" written clearly in clean English letters` : ', with clear correctly-spelled English text';
+        const _rule = ' Text must be in clean correctly-spelled English/Latin letters ONLY — never Arabic, never Hebrew, no gibberish.';
         styledPrompt = safePrompt + _tc + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality.' + _rule;
     } else {
         styledPrompt = safePrompt + ', ' + imgStyle.suffix + ', highly detailed, sharp focus, high resolution, professional quality' + _anat + '. No text, no letters, no words, no captions, no watermark, no signage.';
