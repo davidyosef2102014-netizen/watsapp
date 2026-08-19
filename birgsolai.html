@@ -1456,6 +1456,10 @@
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> <span data-i18n="files_row">תיקיית הקבצים (BIRGSOL AI)</span></span>
                 <span id="sp-files-status" style="color:var(--muted);font-size:12px"></span>
             </div>
+            <div class="sp-row">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> <span data-i18n="autosave_label">שמירת קוד אוטומטית לתיקייה</span></span>
+                <button class="sp-toggle" id="sp-autosave" onclick="toggleAutoSave()"></button>
+            </div>
         </div>
         <button class="sb-settings-btn" onclick="toggleSettings()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -3283,6 +3287,12 @@ function toggleStylePicker() {
     const isOn = btn.classList.toggle('on');
     localStorage.setItem('birgsol_style_picker_off', isOn ? '0' : '1');
 }
+// שמירת קוד אוטומטית לתיקייה — כברירת מחדל דולקת. כשדולק: כל קוד שהמודל מוציא (בכל מצב) נשמר בתיקייה בשמו.
+function toggleAutoSave() {
+    const btn = document.getElementById('sp-autosave');
+    const isOn = btn.classList.toggle('on');
+    localStorage.setItem('birgsol_autosave_code', isOn ? '1' : '0');
+}
 // מחלץ דומיינים ייחודיים מטקסט תוצאות החיפוש; מסנן שירותי-חיפוש/פרוקסי פנימיים (לא "אתרים" למשתמש).
 function _extractDomains(text) {
     const urls = String(text || '').match(/https?:\/\/[^\s)"'\]]+/g) || [];
@@ -3361,7 +3371,8 @@ const L10N_EXTRA = {
         pf_basic_model:'+ מודל 3.5 FLASH · חכם ומהיר', pf_basic_img:'10 תמונות ביום', pf_basic_tok:'מכסת שימוש · 300K טוקנים ביום', pf_basic_badge:'תג Basic',
         pf_pro_model:'+ מודל 3.5 PRO · מעולה לקוד', pf_pro_img:'25 תמונות ביום', pf_pro_tok:'מכסת שימוש · 1.2M טוקנים ביום', pf_pro_badge:'תג Pro',
         pf_ultra_models:'כל המודלים · ללא הגבלה', pf_ultra_img:'תמונות ללא הגבלה', pf_ultra_use:'שימוש ללא הגבלה', pf_ultra_badge:'תג Ultra מיוחד',
-        files_connect:'חבר ›', files_change:'החלף', files_remove:'הסר'
+        files_connect:'חבר ›', files_change:'החלף', files_remove:'הסר',
+        autosave_label:'שמירת קוד אוטומטית לתיקייה'
     },
     en: {
         install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker',
@@ -3380,7 +3391,8 @@ const L10N_EXTRA = {
         pf_basic_model:'+ 3.5 FLASH model · smart & fast', pf_basic_img:'10 images/day', pf_basic_tok:'Usage quota · 300K tokens/day', pf_basic_badge:'Basic badge',
         pf_pro_model:'+ 3.5 PRO model · great for code', pf_pro_img:'25 images/day', pf_pro_tok:'Usage quota · 1.2M tokens/day', pf_pro_badge:'Pro badge',
         pf_ultra_models:'All models · unlimited', pf_ultra_img:'Unlimited images', pf_ultra_use:'Unlimited usage', pf_ultra_badge:'Special Ultra badge',
-        files_connect:'Connect ›', files_change:'Change', files_remove:'Remove'
+        files_connect:'Connect ›', files_change:'Change', files_remove:'Remove',
+        autosave_label:'Auto-save code to folder'
     }
 };
 Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
@@ -3481,6 +3493,8 @@ function initSettings() {
     document.getElementById('sp-followups')?.classList.toggle('on', foOn);
     const spOn = localStorage.getItem('birgsol_style_picker_off') !== '1'; // בורר סגנון דולק כברירת מחדל
     document.getElementById('sp-stylepick')?.classList.toggle('on', spOn);
+    const asOn = localStorage.getItem('birgsol_autosave_code') !== '0'; // שמירת קוד אוטומטית דולקת כברירת מחדל
+    document.getElementById('sp-autosave')?.classList.toggle('on', asOn);
     try { if (typeof _restoreFilesFolder === 'function') _restoreFilesFolder(); } catch (e) {} // שחזר תיקיית "BIRGSOL AI" אם חוברה
 
     // deep-think feature toggle (default on)
@@ -4160,7 +4174,7 @@ function _autoCanvasFromMsg(txtEl) {
     document.getElementById('ctab-view').style.display = previewable ? '' : 'none';
     canvasTab(previewable ? 'view' : 'code');
     // שמירה אוטומטית של הקוד לתיקיית "BIRGSOL AI" (אם חוברה) — אישור בפעם הראשונה לכל קובץ, אח"כ אוטומטי
-    try { if (typeof bsSaveCodeBlocks === 'function' && _bsDir) bsSaveCodeBlocks(blocks); } catch (e) {}
+    // השמירה לתיקייה מטופלת ב-_autoSaveCodeFiles (נקרא אחרי הרינדור, בכל המצבים)
 }
 
 function canvasTab(t) {
@@ -6772,6 +6786,13 @@ async function bsSaveCodeBlocks(blocks) {
     for (const f of files) { if (await bsWriteFile(f.name, f.code, { noConfirm: true, silent: true })) saved++; }
     if (saved) _tierToast('💾 ' + (en ? 'Saved ' + saved + ' file' + (saved > 1 ? 's' : '') : 'נשמרו ' + saved + ' קבצים'));
 }
+// שמירה אוטומטית של כל קוד בתשובה לתיקייה — בכל המצבים (רגיל + קוד). כפוף לתיקייה מחוברת + מתג ההגדרות.
+function _autoSaveCodeFiles(txtEl) {
+    if (!_bsDir || !txtEl) return;
+    if (localStorage.getItem('birgsol_autosave_code') === '0') return; // כובה בהגדרות
+    const blocks = [...txtEl.querySelectorAll('.code-block')];
+    if (blocks.length) bsSaveCodeBlocks(blocks);
+}
 
 /* ══ זרוע הדפדפן — BIRGSOL מסתכל בדף שאתה גולש בו דרך תוסף Chrome (רק PRO/ULTRA) ══
    האפליקציה = המוח; התוסף = הזרוע. אומרים "תסתכל בדפדפן" → פוקד על התוסף → מקבל טקסט+צילום → מנתח ועונה. */
@@ -6980,6 +7001,10 @@ async function send() {
     // Models used (Groq Llama-3.3-70b, GPT-4o-mini, Gemini Flash) all support large context windows,
     // so keep a wide history slice — a short window was causing the AI to "forget" earlier turns.
     const messages = [{ role: 'system', content: getPersona() }];
+    // תיקייה מחוברת + שמירה אוטומטית → מזכירים למודל (בכל מצב) לשמור כל קוד בשם יציב כדי שעריכות ידרסו את אותו קובץ
+    if (typeof _bsDir !== 'undefined' && _bsDir && localStorage.getItem('birgsol_autosave_code') !== '0') {
+        messages[0].content += '\n\n[PROJECT FOLDER CONNECTED] Every code block you output is auto-saved as a REAL file in the user\'s folder. Keep filenames STABLE across edits so an update OVERWRITES the same file (reuse index.html, script.js, styles.css, main.py). To target a specific file, start the code block with a comment: // file: name.ext (HTML: <!-- file: index.html -->). When asked to change/fix/add to code, re-output the FULL updated file with the SAME filename — never a partial snippet.';
+    }
     // context לפי תקציב-אורך (לא מספר-הודעות קשיח) + סינון מרקרים ויזואליים כבדים (מפות/תמונות עם
     // base64). Groq TPM=12K בלבד — שיחה ארוכה או מפה ב-hist חרגה, Groq נפל, והגענו ל-Qwen שמדליף.
     const _clean = c => (typeof c === 'string' ? c : (c?.[0]?.text || ''))
@@ -7295,6 +7320,7 @@ async function send() {
             enhanceCodeBlocks(txt);
             _renderMath(txt); // fire-and-forget KaTeX
             _autoCanvasFromMsg(txt); // מצב קוד — טען את הקוד לקנבס החי
+            _autoSaveCodeFiles(txt); // שמירת כל קוד לתיקייה (בכל מצב, אם מחוברת תיקייה ושמירה אוטומטית דולקת)
         } catch(renderErr) {}
 
         if (_stopped) {
