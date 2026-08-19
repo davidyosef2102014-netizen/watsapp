@@ -1573,6 +1573,15 @@
     <!-- INPUT -->
     <div class="input-area">
         <div class="input-wrap">
+            <!-- בורר מודלים — בחירת המודל (BIRGSOL AI 2.0 / 3.5 FLASH / 3.5 PRO) לפי גרסה -->
+            <div id="model-chip-row" style="margin-bottom:7px;position:relative">
+                <button id="model-chip" type="button" onclick="_toggleModelMenu(event)" style="display:inline-flex;align-items:center;gap:6px;background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:14px;padding:5px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.4" fill="currentColor"/><circle cx="15" cy="9" r="1.4" fill="currentColor"/><path d="M8.5 14.5c.9 1 2.1 1.5 3.5 1.5s2.6-.5 3.5-1.5"/></svg>
+                    <span id="model-chip-name">BIRGSOL AI 3.5 FLASH</span>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="model-menu" style="display:none;position:absolute;bottom:100%;margin-bottom:8px;background:var(--surf);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:6px;z-index:60;min-width:250px"></div>
+            </div>
             <!-- תווית מצב תמונות (@תמונות) — מוצגת רק במצב תמונה -->
             <div id="mode-chip" style="display:none;margin-bottom:7px">
                 <span style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#4285F4,#9C6ADE);color:#fff;border-radius:14px;padding:5px 12px;font-size:12.5px;font-weight:700">
@@ -2336,6 +2345,60 @@ const TIERS = {
     ultra: { name:'Birgsol Ultra', badge:'Ultra', price:450, imgLimit:-1, searchLimit:-1 }
 };
 
+/* ── בורר מודלים: שמות מותג לפי המודל האמיתי + זמינות לפי גרסה ── */
+const TIER_RANK = { free:0, basic:1, pro:2, ultra:3 };
+const MODELS = [
+    { id:'2.0',   brand:'BIRGSOL AI 2.0',       kind:'weak',   minTier:'free',  desc:'מהיר ובסיסי' },
+    { id:'flash', brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini', minTier:'basic', desc:'חכם ומהיר' },
+    { id:'pro',   brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss', minTier:'pro',   desc:'הכי חזק, מעולה לקוד' },
+];
+function _modelAllowed(m) { return (TIER_RANK[currentTier] || 0) >= (TIER_RANK[m.minTier] || 0); }
+function _bestModelForTier() { for (let i = MODELS.length - 1; i >= 0; i--) if (_modelAllowed(MODELS[i])) return MODELS[i].id; return '2.0'; }
+function currentModelId() {
+    let id = localStorage.getItem('birgsol_model_' + currentUser) || '';
+    const m = MODELS.find(x => x.id === id);
+    if (!m || !_modelAllowed(m)) { id = _bestModelForTier(); try { localStorage.setItem('birgsol_model_' + currentUser, id); } catch (e) {} }
+    return id;
+}
+function setModelId(id) {
+    const m = MODELS.find(x => x.id === id);
+    if (!m) return;
+    if (!_modelAllowed(m)) { if (typeof openPricingModal === 'function') openPricingModal(); return; }
+    try { localStorage.setItem('birgsol_model_' + currentUser, id); } catch (e) {}
+    if (typeof _updateModelChip === 'function') _updateModelChip();
+    if (typeof _closeModelMenu === 'function') _closeModelMenu();
+}
+function _updateModelChip() {
+    const el = document.getElementById('model-chip-name');
+    if (!el) return;
+    const m = MODELS.find(x => x.id === currentModelId());
+    el.textContent = m ? m.brand : 'BIRGSOL AI';
+}
+function _closeModelMenu() { const mn = document.getElementById('model-menu'); if (mn) mn.style.display = 'none'; }
+function _toggleModelMenu(e) {
+    if (e) e.stopPropagation();
+    const mn = document.getElementById('model-menu'); if (!mn) return;
+    if (mn.style.display === 'block') { mn.style.display = 'none'; return; }
+    _buildModelMenu(); mn.style.display = 'block';
+}
+function _buildModelMenu() {
+    const mn = document.getElementById('model-menu'); if (!mn) return;
+    const cur = currentModelId(); mn.innerHTML = '';
+    MODELS.forEach(m => {
+        const allowed = _modelAllowed(m), active = m.id === cur;
+        const it = document.createElement('div');
+        it.style.cssText = 'display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;cursor:pointer;' + (active ? 'background:linear-gradient(135deg,rgba(66,133,244,.14),rgba(156,106,222,.14));' : '');
+        it.onmouseenter = () => { if (!active) it.style.background = 'var(--surf2)'; };
+        it.onmouseleave = () => { if (!active) it.style.background = ''; };
+        const lock = allowed ? '' : '<span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">🔒 ' + (TIERS[m.minTier] ? TIERS[m.minTier].badge : m.minTier) + '</span>';
+        const check = active ? '<span style="color:#4285F4;font-weight:800;width:12px">✓</span>' : '<span style="width:12px;display:inline-block"></span>';
+        it.innerHTML = check + '<div style="flex:1"><div style="font-weight:700;font-size:13px' + (allowed ? '' : ';opacity:.6') + '">' + m.brand + '</div><div style="font-size:11px;color:var(--muted)">' + m.desc + '</div></div>' + lock;
+        it.onclick = () => { if (allowed) setModelId(m.id); else { _closeModelMenu(); if (typeof openPricingModal === 'function') openPricingModal(); } };
+        mn.appendChild(it);
+    });
+}
+document.addEventListener('click', (e) => { const mn = document.getElementById('model-menu'); const ch = document.getElementById('model-chip'); if (mn && mn.style.display === 'block' && !mn.contains(e.target) && ch && !ch.contains(e.target)) mn.style.display = 'none'; });
+
 /* ── מכסות יומיות — מפתח לפי תאריך, מתאפס אוטומטית כל יום ── */
 function _quotaKey(kind) { return `birgsol_q_${kind}_${currentUser}_${new Date().toISOString().slice(0,10)}`; }
 function quotaLeft(kind) { // kind: 'img' | 'search'
@@ -2587,6 +2650,7 @@ function checkPremium() {
     currentTier = localStorage.getItem('birgsol_tier_' + currentUser) || 'free';
     if (!TIERS[currentTier]) currentTier = 'free';
     isPremium = currentTier !== 'free';
+    if (typeof _updateModelChip === 'function') _updateModelChip(); // עדכן את בורר המודלים לפי הגרסה
 }
 
 /* ── update UI ── */
@@ -6210,14 +6274,18 @@ async function callAI(messages, onChunk, signal=null) {
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
         { name: 'Mistral (code)',            fn: () => _tryMistral().then(_tw) },
         { name: 'Cohere (code)',             fn: () => _tryCohere().then(_tw) },
-    ] : [
-        { name: 'Gemini Flash',        fn: () => _tryGemini().then(_tw) },   // המשקל הראשי — מהיר, יציב, עברית טובה
-        { name: 'Groq gpt-oss-120b',   fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
-        { name: 'Groq gpt-oss (acct2)',fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
-        { name: 'Groq gpt-oss (acct3)',fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) },
-        { name: 'Mistral',           fn: () => _tryMistral().then(_tw) },
-        { name: 'Cohere',            fn: () => _tryCohere().then(_tw) },
-    ];
+    ] : (function () {
+        // סדר השרשרת לפי המודל שהמשתמש בחר בבורר — הנבחר ראשון, השאר כגיבוי
+        const _sGem  = { name: 'Gemini',   fn: () => _tryGemini().then(_tw) };
+        const _sGpt  = { name: 'gpt-oss',  fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) };
+        const _sGpt2 = { name: 'gpt-oss2', fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) };
+        const _sMis  = { name: 'Mistral',  fn: () => _tryMistral().then(_tw) };
+        const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
+        const _mid = (typeof currentModelId === 'function') ? currentModelId() : 'flash';
+        if (_mid === '2.0') return [_sMis, _sCoh, _sGem, _sGpt];              // BIRGSOL AI 2.0 — הבסיסי
+        if (_mid === 'pro') return [_sGpt, _sGpt2, _sGem, _sMis, _sCoh];      // 3.5 PRO — gpt-oss
+        return [_sGem, _sGpt, _sGpt2, _sMis, _sCoh];                         // 3.5 FLASH — Gemini (ברירת מחדל)
+    })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
     for (let round = 0; round < 2; round++) {
