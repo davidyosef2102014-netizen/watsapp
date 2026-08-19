@@ -6039,10 +6039,10 @@ function downloadCode(btn, ext) {
     URL.revokeObjectURL(a.href);
 }
 
-/* מד מכסת-טוקנים חי — מציג אחוז ניצול מ-85% ומעלה. 85–89% צהוב, 90–100% אדום. נשאר על המסך באזור-האזהרה. */
+/* מד מכסת-טוקנים חי — טבעת עיגול קטנה בצד. מוצג מ-85% ומעלה. 85–89% צהוב, 90–100% אדום. */
 function _tokenMeter() {
     const lim = _quotaLimit('token');
-    let el = document.getElementById('token-meter');
+    let el = document.getElementById('token-ring');
     if (lim === -1 || ADMIN_USERS.includes(currentUser)) { if (el) el.remove(); return; } // ללא הגבלה — אין מד
     const used = Math.max(0, lim - quotaLeft('token'));
     const pct = Math.min(100, Math.round(used / lim * 100));
@@ -6050,14 +6050,19 @@ function _tokenMeter() {
     const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
     const red = pct >= 90;
     const col = red ? '#ef4444' : '#f59e0b';
-    const bg  = red ? 'rgba(239,68,68,.15)'  : 'rgba(245,158,11,.15)';
-    const bd  = red ? 'rgba(239,68,68,.45)'  : 'rgba(245,158,11,.45)';
-    if (!el) { el = document.createElement('div'); el.id = 'token-meter'; document.body.appendChild(el); }
-    el.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:' + bg + ';border:1px solid ' + bd + ';color:' + col + ';padding:6px 15px;border-radius:20px;font-size:12px;font-weight:700;z-index:9000;max-width:90vw;text-align:center;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.14)';
-    const icon = pct >= 100 ? '⛔' : (red ? '🔴' : '🟡');
-    el.textContent = en
-        ? `${icon} ${pct}% of your daily quota used${pct >= 100 ? ' — limit reached, resets tomorrow' : ''}`
-        : `${icon} נוצלו ${pct}% מהמכסה היומית${pct >= 100 ? ' — נגמרה, מתאפסת מחר' : ''}`;
+    if (!el) {
+        el = document.createElement('div'); el.id = 'token-ring';
+        el.style.cssText = 'position:fixed;left:12px;bottom:94px;z-index:9000;width:44px;height:44px;pointer-events:none;filter:drop-shadow(0 2px 7px rgba(0,0,0,.22))';
+        document.body.appendChild(el);
+    }
+    const R = 19, CIRC = 2 * Math.PI * R, off = CIRC * (1 - pct / 100);
+    el.innerHTML =
+        '<svg viewBox="0 0 44 44" width="44" height="44">' +
+        '<circle cx="22" cy="22" r="' + R + '" fill="var(--surf,#fff)" stroke="rgba(140,140,140,.28)" stroke-width="4"/>' +
+        '<circle cx="22" cy="22" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + CIRC + '" stroke-dashoffset="' + off + '" transform="rotate(-90 22 22)" style="transition:stroke-dashoffset .5s ease"/>' +
+        '<text x="22" y="22" text-anchor="middle" dominant-baseline="central" font-size="11.5" font-weight="800" fill="' + col + '" font-family="system-ui,sans-serif">' + pct + '%</text>' +
+        '</svg>';
+    el.title = en ? (pct + '% of your daily quota used' + (pct >= 100 ? ' — resets tomorrow' : '')) : ('נוצלו ' + pct + '% מהמכסה היומית' + (pct >= 100 ? ' — מתאפסת מחר' : ''));
 }
 
 function _showQuotaNotice() {
