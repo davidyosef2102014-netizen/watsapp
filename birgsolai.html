@@ -2346,10 +2346,10 @@ let freeLeft    = FREE_LIMIT;
 
 /* ── מסלולי פרמיום — מכסות יומיות (תמונות / חיפושים) ── */
 const TIERS = {
-    free:  { name:'Birgsol Free',  badge:'Free',    price:0,   imgLimit:4,  searchLimit:5  },
-    basic: { name:'Birgsol Basic', badge:'Basic',   price:50,  imgLimit:10, searchLimit:20 },
-    pro:   { name:'Birgsol Pro',   badge:'Pro',     price:200, imgLimit:25, searchLimit:40 },
-    ultra: { name:'Birgsol Ultra', badge:'Ultra', price:450, imgLimit:-1, searchLimit:-1 }
+    free:  { name:'Birgsol Free',  badge:'Free',    price:0,   imgLimit:4,  searchLimit:5,  tokenLimit:60000   },
+    basic: { name:'Birgsol Basic', badge:'Basic',   price:50,  imgLimit:10, searchLimit:20, tokenLimit:300000  },
+    pro:   { name:'Birgsol Pro',   badge:'Pro',     price:200, imgLimit:25, searchLimit:40, tokenLimit:1200000 },
+    ultra: { name:'Birgsol Ultra', badge:'Ultra', price:450, imgLimit:-1, searchLimit:-1, tokenLimit:-1      }
 };
 
 /* ── בורר מודלים: שמות מותג לפי המודל האמיתי + זמינות לפי גרסה ── */
@@ -2408,16 +2408,26 @@ document.addEventListener('click', (e) => { const mn = document.getElementById('
 
 /* ── מכסות יומיות — מפתח לפי תאריך, מתאפס אוטומטית כל יום ── */
 function _quotaKey(kind) { return `birgsol_q_${kind}_${currentUser}_${new Date().toISOString().slice(0,10)}`; }
-function quotaLeft(kind) { // kind: 'img' | 'search'
+function _quotaLimit(kind) {
     const t = TIERS[currentTier] || TIERS.free;
-    const lim = kind === 'img' ? t.imgLimit : t.searchLimit;
+    if (kind === 'img') return t.imgLimit;
+    if (kind === 'token') return (t.tokenLimit != null ? t.tokenLimit : -1);
+    return t.searchLimit; // legacy 'search' — נשמר לתאימות
+}
+function quotaLeft(kind) { // kind: 'img' | 'token' | 'search'
+    const lim = _quotaLimit(kind);
     if (lim === -1) return Infinity;
     return lim - parseInt(localStorage.getItem(_quotaKey(kind)) || '0');
 }
-function quotaUse(kind) {
-    if (quotaLeft(kind) === Infinity) return;
-    localStorage.setItem(_quotaKey(kind), parseInt(localStorage.getItem(_quotaKey(kind)) || '0') + 1);
+function quotaUse(kind, amount = 1) {
+    if (_quotaLimit(kind) === -1) return; // ללא הגבלה בדרגה הזאת
+    if (ADMIN_USERS.includes(currentUser)) return; // דוד/מנהלים פטורים
+    const n = Math.max(0, Math.round(amount));
+    if (!n) return;
+    localStorage.setItem(_quotaKey(kind), parseInt(localStorage.getItem(_quotaKey(kind)) || '0') + n);
 }
+/* אומדן טוקנים גס — עברית/מעורב ≈ 3 תווים/טוקן; מספיק להגבלת-קצב הוגנת */
+function _estTokens(str) { return str ? Math.ceil(String(str).length / 3) : 0; }
 
 /* ── login — ענן בלבד ── */
 async function doLogin() {
@@ -2932,7 +2942,19 @@ function _tierToast(msg) {
 
 /* ── message counter ── */
 function consumeFreeMsg() {
-    return true; // הכל ללא הגבלה
+    // מכסת טוקנים יומית נדיבה במקום ספירת-הודעות. דוד/מנהלים ו-Ultra ללא הגבלה.
+    if (ADMIN_USERS.includes(currentUser)) return true;
+    if (quotaLeft('token') <= 0) {
+        const t = TIERS[currentTier] || TIERS.free;
+        const nextName = currentTier === 'free' ? 'Basic' : currentTier === 'basic' ? 'Pro' : 'Ultra';
+        const he = `נגמרה לך מכסת הטוקנים היומית (${(t.tokenLimit/1000).toLocaleString()}K/יום בדרגת ${t.badge}). המכסה מתאפסת מחר, או שדרג ל-${nextName} להמשך מיידי.`;
+        const en = `You've used your daily token quota (${(t.tokenLimit/1000).toLocaleString()}K/day on ${t.badge}). It resets tomorrow, or upgrade to ${nextName} to continue now.`;
+        const _lg = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+        _alert(_lg === 'en' ? en : he);
+        if (typeof openPricingModal === 'function') openPricingModal();
+        return false;
+    }
+    return true;
 }
 
 /* ── register ── */
@@ -5734,10 +5756,10 @@ const RE_REMEMBER = /\[REMEMBER:\s*(.+?)\]/gi;  // כלי סוכן: הסוכן �
 async function executeTool(match, type, statusEl, cw) {
     if (type === 'search') {
         const q = match[1].trim();
-        if (quotaLeft('search') <= 0) {
-            return `\n\n---\n[SYSTEM: The user's daily web-search quota is used up. Tell them in their language: "נגמרה לך המכסה היומית של חיפושים באינטרנט — שדרג את הגרסה כדי להמשיך". Answer from your own knowledge only, and mention the info may not be current.]\n---\n`;
+        // חיפוש כבר לא מוגבל בספירה נפרדת — כפוף למכסת הטוקנים היומית בלבד
+        if (quotaLeft('token') <= 0) {
+            return `\n\n---\n[SYSTEM: The user's daily token quota is used up. Tell them in their language: "נגמרה לך מכסת הטוקנים היומית — שדרג את הגרסה כדי להמשיך". Answer from your own knowledge only, and mention the info may not be current.]\n---\n`;
         }
-        quotaUse('search');
         const _icSearch = '<svg class="agent-ic-pulse" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:4px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
         statusEl.innerHTML = `<span class="agent-step">${_icSearch}<b>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
         statusEl.style.display = 'flex';
@@ -5998,6 +6020,24 @@ function downloadCode(btn, ext) {
     a.download = `birgsol-code.${ext}`;
     a.click();
     URL.revokeObjectURL(a.href);
+}
+
+/* התראה עדינה כשנשארו פחות מ-15% מהטוקנים היומיים — פעם אחת ליום, כדי לא להטריד */
+function _maybeTokenWarn() {
+    const lim = _quotaLimit('token');
+    if (lim === -1 || ADMIN_USERS.includes(currentUser)) return;
+    const left = quotaLeft('token');
+    if (left > lim * 0.15 || left <= 0) return; // עדיין הרבה, או שכבר נחסם (הודעת החסימה תטופל בנפרד)
+    const warnKey = 'birgsol_tokwarn_' + currentUser + '_' + new Date().toISOString().slice(0,10);
+    if (localStorage.getItem(warnKey)) return;
+    try { localStorage.setItem(warnKey, '1'); } catch (e) {}
+    const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
+    const pct = Math.max(1, Math.round(left / lim * 100));
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.32);color:#fbbf24;padding:7px 16px;border-radius:20px;font-size:12px;z-index:9000;max-width:90vw;text-align:center';
+    el.textContent = en ? `⏳ ~${pct}% of your daily quota left — resets tomorrow` : `⏳ נשארו ~${pct}% מהמכסה היומית — מתאפסת מחר`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 7000);
 }
 
 function _showQuotaNotice() {
@@ -6962,6 +7002,12 @@ async function send() {
         }
     }
     _abortCtrl = null;
+
+    // ── חיוב מכסת הטוקנים היומית — אומדן על בסיס קלט המשתמש + תשובת המודל (הפרסונה הקבועה לא נספרת, כדי שהמכסה תישאר נדיבה) ──
+    try {
+        quotaUse('token', _estTokens(q) + _estTokens(attachedFile) + _estTokens(fullText));
+        _maybeTokenWarn();
+    } catch (e) {}
 
     // ── המשך-אוטומטי לקוד שנקטע — אם יש בלוק קוד לא-סגור (מספר אי-זוגי של ```), ממשיכים מאיפה שנעצר ──
     if (typeof currentMode !== 'undefined' && currentMode === 'code' && fullText && !_stopped) {
