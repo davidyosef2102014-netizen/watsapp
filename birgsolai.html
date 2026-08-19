@@ -5109,7 +5109,7 @@ async function _tryTavilyKey(apiKey, query) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: apiKey, query, search_depth: 'basic', include_answer: true, max_results: 5 }),
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(9000)
     });
     if (!res.ok) throw new Error('tavily ' + res.status);
     const j = await res.json();
@@ -5145,7 +5145,7 @@ async function _translateToEn(text) {
 // Serper — תוצאות גוגל אמיתיות + מקומי ישראל (Google Places) בעברית. מעולה לשאלות מקומיות/עובדתיות.
 async function _trySerper(query) {
     try {
-        const r = await _ghProxy('serper', '/search', { q: query, gl: 'il', hl: 'iw' }, { signal: AbortSignal.timeout(12000) });
+        const r = await _ghProxy('serper', '/search', { q: query, gl: 'il', hl: 'iw' }, { signal: AbortSignal.timeout(9000) });
         if (!r.ok) return null;
         const d = await r.json();
         let out = '';
@@ -5166,11 +5166,19 @@ async function _trySerper(query) {
     } catch { return null; }
 }
 async function webSearch(query) {
-    // Serper (גוגל + מקומי ישראל, עברית) ו-Tavily (תשובה מסונתזת) יחד במקביל — ממזגים לעיגון עשיר וחזק
-    const [sp, tv] = await Promise.allSettled([_trySerper(query), _tryTavily(query)]);
+    // Serper (גוגל + מקומי ישראל, עברית) הוא המקור הראשי והמהיר. Tavily רץ במקביל אבל לא מעכב:
+    // אם Serper כבר החזיר תשובה טובה — נותנים ל-Tavily רק ~2ש' להעשיר ואז ממשיכים (במקום להמתין עד 15ש').
+    const serperP = _trySerper(query);
+    const tavilyP = _tryTavily(query).catch(() => null);
+    const sp = await serperP.catch(() => null);
+    let tv = null;
+    try {
+        const raced = await Promise.race([tavilyP, new Promise(r => setTimeout(() => r('__t__'), sp ? 2000 : 10000))]);
+        tv = (raced === '__t__') ? null : raced;
+    } catch { tv = null; }
     let merged = '';
-    if (sp.status === 'fulfilled' && sp.value) merged += sp.value + '\n\n';
-    if (tv.status === 'fulfilled' && tv.value) merged += tv.value + '\n\n';
+    if (sp) merged += sp + '\n\n';
+    if (tv) merged += tv + '\n\n';
     if (merged.trim()) return merged.trim();
     console.warn('[search] Serper+Tavily both empty, trying English + free chain');
     // עברית לרוב מחזירה ריק ב-Tavily — מתרגמים לאנגלית ומנסים שוב (זה מה שבאמת מוצא את התשובה)
@@ -5182,7 +5190,7 @@ async function webSearch(query) {
     }
     const wq = encodeURIComponent(query);
     const [yahoo, ddg, wiki] = await Promise.allSettled([
-        fetch(`https://r.jina.ai/https://search.yahoo.com/search?p=${wq}`, { headers: { 'X-Return-Format': 'markdown' }, signal: AbortSignal.timeout(15000) }).then(r => r.text()),
+        fetch(`https://r.jina.ai/https://search.yahoo.com/search?p=${wq}`, { headers: { 'X-Return-Format': 'markdown' }, signal: AbortSignal.timeout(11000) }).then(r => r.text()),
         fetch(`https://api.duckduckgo.com/?q=${wq}&format=json&no_html=1&no_redirect=1`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()),
         // no exintro — full article plaintext, not just the lead paragraph, so follow-up "more details" questions can be answered
         fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&titles=${wq}&format=json&origin=*`, { signal: AbortSignal.timeout(6000) }).then(r => r.json())
@@ -6656,10 +6664,17 @@ async function browserLook(q, opts) {
             hist[hist.length - 1].content = m;
             return;
         }
-        // ניתוח: טקסט הדף + צילום המסך (ראייה)
+        // ניתוח: טקסט הדף + רשימת השדות האינטראקטיביים + צילום המסך (ראייה)
         const pageText = (resp.text || '').slice(0, 7000);
-        const sys = { role: 'system', content: 'אתה BIRGSOL AI. אתה מסתכל עכשיו על הדף שהמשתמש גולש בו בדפדפן (מצורף טקסט הדף וגם צילום מסך). ענה בשפת המשתמש, קצר וברור, על סמך מה שבדף בלבד. אל תמציא.' };
-        const parts = [{ type: 'text', text: 'הדף בדפדפן — כותרת: ' + (resp.title || '') + ' | כתובת: ' + (resp.url || '') + '\n\nטקסט הדף:\n' + pageText + '\n\nהבקשה שלי: ' + (q || 'סכם מה יש בדף.') }];
+        // תיאור השדות/כפתורים/קישורים — כדי שהמודל יידע לאתר "איפה שדה הסיסמה", "איפה כפתור ההתחברות" וכו'
+        let fieldsText = '';
+        if (Array.isArray(resp.fields) && resp.fields.length) {
+            const kindHe = { password:'שדה סיסמה', email:'שדה אימייל', text:'שדה טקסט', search:'שדה חיפוש', tel:'שדה טלפון', number:'שדה מספר', checkbox:'תיבת סימון', radio:'כפתור בחירה', submit:'כפתור שליחה', button:'כפתור', a:'קישור', textarea:'תיבת טקסט', select:'תפריט בחירה' };
+            fieldsText = '\n\nשדות וכפתורים אינטראקטיביים בדף (עם מיקום במסך x,y — כדי שתוכל לומר למשתמש בדיוק איפה כל דבר):\n' +
+                resp.fields.map(f => `• ${kindHe[f.kind] || f.kind}${f.label ? ' "' + f.label + '"' : ''} — מיקום (${f.x},${f.y})`).join('\n');
+        }
+        const sys = { role: 'system', content: 'אתה BIRGSOL AI. אתה מסתכל עכשיו על הדף שהמשתמש גולש בו בדפדפן (מצורף טקסט הדף, רשימת השדות והכפתורים בו, וגם צילום מסך). ענה בשפת המשתמש, קצר וברור, על סמך מה שבדף בלבד. אם שואלים "איפה" שדה/כפתור — ציין את התווית שלו ואיפה הוא נמצא במסך (למעלה/במרכז/למטה, ימין/שמאל) לפי המיקום. אל תמציא ואל תבקש או תזין סיסמאות בעצמך.' };
+        const parts = [{ type: 'text', text: 'הדף בדפדפן — כותרת: ' + (resp.title || '') + ' | כתובת: ' + (resp.url || '') + '\n\nטקסט הדף:\n' + pageText + fieldsText + '\n\nהבקשה שלי: ' + (q || 'סכם מה יש בדף.') }];
         if (resp.screenshot) parts.push({ type: 'image_url', image_url: { url: resp.screenshot } });
         const messages = [sys, { role: 'user', content: parts }];
         let answer = '';
