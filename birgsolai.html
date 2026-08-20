@@ -2438,8 +2438,8 @@ function quotaUse(kind, amount = 1) {
         if (ADMIN_USERS.includes(currentUser)) return; // דוד/מנהלים פטורים
     }
     localStorage.setItem(_quotaKey(kind), _quotaCount(kind) + n);
-    // סנכרון לענן (בין מכשירים) — צוברים דלתא ומזרימים אטומית. מנהלים לא מסונכרנים (ללא הגבלה).
-    if ((kind === 'token' || kind === 'img') && !ADMIN_USERS.includes(currentUser)) {
+    // סנכרון לענן (בין מכשירים) — צוברים דלתא ומזרימים אטומית. מסונכרן לכולם (גם מנהלים — לתצוגה עקבית).
+    if (kind === 'token' || kind === 'img') {
         _pendingQuota[kind] = (_pendingQuota[kind] || 0) + n;
         _scheduleQuotaFlush();
     }
@@ -2461,7 +2461,7 @@ let _pendingQuota = { token: 0, img: 0 };
 let _quotaFlushTimer = null;
 function _quotaCloudPath() { return 'db/ai_quota_' + currentUser + '.json'; }
 async function _loadQuotaCloud() {
-    if (currentUser && !ADMIN_USERS.includes(currentUser)) {
+    if (currentUser) { // מסנכרן לכולם (גם מנהלים/Ultra — לתצוגה עקבית בין מכשירים; האכיפה עדיין ללא הגבלה עבורם)
         try {
             const q = await ghReadFresh(_quotaCloudPath()); // טרי דרך ה-Worker — לא raw שעלול להיות ישן
             const today = _localDateStr();
@@ -2475,12 +2475,12 @@ async function _loadQuotaCloud() {
     if (typeof _tokenMeter === 'function') { try { _tokenMeter(); } catch (e) {} }
 }
 function _scheduleQuotaFlush() {
-    if (!currentUser || ADMIN_USERS.includes(currentUser)) return;
+    if (!currentUser) return;
     clearTimeout(_quotaFlushTimer);
     _quotaFlushTimer = setTimeout(_flushQuotaCloud, 2500);
 }
 async function _flushQuotaCloud() {
-    if (!currentUser || ADMIN_USERS.includes(currentUser)) return;
+    if (!currentUser) return;
     const dt = _pendingQuota.token, di = _pendingQuota.img;
     if (!dt && !di) return;
     _pendingQuota = { token: 0, img: 0 };
