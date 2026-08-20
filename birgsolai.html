@@ -6368,9 +6368,11 @@ async function callAI(messages, onChunk, signal=null) {
     // ── Text path ──
     // SSE streamer: reads OpenAI-compatible server-sent events, calls onChunk with growing text
     const _stream = async (provider, body) => {
+        // מצב קוד — תשובות ארוכות; נותנים חלון זמן גדול יותר כדי שלא ייכשל סתם על טיימאאוט
+        const _to = (typeof currentMode !== 'undefined' && currentMode === 'code') ? 45000 : 20000;
         const _sig = signal
-            ? AbortSignal.any([signal, AbortSignal.timeout(15000)])
-            : AbortSignal.timeout(15000);
+            ? AbortSignal.any([signal, AbortSignal.timeout(_to)])
+            : AbortSignal.timeout(_to);
         // כל הסטרימינג עובר דרך ה-Worker (המפתחות מוסתרים): github → op:'ai', groq → op:'proxy'
         const payload = { ...body, stream: true };
         if (provider === 'groq') payload.stream_options = { include_usage: true }; // מחזיר usage בצ'אנק האחרון
@@ -7288,7 +7290,14 @@ async function send() {
             _stopped = true;
             fullText = txt.querySelector('.stream-raw')?.textContent?.trim() || fullText;
         } else if (!fullText) {
-            txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור — נסה שוב.</span>';
+            // כשל חיבור — לרוב רגעי (עומס Groq). ניסיון אוטומטי נוסף אחד לפני שמציגים שגיאה.
+            try { status.style.display = 'flex'; status.innerHTML = '<span class="agent-step"><span class="agent-step-dot"></span><b>מנסה שוב…</b></span>'; } catch (_) {}
+            await new Promise(r => setTimeout(r, 1500));
+            try { fullText = await agentLoop(messages, txt, status, cw, 4, (_abortCtrl && _abortCtrl.signal) || null); }
+            catch (e2) { if (e2.name === 'AbortError') { _stopped = true; } }
+            if (!fullText && !_stopped) {
+                txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור זמנית.</span> <button class="ai-act" style="margin-inline-start:8px;padding:3px 12px" onclick="regenerate()">' + (typeof IC !== 'undefined' ? IC.refresh : '') + ' נסה שוב</button>';
+            }
         }
     }
     _abortCtrl = null;
