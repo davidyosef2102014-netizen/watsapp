@@ -2354,9 +2354,9 @@ let freeLeft    = FREE_LIMIT;
 
 /* ── מסלולי פרמיום — מכסות יומיות (תמונות / חיפושים) ── */
 const TIERS = {
-    free:  { name:'Birgsol Free',  badge:'Free',    price:0,   imgLimit:4,  searchLimit:5,  tokenLimit:60000   },
-    basic: { name:'Birgsol Basic', badge:'Basic',   price:50,  imgLimit:10, searchLimit:20, tokenLimit:300000  },
-    pro:   { name:'Birgsol Pro',   badge:'Pro',     price:200, imgLimit:25, searchLimit:40, tokenLimit:1200000 },
+    free:  { name:'Birgsol Free',  badge:'Free',    price:0,   imgLimit:4,  searchLimit:5,  tokenLimit:200000  },
+    basic: { name:'Birgsol Basic', badge:'Basic',   price:50,  imgLimit:10, searchLimit:20, tokenLimit:800000  },
+    pro:   { name:'Birgsol Pro',   badge:'Pro',     price:200, imgLimit:25, searchLimit:40, tokenLimit:2500000 },
     ultra: { name:'Birgsol Ultra', badge:'Ultra', price:450, imgLimit:-1, searchLimit:-1, tokenLimit:-1      }
 };
 
@@ -3367,9 +3367,9 @@ const L10N_EXTRA = {
         install_ios:'התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)',
         install_android:'להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)',
         install_done:'BIRGSOL AI הותקן! 🎉', install_already:'אתה כבר באפליקציה 🙂',
-        pf_free_model:'מודלים 2.0 PRO ו-3.0 FLASH', pf_free_img:'4 תמונות ביום', pf_free_tok:'מכסת שימוש יומית · 60K טוקנים',
-        pf_basic_model:'+ מודל 3.5 FLASH · חכם ומהיר', pf_basic_img:'10 תמונות ביום', pf_basic_tok:'מכסת שימוש · 300K טוקנים ביום', pf_basic_badge:'תג Basic',
-        pf_pro_model:'+ מודל 3.5 PRO · מעולה לקוד', pf_pro_img:'25 תמונות ביום', pf_pro_tok:'מכסת שימוש · 1.2M טוקנים ביום', pf_pro_badge:'תג Pro',
+        pf_free_model:'מודלים 2.0 PRO ו-3.0 FLASH', pf_free_img:'4 תמונות ביום', pf_free_tok:'200K טוקנים ליום · ~500 הודעות',
+        pf_basic_model:'+ מודל 3.5 FLASH · חכם ומהיר', pf_basic_img:'10 תמונות ביום', pf_basic_tok:'800K טוקנים ליום · ~2,000 הודעות', pf_basic_badge:'תג Basic',
+        pf_pro_model:'+ מודל 3.5 PRO · מעולה לקוד', pf_pro_img:'25 תמונות ביום', pf_pro_tok:'2.5M טוקנים ליום · ~6,000 הודעות', pf_pro_badge:'תג Pro',
         pf_ultra_models:'כל המודלים · ללא הגבלה', pf_ultra_img:'תמונות ללא הגבלה', pf_ultra_use:'שימוש ללא הגבלה', pf_ultra_badge:'תג Ultra מיוחד',
         files_connect:'חבר ›', files_change:'החלף', files_remove:'הסר',
         autosave_label:'שמירת קוד אוטומטית לתיקייה'
@@ -3387,9 +3387,9 @@ const L10N_EXTRA = {
         install_ios:'Install on iPhone (Safari):\n\n1️⃣ Tap the Share button ⬆️ at the bottom of the screen\n2️⃣ Choose "Add to Home Screen"\n3️⃣ Tap "Add"\n\nThe app will open in full screen like a regular app.\n\n(Installing is optional — you can just keep using the site.)',
         install_android:'Download the BIRGSOL AI app?\n\nIt\'s standalone — with its own icon, works even without Chrome.\nAfter downloading: open the file and install (if asked, allow "Install from unknown source").\n\n(Optional — you can also just keep using the site.)',
         install_done:'BIRGSOL AI installed! 🎉', install_already:'You\'re already in the app 🙂',
-        pf_free_model:'2.0 PRO & 3.0 FLASH models', pf_free_img:'4 images/day', pf_free_tok:'Daily usage quota · 60K tokens',
-        pf_basic_model:'+ 3.5 FLASH model · smart & fast', pf_basic_img:'10 images/day', pf_basic_tok:'Usage quota · 300K tokens/day', pf_basic_badge:'Basic badge',
-        pf_pro_model:'+ 3.5 PRO model · great for code', pf_pro_img:'25 images/day', pf_pro_tok:'Usage quota · 1.2M tokens/day', pf_pro_badge:'Pro badge',
+        pf_free_model:'2.0 PRO & 3.0 FLASH models', pf_free_img:'4 images/day', pf_free_tok:'200K tokens/day · ~500 messages',
+        pf_basic_model:'+ 3.5 FLASH model · smart & fast', pf_basic_img:'10 images/day', pf_basic_tok:'800K tokens/day · ~2,000 messages', pf_basic_badge:'Basic badge',
+        pf_pro_model:'+ 3.5 PRO model · great for code', pf_pro_img:'25 images/day', pf_pro_tok:'2.5M tokens/day · ~6,000 messages', pf_pro_badge:'Pro badge',
         pf_ultra_models:'All models · unlimited', pf_ultra_img:'Unlimited images', pf_ultra_use:'Unlimited usage', pf_ultra_badge:'Special Ultra badge',
         files_connect:'Connect ›', files_change:'Change', files_remove:'Remove',
         autosave_label:'Auto-save code to folder'
@@ -6222,6 +6222,7 @@ async function _typewriter(text, onChunk, step) {
     onChunk(text);
 }
 
+let _turnTokens = 0; // סכום טוקנים אמיתי (usage מה-API) לפנייה הנוכחית; אם 0 — נופלים לאומדן לפי אורך
 async function callAI(messages, onChunk, signal=null) {
     // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
@@ -6231,7 +6232,7 @@ async function callAI(messages, onChunk, signal=null) {
     if (hasImage) {
         const _ghVision = (model) => _ghAI({ model, messages, temperature: 0.8, max_tokens: 1024 }, AbortSignal.timeout(18000))
           .then(r => { if (!r.ok) throw new Error('gh-v ' + r.status); return r.json(); })
-          .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
+          .then(j => { try { if (j?.usage?.completion_tokens) _turnTokens += j.usage.completion_tokens; } catch (e) {} const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
         // ראייה ראשית — Gemini (תומך בתמונות, יציב). Qwen-VL הוסר (החלטת דוד 2026-08-08); GitHub מת.
         const _geminiVision = () => {
             const sys = messages.find(m => m.role === 'system');
@@ -6255,7 +6256,7 @@ async function callAI(messages, onChunk, signal=null) {
             if (sys && typeof sys.content === 'string') body.systemInstruction = { parts: [{ text: sys.content }] };
             return _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', body, { signal: AbortSignal.timeout(22000) })
                 .then(r => { if (!r.ok) throw new Error('gemini-v ' + r.status); return r.json(); })
-                .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
+                .then(j => { try { if (j?.usageMetadata?.candidatesTokenCount) _turnTokens += j.usageMetadata.candidatesTokenCount; } catch (e) {} const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
         };
 
         // ראייה: Gemini — עד 3 ניסיונות (כל קריאה = מפתח/חשבון Gemini טרי דרך ה-Worker), כי לרוב הכשל הוא עומס רגעי (429/timeout)
@@ -6305,6 +6306,7 @@ async function callAI(messages, onChunk, signal=null) {
             : AbortSignal.timeout(15000);
         // כל הסטרימינג עובר דרך ה-Worker (המפתחות מוסתרים): github → op:'ai', groq → op:'proxy'
         const payload = { ...body, stream: true };
+        if (provider === 'groq') payload.stream_options = { include_usage: true }; // מחזיר usage בצ'אנק האחרון
         // נתיב ה-API לכל ספק (Qwen של עליבאבא תואם-OpenAI אך בנתיב אחר)
         const _spath = provider === 'qwen' ? '/compatible-mode/v1/chat/completions'
                      : provider === 'mistral' ? '/v1/chat/completions'
@@ -6336,8 +6338,10 @@ async function callAI(messages, onChunk, signal=null) {
                     const d = line.slice(6).trim();
                     if (d === '[DONE]') break outer;
                     try {
-                        const delta = JSON.parse(d)?.choices?.[0]?.delta?.content || '';
+                        const j = JSON.parse(d);
+                        const delta = j?.choices?.[0]?.delta?.content || '';
                         if (delta) { full += delta; onChunk(full); }
+                        if (j?.usage?.completion_tokens) _turnTokens += j.usage.completion_tokens; // ספירת טוקני פלט אמיתית
                     } catch {}
                 }
             }
@@ -6365,6 +6369,7 @@ async function callAI(messages, onChunk, signal=null) {
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
         const j = await res.json();
+        try { if (j?.usageMetadata?.candidatesTokenCount) _turnTokens += j.usageMetadata.candidatesTokenCount; } catch (e) {}
         const text = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (!text) throw new Error('gemini empty');
         return text;
@@ -6397,6 +6402,7 @@ async function callAI(messages, onChunk, signal=null) {
         });
         if (!res.ok) throw new Error('mistral ' + res.status);
         const j = await res.json();
+        try { if (j?.usage?.completion_tokens) _turnTokens += j.usage.completion_tokens; } catch (e) {}
         const text = j?.choices?.[0]?.message?.content?.trim();
         if (!text) throw new Error('mistral empty');
         return text;
@@ -6413,6 +6419,7 @@ async function callAI(messages, onChunk, signal=null) {
         });
         if (!res.ok) throw new Error('cohere ' + res.status);
         const j = await res.json();
+        try { const u = j?.usage?.tokens || j?.usage?.billed_units; if (u && u.output_tokens) _turnTokens += u.output_tokens; } catch (e) {}
         const text = (j?.message?.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
         if (!text) throw new Error('cohere empty');
         return text;
@@ -7204,6 +7211,7 @@ async function send() {
 
     let fullText = '';
     let _stopped = false;
+    _turnTokens = 0; // אפס את מונה הטוקנים האמיתי לפני הפנייה (agentLoop עשוי לקרוא ל-callAI כמה פעמים — נצבור את כולן)
     _abortCtrl = new AbortController();
     updateBtn();
     try {
@@ -7218,9 +7226,9 @@ async function send() {
     }
     _abortCtrl = null;
 
-    // ── חיוב מכסת הטוקנים היומית — אומדן על בסיס קלט המשתמש + תשובת המודל (הפרסונה הקבועה לא נספרת, כדי שהמכסה תישאר נדיבה) ──
+    // ── חיוב מכסת הטוקנים היומית — טוקני הפלט האמיתיים מה-API (usage). ההוראות/הקלט לא נספרים, כדי שיהיה הוגן ונדיב. אם אין usage — אומדן לפי אורך התשובה ──
     try {
-        quotaUse('token', _estTokens(q) + _estTokens(attachedFile) + _estTokens(fullText));
+        quotaUse('token', _turnTokens > 0 ? _turnTokens : _estTokens(fullText));
         _tokenMeter();
     } catch (e) {}
 
