@@ -2438,6 +2438,11 @@ function quotaUse(kind, amount = 1) {
         if (ADMIN_USERS.includes(currentUser)) return; // דוד/מנהלים פטורים
     }
     localStorage.setItem(_quotaKey(kind), _quotaCount(kind) + n);
+    // סנכרון לענן (בין מכשירים) — צוברים דלתא ומזרימים אטומית. מנהלים לא מסונכרנים (ללא הגבלה).
+    if ((kind === 'token' || kind === 'img') && !ADMIN_USERS.includes(currentUser)) {
+        _pendingQuota[kind] = (_pendingQuota[kind] || 0) + n;
+        _scheduleQuotaFlush();
+    }
     if (kind === 'token' && typeof _tokenMeter === 'function') { try { _tokenMeter(); } catch (e) {} }
 }
 /* אומדן טוקנים גס — עברית/מעורב ≈ 3 תווים/טוקן; מספיק להגבלת-קצב הוגנת */
@@ -2449,6 +2454,52 @@ function _fmtTokens(n) { return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 
 function _quotaOK() {
     if (ADMIN_USERS.includes(currentUser)) return true;
     return quotaLeft('token') > 0;
+}
+
+/* ── סנכרון מכסה בין מכשירים (ענן) — המכסה נשמרת ב-db/ai_quota_<user>.json, לא רק מקומית ── */
+let _pendingQuota = { token: 0, img: 0 };
+let _quotaFlushTimer = null;
+function _quotaCloudPath() { return 'db/ai_quota_' + currentUser + '.json'; }
+async function _loadQuotaCloud() {
+    if (currentUser && !ADMIN_USERS.includes(currentUser)) {
+        try {
+            const q = await ghReadFresh(_quotaCloudPath()); // טרי דרך ה-Worker — לא raw שעלול להיות ישן
+            const today = _localDateStr();
+            if (q && q.date === today) {
+                // הענן סמכותי — לוקחים את הגבוה מבין הענן למקומי (מונע איפוס ע"י מעבר מכשיר / ניקוי מטמון)
+                localStorage.setItem(_quotaKey('token'), Math.max(_quotaCount('token'), q.token || 0));
+                if (q.img != null) localStorage.setItem(_quotaKey('img'), Math.max(_quotaCount('img'), q.img || 0));
+            }
+        } catch (e) {}
+    }
+    if (typeof _tokenMeter === 'function') { try { _tokenMeter(); } catch (e) {} }
+}
+function _scheduleQuotaFlush() {
+    if (!currentUser || ADMIN_USERS.includes(currentUser)) return;
+    clearTimeout(_quotaFlushTimer);
+    _quotaFlushTimer = setTimeout(_flushQuotaCloud, 2500);
+}
+async function _flushQuotaCloud() {
+    if (!currentUser || ADMIN_USERS.includes(currentUser)) return;
+    const dt = _pendingQuota.token, di = _pendingQuota.img;
+    if (!dt && !di) return;
+    _pendingQuota = { token: 0, img: 0 };
+    const today = _localDateStr();
+    let totals = null;
+    try {
+        await ghUpdate(_quotaCloudPath(), data => {
+            if (!data || data.date !== today) data = { date: today, token: 0, img: 0 };
+            data.token = (data.token || 0) + dt;
+            data.img = (data.img || 0) + di;
+            totals = data;
+            return data;
+        });
+        if (totals) {
+            localStorage.setItem(_quotaKey('token'), totals.token);
+            localStorage.setItem(_quotaKey('img'), totals.img);
+            if (typeof _tokenMeter === 'function') { try { _tokenMeter(); } catch (e) {} }
+        }
+    } catch (e) { _pendingQuota.token += dt; _pendingQuota.img += di; } // כשל — הדלתא כבר במונה המקומי, ננסה שוב בפעם הבאה
 }
 
 /* ── login — ענן בלבד ── */
@@ -2690,7 +2741,8 @@ function checkPremium() {
     if (!TIERS[currentTier]) currentTier = 'free';
     isPremium = currentTier !== 'free';
     if (typeof _updateModelChip === 'function') _updateModelChip(); // עדכן את בורר המודלים לפי הגרסה
-    if (typeof _tokenMeter === 'function') { try { _tokenMeter(); } catch (e) {} } // הצג מד מכסה אם המשתמש כבר באזור-אזהרה
+    if (typeof _loadQuotaCloud === 'function') { _loadQuotaCloud(); } // סנכרן את מכסת הטוקנים מהענן (בין מכשירים) + עדכן את המד
+    else if (typeof _tokenMeter === 'function') { try { _tokenMeter(); } catch (e) {} }
 }
 
 /* ── update UI ── */
