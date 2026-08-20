@@ -6563,17 +6563,19 @@ async function callAI(messages, onChunk, signal=null) {
     })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
+    let _lastFail = '';
     for (let round = 0; round < 2; round++) {
         for (const s of stages) {
             try { return await s.fn(); }
             catch(e) {
                 if (e.name === 'AbortError') throw e; // user stopped — propagate immediately
+                _lastFail = s.name + ': ' + (e && e.message || e);
                 console.warn(`[AI] ${s.name}:`, e.message);
             }
         }
         if (round === 0) await new Promise(r => setTimeout(r, 1500)); // המתנה קצרה לפני הסבב השני
     }
-    throw new Error('all providers failed');
+    throw new Error('all providers failed — ' + _lastFail);
 }
 
 
@@ -7291,12 +7293,18 @@ async function send() {
             fullText = txt.querySelector('.stream-raw')?.textContent?.trim() || fullText;
         } else if (!fullText) {
             // כשל חיבור — לרוב רגעי (עומס Groq). ניסיון אוטומטי נוסף אחד לפני שמציגים שגיאה.
+            let _reason = (e && e.message) || '';
             try { status.style.display = 'flex'; status.innerHTML = '<span class="agent-step"><span class="agent-step-dot"></span><b>מנסה שוב…</b></span>'; } catch (_) {}
             await new Promise(r => setTimeout(r, 1500));
             try { fullText = await agentLoop(messages, txt, status, cw, 4, (_abortCtrl && _abortCtrl.signal) || null); }
-            catch (e2) { if (e2.name === 'AbortError') { _stopped = true; } }
+            catch (e2) { if (e2.name === 'AbortError') { _stopped = true; } else { _reason = (e2 && e2.message) || _reason; } }
             if (!fullText && !_stopped) {
-                txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור זמנית.</span> <button class="ai-act" style="margin-inline-start:8px;padding:3px 12px" onclick="regenerate()">' + (typeof IC !== 'undefined' ? IC.refresh : '') + ' נסה שוב</button>';
+                // סיבת השגיאה המפורטת — מוצגת רק למנהלים (דוד) לצורך אבחון; משתמש רגיל רואה הודעה נקייה בלבד
+                const _showReason = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser));
+                const _rShort = String(_reason).replace(/^all providers failed — /, '').slice(0, 140);
+                txt.innerHTML = '<span style="color:#ff8a80">⚠️ שגיאת חיבור.</span>' +
+                    (_showReason && _rShort ? '<span style="color:var(--muted);font-size:11px;display:block;margin-top:3px">🛠️ ' + esc2(_rShort) + '</span>' : '') +
+                    ' <button class="ai-act" style="margin-top:6px;padding:3px 12px" onclick="regenerate()">' + (typeof IC !== 'undefined' ? IC.refresh : '') + ' נסה שוב</button>';
             }
         }
     }
