@@ -2364,7 +2364,7 @@ const TIER_RANK = { free:0, basic:1, pro:2, ultra:3 };
 const MODELS = [
     { id:'2.0pro', brand:'BIRGSOL AI 2.0 PRO',   kind:'weak',   minTier:'free',  desc:'בסיסי' },
     { id:'3.0',    brand:'BIRGSOL AI 3.0 FLASH', kind:'weak',   minTier:'free',  desc:'מהיר ובסיסי' },
-    { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini', minTier:'basic', desc:'חכם ומהיר' },
+    { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini', minTier:'free',  desc:'חכם ומהיר' },
     { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss', minTier:'free',  desc:'הכי חזק, מעולה לקוד' },
 ];
 function _modelAllowed(m) { return (TIER_RANK[currentTier] || 0) >= (TIER_RANK[m.minTier] || 0); }
@@ -2445,7 +2445,7 @@ function _estTokens(str) { return str ? Math.ceil(String(str).length / 3) : 0; }
 function _tokenUsedToday() { return _quotaCount('token'); }
 function _quotaResetStr() { return '00:00'; } // המכסה מתאפסת בחצות המקומית
 function _fmtTokens(n) { return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'K' : String(n); }
-/* האם מותר לשלוח הודעה? (מכסת טוקנים) — דוד/מנהלים ו-Ultra ללא הגבלה */
+/* האם מותר לשלוח הודעה? (מכסת טוקנים כללית לכל המודלים) — דוד/מנהלים ו-Ultra ללא הגבלה */
 function _quotaOK() {
     if (ADMIN_USERS.includes(currentUser)) return true;
     return quotaLeft('token') > 0;
@@ -4187,6 +4187,19 @@ function canvasTab(t) {
 // זיהוי אם קוד הוא בעצם HTML (גם אם התיוג היה שגוי/חסר)
 function _looksLikeHtml(code) {
     return /<!doctype html|<html[\s>]|<body[\s>]|<head[\s>]|<script[\s>]|<style[\s>]|<canvas[\s>]|<svg[\s>]|<div[\s>]|<h[1-6][\s>]|<p[\s>]|<button[\s>]|<img[\s>]|<a[\s>]/i.test(code || '');
+}
+// זיהוי אם תשובה היא בעצם קוד גם בלי גדר ```  — כדי לעטוף אותה ולתת מסגרת/הרצה/קנבס (מצב קוד)
+function _looksLikeCode(code) {
+    if (!code) return false;
+    const t = code.trim();
+    if (_looksLikeHtml(t)) return true;
+    if (/^(<\?php|#!\/|import\s|from\s+[\w.]+\s+import|package\s|using\s|#include|public\s+class|class\s+\w|def\s+\w+\s*\(|function\s+\w|const\s+\w+\s*=|let\s+\w+\s*=|var\s+\w+\s*=|async\s+function|export\s|@import|:root\s*\{)/m.test(t.slice(0, 400))) return true;
+    const lines = t.split('\n');
+    if (lines.length >= 4) {
+        const codey = lines.filter(l => /[{};]\s*$|=>|\bfunction\b|\bconst\b|\breturn\b|\}\s*$|^\s*(if|for|while|def|class|import|public|private)\b|^\s*[.#][\w-]+\s*\{/.test(l)).length;
+        if (codey >= Math.max(3, lines.length * 0.4)) return true;
+    }
+    return false;
 }
 let _canvasBlobUrl = null;
 function renderCanvas() {
@@ -7230,7 +7243,7 @@ async function send() {
 
     // ── חיוב מכסת הטוקנים היומית — טוקני הפלט האמיתיים מה-API (usage). ההוראות/הקלט לא נספרים, כדי שיהיה הוגן ונדיב. אם אין usage — אומדן לפי אורך התשובה ──
     try {
-        quotaUse('token', _turnTokens > 0 ? _turnTokens : _estTokens(fullText));
+        quotaUse('token', _turnTokens > 0 ? _turnTokens : _estTokens(fullText)); // חיוב מכסה לכל המודלים
         _tokenMeter();
     } catch (e) {}
 
@@ -7325,8 +7338,15 @@ async function send() {
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0;
 
         // Render as Markdown + math
+        let _toRender = cleanText || fullText;
+        // מצב קוד: אם המודל שכח לעטוף בגדר קוד (```) אבל התוכן הוא בעצם קובץ קוד — עוטפים,
+        // כדי שיזוהה כקוד (מסגרת שחורה + כפתור הרצה) ויעלה לקנבס החי במקום להיראות כטקסט רגיל
+        if (typeof currentMode !== 'undefined' && currentMode === 'code' && !/```/.test(_toRender) && _looksLikeCode(_toRender)) {
+            const _lang = _looksLikeHtml(_toRender) ? 'html' : '';
+            _toRender = '```' + _lang + '\n' + _toRender.trim() + '\n```';
+        }
         try {
-            txt.innerHTML = mdSafe(cleanText || fullText);
+            txt.innerHTML = mdSafe(_toRender);
             enhanceCodeBlocks(txt);
             _renderMath(txt); // fire-and-forget KaTeX
             _autoCanvasFromMsg(txt); // מצב קוד — טען את הקוד לקנבס החי
