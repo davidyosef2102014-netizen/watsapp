@@ -5185,7 +5185,7 @@ async function editImage(imgDataUrl, instruction) {
         if (b64) {
             const r = await _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', {
                 contents: [{ role: 'user', parts: [
-                    { text: 'Describe this image for re-creation: object type, shape, materials, colors, background, style. Output ONLY the description in English, max 60 words.' },
+                    { text: 'Describe this image in precise detail so it can be recreated EXACTLY: the main subject and its exact pose/shape/materials/colors, the background, lighting, camera angle, composition/layout, and art style. Be very specific. Output ONLY the description in English, up to 120 words.' },
                     { inlineData: { mimeType: mt, data: b64 } }
                 ]}],
                 generationConfig: { maxOutputTokens: 400, thinkingConfig: { thinkingBudget: 128 } }
@@ -5216,7 +5216,7 @@ async function editImage(imgDataUrl, instruction) {
     // (passes the actual image). If editing fails, generateImage falls back to FLUX re-creation
     // from the description below. Hosting failure → editSrc null → pure FLUX re-creation (old behavior).
     skelTxt.textContent = 'עורך את התמונה…';
-    const finalPrompt = (description ? description + '. ' : '') + 'Change: ' + engInstruction;
+    const finalPrompt = (description ? description + '. ' : '') + 'Keep EVERYTHING exactly the same — same subject, pose, composition, background, lighting, colors and style — and ONLY apply this single change: ' + engInstruction;
     const imgStyle = { model: 'flux-realism', suffix: 'photorealistic, product photography, highly detailed, sharp focus, 8k' };
     let editSrc = null;
     try { editSrc = await _hostImage(imgDataUrl); } catch {}
@@ -7135,6 +7135,13 @@ async function send() {
     // Models used (Groq Llama-3.3-70b, GPT-4o-mini, Gemini Flash) all support large context windows,
     // so keep a wide history slice — a short window was causing the AI to "forget" earlier turns.
     const messages = [{ role: 'system', content: getPersona() }];
+    // ── מודעות עצמית: שהמודל יידע מי הוא, על איזו גרסה/מודל/מצב הוא רץ כרגע ──
+    try {
+        const _modeName = ({ normal: 'שיחה רגילה', code: 'קוד (Canvas)', image: 'יצירת תמונות' })[typeof currentMode !== 'undefined' ? currentMode : 'normal'] || 'שיחה רגילה';
+        const _mObj = (typeof MODELS !== 'undefined' && typeof currentModelId === 'function') ? MODELS.find(m => m.id === currentModelId()) : null;
+        const _brand = _mObj ? _mObj.brand : 'BIRGSOL AI 3.5';
+        messages[0].content += `\n\n[מי אתה כרגע] אתה BIRGSOL AI, גרסה 3.5, שנבנה ע"י דוד יוסף זאבי. כרגע אתה פועל על המודל "${_brand}" ובמצב "${_modeName}". אם המשתמש שואל על איזו גרסה/מודל/מצב אתה רץ — ענה במדויק לפי זה (לדוגמה: "אני BIRGSOL AI 3.5, רץ עכשיו על ${_brand} במצב ${_modeName}"). אל תמציא שמות מודלים חיצוניים.`;
+    } catch (e) {}
     // תיקייה מחוברת + שמירה אוטומטית → מזכירים למודל (בכל מצב) לשמור כל קוד בשם יציב כדי שעריכות ידרסו את אותו קובץ
     if (typeof _bsDir !== 'undefined' && _bsDir && localStorage.getItem('birgsol_autosave_code') !== '0') {
         messages[0].content += '\n\n[PROJECT FOLDER CONNECTED] Every code block you output is auto-saved as a REAL file in the user\'s folder. Keep filenames STABLE across edits so an update OVERWRITES the same file (reuse index.html, script.js, styles.css, main.py). To target a specific file, start the code block with a comment: // file: name.ext (HTML: <!-- file: index.html -->). When asked to change/fix/add to code, re-output the FULL updated file with the SAME filename — never a partial snippet.';
