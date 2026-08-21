@@ -6828,6 +6828,7 @@ async function connectFilesFolder() {
         _bsDir = await parent.getDirectoryHandle('BIRGSOL AI', { create: true });
         try { await _idbSet('bsdir', _bsDir); } catch (e) {}
         _bsApproved.clear();
+        try { localStorage.removeItem('birgsol_autosave_approved'); } catch (e) {} // תיקייה חדשה → אישור פעם אחת מחדש
         _tierToast('📁 תיקיית "BIRGSOL AI" חוברה');
         _updateFilesUI();
         return true;
@@ -6931,7 +6932,8 @@ async function bsSaveCodeBlocks(blocks) {
     const counts = {}, files = [];
     for (const b of blocks) {
         const codeEl = b.querySelector('code'); if (!codeEl) continue;
-        const code = codeEl.innerText; if (!code || !code.trim()) continue;
+        const code = codeEl.innerText;
+        if (!code || code.trim().length < 150) continue; // דלג על קטעי קוד זעירים/דוגמאות — לא "סתם קוד", רק קבצים אמיתיים
         let lang = (b.querySelector('.code-lang')?.textContent || '').toLowerCase().trim();
         if (!lang && typeof _looksLikeHtml === 'function' && _looksLikeHtml(code)) lang = 'html';
         const name = _bsExplicitName(code) || _bsNameForLang(lang, counts);
@@ -6939,12 +6941,13 @@ async function bsSaveCodeBlocks(blocks) {
     }
     if (!files.length) return;
     const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
-    const isNew = files.filter(f => !_bsApproved.has(f.name));
-    if (isNew.length) {
-        const list = files.map(f => '• ' + f.name).join('\n');
-        const ok = await _confirm((en ? 'Save/update these files in the BIRGSOL AI folder?\n' : 'לשמור/לעדכן את הקבצים האלה בתיקיית BIRGSOL AI?\n') + list + (en ? '\n(Later updates save automatically)' : '\n(עדכונים הבאים יישמרו אוטומטית)'));
-        if (!ok) return;
-        isNew.forEach(f => _bsApproved.add(f.name));
+    // אישור פעם אחת בלבד — אחרי שאישרת, כל קוד נשמר אוטומטית בשקט (לא שואל על כל קובץ/כל פעם)
+    if (localStorage.getItem('birgsol_autosave_approved') !== '1') {
+        const ok = await _confirm(en
+            ? 'Automatically save the code you generate to the BIRGSOL AI folder from now on? (asked only once)'
+            : 'לשמור אוטומטית את הקוד שנוצר לתיקיית BIRGSOL AI מעכשיו? (נשאל פעם אחת בלבד)');
+        if (!ok) { try { localStorage.setItem('birgsol_autosave_code', '0'); } catch (e) {} return; } // "לא" → כיבוי השמירה האוטומטית, לא נטריד שוב
+        try { localStorage.setItem('birgsol_autosave_approved', '1'); } catch (e) {}
     }
     if (typeof _ensureFolderPerm === 'function' && !await _ensureFolderPerm()) return;
     let saved = 0;
