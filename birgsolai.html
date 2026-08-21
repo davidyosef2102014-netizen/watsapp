@@ -2365,7 +2365,7 @@ const MODELS = [
     { id:'2.0pro', brand:'BIRGSOL AI 2.0 PRO',   kind:'weak',   minTier:'free',  desc:'בסיסי' },
     { id:'3.0',    brand:'BIRGSOL AI 3.0 FLASH', kind:'weak',   minTier:'free',  desc:'מהיר ובסיסי' },
     { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini', minTier:'free',  desc:'חכם ומהיר' },
-    { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss', minTier:'free',  desc:'הכי חזק, מעולה לקוד' },
+    { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss', minTier:'pro',   desc:'הכי חזק, מעולה לקוד' },
 ];
 function _modelAllowed(m) { return (TIER_RANK[currentTier] || 0) >= (TIER_RANK[m.minTier] || 0); }
 function _bestModelForTier() { for (let i = MODELS.length - 1; i >= 0; i--) if (_modelAllowed(MODELS[i])) return MODELS[i].id; return '2.0pro'; }
@@ -3418,9 +3418,9 @@ const L10N_EXTRA = {
         install_ios:'התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)',
         install_android:'להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)',
         install_done:'BIRGSOL AI הותקן! 🎉', install_already:'אתה כבר באפליקציה 🙂',
-        pf_free_model:'כל המודלים · כולל 3.5 PRO', pf_free_img:'4 תמונות ביום', pf_free_tok:'50K טוקנים ליום · ~200 הודעות',
-        pf_basic_model:'כל המודלים · כולל 3.5 PRO', pf_basic_img:'10 תמונות ביום', pf_basic_tok:'80K טוקנים ליום · ~320 הודעות', pf_basic_badge:'תג Basic',
-        pf_pro_model:'כל המודלים · למשתמשים כבדים', pf_pro_img:'25 תמונות ביום', pf_pro_tok:'300K טוקנים ליום · ~1,200 הודעות', pf_pro_badge:'תג Pro',
+        pf_free_model:'מודלים עד 3.5 FLASH', pf_free_img:'4 תמונות ביום', pf_free_tok:'50K טוקנים ליום · ~200 הודעות',
+        pf_basic_model:'מודלים עד 3.5 FLASH', pf_basic_img:'10 תמונות ביום', pf_basic_tok:'80K טוקנים ליום · ~320 הודעות', pf_basic_badge:'תג Basic',
+        pf_pro_model:'כל המודלים · כולל 3.5 PRO', pf_pro_img:'25 תמונות ביום', pf_pro_tok:'300K טוקנים ליום · ~1,200 הודעות', pf_pro_badge:'תג Pro',
         pf_ultra_models:'כל המודלים · ללא הגבלה', pf_ultra_img:'תמונות ללא הגבלה', pf_ultra_use:'שימוש ללא הגבלה', pf_ultra_badge:'תג Ultra מיוחד',
         files_connect:'חבר ›', files_change:'החלף', files_remove:'הסר',
         autosave_label:'שמירת קוד אוטומטית לתיקייה'
@@ -3438,9 +3438,9 @@ const L10N_EXTRA = {
         install_ios:'Install on iPhone (Safari):\n\n1️⃣ Tap the Share button ⬆️ at the bottom of the screen\n2️⃣ Choose "Add to Home Screen"\n3️⃣ Tap "Add"\n\nThe app will open in full screen like a regular app.\n\n(Installing is optional — you can just keep using the site.)',
         install_android:'Download the BIRGSOL AI app?\n\nIt\'s standalone — with its own icon, works even without Chrome.\nAfter downloading: open the file and install (if asked, allow "Install from unknown source").\n\n(Optional — you can also just keep using the site.)',
         install_done:'BIRGSOL AI installed! 🎉', install_already:'You\'re already in the app 🙂',
-        pf_free_model:'All models · incl. 3.5 PRO', pf_free_img:'4 images/day', pf_free_tok:'50K tokens/day · ~200 messages',
-        pf_basic_model:'All models · incl. 3.5 PRO', pf_basic_img:'10 images/day', pf_basic_tok:'80K tokens/day · ~320 messages', pf_basic_badge:'Basic badge',
-        pf_pro_model:'All models · for heavy users', pf_pro_img:'25 images/day', pf_pro_tok:'300K tokens/day · ~1,200 messages', pf_pro_badge:'Pro badge',
+        pf_free_model:'Models up to 3.5 FLASH', pf_free_img:'4 images/day', pf_free_tok:'50K tokens/day · ~200 messages',
+        pf_basic_model:'Models up to 3.5 FLASH', pf_basic_img:'10 images/day', pf_basic_tok:'80K tokens/day · ~320 messages', pf_basic_badge:'Basic badge',
+        pf_pro_model:'All models · incl. 3.5 PRO', pf_pro_img:'25 images/day', pf_pro_tok:'300K tokens/day · ~1,200 messages', pf_pro_badge:'Pro badge',
         pf_ultra_models:'All models · unlimited', pf_ultra_img:'Unlimited images', pf_ultra_use:'Unlimited usage', pf_ultra_badge:'Special Ultra badge',
         files_connect:'Connect ›', files_change:'Change', files_remove:'Remove',
         autosave_label:'Auto-save code to folder'
