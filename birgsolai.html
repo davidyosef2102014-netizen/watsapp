@@ -3795,7 +3795,7 @@ function pickRegLang(btn) {
 }
 const LANG_NAMES = { he:'Hebrew (עברית)', en:'English', ar:'Arabic (العربية)', ru:'Russian (Русский)', zh:'Chinese (中文)', fr:'French (Français)' };
 
-function getPersona() {
+function getPersona(queryText) {
     const now = new Date();
     const dateStr = now.toLocaleDateString('he-IL', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
     const timeStr = now.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
@@ -3811,10 +3811,11 @@ function getPersona() {
     const instrLine = _instr ? `📋 The user's personal instructions (ALWAYS follow them): ${_instr}\n` : '';
     const persLine = nameLine + instrLine + '\n';
     let memLine = '';
-    if (userMemory.length) {
+    // RAG: הזיכרון נשמר מלא (ענק/אינסופי), אבל מזריקים לפרומפט רק את העובדות הרלוונטיות להודעה — פרומפט קטן ומהיר, בלי זליגה
+    const _memFacts = _relevantMemory(queryText, 14);
+    if (_memFacts.length) {
         const groups = {};
-        // הזיכרון נשאר מלא (ענק, בלי הגבלה) — האיטיות לא באה ממנו אלא מ-429 של Groq, שמטופל ב-failover מהיר
-        for (const f of userMemory) { const n = _memNorm(f); if (n.t) (groups[n.c] = groups[n.c] || []).push(n.t); }
+        for (const n of _memFacts) { if (n.t) (groups[n.c] = groups[n.c] || []).push(n.t); }
         const order = ['family', 'friends', 'life', 'work', 'prefs', 'health', 'other'];
         let body = '';
         for (const c of order) { if (groups[c] && groups[c].length) body += `\n[${MEM_CATS[c]}]\n` + groups[c].map(t => '• ' + t).join('\n') + '\n'; }
@@ -3885,6 +3886,34 @@ function _memNorm(f) {
     return { t: (f && f.t || '').trim(), c: (f && MEM_CATS[f.c] ? f.c : 'other'), d: (f && f.d) || 0 };
 }
 function _memText(f) { return _memNorm(f).t; }
+/* RAG — בוחר מתוך הזיכרון (שיכול להיות ענק/אינסופי) רק את העובדות הרלוונטיות להודעה הנוכחית.
+   ככה הפרומפט תמיד קטן ומהיר, ואין זליגת עובדות לא-קשורות (=מקור ההזיות של Cohere).
+   עובדות בטיחות/מגבלה (בריאות, אלרגיה, כשרות) נכללות תמיד. אם אין התאמה — מזריקים מעט עובדות אחרונות בלבד. */
+function _relevantMemory(queryText, maxTotal) {
+    maxTotal = maxTotal || 14;
+    const norm = userMemory.map(_memNorm).filter(f => f.t);
+    if (!norm.length) return [];
+    if (!queryText) return norm.slice(-maxTotal); // בלי שאילתה (למשל מצב לייב) — האחרונות
+    const STOP = new Set(['את','של','לי','אני','זה','זו','לא','כן','מה','על','עם','גם','הוא','היא','אבל','או','יש','אין','הם','הן','כל','רק','אז','תעשה','תן','לך','שלי','שלך','אתה','הזה','הזאת','כמו','יותר','פחות','the','and','for','you','with','this','that','are','was']);
+    const _strip = w => w.replace(/^(וה|כש|מה|של|ש|ה|ב|ל|ו|מ|כ)/, ''); // הסרת קידומות עבריות נפוצות (ה/ב/ל/ו/מ/כ/ש...) כדי שנוף/הרחוב יתאימו ל"רחוב"
+    const qWords = ((queryText || '').toLowerCase().match(/[\wא-ת]{2,}/g) || [])
+        .filter(w => !STOP.has(w)).map(_strip).filter(w => w.length >= 2 && !STOP.has(w));
+    const scored = norm.map((f, i) => {
+        const ft = f.t.toLowerCase();
+        let score = 0;
+        for (const w of qWords) {
+            if (ft.indexOf(w) !== -1) score += 1;                                     // גזע המילה מופיע בעובדה (substring תופס גם קידומת בעובדה)
+            else if (w.length >= 4 && ft.indexOf(w.slice(0, 4)) !== -1) score += 0.5;  // התאמת גזע חלקית (נטיות)
+        }
+        const isConstraint = f.c === 'health' || /אלרג|כשר|צמחונ|טבעונ|רגיש|לא אוכל|לא שות|מגבל|אסור לי/.test(ft);
+        return { f, i, score, isConstraint };
+    });
+    const chosen = [], seen = new Set();
+    const add = (x) => { if (x && !seen.has(x.i)) { seen.add(x.i); chosen.push(x.f); } };
+    scored.filter(x => x.isConstraint).forEach(add);                                  // מגבלות בטיחות (בריאות/אלרגיה/כשרות) — תמיד
+    scored.filter(x => x.score > 0).sort((a, b) => b.score - a.score || b.i - a.i).forEach(add); // רק עובדות שתואמות להודעה — בלי padding שגורם לזליגה
+    return chosen.slice(0, maxTotal);
+}
 
 async function loadUserMemory() {
     if (!currentUser) { userMemory = []; return; }
@@ -7136,7 +7165,7 @@ async function send() {
     // Build messages — exclude the last hist item (just pushed by addMsg) to avoid duplicate user msg.
     // Models used (Groq Llama-3.3-70b, GPT-4o-mini, Gemini Flash) all support large context windows,
     // so keep a wide history slice — a short window was causing the AI to "forget" earlier turns.
-    const messages = [{ role: 'system', content: getPersona() }];
+    const messages = [{ role: 'system', content: getPersona(q) }]; // getPersona(q) → RAG: מזריק רק זיכרון רלוונטי לשאלה
     // ── מודעות עצמית: שהמודל יידע מי הוא, על איזו גרסה/מודל/מצב הוא רץ כרגע ──
     try {
         const _modeName = ({ normal: 'שיחה רגילה', code: 'קוד (Canvas)', image: 'יצירת תמונות' })[typeof currentMode !== 'undefined' ? currentMode : 'normal'] || 'שיחה רגילה';
