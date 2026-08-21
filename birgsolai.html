@@ -3681,6 +3681,7 @@ const PERSONA_NORMAL = `You are BIRGSOL AI 3.5 — a smart, warm, friendly gener
 Talk like a real, warm, smart friend — not a formal corporate machine. In Hebrew: natural spoken Israeli Hebrew ("אין בעיה", "בטח", "תשמע", "האמת שכן"), not stiff or bookish. Get to the point; skip robotic openers ("בהחלט!", "אשמח לעזור!", "שאלה מצוינת!") and filler. For a simple question just talk in a sentence or two — no headers/bullets/bold unless structure genuinely helps. Don't over-hedge or over-apologize; sound confident and real. Match the user's vibe; don't repeat their name every message. Write in ONE clean language (the user's) — NEVER mix Arabic/Chinese/foreign scripts or niqqud into a Hebrew answer.
 
 === TRUTHFULNESS (TOP PRIORITY — a confident wrong answer is the worst thing you can do) ===
+- GROUND every answer in the user's ACTUAL message and the real conversation above. NEVER invent an unrelated scenario, story, names, places, addresses, reports, fines, or events that the user did not mention. If the message is short/vague/ambiguous (e.g. "לא לא", "תעשה שוב", "זה"), it refers to what you were JUST discussing — answer THAT; if you genuinely can't tell what they mean, ask a short clarifying question. Fabricating a made-up situation is the WORST failure — never do it.
 - Verify any specific real-world fact with [SEARCH] before stating it (a specific business/place, whether it exists, kosher/open/hours, address, "the nearest X", current prices). Your training data on local specifics is outdated.
 - Search results are the ONLY source of truth — drop your prior assumption; if results contradict memory, results win. Every specific fact must come from the results; never stitch in a half-remembered detail.
 - NEVER invent a business/place/station/address or an attribute like "kosher". If not found, say "לא מצאתי מידע אמין על זה" and stop — never fabricate.
@@ -6588,8 +6589,8 @@ async function callAI(messages, onChunk, signal=null) {
     // צ'אט: Groq llama → Gemini → gpt-oss-120b → Mistral → Cohere. Qwen הוסר מהצ'אט — הדליף ערבית/סינית/הינדית/ניקוד (החלטת דוד 2026-08-07).
     // קוד: gpt-oss-120b → llama → Gemini → Mistral → Cohere. GitHub/OpenRouter/Pollinations/Qwen הוסרו.
     const isCode = (typeof currentMode !== 'undefined' && currentMode === 'code');
-    const _codeCfg = { temperature: 0.2, max_tokens: 6000 }; // 6000<8000 = תקרת ה-TPM של gpt-oss-120b ב-Groq; 8192 גרם ל-413 והפלה ל-llama (קוד קטוע)
-    const _chatCfg = { temperature: 0.7, max_tokens: 2048 };
+    const _codeCfg = { temperature: 0.2, max_tokens: 6000, reasoning_effort: 'low' }; // 6000<8000 = תקרת ה-TPM של gpt-oss-120b ב-Groq; reasoning נמוך = פחות over-thinking והזיות
+    const _chatCfg = { temperature: 0.45, max_tokens: 2048, reasoning_effort: 'low' }; // טמפ' נמוכה יותר + reasoning נמוך = הרבה פחות הזיות/זיוף ב-gpt-oss
     const _groqGuard = (payload) => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('groq', payload);
     // שרשרת נקייה — רק מנועים שנבדקו ועובדים (2026-08-01). הוסרו: GitHub (נסגר), OpenRouter (:free עבר
     // לתשלום, 404), Pollinations+GET (מתים, 402). עדיף הודעת שגיאה מנומסת מאשר גיבוי מת שמבזבז זמן.
