@@ -6633,8 +6633,7 @@ async function callAI(messages, onChunk, signal=null) {
         { name: 'Groq llama (code fb)',      fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Groq llama (acct 3)',       fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
-        { name: 'Mistral (code)',            fn: () => _tryMistral().then(_tw) },
-        { name: 'Cohere (code)',             fn: () => _tryCohere().then(_tw) },
+        // מעבר אמון: הוסרו Mistral+Cohere מהקוד — הם נותנים קוד גרוע/מזייף. עדיף שגיאה כנה מקוד לא-אמין. gpt-oss (×4) + Gemini מספיקים.
     ] : (function () {
         // סדר השרשרת לפי המודל שהמשתמש בחר בבורר — הנבחר ראשון, השאר כגיבוי
         const _sGem  = { name: 'Gemini',   fn: () => _tryGemini().then(_tw) };
@@ -6643,10 +6642,12 @@ async function callAI(messages, onChunk, signal=null) {
         const _sMis  = { name: 'Mistral',  fn: () => _tryMistral().then(_tw) };
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
         const _mid = (typeof currentModelId === 'function') ? currentModelId() : 'flash';
-        if (_mid === '2.0pro') return [_sCoh, _sMis, _sGem, _sGpt];           // BIRGSOL AI 2.0 PRO — החלש ביותר (Cohere ראשי)
-        if (_mid === '3.0')    return [_sMis, _sCoh, _sGem, _sGpt];           // BIRGSOL AI 3.0 FLASH — הטוב מבין החלשים (Mistral ראשי)
-        if (_mid === 'pro')    return [_sGpt, _sGpt2, _sGem, _sMis, _sCoh];   // 3.5 PRO — gpt-oss
-        return [_sGem, _sGpt, _sGpt2, _sMis, _sCoh];                         // 3.5 FLASH — Gemini (ברירת מחדל)
+        // מעבר אמון: Cohere הוסר לגמרי (הוזה מוכח). המודלים הראשיים (3.5 PRO/FLASH) לא נופלים למנוע חלש בכלל —
+        // רק gpt-oss + Gemini (החזקים). אם שניהם נופלים → שגיאה כנה ("נסה שוב"), לא זיוף. המודלים הבסיסיים (2.0/3.0) עדיין Mistral כראשי + גיבוי חזק.
+        if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt];                  // 2.0 PRO — Mistral ראשי + גיבוי חזק
+        if (_mid === '3.0')    return [_sMis, _sGem, _sGpt];                  // 3.0 FLASH — Mistral ראשי + גיבוי חזק
+        if (_mid === 'pro')    return [_sGpt, _sGpt2, _sGem];                 // 3.5 PRO — רק חזקים (gpt-oss + Gemini)
+        return [_sGem, _sGpt, _sGpt2];                                       // 3.5 FLASH — רק חזקים (Gemini + gpt-oss)
     })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
