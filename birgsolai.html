@@ -1905,8 +1905,12 @@ const OPENROUTER_KEY = '', OPENROUTER_KEY2 = '';
 const GEMINI_KEY = '';
 const HF_TOKEN   = '';
 const ELEVEN_KEY = '';
-// SiliconFlow — עריכת תמונות אמיתית (FLUX.1 Kontext). קריאה ישירה מהדפדפן (CORS פתוח). ⚠️ מפתח גלוי בקוד — לשקול העברה ל-Worker + הגבלת מכסה.
-const SILICONFLOW_KEY = 'sk-hhzatplvuuladupvkcsaxitblapnyxrlmtaaykpvoblrpsoc';
+// SiliconFlow — עריכת תמונות אמיתית (FLUX.1 Kontext). קריאה ישירה מהדפדפן (CORS פתוח). מספר מפתחות → רוטציה כשנגמר balance (402). ⚠️ מפתחות גלויים בקוד.
+const SILICONFLOW_KEYS = [
+    'sk-hhzatplvuuladupvkcsaxitblapnyxrlmtaaykpvoblrpsoc',
+    'sk-esjnoclxtixnviuizzbzpwrekafucnjlqshjgjjmfstdqufu'
+];
+const _sfDeadKeys = new Set(); // מפתחות שנגמר להם balance בסשן הזה — מדלגים עליהם
 const ELEVEN_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // "Bella" — one of the few premade voices usable on the free API tier
 const GH_RAW   = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/master/`;
 // פרוקסי Cloudflare שמחזיק את טוקן ה-GitHub בצד השרת — כל שימוש בטוקן עובר דרכו,
@@ -5181,32 +5185,29 @@ async function _geminiImageEdit(imgDataUrl, instruction) {
 
 // עריכת תמונה אמיתית ברמת הפיקסלים — FLUX.1 Kontext דרך SiliconFlow (המודל הכי טוב לעריכה). מחזיר URL של התמונה הערוכה.
 async function _siliconflowEdit(imgDataUrl, engInstruction) {
-    try {
-        const r = await fetch('https://api.siliconflow.com/v1/images/generations', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + SILICONFLOW_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'black-forest-labs/FLUX.1-Kontext-dev',
-                prompt: engInstruction,
-                image: imgDataUrl,      // data URL עובד
-                image_size: '1024x1024'
-            }),
-            signal: AbortSignal.timeout(90000)
-        });
-        if (!r.ok) return null;
-        const j = await r.json();
-        const url = (j && j.images && j.images[0] && j.images[0].url) || null;
-        if (!url) return null;
-        // נסה להמיר ל-data URL (שמירה/התמדה — ה-URL של SiliconFlow זמני). אם CORS חוסם — נחזיר את ה-URL עצמו (עדיין מוצג).
+    for (const key of SILICONFLOW_KEYS) {
+        if (_sfDeadKeys.has(key)) continue; // מפתח שנגמר לו balance בסשן הזה
         try {
-            const ir = await fetch(url, { signal: AbortSignal.timeout(20000) });
-            if (ir.ok) {
-                const blob = await ir.blob();
-                return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(url); fr.readAsDataURL(blob); });
-            }
-        } catch (e) {}
-        return url;
-    } catch (e) { if (e.name === 'AbortError') throw e; return null; }
+            const r = await fetch('https://api.siliconflow.com/v1/images/generations', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'black-forest-labs/FLUX.1-Kontext-dev', prompt: engInstruction, image: imgDataUrl, image_size: '1024x1024' }),
+                signal: AbortSignal.timeout(90000)
+            });
+            if (r.status === 402 || r.status === 401 || r.status === 429) { _sfDeadKeys.add(key); continue; } // נגמר balance/מפתח → למפתח הבא
+            if (!r.ok) continue;
+            const j = await r.json();
+            const url = (j && j.images && j.images[0] && j.images[0].url) || null;
+            if (!url) continue;
+            // נסה להמיר ל-data URL (התמדה — ה-URL של SiliconFlow זמני). אם CORS חוסם — נחזיר את ה-URL עצמו (עדיין מוצג).
+            try {
+                const ir = await fetch(url, { signal: AbortSignal.timeout(20000) });
+                if (ir.ok) { const blob = await ir.blob(); return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(url); fr.readAsDataURL(blob); }); }
+            } catch (e) {}
+            return url;
+        } catch (e) { if (e.name === 'AbortError') throw e; /* נסה את המפתח הבא */ }
+    }
+    return null; // כל המפתחות נגמרו/נכשלו → נפילה לגיבוי (תאר+צור מחדש)
 }
 
 async function editImage(imgDataUrl, instruction) {
