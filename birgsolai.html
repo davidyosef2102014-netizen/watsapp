@@ -3813,12 +3813,13 @@ function getPersona() {
     let memLine = '';
     if (userMemory.length) {
         const groups = {};
+        // הזיכרון נשאר מלא (ענק, בלי הגבלה) — האיטיות לא באה ממנו אלא מ-429 של Groq, שמטופל ב-failover מהיר
         for (const f of userMemory) { const n = _memNorm(f); if (n.t) (groups[n.c] = groups[n.c] || []).push(n.t); }
         const order = ['family', 'friends', 'life', 'work', 'prefs', 'health', 'other'];
         let body = '';
         for (const c of order) { if (groups[c] && groups[c].length) body += `\n[${MEM_CATS[c]}]\n` + groups[c].map(t => '• ' + t).join('\n') + '\n'; }
         const who = currentName ? currentName.trim().split(/\s+/)[0] : 'this user';
-        memLine = `\n\n=== מה שאתה כבר יודע על ${who} משיחות קודמות (הזיכרון שלך) ===${body}\nהשתמש בזה בטבעיות ובחום, כמו חבר קרוב שבאמת מכיר אותו — התעניין והמשך דברים שסיפר כשזה מתאים ("איך היה ה...?", "מה נשמע עם...?"), אבל אל תציף ואל תזכיר הכול בכוח. לעולם אל תגיד "לפי הזיכרון שלי" אלא אם נשאלת מה אתה זוכר. לעולם אל תמציא ואל תניח — אם המשתמש סותר משהו שזכרת, קבל את התיקון. אל תעלה נושא רגיש (בריאות, קשיים) אלא אם המשתמש פתח אותו קודם.\n⚠️ מגבלות מוחלטות: אם בזיכרון יש מגבלה (כשרות, צמחונות, אלרגיה, רגישות, גבול שהציב) — כבד אותה תמיד ובאופן אוטומטי. לעולם אל תציע משהו שמפר אותה (למשל אם הוא אוכל רק כשר — אל תציע מסעדה/מתכון לא כשרים; אם אלרגי למשהו — אל תכלול אותו). התאם גם את סגנון וטון התשובות שלך לאיך ש${who} מדבר ומעדיף.\n`;
+        memLine = `\n\n=== מה שאתה כבר יודע על ${who} משיחות קודמות (הזיכרון שלך) ===${body}\nהשתמש בזה בטבעיות ובחום, כמו חבר קרוב שבאמת מכיר אותו — התעניין והמשך דברים שסיפר כשזה מתאים ("איך היה ה...?", "מה נשמע עם...?"), אבל אל תציף ואל תזכיר הכול בכוח. לעולם אל תגיד "לפי הזיכרון שלי" אלא אם נשאלת מה אתה זוכר. לעולם אל תמציא ואל תניח — אם המשתמש סותר משהו שזכרת, קבל את התיקון. אל תעלה נושא רגיש (בריאות, קשיים) אלא אם המשתמש פתח אותו קודם.\n🚫🚫 קריטי — מניעת הזיות זיכרון: הזיכרון הוא **רקע בלבד**. ענה על ההודעה הנוכחית ועל השיחה שלפניך — לא על הזיכרון. אם ההודעה הנוכחית קצרה/מעורפלת או לא קשורה בבירור לפריט זיכרון מסוים — **אל תניח שהיא עוסקת בו, ואל תעלה אותו בכלל**. לעולם אל תחבר הודעה נוכחית לעובדה זכורה שאינה קשורה אליה ישירות. לעולם אל תמציא, תרחיב, או תשלים פרטים סביב עובדה זכורה (שמות, כתובות, רחובות, אירועים, קנסות, מספרים) — אם פרט לא נאמר במפורש, הוא **לא קיים**. עדיף לשאול "למה התכוונת?" מאשר לנחש ולהמציא.\n⚠️ מגבלות מוחלטות: אם בזיכרון יש מגבלה (כשרות, צמחונות, אלרגיה, רגישות, גבול שהציב) — כבד אותה תמיד ובאופן אוטומטי. לעולם אל תציע משהו שמפר אותה (למשל אם הוא אוכל רק כשר — אל תציע מסעדה/מתכון לא כשרים; אם אלרגי למשהו — אל תכלול אותו). התאם גם את סגנון וטון התשובות שלך לאיך ש${who} מדבר ומעדיף.\n`;
     }
     if (currentMode === 'code') return dateLine + langLine + persLine + PERSONA_CODE + memLine + secLine + langEnd;
     if (currentMode === 'image') return dateLine + langLine + persLine + PERSONA_IMAGE + memLine + secLine + langEnd;
@@ -6425,8 +6426,8 @@ async function callAI(messages, onChunk, signal=null) {
     // ── Text path ──
     // SSE streamer: reads OpenAI-compatible server-sent events, calls onChunk with growing text
     const _stream = async (provider, body) => {
-        // מצב קוד — תשובות ארוכות; נותנים חלון זמן גדול יותר כדי שלא ייכשל סתם על טיימאאוט
-        const _to = (typeof currentMode !== 'undefined' && currentMode === 'code') ? 45000 : 20000;
+        // מצב קוד — תשובות ארוכות; חלון גדול יותר. צ'אט — קצר, כדי ש-failover על ספק תקוע יהיה מהיר (Groq מהיר; אם נתקע/429, עוברים מהר לגיבוי)
+        const _to = (typeof currentMode !== 'undefined' && currentMode === 'code') ? 30000 : 13000;
         const _sig = signal
             ? AbortSignal.any([signal, AbortSignal.timeout(_to)])
             : AbortSignal.timeout(_to);
@@ -6447,7 +6448,7 @@ async function callAI(messages, onChunk, signal=null) {
             signal: _sig
         });
         if (!res.ok) {
-            if (res.status === 429 && provider === 'groq') { _groqCooldownUntil = Date.now() + 15000; } // קצר — יש כמה חשבונות Groq, מנסים מפתח/חשבון אחר מיד במקום לפסול את Groq לגמרי
+            if (res.status === 429 && provider === 'groq') { _groqCooldownUntil = Date.now() + 8000; } // קצר — יש כמה חשבונות Groq, מנסים מפתח/חשבון אחר מיד; cooldown קצר כדי ש-Groq יתאושש מהר להודעה הבאה
             throw new Error('HTTP ' + res.status);
         }
         const reader = res.body.getReader();
