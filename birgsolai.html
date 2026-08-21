@@ -3538,7 +3538,7 @@ function initSettings() {
     applyUILang(lang);
 
     // search-sources toggle (default off)
-    const showSrc = localStorage.getItem('birgsol_show_sources') === '1';
+    const showSrc = localStorage.getItem('birgsol_show_sources') !== '0'; // מקורות דלוקים כברירת מחדל (שקיפות/אמון)
     document.getElementById('sp-sources')?.classList.toggle('on', showSrc);
     const foOn = localStorage.getItem('birgsol_followups_off') !== '1'; // דולק כברירת מחדל
     document.getElementById('sp-followups')?.classList.toggle('on', foOn);
@@ -3686,7 +3686,7 @@ Talk like a real, warm, smart friend — not a formal corporate machine. In Hebr
 - Search results are the ONLY source of truth — drop your prior assumption; if results contradict memory, results win. Every specific fact must come from the results; never stitch in a half-remembered detail.
 - NEVER invent a business/place/station/address or an attribute like "kosher". If not found, say "לא מצאתי מידע אמין על זה" and stop — never fabricate.
 - NEVER output a URL / link that you are not 100% sure is real. Do NOT invent, guess, or construct links (no "example.com", no made-up article/product URLs). Only include a link if it came verbatim from a [SEARCH]/[BROWSE] result. When you have no verified link, give the answer WITHOUT any link — never a fake one.
-- Say when unsure ("אני לא בטוח"). Kosher/dietary/medical/legal/safety — never guess; verify or tell the user to check directly.
+- CONFIDENCE HONESTY: when you're sure — answer directly and clearly. When you're NOT sure (a fact you can't verify, an ambiguous question, no reliable source, something outside your knowledge) — say so openly ("אני לא בטוח לגבי זה", "כדאי לאמת", "זה מעבר למה שאני יודע בוודאות"). A user trusts honesty infinitely more than false confidence — a confident wrong answer destroys trust, an honest "I'm not sure" builds it. Kosher/dietary/medical/legal/safety — never guess; verify or tell the user to check directly.
 
 === WEB TOOLS (you decide when — search SILENTLY, never say "I'm going to search") ===
 Search ONLY when the answer needs current/specific/verifiable facts: news, prices, weather, sports, stock/crypto, "latest/now/who won/how much", or a specific named person/product/place/event you're not 100% current on (especially Israeli/local). Do NOT search for: translating/summarizing/fixing/explaining text the user gave you, math, code, stable concepts/definitions/how-to, opinions, recommendations, lists, creative writing, or casual chat — answer those directly from your knowledge.
@@ -5983,6 +5983,7 @@ async function executeTool(match, type, statusEl, cw) {
         statusEl.innerHTML = `<span class="agent-step">${_icSearch}<b>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
         statusEl.style.display = 'flex';
         const result = await webSearch(q);
+        try { _lastTurnSources = _lastTurnSources.concat(_extractDomains(result)); } catch (e) {} // מקורות לתצוגה מתחת לתשובה
         statusEl.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(q.length>40?q.slice(0,40)+'…':q)}</b></span>`;
         return `\n\n---\n**תוצאות חיפוש: "${q}"**\n${result}\n---\n`;
     }
@@ -6377,6 +6378,7 @@ async function _typewriter(text, onChunk, step) {
 }
 
 let _turnTokens = 0; // סכום טוקנים אמיתי (usage מה-API) לפנייה הנוכחית; אם 0 — נופלים לאומדן לפי אורך
+let _lastTurnSources = []; // דומיינים שהמידע בפנייה הנוכחית הגיע מהם — לשקיפות/אמון (מקורות מתחת לתשובה)
 async function callAI(messages, onChunk, signal=null) {
     // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
@@ -7287,17 +7289,8 @@ async function send() {
             // already returns real, current news (verified directly).
             let results = await webSearch(newsQuery || q);
             status.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(preview)}</b></span>`;
-            // מקורות החיפוש (אם הופעל בהגדרות) — שבבי דומיינים ליד סרגל החיפוש, נעלמים אחרי 8 שניות
-            if (localStorage.getItem('birgsol_show_sources') === '1') {
-                const domains = _extractDomains(results);
-                if (domains.length) {
-                    const srcRow = document.createElement('div');
-                    srcRow.className = 'search-sources';
-                    srcRow.innerHTML = `<span class="src-lead">מקורות</span>` + domains.slice(0, 6).map(d => `<span class="src-chip">${esc2(d)}</span>`).join('');
-                    status.insertAdjacentElement('afterend', srcRow);
-                    setTimeout(() => { srcRow.style.opacity = '0'; setTimeout(() => srcRow.remove(), 600); }, 8000);
-                }
-            }
+            // מקורות החיפוש — נאספים ומוצגים באופן קבוע מתחת לתשובה (שקיפות בסגנון Perplexity)
+            try { _lastTurnSources = _lastTurnSources.concat(_extractDomains(results)); } catch (e) {}
             const lastMsg = messages[messages.length - 1];
             if (lastMsg && typeof lastMsg.content === 'string') {
                 if (_newsDigest) {
@@ -7381,6 +7374,7 @@ async function send() {
     let fullText = '';
     let _stopped = false;
     _turnTokens = 0; // אפס את מונה הטוקנים האמיתי לפני הפנייה (agentLoop עשוי לקרוא ל-callAI כמה פעמים — נצבור את כולן)
+    _lastTurnSources = []; // אפס את רשימת המקורות לפנייה הזאת
     _abortCtrl = new AbortController();
     updateBtn();
     try {
@@ -7532,6 +7526,20 @@ async function send() {
         acts.innerHTML = `<button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>
             <button class="ai-act" onclick="regenerate()">${IC.refresh} נסה שוב</button>`;
         body.appendChild(acts);
+        // ── מקורות קבועים מתחת לתשובה (שקיפות/אמון, בסגנון Perplexity) — רק אם חיפשנו והמתג דלוק ──
+        try {
+            if (localStorage.getItem('birgsol_show_sources') !== '0' && _lastTurnSources && _lastTurnSources.length) {
+                const uniq = [...new Set(_lastTurnSources)].filter(Boolean).slice(0, 6);
+                if (uniq.length) {
+                    const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
+                    const srcRow = document.createElement('div');
+                    srcRow.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;font-size:11px';
+                    srcRow.innerHTML = '<span style="color:var(--muted);font-weight:700">' + (en ? 'Sources' : 'מקורות') + ':</span>' +
+                        uniq.map(d => '<a href="https://' + esc2(d) + '" target="_blank" rel="noopener" style="color:var(--blue,#4285F4);text-decoration:none;background:rgba(66,133,244,.1);padding:2px 8px;border-radius:8px">' + esc2(d) + '</a>').join('');
+                    body.appendChild(srcRow);
+                }
+            }
+        } catch (e) {}
 
         hist.push({ role: 'assistant', content: cleanText || fullText });
         if (isFirstMsg) { isFirstMsg = false; }
