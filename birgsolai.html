@@ -1905,6 +1905,8 @@ const OPENROUTER_KEY = '', OPENROUTER_KEY2 = '';
 const GEMINI_KEY = '';
 const HF_TOKEN   = '';
 const ELEVEN_KEY = '';
+// SiliconFlow — עריכת תמונות אמיתית (FLUX.1 Kontext). קריאה ישירה מהדפדפן (CORS פתוח). ⚠️ מפתח גלוי בקוד — לשקול העברה ל-Worker + הגבלת מכסה.
+const SILICONFLOW_KEY = 'sk-hhzatplvuuladupvkcsaxitblapnyxrlmtaaykpvoblrpsoc';
 const ELEVEN_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // "Bella" — one of the few premade voices usable on the free API tier
 const GH_RAW   = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/master/`;
 // פרוקסי Cloudflare שמחזיק את טוקן ה-GitHub בצד השרת — כל שימוש בטוקן עובר דרכו,
@@ -5177,6 +5179,36 @@ async function _geminiImageEdit(imgDataUrl, instruction) {
     return null;
 }
 
+// עריכת תמונה אמיתית ברמת הפיקסלים — FLUX.1 Kontext דרך SiliconFlow (המודל הכי טוב לעריכה). מחזיר URL של התמונה הערוכה.
+async function _siliconflowEdit(imgDataUrl, engInstruction) {
+    try {
+        const r = await fetch('https://api.siliconflow.com/v1/images/generations', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + SILICONFLOW_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'black-forest-labs/FLUX.1-Kontext-dev',
+                prompt: engInstruction,
+                image: imgDataUrl,      // data URL עובד
+                image_size: '1024x1024'
+            }),
+            signal: AbortSignal.timeout(90000)
+        });
+        if (!r.ok) return null;
+        const j = await r.json();
+        const url = (j && j.images && j.images[0] && j.images[0].url) || null;
+        if (!url) return null;
+        // נסה להמיר ל-data URL (שמירה/התמדה — ה-URL של SiliconFlow זמני). אם CORS חוסם — נחזיר את ה-URL עצמו (עדיין מוצג).
+        try {
+            const ir = await fetch(url, { signal: AbortSignal.timeout(20000) });
+            if (ir.ok) {
+                const blob = await ir.blob();
+                return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(url); fr.readAsDataURL(blob); });
+            }
+        } catch (e) {}
+        return url;
+    } catch (e) { if (e.name === 'AbortError') throw e; return null; }
+}
+
 async function editImage(imgDataUrl, instruction) {
     showChat();
     const cw = document.getElementById('chat-window');
@@ -5206,6 +5238,22 @@ async function editImage(imgDataUrl, instruction) {
             if (nano) { await generateImage(instruction, row, { model: 'flux-realism', suffix: '' }, null, null, nano); return; }
         } catch (e) { if (e.name === 'AbortError') return; }
     }
+
+    // ── עריכה אמיתית ראשית — FLUX.1 Kontext דרך SiliconFlow (עריכה ברמת הפיקסלים, המודל הכי טוב) ──
+    skelTxt.textContent = 'עורך את התמונה…';
+    try {
+        // תרגום ההוראה לאנגלית (FLUX Kontext מדייק יותר באנגלית)
+        let eng = instruction;
+        const _allL = (instruction.match(/\p{L}/gu) || []).length, _ascL = (instruction.match(/[a-zA-Z]/g) || []).length;
+        if (_allL > 0 && _ascL / _allL < 0.6) {
+            try {
+                const tr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'Translate this image-edit instruction to concise English. Output ONLY the translation, no explanation.' }, { role: 'user', content: instruction }], temperature: 0.2, max_tokens: 80, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) });
+                if (tr.ok) { const tj = await tr.json(); const tt = tj?.choices?.[0]?.message?.content?.trim(); if (tt) eng = tt; }
+            } catch (e) {}
+        }
+        const edited = await _siliconflowEdit(imgDataUrl, eng);
+        if (edited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, edited); return; }
+    } catch (e) { if (e.name === 'AbortError') return; }
 
     // Step 1: describe image with Gemini vision (לגיבוי FLUX). לא-קריטי — העריכה האמיתית דרך gptimage
     // עובדת על הפיקסלים עצמם, לכן ממשיכים גם אם התיאור נכשל. (GitHub Models GPT-4o מת ולכן הוחלף.)
