@@ -1617,7 +1617,7 @@
             <div class="pill">
                 <div class="pill-inner">
                     <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
-                    <input type="file" id="fi" style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov" onchange="previewFile()">
+                    <input type="file" id="fi" style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json,.docx,.xlsx,.xls,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov" onchange="previewFile()">
                     <textarea id="userInput" dir="auto" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
@@ -4512,6 +4512,10 @@ function previewFile() {
         reader.readAsText(f, 'UTF-8');
     } else if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
         _loadPDF(f);
+    } else if (/\.docx$/i.test(f.name) || f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        _loadDocx(f);
+    } else if (/\.(xlsx|xls)$/i.test(f.name) || /spreadsheetml|ms-excel/.test(f.type)) {
+        _loadXlsx(f);
     } else if (isMedia) {
         // אודיו/וידאו — נתמלל בעת השליחה (Whisper), כדי לא לשרוף מכסה אם המשתמש מבטל
         if (f.size > 24 * 1048576) { _alert('הקובץ גדול מדי לתמלול (מקסימום ~24MB). נסה קובץ קצר יותר.'); document.getElementById('fi').value = ''; return; }
@@ -4520,7 +4524,7 @@ function previewFile() {
         _showDocPreview(f.name, f.size);
         document.getElementById('file-size-label').textContent = kind + ' · יתומלל בשליחה';
     } else {
-        _alert('סוג קובץ לא נתמך. נסה תמונה, TXT, PDF, CSV, MD, JSON, או אודיו/וידאו.');
+        _alert('סוג קובץ לא נתמך. נסה תמונה, PDF, Word, Excel, TXT, CSV, MD, JSON, או אודיו/וידאו.');
         document.getElementById('fi').value = '';
     }
 }
@@ -4584,6 +4588,57 @@ async function _loadPDF(file) {
     } catch(e) {
         document.getElementById('file-size-label').textContent = 'שגיאה בטעינת PDF';
         console.warn('PDF load error:', e);
+    }
+}
+
+// ── Word (.docx) — חילוץ טקסט עם mammoth.js (מ-cdnjs, כמו pdf.js) ──
+async function _loadDocx(file) {
+    _showDocPreview(file.name, file.size);
+    document.getElementById('file-size-label').textContent = 'טוען Word…';
+    try {
+        if (!window.mammoth) {
+            await new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+                s.onload = res; s.onerror = rej; document.head.appendChild(s);
+            });
+        }
+        const buf = await file.arrayBuffer();
+        const r = await mammoth.extractRawText({ arrayBuffer: buf });
+        fileContent = (r && r.value || '').trim();
+        const kb = file.size > 1048576 ? (file.size/1048576).toFixed(1)+'MB' : (file.size/1024).toFixed(0)+'KB';
+        document.getElementById('file-size-label').textContent = kb + ' · ' + fileContent.length.toLocaleString() + ' תווים';
+    } catch(e) {
+        document.getElementById('file-size-label').textContent = 'שגיאה בטעינת Word';
+        console.warn('docx load error:', e);
+    }
+}
+
+// ── Excel (.xlsx/.xls) — כל הגיליונות כ-CSV עם SheetJS (מ-cdnjs) ──
+async function _loadXlsx(file) {
+    _showDocPreview(file.name, file.size);
+    document.getElementById('file-size-label').textContent = 'טוען Excel…';
+    try {
+        if (!window.XLSX) {
+            await new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+                s.onload = res; s.onerror = rej; document.head.appendChild(s);
+            });
+        }
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        let text = '';
+        (wb.SheetNames || []).forEach(name => {
+            const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+            if (csv && csv.trim()) text += '### גיליון: ' + name + '\n' + csv + '\n\n';
+        });
+        fileContent = text.trim();
+        const kb = file.size > 1048576 ? (file.size/1048576).toFixed(1)+'MB' : (file.size/1024).toFixed(0)+'KB';
+        document.getElementById('file-size-label').textContent = kb + ' · ' + (wb.SheetNames||[]).length + ' גיליונות · ' + fileContent.length.toLocaleString() + ' תווים';
+    } catch(e) {
+        document.getElementById('file-size-label').textContent = 'שגיאה בטעינת Excel';
+        console.warn('xlsx load error:', e);
     }
 }
 
@@ -7678,6 +7733,16 @@ function _captureFrame() {
     c.getContext('2d').drawImage(v, 0, 0, w, h);
     try { return c.toDataURL('image/jpeg', 0.7); } catch { return null; }
 }
+// צילום רצף פריימים = קטע וידאו קצר, כדי שהמודל יראה תנועה/שינוי ולא תמונה אחת קפואה
+async function _captureBurst(n = 4, gapMs = 430) {
+    const frames = [];
+    for (let i = 0; i < n; i++) {
+        const f = _captureFrame();
+        if (f) frames.push(f);
+        if (i < n - 1) await new Promise(r => setTimeout(r, gapMs));
+    }
+    return frames;
+}
 async function _describeFrameLive(dataUrl) {
     // ראייה חיה דרך Gemini (Qwen-VL הוסר — היה נכשל, לכן הלייב "לא קלט")
     const mt = (dataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
@@ -7695,16 +7760,19 @@ async function _describeFrameLive(dataUrl) {
     } catch { return ''; }
 }
 // ראייה חיה ישירה — שולח את פריים המצלמה + שאלת המשתמש ישירות למודל הראייה, מקבל תשובה מדוברת בשלב אחד (מדויק יותר מתיאור-ואז-צ'אט)
-async function _callAILiveVision(dataUrl, userText, sys) {
-    const mt = (dataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
-    const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
-    if (!b64) return '';
-    const contents = [{ role: 'user', parts: [
-        { text: (sys || '') + '\n\nהמשתמש מדבר איתך בשיחה קולית ואתה רואה את מה שמול המצלמה שלו כרגע (התמונה מצורפת). ענה קצר וטבעי כאילו אתם מסתכלים יחד. מה שהוא אמר: ' + userText },
-        { inlineData: { mimeType: mt, data: b64 } }
-    ] }];
+async function _callAILiveVision(frames, userText, sys) {
+    const arr = Array.isArray(frames) ? frames : [frames];
+    const parts = [{ text: (sys || '') + '\n\nהמשתמש מדבר איתך בשיחה קולית ואתה רואה את המצלמה שלו בזמן אמת. מצורפים כמה פריימים רצופים מהמצלמה (קטע וידאו קצר) — התייחס אליהם כאל וידאו: שים לב למה זז, מה משתנה ומה קורה לאורך הרצף, לא רק לתמונה אחת קפואה. ענה קצר וטבעי כאילו אתם מסתכלים יחד. מה שהוא אמר: ' + userText }];
+    for (const dataUrl of arr) {
+        if (!dataUrl) continue;
+        const mt = (dataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
+        const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
+        if (b64) parts.push({ inlineData: { mimeType: mt, data: b64 } });
+    }
+    if (parts.length < 2) return ''; // אין אף פריים
+    const contents = [{ role: 'user', parts }];
     try {
-        const r = await _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', { contents, generationConfig: { maxOutputTokens: 500, thinkingConfig: { thinkingBudget: 0 } } }, { signal: AbortSignal.timeout(12000) });
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-flash-latest:generateContent', { contents, generationConfig: { maxOutputTokens: 500, thinkingConfig: { thinkingBudget: 0 } } }, { signal: AbortSignal.timeout(14000) });
         if (!r.ok) return '';
         const j = await r.json();
         return (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
@@ -7751,10 +7819,10 @@ async function _liveLoop() {
         const v = document.getElementById('live-cam-video');
         if (v) v.classList.add('seeing');
         try {
-            const frame = _captureFrame();
-            if (frame) {
-                const sysV = getPersona() + '\n\nLIVE VOICE+VISION — אתה רואה את מצלמת המשתמש בזמן אמת. ענה קצר וטבעי (2-4 משפטים), עברית כברירת מחדל, בלי markdown/כוכביות/רשימות. דבר על מה שאתה רואה ותענה טבעי — אל תגיד "לפי התמונה".';
-                reply = await _callAILiveVision(frame, transcript + liveSearchCtx, sysV);
+            const frames = await _captureBurst(4, 430); // רצף ~1.3ש' = וידאו קצר במקום תמונה בודדת
+            if (frames.length) {
+                const sysV = getPersona() + '\n\nLIVE VOICE+VISION — אתה רואה את מצלמת המשתמש בזמן אמת כווידאו רציף. ענה קצר וטבעי (2-4 משפטים), עברית כברירת מחדל, בלי markdown/כוכביות/רשימות. דבר על מה שאתה רואה קורה (כולל תנועה/שינוי) ותענה טבעי — אל תגיד "לפי התמונה".';
+                reply = await _callAILiveVision(frames, transcript + liveSearchCtx, sysV);
             }
         } catch {}
         if (v) v.classList.remove('seeing');
