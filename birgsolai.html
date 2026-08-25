@@ -7171,9 +7171,11 @@ async function send() {
         }
     }
 
+    // בקשת קריאה/תרגום/ניתוח של תמונה (קיימת/מועלית) — זו ראייה, לא יצירה! (חשוב גם במצב תמונה)
+    const _wantsAnalyze = q && /תרגם|תתרגם|תרגמי|מה\s*כתוב|מה\s*רשום|מה\s*זה\s*אומר|מה\s*אומר|קרא\b|תקרא|תקריא|מה\s*יש\s*ב|מה\s*רוא|לרא|נתח\b|תנתח|תסביר|תסתכל|תראה\s*(לי\s*)?מה|translate|\bread\b|what\s*does\s*it\s*say|what'?s\s*(in|written)|analyz|describe/i.test(q);
     // Image generation — free, unlimited, no quota used
-    // מצב תמונה — כל הודעה היא בקשת תמונה (המצב מתמחה ביצירת תמונות בלבד)
-    if ((currentMode === 'image' && q && !fileUrl && !fileContent) || (isImageRequest(q) && !fileUrl && !fileContent)) {
+    // מצב תמונה — כל הודעה היא בקשת תמונה (המצב מתמחה ביצירת תמונות) — אלא אם זו בקשת קריאה/תרגום/ניתוח
+    if (!_wantsAnalyze && ((currentMode === 'image' && q && !fileUrl && !fileContent) || (isImageRequest(q) && !fileUrl && !fileContent))) {
         addMsg('user', q);
         inp.value = ''; inp.style.height = 'auto';
         busy = true; updateBtn(); // נעילה — מונע התנגשות עם ההודעה הבאה בזמן יצירה איטית
