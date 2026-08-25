@@ -1911,6 +1911,9 @@ const SILICONFLOW_KEYS = [
     'sk-esjnoclxtixnviuizzbzpwrekafucnjlqshjgjjmfstdqufu'
 ];
 let _sfKeyIdx = 0; // round-robin — מחלק את הבקשות בין המפתחות (כל מפתח: 3/דקה, 100/יום). 429/402 = rate-limit רגעי, לא הרג קבוע.
+// DashScope (Alibaba, סינגפור) — qwen-image-edit. עריכה אמיתית, CORS פתוח, יש מכסה. ⚠️ מפתח גלוי בקוד — להעביר ל-Worker בהמשך.
+const DASHSCOPE_KEYS = ['sk-ws-H.DMXRHML.iBWf.MEQCIEcV13B3DY3nmfum2fNaY1944POrZmf6Bnkk8Zz2yTxTAiAdFkXWu5B_sB0xwHyzLMOJi_cbSnJod2fJvRr7q5W-6A'];
+let _dsKeyIdx = 0;
 const ELEVEN_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // "Bella" — one of the few premade voices usable on the free API tier
 const GH_RAW   = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/master/`;
 // פרוקסי Cloudflare שמחזיק את טוקן ה-GitHub בצד השרת — כל שימוש בטוקן עובר דרכו,
@@ -5183,6 +5186,31 @@ async function _geminiImageEdit(imgDataUrl, instruction) {
     return null;
 }
 
+// עריכת תמונה אמיתית — qwen-image-edit דרך DashScope (Alibaba, סינגפור). קריאה סינכרונית מהדפדפן (CORS פתוח).
+async function _qwenImageEdit(imgDataUrl, engInstruction) {
+    const keys = DASHSCOPE_KEYS;
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[(_dsKeyIdx + i) % keys.length];
+        try {
+            const r = await fetch('https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'qwen-image-edit', input: { messages: [{ role: 'user', content: [{ image: imgDataUrl }, { text: engInstruction }] }] }, parameters: {} }),
+                signal: AbortSignal.timeout(120000)
+            });
+            if (r.status === 429 || r.status === 402 || r.status === 403 || r.status === 401) continue; // מכסה/מפתח — הבא
+            if (!r.ok) continue;
+            const j = await r.json();
+            const url = (j && j.output && j.output.choices && j.output.choices[0] && j.output.choices[0].message && j.output.choices[0].message.content && j.output.choices[0].message.content[0] && j.output.choices[0].message.content[0].image) || null;
+            if (!url) continue;
+            _dsKeyIdx = (_dsKeyIdx + i + 1) % keys.length;
+            try { const ir = await fetch(url, { signal: AbortSignal.timeout(20000) }); if (ir.ok) { const blob = await ir.blob(); return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(url); fr.readAsDataURL(blob); }); } } catch (e) {}
+            return url;
+        } catch (e) { if (e.name === 'AbortError') throw e; }
+    }
+    return null;
+}
+
 // עריכת תמונה אמיתית ברמת הפיקסלים — FLUX.1 Kontext דרך SiliconFlow (המודל הכי טוב לעריכה). מחזיר URL של התמונה הערוכה.
 async function _siliconflowEdit(imgDataUrl, engInstruction) {
     const keys = SILICONFLOW_KEYS;
@@ -5254,6 +5282,10 @@ async function editImage(imgDataUrl, instruction) {
                 if (tr.ok) { const tj = await tr.json(); const tt = tj?.choices?.[0]?.message?.content?.trim(); if (tt) eng = tt; }
             } catch (e) {}
         }
+        // 1. qwen-image-edit (DashScope) — יש מכסה
+        const qEdit = await _qwenImageEdit(imgDataUrl, eng);
+        if (qEdit) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, qEdit); return; }
+        // 2. FLUX Kontext (SiliconFlow) — אם יש balance
         const edited = await _siliconflowEdit(imgDataUrl, eng);
         if (edited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, edited); return; }
     } catch (e) { if (e.name === 'AbortError') return; }
