@@ -1639,12 +1639,12 @@
             </div>
             <div class="pill">
                 <div class="pill-inner">
-                    <label class="p-btn" for="fi" title="צרף קובץ"><svg class="ic" style="width:21px;height:21px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></label>
+                    <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
                     <input type="file" id="fi" multiple style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json,.docx,.xlsx,.xls,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov" onchange="previewFile()">
                     <textarea id="userInput" dir="auto" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
-                    <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלדה קולית"><svg class="ic" style="width:21px;height:21px" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלדה קולית"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
                     <button class="send-btn" id="sendBtn" onclick="sendOrStop()">↑</button>
                     <button class="voice-pill-btn" id="voicePillBtn" onclick="startLive()">
                         <span class="vpb-bars">
