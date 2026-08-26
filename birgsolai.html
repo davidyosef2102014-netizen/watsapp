@@ -6871,7 +6871,13 @@ async function _renderMath(el) {
             s1.onerror = rej; document.head.appendChild(s1);
         });
     }
-    try { window.renderMathInElement?.(el, { delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}], throwOnError:false }); } catch {}
+    // מחיקת מפריד ה-$ הבודד: הוא זיהה מחירים בטעות ("$0.15 ... $0.60") כנוסחה מתמטית אחת ומיעך את העברית שביניהם.
+    // מתמטיקה אמיתית עדיין עובדת עם $$...$$ (display) ו-\(...\) / \[...\] — שרוב המודלים ממילא פולטים.
+    try { window.renderMathInElement?.(el, { delimiters:[
+        {left:'$$',right:'$$',display:true},
+        {left:'\\[',right:'\\]',display:true},
+        {left:'\\(',right:'\\)',display:false}
+    ], throwOnError:false }); } catch {}
 }
 
 /* ── SEND ── */
