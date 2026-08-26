@@ -6717,12 +6717,12 @@ async function callAI(messages, onChunk, signal=null) {
     // עוקף את ה-cooldown — כך ש-429 על חשבון אחד מנתב מיד לחשבון Groq אחר, לתשובות מהירות גם בדקה עמוסה.
     const _groqTry = (payload) => _stream('groq', payload);
     const stages = isCode ? [
+        // הפחתת עומס על gpt-oss: היו 4 קריאות Groq זהות שהיכו את אותה מכסת TPM וכולן נפלו ב-429 יחד.
+        // עכשיו 2 בלבד (guard מכבד cooldown + try אחת עם מפתח טרי), ואז Gemini (שהוא ממילא זה שעונה כש-Groq נחנק).
         { name: 'Groq gpt-oss-120b (code)', fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Groq gpt-oss (acct 2)',    fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
-        { name: 'Groq llama (code fb)',      fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
-        { name: 'Groq llama (acct 3)',       fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
-        // מעבר אמון: הוסרו Mistral+Cohere מהקוד — הם נותנים קוד גרוע/מזייף. עדיף שגיאה כנה מקוד לא-אמין. gpt-oss (×4) + Gemini מספיקים.
+        // מעבר אמון: הוסרו Mistral+Cohere מהקוד — הם נותנים קוד גרוע/מזייף. עדיף שגיאה כנה מקוד לא-אמין. gpt-oss (×2) + Gemini מספיקים.
     ] : (function () {
         // סדר השרשרת לפי המודל שהמשתמש בחר בבורר — הנבחר ראשון, השאר כגיבוי
         const _sGem  = { name: 'Gemini',   fn: () => _tryGemini().then(_tw) };
@@ -6740,11 +6740,13 @@ async function callAI(messages, onChunk, signal=null) {
         } catch (e) {}
         // מעבר אמון: Cohere הוסר לגמרי (הוזה מוכח). המודלים הראשיים (3.5 PRO/FLASH) לא נופלים למנוע חלש בכלל —
         // רק gpt-oss + Gemini (החזקים). אם שניהם נופלים → שגיאה כנה ("נסה שוב"), לא זיוף. המודלים הבסיסיים (2.0/3.0) עדיין Mistral כראשי + גיבוי חזק.
-        if (_grounded) return [_sGem, _sGpt, _sGpt2];                        // עובדות/משפט/חדשות — Gemini ראשון (נצמד לתוצאות), בכל טייר
+        // הפחתת עומס על gpt-oss: כל שרשרת מכילה קריאת gpt-oss אחת בלבד (לא שתיים). עם 2 סבבי-הניסיון בכל מקרה
+        // gpt-oss מקבל צ'אנס שני בסבב הבא, ו-Gemini/Mistral נותנים גיוון — אין צורך להכות את Groq פעמיים באותו סבב.
+        if (_grounded) return [_sGem, _sGpt];                                // עובדות/משפט/חדשות — Gemini ראשון (נצמד לתוצאות), בכל טייר
         if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt];                  // 2.0 PRO — Mistral ראשי + גיבוי חזק
         if (_mid === '3.0')    return [_sMis, _sGem, _sGpt];                  // 3.0 FLASH — Mistral ראשי + גיבוי חזק
-        if (_mid === 'pro')    return [_sGpt, _sGpt2, _sGem];                 // 3.5 PRO — רק חזקים (gpt-oss + Gemini)
-        return [_sGem, _sGpt, _sGpt2];                                       // 3.5 FLASH — רק חזקים (Gemini + gpt-oss)
+        if (_mid === 'pro')    return [_sGpt, _sGem];                         // 3.5 PRO — gpt-oss ראשי, Gemini גיבוי (בלי gpt-oss כפול)
+        return [_sGem, _sGpt];                                               // 3.5 FLASH — Gemini ראשי, gpt-oss גיבוי
     })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
