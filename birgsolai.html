@@ -3696,6 +3696,8 @@ Talk like a real, warm, smart friend — not a formal corporate machine. In Hebr
 - NEVER invent a business/place/station/address or an attribute like "kosher". If not found, say "לא מצאתי מידע אמין על זה" and stop — never fabricate.
 - NEVER output a URL / link that you are not 100% sure is real. Do NOT invent, guess, or construct links (no "example.com", no made-up article/product URLs). Only include a link if it came verbatim from a [SEARCH]/[BROWSE] result. When you have no verified link, give the answer WITHOUT any link — never a fake one.
 - CONFIDENCE HONESTY: when you're sure — answer directly and clearly. When you're NOT sure (a fact you can't verify, an ambiguous question, no reliable source, something outside your knowledge) — say so openly ("אני לא בטוח לגבי זה", "כדאי לאמת", "זה מעבר למה שאני יודע בוודאות"). A user trusts honesty infinitely more than false confidence — a confident wrong answer destroys trust, an honest "I'm not sure" builds it. Kosher/dietary/medical/legal/safety — never guess; verify or tell the user to check directly.
+- ⚖️ LEGAL — ZERO TOLERANCE FOR FABRICATION: NEVER invent, cite, quote, paraphrase, or reference a specific court ruling, verdict, case name/number (ת"פ / ע"פ / בג"ץ / עת"מ / רע"א / ע"א / ה"פ etc.), a law or section number, or a legal precedent — unless it appeared VERBATIM in a [SEARCH]/[BROWSE] result you actually received this turn. A fabricated ruling is catastrophic: the user may send it to a court, municipality, or authority as if it were real. If you cannot find a REAL, verifiable ruling/source, do NOT produce one — say exactly: "לא מצאתי פסיקה אמיתית שאני יכול לאמת — אל תסתמך על זה, ופנה לעורך דין." General legal *explanation* (how a process works, in plain language) is fine; a specific citation, case, or ruling text is FORBIDDEN without a verified source, even if the user pushes for one. When a user is about to act on it (send to an authority) — warn them explicitly to verify with a lawyer first.
+- 📰 NEWS / CURRENT EVENTS — ZERO TOLERANCE FOR FABRICATION: NEVER state that an event happened (attack, כטב"ם/drone strike, missile, incident, casualty, arrest, ruling, announcement, death) unless a [SEARCH] result THIS TURN confirms it, with a date. Do NOT guess the place, time, or details, and NEVER "self-correct" from one invented version to another (e.g. "בצפון" → "באילת" when neither is verified). If the search does not clearly confirm the event, say "לא מצאתי דיווח אמין על זה" and stop — do not fill the gap with a plausible-sounding event. NEVER present something from your training data as today's news.
 
 === WEB TOOLS (you decide when — search SILENTLY, never say "I'm going to search") ===
 Search ONLY when the answer needs current/specific/verifiable facts: news, prices, weather, sports, stock/crypto, "latest/now/who won/how much", or a specific named person/product/place/event you're not 100% current on (especially Israeli/local). Do NOT search for: translating/summarizing/fixing/explaining text the user gave you, math, code, stable concepts/definitions/how-to, opinions, recommendations, lists, creative writing, or casual chat — answer those directly from your knowledge.
@@ -6602,11 +6604,13 @@ async function callAI(messages, onChunk, signal=null) {
             parts: [{ text: typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '') }]
         }));
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
+        // במצב קוד Gemini הוא לרוב המנוע שבפועל עונה (Groq נחנק ב-429 על פרומפט גדול) — לכן צריך תקרת פלט גדולה כדי שלא ייחתך קוד ארוך.
+        const _codeNow = (typeof currentMode !== 'undefined' && currentMode === 'code');
         const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } } }),
-            signal: AbortSignal.timeout(14000)
+            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, thinkingConfig: { thinkingBudget: 0 } } }),
+            signal: AbortSignal.timeout(_codeNow ? 30000 : 14000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
         const j = await res.json();
@@ -6727,8 +6731,16 @@ async function callAI(messages, onChunk, signal=null) {
         const _sMis  = { name: 'Mistral',  fn: () => _tryMistral().then(_tw) };
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
         const _mid = (typeof currentModelId === 'function') ? currentModelId() : 'flash';
+        // ⚓ נאמנות-להקשר: אם הוזרקו לתור תוצאות חיפוש חי (עובדות/משפט/חדשות) — Gemini עונה ראשון.
+        // gpt-oss מוכח כמי שמתעלם מהתוצאות המוזרקות וממציא (פסקי דין/חדשות שגויים), Gemini נצמד להקשר.
+        let _grounded = false;
+        try {
+            const _lu = [...messages].reverse().find(m => m.role === 'user' && typeof m.content === 'string');
+            _grounded = !!_lu && /\[מידע עדכני מהאינטרנט\]|\[תוצאות חיפוש משפטי|\[מבזק חדשות|\[תוצאות חיפוש אמיתיות\]|\[מידע עדכני מהאינטרנט/i.test(_lu.content);
+        } catch (e) {}
         // מעבר אמון: Cohere הוסר לגמרי (הוזה מוכח). המודלים הראשיים (3.5 PRO/FLASH) לא נופלים למנוע חלש בכלל —
         // רק gpt-oss + Gemini (החזקים). אם שניהם נופלים → שגיאה כנה ("נסה שוב"), לא זיוף. המודלים הבסיסיים (2.0/3.0) עדיין Mistral כראשי + גיבוי חזק.
+        if (_grounded) return [_sGem, _sGpt, _sGpt2];                        // עובדות/משפט/חדשות — Gemini ראשון (נצמד לתוצאות), בכל טייר
         if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt];                  // 2.0 PRO — Mistral ראשי + גיבוי חזק
         if (_mid === '3.0')    return [_sMis, _sGem, _sGpt];                  // 3.0 FLASH — Mistral ראשי + גיבוי חזק
         if (_mid === 'pro')    return [_sGpt, _sGpt2, _sGem];                 // 3.5 PRO — רק חזקים (gpt-oss + Gemini)
@@ -7333,6 +7345,16 @@ async function send() {
         ];
         let newsQuery = q.replace(/^(תסביר לי על|ספר לי על|מה זה|מי זה|מה הוא|תגיד לי על|תאר לי את|תסביר|ספר|תגיד)\s*/i,'').trim();
         const isMilitaryOrNews = ['מלחמה','פיגוע','חדשות','התקפה','ירי','טיל','לחימה','כוחות','חיזבאלה','חמאס','צה"ל','רצח','הפגנה','שב"כ','מוסד'].some(k => q.includes(k));
+        // ⚖️ שאלה משפטית שמבקשת פסיקה/תקדים/סעיף חוק ספציפיים — חובה לחפש מקור אמיתי, לעולם לא להמציא פסק דין.
+        // (הסבר משפטי כללי אינו נכנס לכאן; רק בקשות לפסיקה/סעיף/תקדים ספציפיים שאפשר לשלוח לרשות.)
+        const _isLegalRuling = /(פסק[י\s-]*דין|פסיקה|פסיקת|תקדים|תקדימי|סעיף\s*\d|סעיף\s*חוק|לפי\s*החוק|על\s*פי\s*חוק|כתב\s*אישום|בג["״']?ץ|עת["״']?מ|רע["״']?א|ע["״']?א|ע["״']?פ|ת["״']?פ|בית\s*המשפט|בבית\s*משפט|ערעור|עתירה|תביע|קנס|דו["״']?ח\s*חני|עורך\s*דין|court\s*ruling|case\s*law|legal\s*precedent|lawsuit)/i.test(q);
+        let _legalQuery = '';
+        if (_isLegalRuling) {
+            const _lg2 = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+            _legalQuery = (_lg2 === 'he')
+                ? ('פסיקה תקדים בית משפט ישראל ' + newsQuery + ' site:nevo.co.il OR site:psakdin.co.il OR site:gov.il OR site:takdin.co.il').slice(0,180)
+                : ('court ruling case law ' + newsQuery).slice(0,180);
+        }
         // מבזק חדשות: "תסכם לי את חדשות היום", "מה קורה היום", "כותרות היום", "today's news" —
         // מחפשים את החדשות המובילות בישראל של היום עם התאריך, במקום לחפש את המשפט המילולי.
         const _newsDigest = /(חדשות|מבזק|כותרות|מה\s*קורה|מה\s*חדש|מה\s*התחדש|עדכן\s*אותי|today'?s\s*news|latest\s*news|news\s*today|top\s*news|headlines|what'?s\s*happening)/i.test(q);
@@ -7362,8 +7384,9 @@ async function send() {
             'price','prices','cost','costs','how','much','color','size']);
         const _subjectWords = q.replace(/[?!.,״"'׳]/g,'').split(/\s+/).filter(w => w && !_fillers.has(w.toLowerCase()));
         const _hasSubject = _subjectWords.join('').length >= 2;
-        if (!_isTranslate && (searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews || _dealOrOp || _newsDigest) && (_hasSubject || _newsDigest)) {
-            const preview = (newsQuery||q).length > 38 ? (newsQuery||q).slice(0,38)+'…' : (newsQuery||q);
+        if (!_isTranslate && (searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews || _isLegalRuling || _dealOrOp || _newsDigest) && (_hasSubject || _newsDigest || _isLegalRuling)) {
+            const _qForSearch = _legalQuery || newsQuery || q;
+            const preview = (_qForSearch).length > 38 ? (_qForSearch).slice(0,38)+'…' : (_qForSearch);
             status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(preview)}</b></span>`;
             status.style.display = 'flex';
             // For news/military — also try Ynet directly
@@ -7372,13 +7395,15 @@ async function send() {
             // and that error HTML got appended straight into the results, confusing the model into
             // doubting otherwise-good Tavily results and defaulting to "לא מצאתי מידע". Tavily alone
             // already returns real, current news (verified directly).
-            let results = await webSearch(newsQuery || q);
+            let results = await webSearch(_qForSearch);
             status.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(preview)}</b></span>`;
             // מקורות החיפוש — נאספים ומוצגים באופן קבוע מתחת לתשובה (שקיפות בסגנון Perplexity)
             try { _lastTurnSources = _lastTurnSources.concat(_extractDomains(results)); } catch (e) {}
             const lastMsg = messages[messages.length - 1];
             if (lastMsg && typeof lastMsg.content === 'string') {
-                if (_newsDigest) {
+                if (_isLegalRuling) {
+                    lastMsg.content += `\n\n[תוצאות חיפוש משפטי — מקורות בלבד]:\n${results}\n\n⚖️ הוראה מחייבת: הסתמך אך ורק על התוצאות לעיל. אל תמציא, אל תצטט ואל תזכיר שום פסק דין, מספר תיק, סעיף חוק או תקדים שאינו מופיע מילה-במילה בתוצאות. אם התוצאות אינן כוללות פסיקה אמיתית וברורה שרלוונטית לשאלה — כתוב בדיוק: "לא מצאתי פסיקה אמיתית שאני יכול לאמת — אל תסתמך על זה, ופנה לעורך דין." בכל מקרה, כשמדובר בפסיקה — הוסף בסוף אזהרה שהמשתמש חייב לאמת מול עורך דין לפני שהוא שולח משהו לרשות. לעולם אל תמציא פסק דין שנראה אמיתי.`;
+                } else if (_newsDigest) {
                     lastMsg.content += `\n\n[מבזק חדשות — תוצאות חיפוש חי על החדשות בישראל של היום]:\n${results}\n\nכתוב מבזק חדשות מסודר בשפת המשתמש: פתח בשורת התאריך של היום (${_newsDateStr}), ואז הצג את 4–6 הידיעות/הכותרות המובילות בישראל להיום כרשימה — כל ידיעה בכותרת קצרה ומשפט הסבר. הסתמך אך ורק על תוצאות החיפוש לעיל; דווח רק על אירועים מהיום או סמוך לו. אם אין ידיעות עדכניות של היום בתוצאות — כתוב שלא מצאת חדשות עדכניות של היום, ואל תמציא ואל תשתמש בחדשות ישנות מהאימון שלך.`;
                 } else {
                     lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nאם המידע לעיל מכיל תשובה — ענה לפיו ישירות. אם לא מצאת מידע ספציפי על הנושא — כתוב בדיוק: "לא מצאתי מידע עדכני על זה." ואל תוסיף שום מידע נוסף מהאימון שלך.`;
