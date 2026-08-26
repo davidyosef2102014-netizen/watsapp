@@ -1600,10 +1600,7 @@
             </div>
 
             <div id="img-prev">
-                <div id="img-prev-img" style="position:relative">
-                    <img id="thumb" class="img-thumb" src="" alt="">
-                    <button class="rm-img" onclick="clearFile()">✕</button>
-                </div>
+                <div id="img-prev-img" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
                 <div id="img-prev-doc" style="display:none;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:9px 14px;max-width:260px">
                     <span style="font-size:22px">📄</span>
                     <div style="min-width:0;flex:1">
@@ -1617,7 +1614,7 @@
             <div class="pill">
                 <div class="pill-inner">
                     <label class="p-btn" for="fi" title="צרף תמונה">＋</label>
-                    <input type="file" id="fi" style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json,.docx,.xlsx,.xls,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov" onchange="previewFile()">
+                    <input type="file" id="fi" multiple style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json,.docx,.xlsx,.xls,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov" onchange="previewFile()">
                     <textarea id="userInput" dir="auto" placeholder="שאל את Birgsol AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
@@ -3882,6 +3879,8 @@ function _exitCodeCanvas() {
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
 let mediaFile = null; // קובץ אודיו/וידאו שממתין לתמלול (Whisper) בעת שליחה
 let _lastImg = ""; // התמונה האחרונה שהמשתמש העלה בשיחה — לזכירה בשאלות המשך ("תסתכל שוב", "ההבדל")
+let imgList = []; // כמה תמונות מצורפות להודעה אחת (עד MAX_IMAGES). fileUrl = הראשונה (תאימות לאחור)
+const MAX_IMAGES = 4;
 let _groqCooldownUntil = 0; // כש-Groq מגיע למגבלת קצב, נותנים לו לנוח עד הזמן הזה (במקום לפסול לכל השיחה)
 let _abortCtrl = null;
 let userMemory = []; // durable facts about the user, persisted across conversations (cloud-backed)
@@ -4487,7 +4486,7 @@ document.addEventListener('drop', function(e) {
     const files = e.dataTransfer?.files;
     if (!files || !files.length) return;
     for (const file of files) {
-        if (file.type.startsWith('image/')) { _loadImageBlob(file); return; }
+        if (file.type.startsWith('image/')) _loadImageBlob(file); // כל התמונות שנגררו — עד MAX_IMAGES
     }
 }, false);
 
@@ -4500,10 +4499,7 @@ function _drawResized(img, w, h) {
     const cv = document.createElement('canvas');
     cv.width = w; cv.height = h;
     cv.getContext('2d').drawImage(img, 0, 0, w, h);
-    fileUrl = cv.toDataURL('image/jpeg', 0.80);
-    document.getElementById('thumb').src = fileUrl;
-    document.getElementById('img-prev').classList.add('on');
-    updateBtn();
+    _addImageToList(cv.toDataURL('image/jpeg', 0.80));
     if (img.close) img.close(); // release ImageBitmap memory
 }
 function _loadImageBlobLegacy(blob) {
@@ -4512,12 +4508,7 @@ function _loadImageBlobLegacy(blob) {
         const original = e.target.result;
         const tmpImg = new Image();
         tmpImg.onload = () => _drawResized(tmpImg, tmpImg.width, tmpImg.height);
-        tmpImg.onerror = () => {
-            fileUrl = original;
-            document.getElementById('thumb').src = original;
-            document.getElementById('img-prev').classList.add('on');
-            updateBtn();
-        };
+        tmpImg.onerror = () => { _addImageToList(original); };
         tmpImg.src = original;
     };
     reader.readAsDataURL(blob);
@@ -4537,8 +4528,16 @@ function _loadImageBlob(blob) {
 
 /* ── file ── */
 function previewFile() {
-    const f = document.getElementById('fi').files[0];
-    if (!f) return;
+    const _fl = document.getElementById('fi').files;
+    if (!_fl || !_fl.length) return;
+    // אם נבחרו תמונות — טען את כולן (עד MAX_IMAGES); קבצי מסמך/מדיה נשארים אחד בכל פעם
+    if (_fl[0].type.startsWith('image/')) {
+        fileContent = ''; fileName = '';
+        for (const f of _fl) { if (f.type.startsWith('image/')) _loadImageBlob(f); }
+        document.getElementById('fi').value = '';
+        return;
+    }
+    const f = _fl[0];
     if (f.type.startsWith('image/')) {
         fileContent = ''; fileName = '';
         _loadImageBlob(f);
@@ -4685,12 +4684,41 @@ async function _loadXlsx(file) {
 }
 
 function clearFile() {
-    fileUrl = ""; fileContent = ""; fileName = ""; mediaFile = null;
+    fileUrl = ""; fileContent = ""; fileName = ""; mediaFile = null; imgList = [];
     document.getElementById('img-prev').classList.remove('on');
     document.getElementById('img-prev-img').style.display = '';
+    document.getElementById('img-prev-img').innerHTML = '';
     document.getElementById('img-prev-doc').style.display = 'none';
     document.getElementById('img-prev-label').style.display = '';
     document.getElementById('fi').value = "";
+    updateBtn();
+}
+
+// ── כמה תמונות בהודעה אחת ──
+function _addImageToList(dataUrl) {
+    if (!dataUrl) return;
+    if (imgList.length >= MAX_IMAGES) { try { _alert('אפשר לצרף עד ' + MAX_IMAGES + ' תמונות בהודעה אחת.'); } catch (e) {} return; }
+    imgList.push(dataUrl);
+    fileUrl = imgList[0]; // הראשונה = הראשית (אירוח, זיכרון, תצוגה) — תאימות לאחור
+    fileContent = ''; fileName = ''; mediaFile = null;
+    _renderImgThumbs();
+    document.getElementById('img-prev').classList.add('on');
+    document.getElementById('img-prev-img').style.display = 'flex';
+    document.getElementById('img-prev-doc').style.display = 'none';
+    document.getElementById('img-prev-label').style.display = 'none';
+    updateBtn();
+}
+function _renderImgThumbs() {
+    const box = document.getElementById('img-prev-img');
+    box.innerHTML = imgList.map((u, i) =>
+        `<div style="position:relative;display:inline-block;line-height:0"><img src="${encodeURI(u)}" class="img-thumb" alt=""><button class="rm-img" style="position:absolute;top:-6px;right:-6px;margin:0" onclick="_removeImg(${i})">✕</button></div>`
+    ).join('');
+}
+function _removeImg(i) {
+    imgList.splice(i, 1);
+    if (!imgList.length) { clearFile(); return; }
+    fileUrl = imgList[0];
+    _renderImgThumbs();
     updateBtn();
 }
 
@@ -4710,7 +4738,8 @@ function addMsg(role, text, img = null, md = false, fileLabel = '') {
 
     if (role === 'user') {
         row.className = 'msg-row user';
-        const imgH = img ? `<img src="${encodeURI(img)}" class="user-img" alt="תמונה">` : '';
+        const _imgArr = Array.isArray(img) ? img : (img ? [img] : []);
+        const imgH = _imgArr.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${_imgArr.map(u => `<img src="${encodeURI(u)}" class="user-img" alt="תמונה">`).join('')}</div>` : '';
         const fileH = fileLabel ? `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);border-radius:8px;padding:4px 8px;font-size:12px;margin-top:4px">📄 ${esc2(fileLabel)}</div>` : '';
         row.dataset.histBefore = hist.length;
         row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה">${IC.pencil}</button><div class="user-bub">${escHtml(text).replace(/\n/g,'<br>')}${imgH}${fileH ? '<br>' + fileH : ''}</div></div>`;
@@ -7252,23 +7281,24 @@ async function send() {
 
     if (!_quotaOK()) { _quotaBlock(q, fileUrl); return; }
 
-    const img = fileUrl;
+    const _imgs = imgList.slice(); // צילום של כל התמונות המצורפות (עד MAX_IMAGES)
+    const img = fileUrl; // הראשונה — לתאימות לאחור (זיכרון/הפניה)
     const attachedFile = fileContent;
     const attachedName = fileName;
     if (img) _lastImg = img; // זכור את התמונה האחרונה שהועלתה
     // שאלת המשך שמתייחסת לתמונה בלי העלאה חדשה — צרף אוטומטית את התמונה האחרונה כדי שהמודל "יזכור" אותה
     const _refImg = (!img && _lastImg && /תמונ|בצילום|תסתכל|תראה|הזאת|הזו|הזה|רואה|ההבדל|הכלב|בה |look|image|picture|photo|\bthis\b/i.test(q)) ? _lastImg : null;
-    addMsg('user', q, img, false, attachedFile ? attachedName : '');
-    // תמונה שהמשתמש העלה — מארחים אותה ומצרפים קישור להודעה, כדי שתישמר ותוצג גם אחרי רענון
+    addMsg('user', q, _imgs.length ? _imgs : null, false, attachedFile ? attachedName : '');
+    // תמונות שהמשתמש העלה — מארחים את כולן ומצרפים קישור להודעה, כדי שיישמרו ויוצגו גם אחרי רענון
     const _userMsgIdx = hist.length - 1;
-    if (img && typeof img === 'string' && img.startsWith('data:')) {
-        _hostImage(img).then(url => {
+    _imgs.filter(u => typeof u === 'string' && u.startsWith('data:')).forEach(u => {
+        _hostImage(u).then(url => {
             if (url && hist[_userMsgIdx] && hist[_userMsgIdx].role === 'user' && typeof hist[_userMsgIdx].content === 'string') {
                 hist[_userMsgIdx].content += `\n[IMG:${url}]`;
                 saveConversation();
             }
         }).catch(() => {});
-    }
+    });
     inp.value = ''; inp.style.height = 'auto';
     clearFile(); busy = true; updateBtn();
 
@@ -7302,11 +7332,11 @@ async function send() {
         _ctx.unshift({ role: hist[i].role, content });
     }
     _ctx.forEach(m => messages.push(m));
-    if (img || _refImg) {
-        messages.push({ role: 'user', content: [
-            { type: 'text', text: q || 'מה בתמונה?' },
-            { type: 'image_url', image_url: { url: img || _refImg } }
-        ]});
+    if (_imgs.length || _refImg) {
+        const _parts = [{ type: 'text', text: q || (_imgs.length > 1 ? 'מה בתמונות?' : 'מה בתמונה?') }];
+        if (_imgs.length) _imgs.forEach(u => _parts.push({ type: 'image_url', image_url: { url: u } }));
+        else _parts.push({ type: 'image_url', image_url: { url: _refImg } });
+        messages.push({ role: 'user', content: _parts });
     } else if (attachedFile) {
         if (attachedFile.length > 12000) {
             // מסמך ארוך — map-reduce: מחלצים מכל חלק את הרלוונטי לשאלה, כדי לא לחרוג מתקרת ה-TPM ולתמוך במסמכים ארוכים מאוד
