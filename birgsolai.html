@@ -5522,19 +5522,20 @@ async function _trySerper(query) {
     } catch { return null; }
 }
 async function webSearch(query) {
-    // Serper (גוגל + מקומי ישראל, עברית) הוא המקור הראשי והמהיר. Tavily רץ במקביל אבל לא מעכב:
-    // אם Serper כבר החזיר תשובה טובה — נותנים ל-Tavily רק ~2ש' להעשיר ואז ממשיכים (במקום להמתין עד 15ש').
-    const serperP = _trySerper(query);
-    const tavilyP = _tryTavily(query).catch(() => null);
-    const sp = await serperP.catch(() => null);
-    let tv = null;
+    // Tavily (advanced) הוא המקור הראשי — מחזיר תשובה מסונתזת נקייה ומדויקת. Serper (גוגל/מקומי ישראל) רץ
+    // במקביל כגיבוי והעשרה: אם Tavily החזיר תשובה — נותנים ל-Serper ~2.5ש' להוסיף; אם Tavily ריק (קורה בעברית) —
+    // נותנים ל-Serper עד 8ש' כדי להבטיח כיסוי (גוגל חזק בעברית ובתוצאות מקומיות).
+    const tavilyP = _tryTavily(query);
+    const serperP = _trySerper(query).catch(() => null);
+    const tv = await tavilyP.catch(() => null);
+    let sp = null;
     try {
-        const raced = await Promise.race([tavilyP, new Promise(r => setTimeout(() => r('__t__'), sp ? 3000 : 11000))]);
-        tv = (raced === '__t__') ? null : raced;
-    } catch { tv = null; }
+        const raced = await Promise.race([serperP, new Promise(r => setTimeout(() => r('__t__'), tv ? 2500 : 8000))]);
+        sp = (raced === '__t__') ? null : raced;
+    } catch { sp = null; }
     let merged = '';
-    if (sp) merged += sp + '\n\n';
-    if (tv) merged += tv + '\n\n';
+    if (tv) merged += tv + '\n\n';   // Tavily ראשון — התשובה המדויקת
+    if (sp) merged += sp + '\n\n';   // Serper — העשרה/כיסוי מקומי
     if (merged.trim()) return merged.trim();
     console.warn('[search] Serper+Tavily both empty, trying English + free chain');
     // עברית לרוב מחזירה ריק ב-Tavily — מתרגמים לאנגלית ומנסים שוב (זה מה שבאמת מוצא את התשובה)
