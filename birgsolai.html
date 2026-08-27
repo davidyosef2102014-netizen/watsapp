@@ -6673,10 +6673,12 @@ async function callAI(messages, onChunk, signal=null) {
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
         // במצב קוד Gemini הוא לרוב המנוע שבפועל עונה (Groq נחנק ב-429 על פרומפט גדול) — לכן צריך תקרת פלט גדולה כדי שלא ייחתך קוד ארוך.
         const _codeNow = (typeof currentMode !== 'undefined' && currentMode === 'code');
-        const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+        // gemini-3.6-flash — המודל החדש (gemini-flash-latest נותב למשהו עמוס/503). נבדק חי: עברית מושלמת ב-3ש.
+        // ⚠️ ה-3.6 דוחה thinkingConfig.thinkingBudget (HTTP 400) — לכן לא שולחים אותו כאן.
+        const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, thinkingConfig: { thinkingBudget: 0 } } }),
+            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048 } }),
             signal: AbortSignal.timeout(_codeNow ? 30000 : 14000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
@@ -6793,8 +6795,10 @@ async function callAI(messages, onChunk, signal=null) {
     ] : (function () {
         // סדר השרשרת לפי המודל שהמשתמש בחר בבורר — הנבחר ראשון, השאר כגיבוי
         const _sGem  = { name: 'Gemini',   fn: () => _tryGemini().then(_tw) };
-        const _sGpt  = { name: 'gpt-oss',  fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) };
-        const _sGpt2 = { name: 'gpt-oss2', fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) };
+        // צ'אט ראשי = gpt-oss-20b: נבדק חי (UTF-8 תקין) — עברית מושלמת ב-0.75 שניות, וקטן פי-6 מ-120b → מהיר ופחות 429.
+        const _sGpt  = { name: 'gpt-oss-20b',  fn: () => _groqGuard({ model: 'openai/gpt-oss-20b', messages, ..._chatCfg }) };
+        // gpt-oss-120b = גיבוי איכות למקרים קשים (חזק אך איטי/כבד).
+        const _sGpt2 = { name: 'gpt-oss-120b', fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) };
         const _sMis  = { name: 'Mistral',  fn: () => _tryMistral().then(_tw) };
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
         const _mid = (typeof currentModelId === 'function') ? currentModelId() : 'flash';
@@ -6812,8 +6816,8 @@ async function callAI(messages, onChunk, signal=null) {
         if (_grounded) return [_sGem, _sGpt];                                // עובדות/משפט/חדשות — Gemini ראשון (נצמד לתוצאות), בכל טייר
         if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt];                  // 2.0 PRO — Mistral ראשי + גיבוי חזק
         if (_mid === '3.0')    return [_sMis, _sGem, _sGpt];                  // 3.0 FLASH — Mistral ראשי + גיבוי חזק
-        if (_mid === 'pro')    return [_sGpt, _sGem];                         // 3.5 PRO — gpt-oss ראשי, Gemini גיבוי (בלי gpt-oss כפול)
-        return [_sGem, _sGpt];                                               // 3.5 FLASH — Gemini ראשי, gpt-oss גיבוי
+        if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2];                 // 3.5 PRO — gpt-oss-20b מהיר ראשי, Gemini גיבוי, gpt-oss-120b לאיכות
+        return [_sGpt, _sGem];                                               // 3.5 FLASH — gpt-oss-20b מהיר ראשי, Gemini גיבוי
     })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
