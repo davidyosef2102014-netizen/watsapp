@@ -6816,8 +6816,8 @@ async function callAI(messages, onChunk, signal=null) {
         if (_grounded) return [_sGem, _sGpt];                                // עובדות/משפט/חדשות — Gemini ראשון (נצמד לתוצאות), בכל טייר
         if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt];                  // 2.0 PRO — Mistral ראשי + גיבוי חזק
         if (_mid === '3.0')    return [_sMis, _sGem, _sGpt];                  // 3.0 FLASH — Mistral ראשי + גיבוי חזק
-        if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2];                 // 3.5 PRO — gpt-oss-20b מהיר ראשי, Gemini גיבוי, gpt-oss-120b לאיכות
-        return [_sGpt, _sGem];                                               // 3.5 FLASH — gpt-oss-20b מהיר ראשי, Gemini גיבוי
+        if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2];                 // 3.5 PRO — gpt-oss (20b מהיר ראשי, 120b לאיכות), Gemini גיבוי
+        return [_sGem, _sGpt];                                               // 3.5 FLASH — Gemini 3.6 (החדש) ראשי, gpt-oss-20b גיבוי
     })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
