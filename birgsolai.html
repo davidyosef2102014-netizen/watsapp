@@ -34,6 +34,25 @@
 
     <!-- אימות Google Search Console — הדבק כאן את התג ש-Google ייתן לך (שיטת "תג HTML"):
     <meta name="google-site-verification" content="הקוד-שלך-מגוגל"> -->
+    <!-- נתונים מובנים — שם האתר והלוגו בתוצאות גוגל (במקום "GitHub Pages" והגלובוס) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "BIRGSOL AI",
+      "alternateName": "BIRGSOL",
+      "url": "https://davidyosef2102014-netizen.github.io/watsapp/birgsolai.html"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "BIRGSOL AI",
+      "url": "https://davidyosef2102014-netizen.github.io/watsapp/birgsolai.html",
+      "logo": "https://davidyosef2102014-netizen.github.io/watsapp/birgsol-icon-192.png"
+    }
+    </script>
     <!-- ===== סוף SEO ===== -->
 
     <!-- PWA — התקנה כאפליקציה -->
@@ -7332,6 +7351,7 @@ async function send() {
         const _mObj = (typeof MODELS !== 'undefined' && typeof currentModelId === 'function') ? MODELS.find(m => m.id === currentModelId()) : null;
         const _brand = _mObj ? _mObj.brand : 'BIRGSOL AI 3.5';
         messages[0].content += `\n\n[מי אתה כרגע] אתה BIRGSOL AI, גרסה 3.5, שנבנה ע"י דוד יוסף זאבי. כרגע אתה פועל על המודל "${_brand}" ובמצב "${_modeName}". אם המשתמש שואל על איזו גרסה/מודל/מצב אתה רץ — ענה במדויק לפי זה (לדוגמה: "אני BIRGSOL AI 3.5, רץ עכשיו על ${_brand} במצב ${_modeName}"). אל תמציא שמות מודלים חיצוניים.`;
+        messages[0].content += `\n\n[היכולות שלך — יש לך את כולן בפועל, לעולם אל תגיד שאין לך אותן]:\n✔️ ליצור תמונות מתיאור — כשמבקשים "צור/צייר/תעשה תמונה/איור/לוגו" פלוט שורת [IMAGE: description in English] והמערכת מייצרת אותה באמת.\n✔️ לערוך תמונות שהמשתמש מעלה — כשהוא מעלה תמונה ומבקש שינוי, המערכת עורכת אותה באמת ברמת הפיקסלים. לעולם אל תגיד "אני לא יכול לערוך תמונות" — אתה כן יכול, וזה עובד.\n✔️ לראות ולנתח תמונות שהמשתמש מעלה (ראייה ממשית).\n✔️ לחפש מידע חי ועדכני באינטרנט ([SEARCH]).\n✔️ לקרוא מסמכים מצורפים (Word/PDF/Excel/טקסט).\n✔️ לכתוב ולהריץ קוד.\nכשמבקשים ממך משהו שאחת היכולות האלה מכסה — פשוט בצע, אל תסרב ואל תמעיט בעצמך.\n⚠️ פתרון הפניות בתמונות: כשמבקשים "צור איור של זה" / "תמונה של זה" / "תצייר את זה" — המילה "זה" מתייחסת ל**נושא האחרון שדיברתם עליו בשיחה**. כלול אותו במפורש ובמלואו בתוך [IMAGE: ...]. לעולם אל תיצור נושא אקראי שלא קשור לשיחה (למשל "שלג") — אם באמת לא ברור למה הכוונה, שאל.`;
     } catch (e) {}
     // תיקייה מחוברת + שמירה אוטומטית → מזכירים למודל (בכל מצב) לשמור כל קוד בשם יציב כדי שעריכות ידרסו את אותו קובץ
     if (typeof _bsDir !== 'undefined' && _bsDir && localStorage.getItem('birgsol_autosave_code') !== '0') {
