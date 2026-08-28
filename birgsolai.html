@@ -1046,7 +1046,25 @@
         }
         .live-transcript.ai-speaking { color:#2f86d6; }
 
-        .live-controls { display:flex; gap:12px; align-items:center; z-index:1; }
+        .live-controls { display:flex; gap:16px; align-items:center; z-index:1; width:min(86vw,400px); justify-content:flex-start; }
+        /* חמש נקודות מהבהבות מעל הכיתוב — כמו Qwen */
+        .live-dots { display:flex; gap:8px; z-index:1; margin-bottom:-14px; }
+        .live-dots i { width:7px; height:7px; border-radius:50%; background:rgba(40,55,90,.4); animation:dotPulse 1.35s ease-in-out infinite; }
+        .live-dots i:nth-child(2){ animation-delay:.15s } .live-dots i:nth-child(3){ animation-delay:.3s } .live-dots i:nth-child(4){ animation-delay:.45s } .live-dots i:nth-child(5){ animation-delay:.6s }
+        @keyframes dotPulse { 0%,100%{ opacity:.3; transform:scale(.8) } 50%{ opacity:1; transform:scale(1.15) } }
+        /* כפתורים עגולים בסגנון Qwen */
+        .live-rbtn {
+            width:60px; height:60px; border-radius:50%; flex-shrink:0; cursor:pointer;
+            background:rgba(40,70,130,.07); border:1px solid rgba(0,0,0,.06); color:#334155;
+            display:flex; align-items:center; justify-content:center; transition:all .18s;
+        }
+        .live-rbtn:hover { background:rgba(40,70,130,.13); }
+        .live-rbtn.end { background:rgba(244,63,94,.12); color:#e11d48; border-color:rgba(244,63,94,.18); }
+        .live-rbtn.end:hover { background:rgba(244,63,94,.2); }
+        .live-rbtn.mic-right { margin-inline-start:auto; }
+        .live-rbtn.muted { background:rgba(244,63,94,.14); color:#e11d48; border-color:rgba(244,63,94,.22); }
+        .live-rbtn.cam-on { background:rgba(59,130,246,.16); color:#2563eb; border-color:rgba(59,130,246,.35); }
+        .live-model-label { font-size:12px; color:rgba(40,55,90,.42); z-index:1; letter-spacing:.3px; margin-top:2px; }
         .live-end-btn {
             padding:12px 32px; border-radius:50px;
             background:rgba(40,80,140,.06); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
@@ -1078,9 +1096,11 @@
         }
         /* מעל המצלמה — טקסט לבן עם צל וכפתורים לבנים, קריאים על כל רקע */
         #live-cam-video.on ~ .live-status,
-        #live-cam-video.on ~ .live-transcript { color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.78); }
-        #live-cam-video.on ~ .live-controls .live-mute-btn,
-        #live-cam-video.on ~ .live-controls .live-end-btn { background:rgba(255,255,255,.92); border-color:rgba(255,255,255,.55); color:#1e293b; }
+        #live-cam-video.on ~ .live-transcript,
+        #live-cam-video.on ~ .live-model-label { color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.78); }
+        #live-cam-video.on ~ .live-controls .live-rbtn { background:rgba(255,255,255,.94); border-color:rgba(255,255,255,.6); color:#1e293b; }
+        #live-cam-video.on ~ .live-controls .live-rbtn.end { color:#e11d48; }
+        #live-cam-video.on ~ .live-dots i { background:rgba(255,255,255,.85); }
         #live-cam-video.on ~ .live-header { display:none; }
         #live-cam-video.seeing { border-color:rgba(94,234,212,.9); box-shadow:0 0 20px rgba(94,234,212,.5); }
         #live-cam-flip {
@@ -1435,13 +1455,15 @@
         <span class="live-header-info">GPT-4o · עדכון אפריל 2024 · 🌐 אינטרנט</span>
     </div>
     <div class="live-orb" id="live-orb"></div>
+    <div class="live-dots"><i></i><i></i><i></i><i></i><i></i></div>
     <div class="live-status" id="live-status">לחץ להתחלה</div>
-    <div class="live-transcript" id="live-transcript">BIRGSOL AI 3.5 מוכן לשיחה קולית</div>
-    <div class="live-controls">
-        <button class="live-mute-btn" id="live-mute-btn" onclick="toggleLiveMute()" title="השתק מיקרופון"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
-        <button class="live-mute-btn" id="live-cam-btn" onclick="toggleLiveCam()" title="מצלמה"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
-        <button class="live-end-btn" onclick="endLive()">✕ סיים שיחה</button>
+    <div class="live-transcript" id="live-transcript"></div>
+    <div class="live-controls" dir="ltr">
+        <button class="live-rbtn end" onclick="endLive()" title="סיים שיחה"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="live-rbtn" id="live-cam-btn" onclick="toggleLiveCam()" title="מצלמה"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
+        <button class="live-rbtn mic-right" id="live-mute-btn" onclick="toggleLiveMute()" title="מיקרופון"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
     </div>
+    <div class="live-model-label">BIRGSOL AI 3.5</div>
 </div>
 
 <!-- ══ SIDEBAR ══ -->
