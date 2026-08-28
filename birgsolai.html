@@ -1020,16 +1020,20 @@
         .live-orb {
             position:relative; z-index:1; pointer-events:none; overflow:hidden;
             width:min(64vw,300px); aspect-ratio:1; border-radius:50%;
-            background:linear-gradient(168deg, #8ba0f2 0%, #a6b6f6 46%, #c8d3fb 100%);
+            background:#f0e8ff;
             box-shadow:0 0 80px rgba(150,170,240,.5), 0 0 175px rgba(150,170,240,.28);
             animation:orbBreathe 5s ease-in-out infinite;
             transition:transform .25s ease;
         }
-        /* גל נוזלי כמו ChatGPT: הכדור כחול, ו"נוזל" לבן ממלא מלמטה עם גבול עליון גלי שזז (שתי שכבות מסתובבות בקצב שונה = גלים חיים) */
-        .live-orb::before, .live-orb::after { content:''; position:absolute; width:200%; height:200%; left:-50%; }
-        .live-orb::before { top:36%; border-radius:43%; background:rgba(255,255,255,.92); animation:orbWave 7s linear infinite; }
-        .live-orb::after  { top:41%; border-radius:47%; background:rgba(255,255,255,.5);  animation:orbWave 11s linear infinite reverse; }
-        @keyframes orbWave { to { transform:rotate(360deg); } }
+        /* ענן צבעוני שזורם כמו גל — שילוב כחול/ורוד/סגול/לבן שמתערבל ונע (גרסה B שדוד בחר) */
+        .live-orb b { position:absolute; border-radius:50%; filter:blur(32px); }
+        .live-orb b:nth-child(1){ width:80%; height:80%; top:-6%; left:-8%; background:radial-gradient(circle,#6a7dff,transparent 62%); animation:orbCwA 7s ease-in-out infinite; }
+        .live-orb b:nth-child(2){ width:75%; height:75%; bottom:-8%; right:-6%; background:radial-gradient(circle,#ff8fd0,transparent 62%); animation:orbCwB 9s ease-in-out infinite; }
+        .live-orb b:nth-child(3){ width:62%; height:62%; top:28%; left:22%; background:radial-gradient(circle,#b57cff,transparent 60%); animation:orbCwC 10s ease-in-out infinite; }
+        .live-orb b:nth-child(4){ width:66%; height:66%; top:10%; right:8%; background:radial-gradient(circle,rgba(255,255,255,.85),transparent 55%); animation:orbCwB 8s ease-in-out infinite; }
+        @keyframes orbCwA { 0%,100%{ transform:translate(-14%,6%) scale(1) } 50%{ transform:translate(12%,-8%) scale(1.2) } }
+        @keyframes orbCwB { 0%,100%{ transform:translate(12%,-6%) scale(1.15) } 50%{ transform:translate(-12%,8%) scale(.95) } }
+        @keyframes orbCwC { 0%,100%{ transform:translate(0,10%) scale(1.1) } 50%{ transform:translate(8%,-10%) scale(.9) } }
         @keyframes orbBreathe { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.055); } }
         .live-orb.speaking { animation:orbSpeak .9s ease-in-out infinite; box-shadow:0 0 110px rgba(140,205,250,.65), 0 0 210px rgba(150,205,245,.4), inset 22px 26px 70px rgba(255,255,255,.7); }
         @keyframes orbSpeak { 0%,100%{ transform:scale(1.03); } 50%{ transform:scale(1.13); } }
@@ -1453,7 +1457,7 @@
         <span class="live-header-name">BIRGSOL AI 3.5</span>
         <span class="live-header-info">GPT-4o · עדכון אפריל 2024 · 🌐 אינטרנט</span>
     </div>
-    <div class="live-orb" id="live-orb"></div>
+    <div class="live-orb" id="live-orb"><b></b><b></b><b></b><b></b></div>
     <div class="live-dots"><i></i><i></i><i></i><i></i><i></i></div>
     <div class="live-status" id="live-status">לחץ להתחלה</div>
     <div class="live-transcript" id="live-transcript"></div>
