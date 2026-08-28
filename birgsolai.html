@@ -7985,7 +7985,7 @@ async function _callAILive(messages) {
 
     // 🧪 יום ניסוי — Qwen (Alibaba) כמודל הקול הראשי. אם נכשל/ריק → נופל לשרשרת הרגילה (Groq+Gemini).
     // (הדליפה לסינית מרוסנת ע"י מנקה ה-CJK שמופעל על התשובה לפני ההקראה.)
-    try { return await _ghProxy('qwen', '/compatible-mode/v1/chat/completions', { model: 'qwen-max', messages: short, ...cfg }, { signal: AbortSignal.timeout(12000) })
+    try { return await _ghProxy('qwen', '/compatible-mode/v1/chat/completions', { model: 'qwen-flash', messages: short, ...cfg }, { signal: AbortSignal.timeout(9000) })
         .then(r => { if (!r.ok) throw new Error('qwen ' + r.status); return r.json(); }).then(_pick); } catch(_) {}
 
     // מירוץ מקבילי Groq+Gemini — גיבוי אם Qwen נפל. ואז Mistral, ואז Cohere.
