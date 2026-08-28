@@ -1064,7 +1064,18 @@
             border-radius:16px; border:2px solid rgba(255,255,255,.22); box-shadow:0 6px 24px rgba(0,0,0,.5);
             transform:scaleX(-1); z-index:6; display:none; background:#000;
         }
-        #live-cam-video.on { display:block; }
+        /* מצלמה דולקת = מסך מלא (כמו Qwen). pointer-events:none כדי שהקשה תעבור לקנבס (הפעלה/עצירה). */
+        #live-cam-video.on {
+            display:block; position:absolute; inset:0; top:0; left:0; right:auto;
+            width:100vw; height:100vh; border-radius:0; border:none; box-shadow:none;
+            z-index:0; pointer-events:none;
+        }
+        /* מעל המצלמה — טקסט לבן עם צל וכפתורים לבנים, קריאים על כל רקע */
+        #live-cam-video.on ~ .live-status,
+        #live-cam-video.on ~ .live-transcript { color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.78); }
+        #live-cam-video.on ~ .live-controls .live-mute-btn,
+        #live-cam-video.on ~ .live-controls .live-end-btn { background:rgba(255,255,255,.92); border-color:rgba(255,255,255,.55); color:#1e293b; }
+        #live-cam-video.on ~ .live-header { display:none; }
         #live-cam-video.seeing { border-color:rgba(94,234,212,.9); box-shadow:0 0 20px rgba(94,234,212,.5); }
         #live-cam-flip {
             position:absolute; top:200px; right:20px; width:34px; height:34px; border-radius:50%;
