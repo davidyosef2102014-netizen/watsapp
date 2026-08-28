@@ -1020,17 +1020,17 @@
         .live-orb {
             position:relative; z-index:1; pointer-events:none; overflow:hidden;
             width:min(64vw,300px); aspect-ratio:1; border-radius:50%;
-            background:radial-gradient(circle at 50% 42%, #f4f6ff 0%, #d3ddfb 48%, #b3bef5 76%, #9aa6f0 100%);
+            background:radial-gradient(circle at 50% 40%, #eef1ff 0%, #ccd6fb 55%, #aab6f3 100%);
             box-shadow:0 0 80px rgba(150,165,240,.5), 0 0 175px rgba(150,165,240,.28);
             animation:orbBreathe 4.5s ease-in-out infinite;
             transition:transform .25s ease;
         }
-        /* עננים כחול-סגול שמסתובבים בתוך הכדור — נותנים תחושת תנועה חיה (כמו Qwen) */
-        .live-orb::before, .live-orb::after { content:''; position:absolute; inset:-28%; border-radius:50%; filter:blur(26px); }
-        .live-orb::before { background:radial-gradient(circle at 34% 32%, rgba(110,135,250,.9), transparent 58%); animation:orbSwirlA 9s linear infinite; }
-        .live-orb::after  { background:radial-gradient(circle at 68% 66%, rgba(178,150,255,.85), transparent 56%); animation:orbSwirlB 13s linear infinite; }
-        @keyframes orbSwirlA { to { transform:rotate(360deg); } }
-        @keyframes orbSwirlB { to { transform:rotate(-360deg); } }
+        /* עננים כחול-סגול שנעים ברור על פני הכדור — תנועה חיה נראית לעין (כמו Qwen) */
+        .live-orb::before, .live-orb::after { content:''; position:absolute; width:80%; height:80%; border-radius:50%; filter:blur(20px); }
+        .live-orb::before { top:5%; left:0; background:radial-gradient(circle, rgba(78,105,250,.95), transparent 62%); animation:orbDriftA 6s ease-in-out infinite; }
+        .live-orb::after  { bottom:2%; right:0; background:radial-gradient(circle, rgba(168,120,255,.92), transparent 60%); animation:orbDriftB 7.5s ease-in-out infinite; }
+        @keyframes orbDriftA { 0%,100%{ transform:translate(-12%,-8%) scale(1) } 50%{ transform:translate(20%,16%) scale(1.25) } }
+        @keyframes orbDriftB { 0%,100%{ transform:translate(14%,10%) scale(1.15) } 50%{ transform:translate(-16%,-12%) scale(.9) } }
         @keyframes orbBreathe { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.055); } }
         .live-orb.speaking { animation:orbSpeak .9s ease-in-out infinite; box-shadow:0 0 110px rgba(140,205,250,.65), 0 0 210px rgba(150,205,245,.4), inset 22px 26px 70px rgba(255,255,255,.7); }
         @keyframes orbSpeak { 0%,100%{ transform:scale(1.03); } 50%{ transform:scale(1.13); } }
