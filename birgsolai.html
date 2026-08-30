@@ -8227,6 +8227,7 @@ async function _liveLoop() {
     // ── 2. Think ──
     _setLiveState('thinking');
     _startThinkSound(); // צליל חשיבה בזמן שהוא חושב
+    const _tThink0 = performance.now(); // 🔧 מדידת זמן — אבחון מהירות לייב
     // Search if the query sounds like a factual/real-time question
     let liveSearchCtx = '';
     const _liveNeedsSearch = /מחיר|כמה עולה|שער דולר|מזג אוויר|חדשות|תוצאות|ניקוד|weather|price of|news today|stock price/i.test(transcript);
@@ -8286,7 +8287,11 @@ async function _liveLoop() {
     _stopThinkSound(); // עצור את צליל החשיבה כשמתחילים לענות
     if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
     _setLiveState('speaking');
-    document.getElementById('live-transcript').textContent = ''; // בלי טקסט — רק קול
+    const _thinkS = ((performance.now() - _tThink0) / 1000).toFixed(1); // 🔧 זמן חשיבה (STT→תשובה)
+    const _tSpeak0 = performance.now();
+    // 🔧 אבחון: מציג כמה זמן לקחה החשיבה, ומעדכן את זמן הדיבור בזמן אמת
+    const _diagEl = document.getElementById('live-transcript');
+    const _diagTimer = setInterval(() => { if (_diagEl) _diagEl.textContent = `⏱ חשיבה ${_thinkS}ש · דיבור ${((performance.now()-_tSpeak0)/1000).toFixed(1)}ש`; }, 200);
 
     // תקרת זמן להקראה — קוטעים רק אם הוא באמת נתקע (עבר את התקרה), לא כשסיים תקין
     let _spokeDone = false;
@@ -8294,6 +8299,7 @@ async function _liveLoop() {
         _liveSpeakText(reply).then(() => { _spokeDone = true; }),
         new Promise(r => setTimeout(r, 35000))
     ]);
+    clearInterval(_diagTimer); // 🔧 עוצר את מד הזמן
     if (!_spokeDone) { // נתקע — עוצרים כדי לא לתקוע את הלולאה
         try { window.speechSynthesis.cancel(); } catch(_) {}
         if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(_) {} _liveCurrentAudio = null; }
