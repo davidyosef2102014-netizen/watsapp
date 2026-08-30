@@ -8070,14 +8070,14 @@ async function _callAILive(messages) {
     const cfg = { temperature: 0.7, max_tokens: 400 };
     const _pick = j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; };
 
-    const tryGroq = () => _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: short, ...cfg }, { signal: AbortSignal.timeout(9000) })
+    const tryGroq = () => _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: short, ...cfg }, { signal: AbortSignal.timeout(7000) })
         .then(r => { if (!r.ok) throw new Error('groq ' + r.status); return r.json(); }).then(_pick);
 
     const tryGeminiLive = () => {
         const sys = short.find(m => m.role === 'system')?.content || '';
         const contents = short.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
-        return _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents, generationConfig: { maxOutputTokens: 600 } }, { signal: AbortSignal.timeout(10000) })
+        return _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents, generationConfig: { maxOutputTokens: 600 } }, { signal: AbortSignal.timeout(8000) })
             .then(r => { if (!r.ok) throw new Error('g ' + r.status); return r.json(); })
             .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
     };
@@ -8639,14 +8639,12 @@ async function _speakWithBrowserTTS(text) {
         }
         utt.voice = heVoice; utt.lang = heVoice.lang;
 
-        let done = false;
+        let done = false, started = false;
         let keepAlive;
-        const finish = () => {
-            if (done) return; done = true;
-            clearInterval(keepAlive); resolve(true);
-        };
-        utt.onend  = finish;
-        utt.onerror = (e) => { console.warn('TTS:', e.error); finish(); };
+        const settle = (val) => { if (done) return; done = true; clearInterval(keepAlive); resolve(val); };
+        utt.onstart = () => { started = true; };
+        utt.onend  = () => settle(true);
+        utt.onerror = (e) => { console.warn('TTS:', e.error); settle(false); }; // שגיאה → גיבוי ענן (לא "שתיקה")
 
         // Chrome 14-second bug workaround
         keepAlive = setInterval(() => {
@@ -8656,7 +8654,9 @@ async function _speakWithBrowserTTS(text) {
         }, 10000);
 
         window.speechSynthesis.speak(utt);
-        setTimeout(finish, 45000); // safety: never hang forever
+        // אם ההקראה לא התחילה תוך 1.6ש (הקול המקומי נכשל בשקט) — נופלים לגיבוי TTS בענן במקום שתיקה
+        setTimeout(() => { if (!started && !done) { try { window.speechSynthesis.cancel(); } catch(e){} settle(false); } }, 1600);
+        setTimeout(() => settle(true), 45000); // safety: never hang forever
     });
 }
 
