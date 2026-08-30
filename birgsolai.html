@@ -8367,11 +8367,11 @@ function _liveListenOnce() {
 // in either case we fall back to the browser's built-in speechSynthesis rather than failing silently.
 async function _playElevenLabsTTS(text) {
     try {
-        const res = await _ghFetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`, {
+        const res = await _ghFetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}?output_format=mp3_44100_128`, {
             method: 'POST',
             headers: { 'xi-api-key': ELEVEN_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2' }),
-            signal: AbortSignal.timeout(20000)
+            body: JSON.stringify({ text, model_id: 'eleven_turbo_v2_5' }), // turbo = ~0.4ש (מול ~2ש של multilingual_v2)
+            signal: AbortSignal.timeout(12000)
         });
         if (!res.ok) return false;
         const blob = await res.blob();
@@ -8381,6 +8381,7 @@ async function _playElevenLabsTTS(text) {
         const ok = await new Promise(resolve => {
             let done = false;
             const finish = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
+            audio.onplaying = () => { if (!_liveSoundAt) _liveSoundAt = performance.now(); }; // 🔧 רגע תחילת הקול
             audio.onended = () => finish(true);
             audio.onerror = () => finish(false);
             setTimeout(() => finish(false), 30000); // safety: never hang forever
@@ -8617,10 +8618,13 @@ async function _liveSpeakText(text) {
     // 1. קול מקומי (מיידי כשמותקן קול עברי במכשיר)
     const hadLocalHeb = await _speakWithBrowserTTS(text);
     if (hadLocalHeb || _liveStopped) return;
-    // 2. Gemini TTS — הגיבוי המהיר והאמין (מפתח קיים). הוקדם לפני Google/HF שהיו איטיים וגרמו לעיכוב ~30ש.
+    // 2. ElevenLabs turbo — הכי מהיר (~0.4ש!) וקול איכותי. הגיבוי הראשון. אם נגמרה מכסה (402) → נופל ל-Gemini.
+    const elevenOk = await _playElevenLabsTTS(text);
+    if (elevenOk || _liveStopped) return;
+    // 3. Gemini TTS — איכותי אך איטי (~3ש). גיבוי אם ElevenLabs נכשל/נגמרה מכסה.
     const gemOk = await _playGeminiTTS(text);
     if (gemOk || _liveStopped) return;
-    // 3. גיבויים אחרונים — Google / HuggingFace
+    // 4. גיבויים אחרונים — Google / HuggingFace
     const googleOk = await _playGoogleTTSProxy(text);
     if (googleOk || _liveStopped) return;
     await _playHuggingFaceTTS(text);
