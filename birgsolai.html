@@ -8294,9 +8294,10 @@ async function _liveLoop() {
     // 🔧 אבחון (מנהל בלבד): חשיבה · עד-קול (העיכוב האמיתי) · סה"כ
     const _diagEl = document.getElementById('live-transcript');
     const _isDiagAdmin = (typeof ADMIN_USERS !== 'undefined') && ADMIN_USERS.includes(currentUser);
+    const _hebVoice = (() => { try { return (window.speechSynthesis.getVoices() || []).some(v => /^(he|iw)/i.test(v.lang) || /hebrew|עברית/i.test(v.name)); } catch (e) { return false; } })();
     const _diagTimer = (_isDiagAdmin && _diagEl) ? setInterval(() => {
         const _snd = _liveSoundAt ? ((_liveSoundAt - _tSpeak0) / 1000).toFixed(1) + 'ש' : '…';
-        _diagEl.textContent = `⏱ חשיבה ${_thinkS}ש · עד קול ${_snd} · סה"כ ${((performance.now() - _tSpeak0) / 1000).toFixed(1)}ש`;
+        _diagEl.textContent = `⏱ חשיבה ${_thinkS}ש · עד קול ${_snd} · סה"כ ${((performance.now() - _tSpeak0) / 1000).toFixed(1)}ש · קול-עברי: ${_hebVoice ? 'כן' : 'לא'}`;
     }, 200) : null;
 
     // תקרת זמן להקראה — קוטעים רק אם הוא באמת נתקע (עבר את התקרה), לא כשסיים תקין
