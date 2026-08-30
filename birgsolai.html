@@ -8288,25 +8288,14 @@ async function _liveLoop() {
     _stopThinkSound(); // עצור את צליל החשיבה כשמתחילים לענות
     if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
     _setLiveState('speaking');
-    const _thinkS = ((performance.now() - _tThink0) / 1000).toFixed(1); // 🔧 זמן חשיבה (STT→תשובה)
-    const _tSpeak0 = performance.now();
-    _liveSoundAt = 0; // 🔧 איפוס — יתמלא כשהקול באמת יתחיל
-    // 🔧 אבחון (מנהל בלבד): חשיבה · עד-קול (העיכוב האמיתי) · סה"כ
-    const _diagEl = document.getElementById('live-transcript');
-    const _isDiagAdmin = (typeof ADMIN_USERS !== 'undefined') && ADMIN_USERS.includes(currentUser);
-    const _hebVoice = (() => { try { return (window.speechSynthesis.getVoices() || []).some(v => /^(he|iw)/i.test(v.lang) || /hebrew|עברית/i.test(v.name)); } catch (e) { return false; } })();
-    const _diagTimer = (_isDiagAdmin && _diagEl) ? setInterval(() => {
-        const _snd = _liveSoundAt ? ((_liveSoundAt - _tSpeak0) / 1000).toFixed(1) + 'ש' : '…';
-        _diagEl.textContent = `⏱ חשיבה ${_thinkS}ש · עד קול ${_snd} · סה"כ ${((performance.now() - _tSpeak0) / 1000).toFixed(1)}ש · קול-עברי: ${_hebVoice ? 'כן' : 'לא'}`;
-    }, 200) : null;
+    document.getElementById('live-transcript').textContent = ''; // בלי טקסט — רק קול
 
     // תקרת זמן להקראה — קוטעים רק אם הוא באמת נתקע (עבר את התקרה), לא כשסיים תקין
     let _spokeDone = false;
     await Promise.race([
         _liveSpeakText(reply).then(() => { _spokeDone = true; }),
-        new Promise(r => setTimeout(r, 35000))
+        new Promise(r => setTimeout(r, 45000))
     ]);
-    clearInterval(_diagTimer); // 🔧 עוצר את מד הזמן
     if (!_spokeDone) { // נתקע — עוצרים כדי לא לתקוע את הלולאה
         try { window.speechSynthesis.cancel(); } catch(_) {}
         if (_liveCurrentAudio) { try { _liveCurrentAudio.pause(); } catch(_) {} _liveCurrentAudio = null; }
@@ -8332,32 +8321,32 @@ function _liveListenOnce() {
         const rec = new SR();
         rec.lang = 'he-IL';
         rec.interimResults = true;
-        rec.continuous = false;
+        rec.continuous = true;   // תמיכה במשפטים ארוכים — לא נעצר על פאוזה קצרה באמצע
         rec.maxAlternatives = 1;
         _liveRec = rec;
         let finalText = '';
         let done = false;
+        let silenceTimer = null, maxCap = null;
         const finish = text => {
             if (done) return; done = true;
+            clearTimeout(silenceTimer); clearTimeout(maxCap);
             if (_liveRec === rec) _liveRec = null;
-            resolve(text || '');
+            resolve((text || '').trim());
         };
         rec.onresult = e => {
-            let t = '', hasFinal = false;
-            for (let i = 0; i < e.results.length; i++) {
-                t += e.results[i][0].transcript;
-                if (e.results[i].isFinal) hasFinal = true;
-            }
+            let t = '';
+            for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
             finalText = t;
-            // לא מציגים את הדיבור של המשתמש על המסך — משאירים ריק (הסטטוס "מקשיב…" מספיק)
-            document.getElementById('live-transcript').textContent = '';
-            if (hasFinal) try { rec.stop(); } catch(_) {}
+            document.getElementById('live-transcript').textContent = ''; // לא מציגים את דיבור המשתמש
+            // כל עוד מדברים — מאפסים את טיימר-השקט; אחרי ~2.5ש שקט = המשתמש סיים
+            clearTimeout(silenceTimer);
+            silenceTimer = setTimeout(() => { try { rec.stop(); } catch(_) {} }, 2500);
         };
-        rec.onerror = e => { console.warn('[STT]', e.error); finish(''); };
-        const safety = setTimeout(() => { try { rec.stop(); } catch(e) {} finish(finalText); }, 12000);
-        rec.onend = () => { clearTimeout(safety); finish(finalText); };
+        rec.onerror = e => { console.warn('[STT]', e.error); finish(finalText); };
+        maxCap = setTimeout(() => { try { rec.stop(); } catch(e) {} }, 120000); // תקרה: 2 דקות למשפט ארוך מאוד
+        rec.onend = () => finish(finalText); // מסיים → הלולאה תפתח מיקרופון שוב אוטומטית
         _setLiveState('listening');
-        try { rec.start(); } catch(e) { clearTimeout(safety); finish(''); }
+        try { rec.start(); } catch(e) { finish(''); }
     });
 }
 
