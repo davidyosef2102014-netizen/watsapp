@@ -5595,23 +5595,40 @@ function _cleanYahooResults(md) {
    "answer" plus scored results, no HTML-scraping mess. Free tier (1,000 credits/month) — primary
    search source. Falls back to the free Yahoo+DuckDuckGo+Wikipedia chain below if it fails or the
    monthly quota runs out, so the app keeps working either way. */
+// זיהוי שאילתת חדשות/אקטואליה — עבורן משתמשים ב-topic:'news' של Tavily שמגביל למקורות חדשות
+// אמיתיים בלבד (לא בלוגים/אתרי תוכן/סאטירה) ומחזיר תאריך פרסום = הגנה חזקה מפני פייק ניוז.
+function _isNewsQuery(q) {
+    return /חדשות|מבזק|היום|אתמול|הבוקר|עכשיו|קרה|אירע|תקיפ|פיגוע|מלחמ|צה"?ל|חטופ|בחירות|ממשל|שר\b|ראש הממשלה|נתניהו|טראמפ|מזג ?אוויר|תאונ|שריפ|רעידת אדמה|breaking|news|today|yesterday|latest|נהרג|נפצע|הרוג|פצוע/i.test(q);
+}
 async function _tryTavilyKey(apiKey, query) {
+    const isNews = _isNewsQuery(query);
+    const payload = { api_key: apiKey, query, search_depth: 'basic', include_answer: 'advanced', max_results: 6 };
+    if (isNews) { payload.topic = 'news'; payload.days = 14; } // רק מקורות חדשות אמיתיים + 14 יום אחרונים
     const res = await _ghFetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // איזון מהירות/דיוק: search_depth 'basic' (מהיר ~3ש) אבל include_answer 'advanced' (תשובה מסונתזת
         // מפורטת ומדויקת). נבדק חי: basic+answer-advanced = 3ש עם תשובה טובה בעברית; advanced-depth = 7.7ש (איטי מדי).
-        body: JSON.stringify({ api_key: apiKey, query, search_depth: 'basic', include_answer: 'advanced', max_results: 6 }),
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(8000)
     });
     if (!res.ok) throw new Error('tavily ' + res.status);
     const j = await res.json();
     let out = '';
-    if (j.answer) out += `[תשובה מסונתזת ע"י מנוע החיפוש] ${j.answer}\n\n`;
+    if (j.answer) out += `[תשובה מסונתזת ע"י מנוע החיפוש — מבוססת על מקורות אמיתיים] ${j.answer}\n\n`;
     if (j.results?.length) {
-        out += '[תוצאות חיפוש אמיתיות]\n' + j.results.map(r => `• ${r.title} — ${r.url}\n  ${(r.content||'').slice(0,300)}`).join('\n') + '\n';
+        // סינון תוצאות באיכות/רלוונטיות נמוכה (score של Tavily 0-1) כדי שרעש/פייק לא יגיע למודל.
+        // אם הסינון מרוקן הכול — שומרים את 3 המובילות כדי לא להישאר ריקים.
+        let rs = j.results.filter(r => (r.score ?? 1) >= 0.45);
+        if (!rs.length) rs = j.results.slice(0, 3);
+        out += '[תוצאות חיפוש אמיתיות]\n' + rs.map(r => {
+            const dt = r.published_date ? ` (פורסם: ${String(r.published_date).slice(0,10)})` : '';
+            return `• ${r.title}${dt} — ${r.url}\n  ${(r.content||'').slice(0,300)}`;
+        }).join('\n') + '\n';
     }
     if (!out) throw new Error('tavily empty');
+    // מסגור אנטי-פייק: מחייב את המודל להסתמך רק על מה שכאן, לא על הזיכרון שלו.
+    out += '\n[חשוב: הסתמך אך ורק על המידע שלמעלה. אל תוסיף עובדות, תאריכים, מספרים או אירועים שאינם מופיעים כאן. אם המידע חלקי או לא מספיק — אמור זאת במפורש ואל תמלא את החסר מהדמיון.]';
     return out;
 }
 // קריאה אחת דרך ה-Worker — הוא בוחר מפתח Tavily אקראית מבין כל המפתחות בצד השרת
