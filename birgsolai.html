@@ -8289,9 +8289,10 @@ async function _liveLoop() {
     _setLiveState('speaking');
     const _thinkS = ((performance.now() - _tThink0) / 1000).toFixed(1); // 🔧 זמן חשיבה (STT→תשובה)
     const _tSpeak0 = performance.now();
-    // 🔧 אבחון: מציג כמה זמן לקחה החשיבה, ומעדכן את זמן הדיבור בזמן אמת
+    // 🔧 אבחון (מנהל בלבד): מציג כמה זמן לקחה החשיבה, ומעדכן את זמן הדיבור בזמן אמת
     const _diagEl = document.getElementById('live-transcript');
-    const _diagTimer = setInterval(() => { if (_diagEl) _diagEl.textContent = `⏱ חשיבה ${_thinkS}ש · דיבור ${((performance.now()-_tSpeak0)/1000).toFixed(1)}ש`; }, 200);
+    const _isDiagAdmin = (typeof ADMIN_USERS !== 'undefined') && ADMIN_USERS.includes(currentUser);
+    const _diagTimer = (_isDiagAdmin && _diagEl) ? setInterval(() => { _diagEl.textContent = `⏱ חשיבה ${_thinkS}ש · דיבור ${((performance.now()-_tSpeak0)/1000).toFixed(1)}ש`; }, 200) : null;
 
     // תקרת זמן להקראה — קוטעים רק אם הוא באמת נתקע (עבר את התקרה), לא כשסיים תקין
     let _spokeDone = false;
