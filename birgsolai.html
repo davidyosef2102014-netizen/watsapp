@@ -8499,13 +8499,13 @@ async function _playGeminiTTS(text) {
                 method: 'POST',
                 headers: { 'X-goog-api-key': GEMINI_KEY, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text }] }],
+                    contents: [{ parts: [{ text: 'Say the following in Hebrew, naturally and clearly: ' + text }] }],
                     generationConfig: {
                         responseModalities: ['AUDIO'],
                         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } } }
                     }
                 }),
-                signal: AbortSignal.timeout(20000)
+                signal: AbortSignal.timeout(12000)
             }
         );
         if (!res.ok) { console.warn('[Gemini TTS] status:', res.status); return false; }
@@ -8592,17 +8592,16 @@ async function _playGoogleTTSProxy(text) {
 
 async function _liveSpeakText(text) {
     if (!text || _liveStopped) return;
-    // 1. Browser TTS — only when an actual Hebrew voice is installed on the device
+    // 1. קול מקומי (מיידי כשמותקן קול עברי במכשיר)
     const hadLocalHeb = await _speakWithBrowserTTS(text);
     if (hadLocalHeb || _liveStopped) return;
-    // 2. Google Translate TTS via allorigins.win proxy — real Hebrew, confirmed working
+    // 2. Gemini TTS — הגיבוי המהיר והאמין (מפתח קיים). הוקדם לפני Google/HF שהיו איטיים וגרמו לעיכוב ~30ש.
+    const gemOk = await _playGeminiTTS(text);
+    if (gemOk || _liveStopped) return;
+    // 3. גיבויים אחרונים — Google / HuggingFace
     const googleOk = await _playGoogleTTSProxy(text);
     if (googleOk || _liveStopped) return;
-    // 3. HuggingFace MMS Hebrew TTS (direct → CORS proxy)
-    const hfOk = await _playHuggingFaceTTS(text);
-    if (hfOk || _liveStopped) return;
-    // 4. Gemini 2.5 Flash TTS (uses existing Gemini API key)
-    await _playGeminiTTS(text);
+    await _playHuggingFaceTTS(text);
 }
 
 // Always resolves true. Sets lang=he-IL on the utterance — Android/iOS TTS engines handle
