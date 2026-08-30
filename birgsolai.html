@@ -8087,9 +8087,8 @@ async function _callAILive(messages) {
         .then(r => { if (!r.ok) throw new Error('c ' + r.status); return r.json(); })
         .then(j => { const t = (j?.message?.content || []).map(x => x.text || '').join('').trim(); if (!t) throw new Error('empty'); return t; });
 
-    // מודל הקול הראשי = Gemini 3.6 (מהיר וטוב בעברית — בחירת דוד; ניסוי Qwen הוסר כי היה איטי). גיבוי: gpt-oss → Mistral → Cohere.
-    try { return await tryGeminiLive(); } catch(_) {}
-    try { return await tryGroq(); } catch(_) {}
+    // מירוץ מקבילי — Gemini 3.6 + gpt-oss-20b יחד, הראשון שעונה מנצח (~1-3ש). עמיד: אם אחד נכשל, השני כבר רץ.
+    try { return await Promise.any([tryGeminiLive(), tryGroq()]); } catch(_) {}
     try { return await tryMistralLive(); } catch(_) {}
     try { return await tryCohereLive(); } catch(_) {}
     return 'מצטער, לא הצלחתי להגיב. נסה שוב.';
