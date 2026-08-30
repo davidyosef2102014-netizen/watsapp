@@ -8068,7 +8068,7 @@ function toggleLiveMute() {
 async function _callAILive(messages) {
     // שרשרת חזקה למצב לייב — Groq (רב-חשבונות) → Gemini → Mistral → Cohere. הוסרו GitHub Models (מת) ו-OpenRouter (בלי מפתח).
     const short = messages.map(m => ({ ...m, content: typeof m.content === 'string' ? m.content : '' }));
-    const cfg = { temperature: 0.7, max_tokens: 200 };
+    const cfg = { temperature: 0.7, max_tokens: 800 }; // תשובה מלאה — לא נחתכת באמצע משפט/מילה
     const _pick = j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; };
 
     const tryGroq = () => _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: short, ...cfg }, { signal: AbortSignal.timeout(7000) })
@@ -8078,7 +8078,7 @@ async function _callAILive(messages) {
         const sys = short.find(m => m.role === 'system')?.content || '';
         const contents = short.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
-        return _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents, generationConfig: { maxOutputTokens: 600 } }, { signal: AbortSignal.timeout(8000) })
+        return _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents, generationConfig: { maxOutputTokens: 800 } }, { signal: AbortSignal.timeout(10000) })
             .then(r => { if (!r.ok) throw new Error('g ' + r.status); return r.json(); })
             .then(j => { const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (!t) throw new Error('empty'); return t; });
     };
@@ -8258,7 +8258,7 @@ async function _liveLoop() {
     // בלי מצלמה (או אם הראייה נכשלה) — צ'אט טקסט רגיל
     if (!reply) {
         // פרומפט רזה ללייב — לא הפרסונה המלאה (~5.6K טוקנים) שהאיטה את המודל. קצר = תשובה מהירה.
-        const _liveSys = 'אתה BIRGSOL AI, עוזר קולי חכם וידידותי שנבנה ע"י דוד יוסף זאבי. זו שיחה קולית בזמן אמת — ענה קצר, טבעי וזורם (1-3 משפטים), עברית כברירת מחדל (אלא אם המשתמש כותב אנגלית), בלי markdown/כוכביות/רשימות/קוד — דבר כמו בן אדם. אל תמציא עובדות; אם אינך בטוח, אמור זאת בקצרה.' + (currentUser ? ' שם המשתמש: ' + (currentName || currentUser) + '.' : '');
+        const _liveSys = 'אתה BIRGSOL AI, עוזר קולי חכם וידידותי שנבנה ע"י דוד יוסף זאבי. זו שיחה קולית בזמן אמת — דבר טבעי וזורם כמו בן אדם: קצר כשמספיק, ומפורט יותר כשהנושא דורש. חשוב מאוד: תמיד סיים את המשפט והמחשבה עד הסוף — לעולם אל תיעצר באמצע משפט או מילה. עברית כברירת מחדל (אלא אם המשתמש כותב אנגלית), בלי markdown/כוכביות/רשימות/קוד. אל תמציא עובדות; אם אינך בטוח, אמור זאת בקצרה.' + (currentUser ? ' שם המשתמש: ' + (currentName || currentUser) + '.' : '');
         const messages = [
             { role:'system', content: _liveSys },
             ...hist.slice(-8).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
@@ -8294,7 +8294,8 @@ async function _liveLoop() {
     let _spokeDone = false;
     await Promise.race([
         _liveSpeakText(reply).then(() => { _spokeDone = true; }),
-        new Promise(r => setTimeout(r, 45000))
+        new Promise(r => setTimeout(r, 120000)) // תקרה גבוהה — תשובה ארוכה לא נקטעת
+
     ]);
     if (!_spokeDone) { // נתקע — עוצרים כדי לא לתקוע את הלולאה
         try { window.speechSynthesis.cancel(); } catch(_) {}
@@ -8373,7 +8374,7 @@ async function _playElevenLabsTTS(text) {
             audio.onplaying = () => { if (!_liveSoundAt) _liveSoundAt = performance.now(); }; // 🔧 רגע תחילת הקול
             audio.onended = () => finish(true);
             audio.onerror = () => finish(false);
-            setTimeout(() => finish(false), 30000); // safety: never hang forever
+            setTimeout(() => finish(true), 120000); // safety: תשובה ארוכה לא נקטעת (true = לא ננסה TTS נוסף)
             audio.play().catch(() => finish(false));
         });
         if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
