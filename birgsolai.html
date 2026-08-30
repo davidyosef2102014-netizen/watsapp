@@ -8502,8 +8502,23 @@ function _pcmToWav(pcmBytes, sampleRate) {
     return new Blob([buf], { type: 'audio/wav' });
 }
 
-// Gemini 2.5 Flash TTS — uses existing Gemini key, supports Hebrew
+// Gemini TTS — קול איכותי בעברית, בצנרת: המשפט הבא מופק בזמן שהנוכחי מתנגן → הקול מתחיל מהר (~1.5-2ש) ובלי פאוזות.
 async function _playGeminiTTS(text) {
+    const chunks = _splitHebTTS(text, 60); // חלק ראשון קצר = קול מתחיל מהר
+    if (!chunks.length) return false;
+    let genNext = _geminiGenChunk(chunks[0]); // מתחילים להפיק את הראשון מיד
+    for (let i = 0; i < chunks.length; i++) {
+        if (_liveStopped) return true;
+        const url = await genNext;
+        if (i + 1 < chunks.length) genNext = _geminiGenChunk(chunks[i + 1]); // מפיקים את הבא בזמן שהנוכחי מתנגן
+        if (!url) return i > 0;          // כשל בראשון → נופל לגיבוי; אחרי שכבר דיברנו → נחשב הצלחה חלקית
+        const ok = await _playAudioUrl(url);
+        if (!ok) return i > 0;
+    }
+    return true;
+}
+// מפיק אודיו לחלק אחד ומחזיר blob URL (בלי לנגן), או null בכשל
+async function _geminiGenChunk(text) {
     try {
         const res = await _ghFetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent`,
@@ -8512,40 +8527,34 @@ async function _playGeminiTTS(text) {
                 headers: { 'X-goog-api-key': GEMINI_KEY, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: 'Say the following in Hebrew, naturally and clearly: ' + text }] }],
-                    generationConfig: {
-                        responseModalities: ['AUDIO'],
-                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } } }
-                    }
+                    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } } } }
                 }),
                 signal: AbortSignal.timeout(12000)
             }
         );
-        if (!res.ok) { console.warn('[Gemini TTS] status:', res.status); return false; }
+        if (!res.ok) { console.warn('[Gemini TTS] status:', res.status); return null; }
         const json = await res.json();
         const part = json?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-        if (!part?.data) return false;
+        if (!part?.data) return null;
         const pcm = Uint8Array.from(atob(part.data), c => c.charCodeAt(0));
         const rate = parseInt(part.mimeType?.match(/rate=(\d+)/)?.[1] || '24000');
-        const blob = part.mimeType?.includes('pcm') ? _pcmToWav(pcm, rate)
-                                                     : new Blob([pcm], { type: part.mimeType });
-        const url = URL.createObjectURL(blob);
+        const blob = part.mimeType?.includes('pcm') ? _pcmToWav(pcm, rate) : new Blob([pcm], { type: part.mimeType });
+        return URL.createObjectURL(blob);
+    } catch (e) { console.warn('[Gemini TTS] gen failed:', e.message); return null; }
+}
+// מנגן blob URL של אודיו ומחזיר הצלחה
+function _playAudioUrl(url) {
+    return new Promise(resolve => {
         const audio = new Audio(url);
         _liveCurrentAudio = audio;
-        const ok = await new Promise(resolve => {
-            let done = false;
-            const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(v); };
-            audio.onplaying = () => { _liveSoundAt = performance.now(); }; // 🔧 רגע תחילת הקול
-            audio.onended = () => fin(true);
-            audio.onerror = (e) => { console.warn('[Gemini TTS] audio error:', e); fin(false); };
-            setTimeout(() => fin(false), 60000);
-            audio.play().catch(() => fin(false));
-        });
-        if (_liveCurrentAudio === audio) _liveCurrentAudio = null;
-        return ok;
-    } catch(e) {
-        console.warn('[Gemini TTS] failed:', e.message);
-        return false;
-    }
+        let done = false;
+        const fin = (v) => { if (done) return; done = true; try { URL.revokeObjectURL(url); } catch (e) {} if (_liveCurrentAudio === audio) _liveCurrentAudio = null; resolve(v); };
+        audio.onplaying = () => { if (!_liveSoundAt) _liveSoundAt = performance.now(); }; // 🔧 רגע תחילת הקול
+        audio.onended = () => fin(true);
+        audio.onerror = (e) => { console.warn('[Gemini TTS] audio error:', e); fin(false); };
+        setTimeout(() => fin(false), 60000);
+        audio.play().catch(() => fin(false));
+    });
 }
 
 // Google Translate TTS — tries two CORS proxies for reliability
