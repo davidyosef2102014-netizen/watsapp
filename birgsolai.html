@@ -8649,6 +8649,27 @@ async function _playGoogleTTSProxy(text) {
     return true;
 }
 
+// Microsoft Edge TTS — קול עברי טבעי ואיכותי (he-IL-AvriNeural), חינם וללא הגבלה. מיקרוסופט חוסמת WebSocket
+// ישיר מ-Origin של דפדפן, לכן זה עובר דרך ה-Worker (op:'edgetts') שמבצע את החיבור בצד-שרת ומחזיר MP3.
+// עד שה-Worker יתמוך ב-op הזה → res.ok=false → נופל ל-Gemini TTS. יורד בחן.
+const EDGE_VOICE = 'he-IL-AvriNeural';
+async function _playEdgeTTSViaWorker(text) {
+    try {
+        const res = await fetch(GH_WORKER, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op: 'edgetts', text, voice: EDGE_VOICE }),
+            signal: AbortSignal.timeout(12000)
+        });
+        if (!res.ok) return false; // ה-Worker עדיין לא תומך ב-edgetts → גיבוי
+        const ct = res.headers.get('content-type') || '';
+        if (/json|text/.test(ct)) return false; // הוחזרה שגיאה, לא אודיו
+        const blob = await res.blob();
+        if (!blob || blob.size < 500) return false;
+        return await _playAudioUrl(URL.createObjectURL(blob));
+    } catch (e) { console.warn('[Edge TTS/Worker] failed:', e.message); return false; }
+}
+
 async function _liveSpeakText(text) {
     if (!text || _liveStopped) return 'none';
     // ⚠️ ElevenLabs הוסר מהלייב: eleven_turbo_v2_5 לא תומך בעברית (32 שפות, עברית לא ביניהן) — הקריא
@@ -8657,7 +8678,12 @@ async function _liveSpeakText(text) {
     const hadLocalHeb = await _speakWithBrowserTTS(text);
     if (hadLocalHeb) { _liveLastTTS = 'native'; return 'native'; }
     if (_liveStopped) return 'stopped';
-    // 2. Gemini TTS — עברית אמיתית ואיכותית (קול Aoede), ~2-3ש. המנוע הראשי כעת.
+    // 2. Microsoft Edge TTS דרך ה-Worker — עברית מצוינת (he-IL-AvriNeural), חינם וללא הגבלה. עובד רק אם
+    // ה-Worker תומך ב-op:'edgetts' (מיקרוסופט חוסמת WebSocket ישיר מהדפדפן). אם לא זמין → נופל ל-Gemini.
+    const edgeOk = await _playEdgeTTSViaWorker(text);
+    if (edgeOk) { _liveLastTTS = 'edge'; return 'edge'; }
+    if (_liveStopped) return 'stopped';
+    // 3. Gemini TTS — עברית אמיתית ואיכותית (קול Aoede), ~2-3ש. גיבוי.
     const gemOk = await _playGeminiTTS(text);
     if (gemOk) { _liveLastTTS = 'gemini'; return 'gemini'; }
     if (_liveStopped) return 'stopped';
