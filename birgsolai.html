@@ -4156,7 +4156,7 @@ async function extractMemory(userMsg, aiReply) {
             ? 'מה שכבר ידוע (אל תחזור על זה):\n' + userMemory.slice(-25).map(f => { const n = _memNorm(f); return `- [${n.c}] ${n.t}`; }).join('\n') + '\n\n'
             : '';
         const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
-            model: 'openai/gpt-oss-120b',
+            model: 'openai/gpt-oss-20b',
             messages: [
                 { role: 'system', content:
 `אתה הזיכרון ארוך-הטווח של עוזר AI אישי. תפקידך: לחלץ מהשיחה עובדות אמיתיות על המשתמש ועל עולמו, כדי שהעוזר יכיר אותו לעומק בשיחות הבאות — כמו חבר קרוב שזוכר.
@@ -8308,7 +8308,13 @@ async function _liveLoop() {
     // בלי מצלמה (או אם הראייה נכשלה) — צ'אט טקסט רגיל
     if (!reply) {
         // פרומפט רזה ללייב — לא הפרסונה המלאה (~5.6K טוקנים) שהאיטה את המודל. קצר = תשובה מהירה.
-        const _liveSys = 'אתה BIRGSOL AI, עוזר קולי חכם וידידותי שנבנה ע"י דוד יוסף זאבי. ⚠️ ענה תמיד ורק בעברית — לעולם לא באנגלית או שפה אחרת (גם אם לא הבנת את השאלה, שאל לחזור על זה בעברית). זו שיחה קולית בזמן אמת — דבר טבעי וזורם כמו בן אדם: קצר כשמספיק, ומפורט יותר כשהנושא דורש. חשוב מאוד: תמיד סיים את המשפט והמחשבה עד הסוף — לעולם אל תיעצר באמצע משפט או מילה. בלי markdown/כוכביות/רשימות/קוד. אל תמציא עובדות; אם אינך בטוח, אמור זאת בקצרה.' + (currentUser ? ' שם המשתמש: ' + (currentName || currentUser) + '.' : '');
+        // זיכרון: מזריקים לפרומפט הלייב רק את העובדות הרלוונטיות למה שנאמר (כמו בצ'אט) — כך הלייב "מכיר" את המשתמש בין שיחות.
+        let _liveMem = '';
+        try {
+            const _mf = _relevantMemory(transcript, 10);
+            if (_mf.length) _liveMem = ' דברים שאתה כבר יודע על המשתמש משיחות קודמות (השתמש בטבעיות, אל תציף, אל תמציא מעבר לזה): ' + _mf.map(n => n.t).filter(Boolean).join('; ') + '.';
+        } catch (e) {}
+        const _liveSys = 'אתה BIRGSOL AI, עוזר קולי חכם וידידותי שנבנה ע"י דוד יוסף זאבי. ⚠️ ענה תמיד ורק בעברית — לעולם לא באנגלית או שפה אחרת (גם אם לא הבנת את השאלה, שאל לחזור על זה בעברית). זו שיחה קולית בזמן אמת — דבר טבעי וזורם כמו בן אדם: קצר כשמספיק, ומפורט יותר כשהנושא דורש. חשוב מאוד: תמיד סיים את המשפט והמחשבה עד הסוף — לעולם אל תיעצר באמצע משפט או מילה. בלי markdown/כוכביות/רשימות/קוד. אל תמציא עובדות; אם אינך בטוח, אמור זאת בקצרה.' + (currentUser ? ' שם המשתמש: ' + (currentName || currentUser) + '.' : '') + _liveMem;
         const messages = [
             { role:'system', content: _liveSys },
             ...hist.slice(-8).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
@@ -8333,6 +8339,8 @@ async function _liveLoop() {
     hist.push({ role:'user',      content: transcript });
     hist.push({ role:'assistant', content: reply });
     saveConversation();
+    // חילוץ זיכרון גם משיחות לייב (fire-and-forget) — כך הלייב לומד ומכיר את המשתמש בין שיחות, כמו הצ'אט.
+    if (transcript && !/^מצטער, לא הצלחתי/.test(reply)) { try { extractMemory(transcript, reply); } catch (e) {} }
 
     // ── 3. Speak ──
     _stopThinkSound(); // עצור את צליל החשיבה כשמתחילים לענות
