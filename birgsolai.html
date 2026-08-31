@@ -6822,6 +6822,14 @@ async function callAI(messages, onChunk, signal=null) {
         return full;
     };
 
+    // ⚓ האם התור הזה מבוסס-חיפוש (הוזרקו תוצאות חיפוש חי)? אם כן — טמפרטורה נמוכה מאוד (דטרמיניסטי,
+    // נצמד לטקסט של Tavily) + Gemini ראשון. זה הגורם מס' 1 להזיות: מודל בטמפ' 1.0 "ממציא" פערים.
+    const _isGroundedTurn = (() => {
+        try {
+            const _lu = [...messages].reverse().find(m => m.role === 'user' && typeof m.content === 'string');
+            return !!_lu && /\[מידע עדכני מהאינטרנט\]|\[תוצאות חיפוש משפטי|\[מבזק חדשות|\[תוצאות חיפוש אמיתיות\]|\[תשובה מסונתזת/i.test(_lu.content);
+        } catch (e) { return false; }
+    })();
     const _tryGemini = async () => {
         const sys = messages.find(m => m.role === 'system')?.content || '';
         const contents = messages.filter(m => m.role !== 'system').map(m => ({
@@ -6836,7 +6844,7 @@ async function callAI(messages, onChunk, signal=null) {
         const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048 } }),
+            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, temperature: _isGroundedTurn ? 0.1 : (_codeNow ? 0.2 : 0.55) } }),
             signal: AbortSignal.timeout(_codeNow ? 30000 : 14000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
@@ -6936,7 +6944,8 @@ async function callAI(messages, onChunk, signal=null) {
     // קוד: gpt-oss-120b → llama → Gemini → Mistral → Cohere. GitHub/OpenRouter/Pollinations/Qwen הוסרו.
     const isCode = (typeof currentMode !== 'undefined' && currentMode === 'code');
     const _codeCfg = { temperature: 0.2, max_tokens: 6000, reasoning_effort: 'low' }; // 6000<8000 = תקרת ה-TPM של gpt-oss-120b ב-Groq; reasoning נמוך = פחות over-thinking והזיות
-    const _chatCfg = { temperature: 0.45, max_tokens: 2048, reasoning_effort: 'low' }; // טמפ' נמוכה יותר + reasoning נמוך = הרבה פחות הזיות/זיוף ב-gpt-oss
+    // מבוסס-חיפוש → טמפ' 0.1 (דטרמיניסטי, נצמד לתוצאות = כמעט בלי הזיות). רגיל → 0.45.
+    const _chatCfg = { temperature: _isGroundedTurn ? 0.1 : 0.45, max_tokens: 2048, reasoning_effort: 'low' };
     const _groqGuard = (payload) => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('groq', payload);
     // שרשרת נקייה — רק מנועים שנבדקו ועובדים (2026-08-01). הוסרו: GitHub (נסגר), OpenRouter (:free עבר
     // לתשלום, 404), Pollinations+GET (מתים, 402). עדיף הודעת שגיאה מנומסת מאשר גיבוי מת שמבזבז זמן.
@@ -6962,11 +6971,7 @@ async function callAI(messages, onChunk, signal=null) {
         const _mid = (typeof currentModelId === 'function') ? currentModelId() : 'flash';
         // ⚓ נאמנות-להקשר: אם הוזרקו לתור תוצאות חיפוש חי (עובדות/משפט/חדשות) — Gemini עונה ראשון.
         // gpt-oss מוכח כמי שמתעלם מהתוצאות המוזרקות וממציא (פסקי דין/חדשות שגויים), Gemini נצמד להקשר.
-        let _grounded = false;
-        try {
-            const _lu = [...messages].reverse().find(m => m.role === 'user' && typeof m.content === 'string');
-            _grounded = !!_lu && /\[מידע עדכני מהאינטרנט\]|\[תוצאות חיפוש משפטי|\[מבזק חדשות|\[תוצאות חיפוש אמיתיות\]|\[מידע עדכני מהאינטרנט/i.test(_lu.content);
-        } catch (e) {}
+        const _grounded = _isGroundedTurn;
         // מעבר אמון: Cohere הוסר לגמרי (הוזה מוכח). המודלים הראשיים (3.5 PRO/FLASH) לא נופלים למנוע חלש בכלל —
         // רק gpt-oss + Gemini (החזקים). אם שניהם נופלים → שגיאה כנה ("נסה שוב"), לא זיוף. המודלים הבסיסיים (2.0/3.0) עדיין Mistral כראשי + גיבוי חזק.
         // הפחתת עומס על gpt-oss: כל שרשרת מכילה קריאת gpt-oss אחת בלבד (לא שתיים). עם 2 סבבי-הניסיון בכל מקרה
@@ -7682,7 +7687,7 @@ async function send() {
                 } else if (_newsDigest) {
                     lastMsg.content += `\n\n[מבזק חדשות — תוצאות חיפוש חי על החדשות בישראל של היום]:\n${results}\n\nכתוב מבזק חדשות מסודר בשפת המשתמש: פתח בשורת התאריך של היום (${_newsDateStr}), ואז הצג את 4–6 הידיעות/הכותרות המובילות בישראל להיום כרשימה — כל ידיעה בכותרת קצרה ומשפט הסבר. הסתמך אך ורק על תוצאות החיפוש לעיל; דווח רק על אירועים מהיום או סמוך לו. אם אין ידיעות עדכניות של היום בתוצאות — כתוב שלא מצאת חדשות עדכניות של היום, ואל תמציא ואל תשתמש בחדשות ישנות מהאימון שלך.`;
                 } else {
-                    lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nאם המידע לעיל מכיל תשובה — ענה לפיו ישירות. אם לא מצאת מידע ספציפי על הנושא — כתוב בדיוק: "לא מצאתי מידע עדכני על זה." ואל תוסיף שום מידע נוסף מהאימון שלך.`;
+                    lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nחוקים נוקשים (חובה):\n1. ענה אך ורק לפי המידע שלמעלה. אסור להשתמש בידע הפנימי שלך מהאימון כדי להשלים פרטים חסרים.\n2. אם פרט מסוים (כתובת, שם, מספר טלפון, דירוג, תאריך, מחיר) לא מופיע במפורש בתוצאות — אל תמציא אותו. כתוב "פרט זה לא מופיע בתוצאות החיפוש".\n3. אם עסק/מקום בתוצאות נמצא בעיר אחרת מזו שהמשתמש ביקש — אל תניח שהוא בעיר המבוקשת. ציין את העיר האמיתית שלו, או אמור שלא מצאת בעיר המבוקשת.\n4. אל תערבב בין מקורות שונים ליצירת "עובדה" חדשה. כל פרט חייב לבוא ממקור יחיד וברור.\n5. אם המידע לא מספיק לענות — כתוב בדיוק: "לא מצאתי מידע עדכני מספק על זה." בלי להשלים מהדמיון.`;
                 }
             }
         }
