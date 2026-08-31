@@ -7663,9 +7663,23 @@ async function send() {
             'price','prices','cost','costs','how','much','color','size']);
         const _subjectWords = q.replace(/[?!.,״"'׳]/g,'').split(/\s+/).filter(w => w && !_fillers.has(w.toLowerCase()));
         const _hasSubject = _subjectWords.join('').length >= 2;
+        // 🔗 הקשר-שיחה לחיפוש: אם ההודעה הנוכחית היא מעקב בלי נושא עצמאי ("תבדוק שוב", "ומה המחירים?"),
+        // נשלוף את הנושא מההודעה הקודמת בשיחה — כדי שהחיפוש יבין על מה מדובר, ולא יחפש מילולית "תבדוק".
+        let _ctxSubject = '';
+        if (!_hasSubject) {
+            try {
+                const _prevUsers = messages.filter(m => m.role === 'user' && typeof m.content === 'string').slice(0, -1);
+                for (let i = _prevUsers.length - 1; i >= 0 && i >= _prevUsers.length - 3; i--) {
+                    const _w = _prevUsers[i].content.replace(/\[[\s\S]*?\]/g, '').replace(/[?!.,״"'׳]/g, '').split(/\s+/).filter(w => w && !_fillers.has(w.toLowerCase()));
+                    if (_w.join('').length >= 2) { _ctxSubject = _w.slice(0, 10).join(' '); break; }
+                }
+            } catch (e) {}
+        }
         const _searchMode = (typeof currentMode !== 'undefined' && currentMode === 'search'); // מצב חיפוש — כל שאלה מפעילה חיפוש
-        if (!_isTranslate && (_searchMode || searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews || _isLegalRuling || _dealOrOp || _newsDigest) && (_searchMode || _hasSubject || _newsDigest || _isLegalRuling)) {
-            const _qForSearch = _legalQuery || newsQuery || q;
+        if (!_isTranslate && (_searchMode || searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews || _isLegalRuling || _dealOrOp || _newsDigest) && (_searchMode || _hasSubject || _ctxSubject || _newsDigest || _isLegalRuling)) {
+            // שאילתה: נושא עצמאי → מילולי; מעקב-הקשר → נושא-קודם + מילות-המעקב הנוכחיות (מחיר/צבע/וכו')
+            const _followQ = _ctxSubject ? (_ctxSubject + (_subjectWords.length ? ' ' + _subjectWords.join(' ') : '')).trim() : q;
+            const _qForSearch = _legalQuery || newsQuery || (_hasSubject ? q : _followQ);
             if (_searchMode) quotaUse('search'); // סופרים חיפוש מהמכסה היומית
             const preview = (_qForSearch).length > 38 ? (_qForSearch).slice(0,38)+'…' : (_qForSearch);
             status.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${esc2(preview)}</b></span>`;
@@ -8280,7 +8294,7 @@ async function _liveLoop() {
     // בלי מצלמה (או אם הראייה נכשלה) — צ'אט טקסט רגיל
     if (!reply) {
         // פרומפט רזה ללייב — לא הפרסונה המלאה (~5.6K טוקנים) שהאיטה את המודל. קצר = תשובה מהירה.
-        const _liveSys = 'אתה BIRGSOL AI, עוזר קולי חכם וידידותי שנבנה ע"י דוד יוסף זאבי. זו שיחה קולית בזמן אמת — דבר טבעי וזורם כמו בן אדם: קצר כשמספיק, ומפורט יותר כשהנושא דורש. חשוב מאוד: תמיד סיים את המשפט והמחשבה עד הסוף — לעולם אל תיעצר באמצע משפט או מילה. עברית כברירת מחדל (אלא אם המשתמש כותב אנגלית), בלי markdown/כוכביות/רשימות/קוד. אל תמציא עובדות; אם אינך בטוח, אמור זאת בקצרה.' + (currentUser ? ' שם המשתמש: ' + (currentName || currentUser) + '.' : '');
+        const _liveSys = 'אתה BIRGSOL AI, עוזר קולי חכם וידידותי שנבנה ע"י דוד יוסף זאבי. ⚠️ ענה תמיד ורק בעברית — לעולם לא באנגלית או שפה אחרת (גם אם לא הבנת את השאלה, שאל לחזור על זה בעברית). זו שיחה קולית בזמן אמת — דבר טבעי וזורם כמו בן אדם: קצר כשמספיק, ומפורט יותר כשהנושא דורש. חשוב מאוד: תמיד סיים את המשפט והמחשבה עד הסוף — לעולם אל תיעצר באמצע משפט או מילה. בלי markdown/כוכביות/רשימות/קוד. אל תמציא עובדות; אם אינך בטוח, אמור זאת בקצרה.' + (currentUser ? ' שם המשתמש: ' + (currentName || currentUser) + '.' : '');
         const messages = [
             { role:'system', content: _liveSys },
             ...hist.slice(-8).map(m => ({ role:m.role, content: typeof m.content==='string'?m.content:'' })),
