@@ -8553,7 +8553,9 @@ async function _geminiGenChunk(text) {
                 method: 'POST',
                 headers: { 'X-goog-api-key': GEMINI_KEY, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: 'Say the following in Hebrew, naturally and clearly: ' + text }] }],
+                    // ⚠️ עם responseModalities:['AUDIO'] המודל מקריא מילה-במילה את כל הטקסט. אסור קידומת אנגלית
+                    // ("Say the following in Hebrew...") — היא הוקראה בקול כמשפט אנגלי קבוע. שולחים רק את העברית.
+                    contents: [{ parts: [{ text: text }] }],
                     generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } } } }
                 }),
                 signal: AbortSignal.timeout(12000)
