@@ -8324,12 +8324,20 @@ async function _liveLoop() {
     _stopThinkSound(); // עצור את צליל החשיבה כשמתחילים לענות
     if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
     _setLiveState('speaking');
-    document.getElementById('live-transcript').textContent = ''; // בלי טקסט — רק קול
+    // אבחון למנהל בלבד: מציג את הטקסט המדויק שנשלח ל-TTS ואיזה מנוע דיבר בפועל (לא מוצג למשתמש רגיל)
+    const _isAdmin = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser));
+    const _diag = document.getElementById('live-transcript');
+    if (_isAdmin) {
+        _diag.style.cssText = 'font-size:12px;line-height:1.5;color:#334155;max-width:90%;white-space:pre-wrap;text-align:center;direction:rtl;opacity:.85';
+        _diag.textContent = '🗣️ טקסט לדיבור:\n' + reply + '\n\n⏳ מנוע: מחפש...';
+    } else {
+        _diag.textContent = ''; // משתמש רגיל — בלי טקסט, רק קול
+    }
 
     // תקרת זמן להקראה — קוטעים רק אם הוא באמת נתקע (עבר את התקרה), לא כשסיים תקין
     let _spokeDone = false;
     await Promise.race([
-        _liveSpeakText(reply).then(() => { _spokeDone = true; }),
+        _liveSpeakText(reply).then((prov) => { _spokeDone = true; if (_isAdmin && _diag) _diag.textContent = '🗣️ טקסט לדיבור:\n' + reply + '\n\n🔊 מנוע שדיבר: ' + prov; }),
         new Promise(r => setTimeout(r, 120000)) // תקרה גבוהה — תשובה ארוכה לא נקטעת
 
     ]);
@@ -8642,21 +8650,28 @@ async function _playGoogleTTSProxy(text) {
 }
 
 async function _liveSpeakText(text) {
-    if (!text || _liveStopped) return;
+    if (!text || _liveStopped) return 'none';
     // 1. קול מקומי (מיידי כשמותקן קול עברי במכשיר)
     const hadLocalHeb = await _speakWithBrowserTTS(text);
-    if (hadLocalHeb || _liveStopped) return;
+    if (hadLocalHeb) { _liveLastTTS = 'native'; return 'native'; }
+    if (_liveStopped) return 'stopped';
     // 2. ElevenLabs turbo — הכי מהיר (~0.4ש!) וקול איכותי. הגיבוי הראשון. אם נגמרה מכסה (402) → נופל ל-Gemini.
     const elevenOk = await _playElevenLabsTTS(text);
-    if (elevenOk || _liveStopped) return;
+    if (elevenOk) { _liveLastTTS = 'elevenlabs'; return 'elevenlabs'; }
+    if (_liveStopped) return 'stopped';
     // 3. Gemini TTS — איכותי אך איטי (~3ש). גיבוי אם ElevenLabs נכשל/נגמרה מכסה.
     const gemOk = await _playGeminiTTS(text);
-    if (gemOk || _liveStopped) return;
+    if (gemOk) { _liveLastTTS = 'gemini'; return 'gemini'; }
+    if (_liveStopped) return 'stopped';
     // 4. גיבויים אחרונים — Google / HuggingFace
     const googleOk = await _playGoogleTTSProxy(text);
-    if (googleOk || _liveStopped) return;
-    await _playHuggingFaceTTS(text);
+    if (googleOk) { _liveLastTTS = 'google'; return 'google'; }
+    if (_liveStopped) return 'stopped';
+    const hfOk = await _playHuggingFaceTTS(text);
+    _liveLastTTS = hfOk ? 'huggingface' : 'none';
+    return _liveLastTTS;
 }
+let _liveLastTTS = '';
 
 // Always resolves true. Sets lang=he-IL on the utterance — Android/iOS TTS engines handle
 // the language even when no Hebrew voice appears in getVoices(). Never triggers ElevenLabs.
