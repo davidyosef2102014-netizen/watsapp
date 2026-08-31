@@ -8651,22 +8651,21 @@ async function _playGoogleTTSProxy(text) {
 
 async function _liveSpeakText(text) {
     if (!text || _liveStopped) return 'none';
-    // 1. קול מקומי (מיידי כשמותקן קול עברי במכשיר)
+    // ⚠️ ElevenLabs הוסר מהלייב: eleven_turbo_v2_5 לא תומך בעברית (32 שפות, עברית לא ביניהן) — הקריא
+    // עברית בפונטיקה אנגלית ונשמע כמו משפט אנגלי מעוות. משתמשים רק במנועים שבאמת מדברים עברית.
+    // 1. קול מקומי (מיידי כשמותקן קול עברי אמיתי במכשיר)
     const hadLocalHeb = await _speakWithBrowserTTS(text);
     if (hadLocalHeb) { _liveLastTTS = 'native'; return 'native'; }
     if (_liveStopped) return 'stopped';
-    // 2. ElevenLabs turbo — הכי מהיר (~0.4ש!) וקול איכותי. הגיבוי הראשון. אם נגמרה מכסה (402) → נופל ל-Gemini.
-    const elevenOk = await _playElevenLabsTTS(text);
-    if (elevenOk) { _liveLastTTS = 'elevenlabs'; return 'elevenlabs'; }
-    if (_liveStopped) return 'stopped';
-    // 3. Gemini TTS — איכותי אך איטי (~3ש). גיבוי אם ElevenLabs נכשל/נגמרה מכסה.
+    // 2. Gemini TTS — עברית אמיתית ואיכותית (קול Aoede), ~2-3ש. המנוע הראשי כעת.
     const gemOk = await _playGeminiTTS(text);
     if (gemOk) { _liveLastTTS = 'gemini'; return 'gemini'; }
     if (_liveStopped) return 'stopped';
-    // 4. גיבויים אחרונים — Google / HuggingFace
+    // 3. Google Translate TTS — עברית אמיתית (tl=he), מהיר. גיבוי.
     const googleOk = await _playGoogleTTSProxy(text);
     if (googleOk) { _liveLastTTS = 'google'; return 'google'; }
     if (_liveStopped) return 'stopped';
+    // 4. HuggingFace MMS-TTS-heb — עברית אמיתית (רובוטי). גיבוי אחרון.
     const hfOk = await _playHuggingFaceTTS(text);
     _liveLastTTS = hfOk ? 'huggingface' : 'none';
     return _liveLastTTS;
