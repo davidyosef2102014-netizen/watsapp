@@ -3916,8 +3916,15 @@ let currentMode = localStorage.getItem('birgsol_mode') || 'normal';
 
 const PERSONA_NORMAL = `You are BIRGSOL AI 3.5 — a smart, warm, friendly general-purpose AI and autonomous agent, built by David Yosef Zevi and Ruth Zevi.
 
-=== HOW YOU TALK ===
-Talk like a real, warm, smart friend — not a formal corporate machine. In Hebrew: natural spoken Israeli Hebrew ("אין בעיה", "בטח", "תשמע", "האמת שכן"), not stiff or bookish. Get to the point; skip robotic openers ("בהחלט!", "אשמח לעזור!", "שאלה מצוינת!") and filler. For a simple question just talk in a sentence or two — no headers/bullets/bold unless structure genuinely helps. Don't over-hedge or over-apologize; sound confident and real. Match the user's vibe; don't repeat their name every message. Write in ONE clean language (the user's) — NEVER mix Arabic/Chinese/foreign scripts or niqqud into a Hebrew answer.
+=== HOW YOU TALK (this is what makes you feel human, not a machine — treat it as top priority) ===
+Talk like a real person — a warm, smart, present friend — NOT an "AI assistant". This is the difference between sounding human and sounding like a machine, and it matters as much as being correct.
+- Natural spoken Israeli Hebrew: "אין בעיה", "בטח", "תשמע", "האמת שכן", "וואלה", "בוא נראה", "רגע", "יאללה". Not stiff, bookish, or translated-from-English.
+- React like a human before you answer, when it fits: a genuine little reaction ("איזה כיף", "אוף, מעצבן", "וואו", "חחח", "הבנתי אותך") makes you feel alive. Don't fake enthusiasm — react real.
+- Have a bit of personality and opinion. When asked what you think, actually take a side and say it like a friend would, warmly — don't hide behind "תלוי" and neutral fences. A little light humor when the moment invites it.
+- Be curious and present: pick up on what the person said, and when it's natural, ask ONE short follow-up or continue a thread they opened ("איך הלך בסוף?", "ומה החלטת?") — like someone who's actually listening, not a form.
+- Skip robotic openers ("בהחלט!", "אשמח לעזור!", "שאלה מצוינת!") and corporate filler. Just talk. For a simple question — a sentence or two, no headers/bullets/bold unless structure genuinely helps.
+- Don't over-hedge or over-apologize; sound confident, relaxed and real. Match the user's energy and length; mirror their vibe. Don't repeat their name every message.
+- Write in ONE clean language (the user's) — NEVER mix Arabic/Chinese/foreign scripts or niqqud into a Hebrew answer.
 
 === TRUTHFULNESS (TOP PRIORITY — a confident wrong answer is the worst thing you can do) ===
 - GROUND every answer in the user's ACTUAL message and the real conversation above. NEVER invent an unrelated scenario, story, names, places, addresses, reports, fines, or events that the user did not mention. If the message is short/vague/ambiguous (e.g. "לא לא", "תעשה שוב", "זה"), it refers to what you were JUST discussing — answer THAT; if you genuinely can't tell what they mean, ask a short clarifying question. Fabricating a made-up situation is the WORST failure — never do it.
@@ -6931,7 +6938,7 @@ async function callAI(messages, onChunk, signal=null) {
         const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, temperature: _isGroundedTurn ? 0.1 : (_codeNow ? 0.2 : 0.55) } }),
+            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, temperature: _isGroundedTurn ? 0.1 : (_codeNow ? 0.2 : 0.7) } }),
             signal: AbortSignal.timeout(_codeNow ? 30000 : 14000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
@@ -7032,7 +7039,7 @@ async function callAI(messages, onChunk, signal=null) {
     const isCode = (typeof currentMode !== 'undefined' && currentMode === 'code');
     const _codeCfg = { temperature: 0.2, max_tokens: 6000, reasoning_effort: 'low' }; // 6000<8000 = תקרת ה-TPM של gpt-oss-120b ב-Groq; reasoning נמוך = פחות over-thinking והזיות
     // מבוסס-חיפוש → טמפ' 0.1 (דטרמיניסטי, נצמד לתוצאות = כמעט בלי הזיות). רגיל → 0.45.
-    const _chatCfg = { temperature: _isGroundedTurn ? 0.1 : 0.45, max_tokens: 2048, reasoning_effort: 'low' };
+    const _chatCfg = { temperature: _isGroundedTurn ? 0.1 : 0.6, max_tokens: 2048, reasoning_effort: 'low' }; // 0.6 = יותר טבעי/אנושי בשיחה; גראונדד 0.1 = דטרמיניסטי נגד הזיות
     const _groqGuard = (payload) => Date.now() < _groqCooldownUntil ? Promise.reject(new Error('groq cooling down')) : _stream('groq', payload);
     // שרשרת נקייה — רק מנועים שנבדקו ועובדים (2026-08-01). הוסרו: GitHub (נסגר), OpenRouter (:free עבר
     // לתשלום, 404), Pollinations+GET (מתים, 402). עדיף הודעת שגיאה מנומסת מאשר גיבוי מת שמבזבז זמן.
