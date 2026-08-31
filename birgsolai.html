@@ -5675,7 +5675,20 @@ async function _trySerper(query) {
         return out.trim() || null;
     } catch { return null; }
 }
+const _searchCache = new Map(); // Cache לתוצאות חיפוש — מוריד עומס ומזרז שאלות חוזרות
+const _SEARCH_TTL = 5 * 60 * 1000; // 5 דקות
+function _searchCacheGet(q) {
+    const e = _searchCache.get(q);
+    if (e && (Date.now() - e.t) < _SEARCH_TTL) return e.v;
+    if (e) _searchCache.delete(q);
+    return null;
+}
 async function webSearch(query) {
+    // Cache: אותה שאלת-חיפוש בתוך 5 דקות → תוצאה שמורה מיד (בלי Tavily/Serper). מוריד עומס ומזרז.
+    const _ck = (query || '').trim().toLowerCase();
+    const _cached = _searchCacheGet(_ck);
+    if (_cached) return _cached;
+    const _wrap = (v) => { if (v) { _searchCache.set(_ck, { v, t: Date.now() }); if (_searchCache.size > 60) _searchCache.delete(_searchCache.keys().next().value); } return v; };
     // Tavily (advanced) הוא המקור הראשי — מחזיר תשובה מסונתזת נקייה ומדויקת. Serper (גוגל/מקומי ישראל) רץ
     // במקביל כגיבוי והעשרה: אם Tavily החזיר תשובה — נותנים ל-Serper ~2.5ש' להוסיף; אם Tavily ריק (קורה בעברית) —
     // נותנים ל-Serper עד 8ש' כדי להבטיח כיסוי (גוגל חזק בעברית ובתוצאות מקומיות).
@@ -5683,20 +5696,20 @@ async function webSearch(query) {
     const serperP = _trySerper(query).catch(() => null); // רץ במקביל — משמש רק אם Tavily יחזיר ריק
     const tv = await tavilyP.catch(() => null);
     // Tavily (הראשי, בנוי ל-AI, תשובה נקייה ~1ש) ענה → מחזירים מיד בלי להמתין ל-Serper. מהירות מקסימלית.
-    if (tv) return tv;
+    if (tv) return _wrap(tv);
     // Tavily ריק (קורה לפעמים בעברית) → Serper כגיבוי שמבטיח כיסוי בעברית/מקומי
     let sp = null;
     try {
         const raced = await Promise.race([serperP, new Promise(r => setTimeout(() => r('__t__'), 4000))]);
         sp = (raced === '__t__') ? null : raced;
     } catch { sp = null; }
-    if (sp) return sp;
+    if (sp) return _wrap(sp);
     console.warn('[search] Serper+Tavily both empty, trying English + free chain');
     // עברית לרוב מחזירה ריק ב-Tavily — מתרגמים לאנגלית ומנסים שוב (זה מה שבאמת מוצא את התשובה)
     if (/[֐-׿]/.test(query)) {
         try {
             const en = await _translateToEn(query);
-            if (en && en.toLowerCase() !== query.toLowerCase()) return await _tryTavily(en);
+            if (en && en.toLowerCase() !== query.toLowerCase()) { const _r = await _tryTavily(en); if (_r) return _wrap(_r); }
         } catch (e) { console.warn('[search] Tavily(en) failed:', e.message); }
     }
     const wq = encodeURIComponent(query);
@@ -5754,7 +5767,8 @@ async function webSearch(query) {
         wikiTitles = [wikiTitle];
     }
     if (gotWiki) out += `\n(מאמרי ויקיפדיה מלאים: ${wikiTitles.map(t=>`https://he.wikipedia.org/wiki/${encodeURIComponent(t)}`).join(' , ')} — אפשר [BROWSE] לקריאה מלאה אם נדרשים עוד פרטים)\n`;
-    return out.trim() || '❌ לא נמצאו תוצאות.';
+    const _final = out.trim();
+    return _final ? _wrap(_final) : '❌ לא נמצאו תוצאות.';
 }
 
 /* Jina.ai reader — converts any URL to clean Markdown */
