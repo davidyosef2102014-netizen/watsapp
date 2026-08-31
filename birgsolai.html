@@ -682,6 +682,17 @@
             box-shadow: 0 0 90px rgba(66,133,244,.55), 0 0 40px rgba(56,189,248,.4); animation: logoFloat 4s ease-in-out infinite; z-index:1; }
         .auth-brand-side::after { content:''; position:absolute; inset:0; background: radial-gradient(circle at 72% 78%, rgba(56,189,248,.28), transparent 60%); }
         @media (max-width: 900px) { .auth-brand-side { display: none; } .auth-form-side { flex: 1 1 100%; } }
+        /* ── מצב חלון צף (כמו ChatGPT) — רקע כהה שקוף שרואים מאחוריו את הבית, כרטיס לבן ממורכז ── */
+        #login-screen.modal { background: rgba(0,0,0,.55); backdrop-filter: blur(4px); flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        #login-screen.modal .auth-brand-side { display: none; }
+        #login-screen.modal .auth-form-side { flex: none; width: 100%; max-width: 420px; padding: 0; overflow: visible; align-items: stretch; }
+        #login-screen.modal .auth-form-side .login-card {
+            background: var(--bg); border: 1px solid var(--border); border-radius: 26px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.28), 0 4px 16px rgba(0,0,0,.12);
+            backdrop-filter: none; max-width: 420px; padding: 34px 30px; margin: 0;
+            max-height: 90vh; overflow-y: auto;
+        }
+        [data-theme="dark"] #login-screen.modal { background: rgba(0,0,0,.7); }
 
         .auth-choice-btn { width:100%; padding:13px 18px; margin:9px 0; border-radius:50px; border:1.5px solid var(--border);
             background:var(--surf); color:var(--text); font-size:15px; font-weight:600; font-family:inherit; cursor:pointer;
@@ -935,6 +946,13 @@
         /* user chip in topbar */
         .user-chip { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); background: var(--surf); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; }
         .user-chip:hover { background: var(--surf2); }
+        /* כפתורי אורח (סגנון ChatGPT) */
+        .guest-login, .guest-signup { font-family: inherit; font-size: 13px; font-weight: 600; padding: 7px 15px; border-radius: 20px; cursor: pointer; white-space: nowrap; transition: opacity .15s, background .15s; }
+        .guest-login { background: var(--text); color: var(--bg); border: none; }
+        .guest-login:hover { opacity: .85; }
+        .guest-signup { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .guest-signup:hover { background: var(--surf2); }
+        @media (max-width: 520px) { .guest-signup { display: none; } }
         .user-dot { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #4285F4, #38bdf8); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: white; }
 
         /* ══════════════ DARK THEME ══════════════ */
@@ -1191,6 +1209,7 @@
 
 <!-- ══ LOGIN SCREEN ══ -->
 <div id="login-screen" class="split">
+    <button id="auth-close" onclick="closeAuth()" title="חזרה" style="display:none;position:absolute;top:12px;inset-inline-start:14px;background:var(--surf2);border:1px solid var(--border);border-radius:50%;width:34px;height:34px;font-size:18px;line-height:1;color:var(--text);cursor:pointer;z-index:11;">✕</button>
     <select id="login-lang" onchange="applyLang(this.value)" title="Language" style="position:absolute;top:14px;inset-inline-end:14px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;z-index:10;">
         <option value="en">EN</option>
         <option value="he">עב</option>
@@ -1664,6 +1683,10 @@
             <div class="user-chip" id="user-chip">
                 <div class="user-dot" id="user-dot">?</div>
                 <span id="user-label">—</span>
+            </div>
+            <div id="guest-auth" style="display:none;gap:8px;align-items:center">
+                <button class="guest-login" onclick="openAuth('login')" data-i18n="guest_login">התחבר</button>
+                <button class="guest-signup" onclick="openAuth('register')" data-i18n="guest_signup">הירשם בחינם</button>
             </div>
         </div>
     </div>
@@ -2885,9 +2908,10 @@ async function _finishLogin(user) {
     if (sp && sp.style.display !== 'none') { sp.classList.add('hide'); setTimeout(() => sp.style.display='none', 700); }
     currentUser = user;
     localStorage.setItem(AI_AUTH_KEY, user);
+    localStorage.removeItem('birgsol_guest_used'); // מתאפס — כבר לא אורח
     checkPremium();
     document.getElementById('login-screen').style.display = 'none';
-    updateUserChip(); updateFreeBanner(); updateGreeting(); updateAdminVisibility();
+    updateUserChip(); updateFreeBanner(); updateGreeting(); updateAdminVisibility(); _updateGuestUI();
     // טען הוראות אישיות + גרסה מהענן ברקע
     ghReadFresh('db/ai_users.json').then(u => {
         if (u && u[user]) {
@@ -3450,9 +3474,11 @@ async function doLogout(force) {
     document.getElementById('chat-window').style.display = 'none';
     document.getElementById('welcome').style.display = 'flex';
     document.getElementById('hist-list').innerHTML = '<div class="hist-item" style="color:var(--muted);font-style:italic;">אין שיחות עדיין...</div>';
-    document.getElementById('login-screen').style.display = 'flex';
+    localStorage.removeItem('birgsol_guest_used'); // מתחיל מחדש כאורח
+    document.getElementById('login-screen').style.display = 'none'; // חזרה לדף הבית כאורח (לא מסך התחברות חוסם)
     document.getElementById('li-user').value = '';
     document.getElementById('li-pass').value = '';
+    _updateGuestUI(); updateGreeting();
     closeSidebar();
 }
 
@@ -3590,7 +3616,8 @@ const L10N_EXTRA = {
         pf_pro_model:'כל המודלים · כולל 3.5 PRO', pf_pro_img:'25 תמונות ביום', pf_pro_tok:'300K טוקנים ליום · ~1,200 הודעות', pf_pro_badge:'תג Pro',
         pf_ultra_models:'כל המודלים · ללא הגבלה', pf_ultra_img:'תמונות ללא הגבלה', pf_ultra_use:'שימוש ללא הגבלה', pf_ultra_badge:'תג Ultra מיוחד',
         files_connect:'חבר ›', files_change:'החלף', files_remove:'הסר',
-        autosave_label:'שמירת קוד אוטומטית לתיקייה'
+        autosave_label:'שמירת קוד אוטומטית לתיקייה',
+        guest_login:'התחבר', guest_signup:'הירשם בחינם'
     },
     en: {
         install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker',
@@ -3610,7 +3637,8 @@ const L10N_EXTRA = {
         pf_pro_model:'All models · incl. 3.5 PRO', pf_pro_img:'25 images/day', pf_pro_tok:'300K tokens/day · ~1,200 messages', pf_pro_badge:'Pro badge',
         pf_ultra_models:'All models · unlimited', pf_ultra_img:'Unlimited images', pf_ultra_use:'Unlimited usage', pf_ultra_badge:'Special Ultra badge',
         files_connect:'Connect ›', files_change:'Change', files_remove:'Remove',
-        autosave_label:'Auto-save code to folder'
+        autosave_label:'Auto-save code to folder',
+        guest_login:'Log in', guest_signup:'Sign up free'
     }
 };
 Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
@@ -3739,6 +3767,51 @@ function startApp() {
     }
 }
 
+/* ── מצב אורח (כמו ChatGPT): נכנסים ישר לדף הבית בלי מסך חוסם. אחרי GUEST_LIMIT הודעות → התחברות ── */
+const GUEST_LIMIT = 4;
+function _guestUsed() { return parseInt(localStorage.getItem('birgsol_guest_used') || '0', 10); }
+function _enterGuest() {
+    const sp = document.getElementById('splash');
+    if (sp) { sp.classList.add('hide'); setTimeout(() => sp.style.display = 'none', 700); }
+    document.getElementById('login-screen').style.display = 'none';
+    _updateGuestUI();
+    updateGreeting();
+}
+function _updateGuestUI() {
+    const chip = document.getElementById('user-chip');
+    const guest = document.getElementById('guest-auth');
+    if (chip)  chip.style.display  = currentUser ? 'flex' : 'none';
+    if (guest) guest.style.display = currentUser ? 'none' : 'flex';
+}
+function openAuth(which) {
+    const ls = document.getElementById('login-screen');
+    ls.classList.add('modal');      // חלון צף (כמו ChatGPT) — רקע כהה שקוף
+    ls.classList.remove('split');
+    ls.style.display = 'flex';
+    const closeBtn = document.getElementById('auth-close');
+    if (closeBtn) closeBtn.style.display = 'block'; // אורח יכול לחזור לגלישה
+    ls.onclick = (e) => { if (e.target === ls && !currentUser) closeAuth(); }; // לחיצה על הרקע סוגרת
+    if (typeof _loadGIS === 'function') _loadGIS();
+    if (which === 'register') showRegister(); else showLogin();
+}
+function closeAuth() {
+    // חזרה למצב אורח (רק אם לא מחובר — אם מחובר אין מה לסגור)
+    if (currentUser) return;
+    document.getElementById('login-screen').style.display = 'none';
+}
+// חסימת אורח: אחרי GUEST_LIMIT הודעות, או בניסיון ליצור תמונה — מזמינים להתחבר
+function _guestGate() {
+    if (currentUser) return false; // מחובר — אין חסימה
+    if (currentMode === 'image') { _promptGuestAuth('כדי ליצור תמונות, התחבר או הירשם בחינם 🎨'); return true; }
+    if (_guestUsed() >= GUEST_LIMIT) { _promptGuestAuth('נהנית מ-BIRGSOL? התחבר או הירשם בחינם כדי להמשיך ✨'); return true; }
+    return false;
+}
+function _promptGuestAuth(msg) {
+    openAuth('register');
+    const el = document.getElementById('reg-err');
+    if (el && msg) { el.style.display = 'block'; el.style.color = 'var(--blue)'; el.textContent = msg; }
+}
+
 /* ── auto-login on load ── */
 /* ── PWA: רישום service worker ── */
 if ('serviceWorker' in navigator) {
@@ -3808,7 +3881,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (spBtn) spBtn.style.display = 'none';
         currentUser = savedUser;
         checkPremium(); updateUserChip(); updateFreeBanner(); updateGreeting();
-        updateAdminVisibility();
+        updateAdminVisibility(); _updateGuestUI();
         loadUserMemory();
         const sp = document.getElementById('splash');
         if (sp) { sp.classList.add('hide'); setTimeout(() => sp.style.display = 'none', 700); }
@@ -3834,8 +3907,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
         }).catch(() => { /* אופליין — נשאר מחובר */ });
     } else {
-        startApp(); // הסתר splash
-        document.getElementById('login-screen').style.display = 'flex';
+        _enterGuest(); // אורח — ישר לדף הבית, בלי מסך התחברות חוסם (כמו ChatGPT)
     }
 });
 
@@ -7434,6 +7506,10 @@ async function send() {
     const inp = document.getElementById('userInput');
     let   q   = inp.value.trim();
     if (!q && !fileUrl && !fileContent && !mediaFile) return;
+
+    // ── מצב אורח: אחרי GUEST_LIMIT הודעות (או ניסיון ליצור תמונה) → הזמנה להתחבר ──
+    if (_guestGate()) return;
+    if (!currentUser) localStorage.setItem('birgsol_guest_used', String(_guestUsed() + 1));
 
     // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף (PRO/ULTRA) ──
     if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile) { await browserLook(q); return; }
