@@ -7084,6 +7084,21 @@ async function callAI(messages, onChunk, signal=null) {
         if (!text) throw new Error('cohere empty');
         return text;
     };
+    // Cloudflare Workers AI — גיבוי במכסה יומית נפרדת לגמרי (כשגם Gemini וגם Groq נחנקים ב-429). עברית בינונית, אבל עדיף על "שגיאת חיבור".
+    const _tryCloudflare = async () => {
+        const cfMsgs = messages.map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : (m.content?.find(c => c.type === 'text')?.text || '') }));
+        const res = await fetch(GH_WORKER, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op: 'cfai', model: '@cf/meta/llama-3.1-8b-instruct', messages: cfMsgs, temperature: _isGroundedTurn ? 0.1 : 0.6, max_tokens: 1024 }),
+            signal: AbortSignal.timeout(22000)
+        });
+        if (!res.ok) throw new Error('cfai ' + res.status);
+        const j = await res.json();
+        const text = (j.text || '').trim();
+        if (!text) throw new Error('cfai empty');
+        return text;
+    };
     const _tryPoll = async (model, timeoutMs = 10000) => {
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
@@ -7148,6 +7163,7 @@ async function callAI(messages, onChunk, signal=null) {
         const _sGpt2 = { name: 'gpt-oss-120b', fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) };
         const _sMis  = { name: 'Mistral',  fn: () => _tryMistral().then(_tw) };
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
+        const _sCloud = { name: 'Cloudflare AI', fn: () => _tryCloudflare().then(_tw) }; // גיבוי אחרון — מכסה יומית נפרדת, מונע "שגיאת חיבור"
         const _mid = (typeof currentModelId === 'function') ? currentModelId() : 'flash';
         // ⚓ נאמנות-להקשר: אם הוזרקו לתור תוצאות חיפוש חי (עובדות/משפט/חדשות) — Gemini עונה ראשון.
         // gpt-oss מוכח כמי שמתעלם מהתוצאות המוזרקות וממציא (פסקי דין/חדשות שגויים), Gemini נצמד להקשר.
@@ -7156,11 +7172,12 @@ async function callAI(messages, onChunk, signal=null) {
         // רק gpt-oss + Gemini (החזקים). אם שניהם נופלים → שגיאה כנה ("נסה שוב"), לא זיוף. המודלים הבסיסיים (2.0/3.0) עדיין Mistral כראשי + גיבוי חזק.
         // הפחתת עומס על gpt-oss: כל שרשרת מכילה קריאת gpt-oss אחת בלבד (לא שתיים). עם 2 סבבי-הניסיון בכל מקרה
         // gpt-oss מקבל צ'אנס שני בסבב הבא, ו-Gemini/Mistral נותנים גיוון — אין צורך להכות את Groq פעמיים באותו סבב.
-        if (_grounded) return [_sGem, _sGpt];                                // עובדות/משפט/חדשות — Gemini ראשון (נצמד לתוצאות), בכל טייר
-        if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt];                  // 2.0 PRO — Mistral ראשי + גיבוי חזק
-        if (_mid === '3.0')    return [_sMis, _sGem, _sGpt];                  // 3.0 FLASH — Mistral ראשי + גיבוי חזק
-        if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2];                 // 3.5 PRO — gpt-oss (20b מהיר ראשי, 120b לאיכות), Gemini גיבוי
-        return [_sGem, _sGpt];                                               // 3.5 FLASH — Gemini 3.6 (החדש) ראשי, gpt-oss-20b גיבוי
+        // Cloudflare AI מצורף כגיבוי אחרון בכל שרשרת — כשכל השאר נחנקים ב-429, זה תופס במקום "שגיאת חיבור".
+        if (_grounded) return [_sGem, _sGpt, _sCloud];                        // עובדות/משפט/חדשות — Gemini ראשון (נצמד לתוצאות), בכל טייר
+        if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt, _sCloud];         // 2.0 PRO — Mistral ראשי + גיבוי חזק
+        if (_mid === '3.0')    return [_sMis, _sGem, _sGpt, _sCloud];         // 3.0 FLASH — Mistral ראשי + גיבוי חזק
+        if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sCloud];        // 3.5 PRO — gpt-oss (20b מהיר ראשי, 120b לאיכות), Gemini גיבוי
+        return [_sGem, _sGpt, _sCloud];                                      // 3.5 FLASH — Gemini 3.6 (החדש) ראשי, gpt-oss-20b גיבוי
     })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
