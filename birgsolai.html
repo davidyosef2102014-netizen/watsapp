@@ -7172,12 +7172,14 @@ async function callAI(messages, onChunk, signal=null) {
         // רק gpt-oss + Gemini (החזקים). אם שניהם נופלים → שגיאה כנה ("נסה שוב"), לא זיוף. המודלים הבסיסיים (2.0/3.0) עדיין Mistral כראשי + גיבוי חזק.
         // הפחתת עומס על gpt-oss: כל שרשרת מכילה קריאת gpt-oss אחת בלבד (לא שתיים). עם 2 סבבי-הניסיון בכל מקרה
         // gpt-oss מקבל צ'אנס שני בסבב הבא, ו-Gemini/Mistral נותנים גיוון — אין צורך להכות את Groq פעמיים באותו סבב.
-        // Cloudflare AI מצורף כגיבוי אחרון בכל שרשרת — כשכל השאר נחנקים ב-429, זה תופס במקום "שגיאת חיבור".
-        if (_grounded) return [_sGem, _sGpt, _sCloud];                        // עובדות/משפט/חדשות — Gemini ראשון (נצמד לתוצאות), בכל טייר
-        if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt, _sCloud];         // 2.0 PRO — Mistral ראשי + גיבוי חזק
-        if (_mid === '3.0')    return [_sMis, _sGem, _sGpt, _sCloud];         // 3.0 FLASH — Mistral ראשי + גיבוי חזק
-        if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sCloud];        // 3.5 PRO — gpt-oss (20b מהיר ראשי, 120b לאיכות), Gemini גיבוי
-        return [_sGem, _sGpt, _sCloud];                                      // 3.5 FLASH — Gemini 3.6 (החדש) ראשי, gpt-oss-20b גיבוי
+        // 🛡️ אחזקה מקסימלית לכל הטיירים (כולל FREE): המודל הנבחר ראשון, ואז נפילה דרך *כל* המנועים
+        // הזמינים לפני שמוותרים — כך כמעט לעולם לא מגיעים ל"שגיאת חיבור" כל עוד ולו מנוע אחד עובד.
+        // הזנב כולל מנועים עם מכסות נפרדות (Mistral, Cloudflare) = הכי עמיד מול 429.
+        if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                                  // עובדות/משפט/חדשות — נאמנים ראשונים (Mistral מדלגים כי פחות נצמד להקשר), Cloudflare כרשת ביטחון
+        if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt, _sGpt2, _sCloud];                   // 2.0 PRO
+        if (_mid === '3.0')    return [_sMis, _sGem, _sGpt, _sGpt2, _sCloud];                   // 3.0 FLASH
+        if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sMis, _sCloud];                   // 3.5 PRO — gpt-oss ראשי, ואז כל השאר
+        return [_sGem, _sGpt, _sGpt2, _sMis, _sCloud];                                          // 3.5 FLASH — Gemini ראשי, ואז כל השאר
     })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
