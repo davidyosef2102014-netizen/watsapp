@@ -3523,7 +3523,7 @@ function toggleSources() {
 function toggleFollowups() {
     const btn = document.getElementById('sp-followups');
     const isOn = btn.classList.toggle('on');
-    localStorage.setItem('birgsol_followups_off', isOn ? '0' : '1');
+    localStorage.setItem('birgsol_followups_on', isOn ? '1' : '0'); // כבוי כברירת מחדל (חוסך קריאת AI לכל הודעה)
 }
 // בורר סגנון לתמונה — כברירת מחדל דולק (מציג ריאליסטי/ציור/קריקטורה/אנימה). כיבוי: ישר ריאליסטי בלי לשאול.
 function toggleStylePicker() {
@@ -3735,7 +3735,7 @@ function initSettings() {
     // search-sources toggle (default off)
     const showSrc = localStorage.getItem('birgsol_show_sources') !== '0'; // מקורות דלוקים כברירת מחדל (שקיפות/אמון)
     document.getElementById('sp-sources')?.classList.toggle('on', showSrc);
-    const foOn = localStorage.getItem('birgsol_followups_off') !== '1'; // דולק כברירת מחדל
+    const foOn = localStorage.getItem('birgsol_followups_on') === '1'; // כבוי כברירת מחדל — חוסך קריאה לכל הודעה
     document.getElementById('sp-followups')?.classList.toggle('on', foOn);
     const spOn = localStorage.getItem('birgsol_style_picker_off') !== '1'; // בורר סגנון דולק כברירת מחדל
     document.getElementById('sp-stylepick')?.classList.toggle('on', spOn);
@@ -4201,7 +4201,7 @@ async function rememberFacts(facts) {
 // Includes existing memories to avoid redundant storage.
 // 💬 שאלות המשך — אחרי כל תשובה מציע 3 שאלות קצרות שהמשתמש יכול ללחוץ עליהן. מודל זול ומהיר (8b) כדי לא לשרוף מכסה.
 async function _suggestFollowups(userMsg, aiReply, bodyEl) {
-    if (localStorage.getItem('birgsol_followups_off') === '1') return; // כובה בהגדרות
+    if (localStorage.getItem('birgsol_followups_on') !== '1') return; // כבוי כברירת מחדל — פועל רק אם הודלק בהגדרות (חיסכון בקריאות/מכסה)
     if (!bodyEl || (typeof currentMode !== 'undefined' && currentMode === 'image')) return;
     try {
         const res = await _ghProxy('groq', '/openai/v1/chat/completions', {
@@ -4237,6 +4237,9 @@ async function _suggestFollowups(userMsg, aiReply, bodyEl) {
 async function extractMemory(userMsg, aiReply) {
     if (!currentUser || !userMsg) return;
     if (localStorage.getItem('birgsol_mem_off_' + currentUser) === '1') return; // המשתמש כיבה את הזיכרון
+    // חיסכון במכסה: מדלגים על הודעות טריוויאליות/אישורים קצרים ("כן","תודה","אוקי") — אין מהן מה ללמוד.
+    const _um = userMsg.trim();
+    if (_um.length < 4 || /^(כן|לא|תודה|תודה רבה|אוקי+|אוקיי|סבבה|יופי|מגניב|וואו|טוב|בסדר|יאללה|נכון|בטח|חחח+|ok|okay|thanks|thank you|yes|no|nice|cool|👍|🙏|❤️|😂)\s*[!.?]*$/i.test(_um)) return;
     try {
         const existing = userMemory.length
             ? 'מה שכבר ידוע (אל תחזור על זה):\n' + userMemory.slice(-25).map(f => { const n = _memNorm(f); return `- [${n.c}] ${n.t}`; }).join('\n') + '\n\n'
@@ -4259,8 +4262,8 @@ async function extractMemory(userMsg, aiReply) {
         let raw = '';
         const _mGroq = async (model) => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model, messages: _memMsgs, temperature: 0.2, max_tokens: 350 }, { signal: AbortSignal.timeout(10000) }); if (!r.ok) return ''; const jj = await r.json(); return jj?.choices?.[0]?.message?.content?.trim() || ''; };
         const _mGem = async () => { const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts: [{ text: _memSys + '\n\n' + _memUser }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 400, responseMimeType: 'application/json' } }, { signal: AbortSignal.timeout(12000) }); if (!r.ok) return ''; const jj = await r.json(); return (jj?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); };
-        // חילוץ זיכרון דרך כמה מנועים ברצף — אם Groq נחנק (429), הזיכרון עדיין נשמר דרך Gemini (מכסה נפרדת), ואז 120b.
-        for (const attempt of [() => _mGroq('openai/gpt-oss-20b'), _mGem, () => _mGroq('openai/gpt-oss-120b')]) {
+        // חילוץ זיכרון: 20b (קל) ואם נחנק → Gemini (מכסה נפרדת). רק 2 מנועים — לא מבזבזים מכסה על 120b הכבד.
+        for (const attempt of [() => _mGroq('openai/gpt-oss-20b'), _mGem]) {
             try { raw = await attempt(); } catch (e) { raw = ''; }
             if (raw) break;
         }
