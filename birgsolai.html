@@ -2551,11 +2551,14 @@ const TIERS = {
 
 /* ── בורר מודלים: שמות מותג לפי המודל האמיתי + זמינות לפי גרסה ── */
 const TIER_RANK = { free:0, basic:1, pro:2, ultra:3 };
+// סולם דירוג (נמוך→גבוה): כל שם = מנוע שעונה ראשון. כולם נופלים דרך כל המנועים לגיבוי (אחזקה מקסימלית).
 const MODELS = [
-    { id:'2.0pro', brand:'BIRGSOL AI 2.0 PRO',   kind:'weak',   minTier:'free',  desc:'בסיסי' },
-    { id:'3.0',    brand:'BIRGSOL AI 3.0 FLASH', kind:'weak',   minTier:'free',  desc:'מהיר ובסיסי' },
-    { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini', minTier:'free',  desc:'חכם ומהיר' },
-    { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss', minTier:'pro',   desc:'הכי חזק, מעולה לקוד' },
+    { id:'2.0',    brand:'BIRGSOL AI 2.0 FLASH', kind:'basic',      minTier:'free', desc:'בסיסי ומהיר' },
+    { id:'2.0pro', brand:'BIRGSOL AI 2.0 PRO',   kind:'gptoss20',   minTier:'free', desc:'מהיר' },
+    { id:'3.0',    brand:'BIRGSOL AI 3.0 FLASH', kind:'mistral',    minTier:'free', desc:'עברית סבירה' },
+    { id:'3.0pro', brand:'BIRGSOL AI 3.0 PRO',   kind:'cloudflare', minTier:'free', desc:'גיבוי יציב' },
+    { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini',     minTier:'free', desc:'חכם ומהיר' },
+    { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss',     minTier:'pro',  desc:'הכי חזק, מעולה לקוד' },
 ];
 function _modelAllowed(m) { return (TIER_RANK[currentTier] || 0) >= (TIER_RANK[m.minTier] || 0); }
 function _bestModelForTier() { for (let i = MODELS.length - 1; i >= 0; i--) if (_modelAllowed(MODELS[i])) return MODELS[i].id; return '2.0pro'; }
@@ -7172,14 +7175,16 @@ async function callAI(messages, onChunk, signal=null) {
         // רק gpt-oss + Gemini (החזקים). אם שניהם נופלים → שגיאה כנה ("נסה שוב"), לא זיוף. המודלים הבסיסיים (2.0/3.0) עדיין Mistral כראשי + גיבוי חזק.
         // הפחתת עומס על gpt-oss: כל שרשרת מכילה קריאת gpt-oss אחת בלבד (לא שתיים). עם 2 סבבי-הניסיון בכל מקרה
         // gpt-oss מקבל צ'אנס שני בסבב הבא, ו-Gemini/Mistral נותנים גיוון — אין צורך להכות את Groq פעמיים באותו סבב.
-        // 🛡️ אחזקה מקסימלית לכל הטיירים (כולל FREE): המודל הנבחר ראשון, ואז נפילה דרך *כל* המנועים
-        // הזמינים לפני שמוותרים — כך כמעט לעולם לא מגיעים ל"שגיאת חיבור" כל עוד ולו מנוע אחד עובד.
-        // הזנב כולל מנועים עם מכסות נפרדות (Mistral, Cloudflare) = הכי עמיד מול 429.
-        if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                                  // עובדות/משפט/חדשות — נאמנים ראשונים (Mistral מדלגים כי פחות נצמד להקשר), Cloudflare כרשת ביטחון
-        if (_mid === '2.0pro') return [_sMis, _sGem, _sGpt, _sGpt2, _sCloud];                   // 2.0 PRO
-        if (_mid === '3.0')    return [_sMis, _sGem, _sGpt, _sGpt2, _sCloud];                   // 3.0 FLASH
-        if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sMis, _sCloud];                   // 3.5 PRO — gpt-oss ראשי, ואז כל השאר
-        return [_sGem, _sGpt, _sGpt2, _sMis, _sCloud];                                          // 3.5 FLASH — Gemini ראשי, ואז כל השאר
+        // 🛡️ אחזקה מקסימלית לכל הטיירים (כולל FREE): המנוע הנבחר ראשון, ואז נפילה דרך *כל* המנועים
+        // לפני שמוותרים — כך כמעט לעולם לא מגיעים ל"שגיאת חיבור" כל עוד ולו מנוע אחד עובד.
+        // סולם: 3.5 PRO(120b) > 3.5 FLASH(Gemini) > 3.0 PRO(Cloudflare) > 3.0 FLASH(Mistral) > 2.0 PRO(20b) > 2.0 FLASH(בסיסי)
+        if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים ראשונים (Mistral מדולג — פחות נצמד להקשר)
+        if (_mid === 'pro')    return [_sGpt2, _sGem, _sGpt, _sMis, _sCloud];     // 3.5 PRO — gpt-oss-120b (הכי חכם) ראשון
+        if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sMis, _sCloud];     // 3.5 FLASH — Gemini ראשי
+        if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2, _sMis];     // 3.0 PRO — Cloudflare ראשון
+        if (_mid === '3.0')    return [_sMis, _sGem, _sGpt, _sGpt2, _sCloud];     // 3.0 FLASH — Mistral ראשון
+        if (_mid === '2.0pro') return [_sGpt, _sGem, _sGpt2, _sMis, _sCloud];     // 2.0 PRO — gpt-oss-20b ראשון
+        return [_sGpt, _sGem, _sMis, _sCloud];                                    // 2.0 FLASH — בסיסי
     })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
