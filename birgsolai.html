@@ -3926,6 +3926,13 @@ Talk like a real person — a warm, smart, present friend — NOT an "AI assista
 - Don't over-hedge or over-apologize; sound confident, relaxed and real. Match the user's energy and length; mirror their vibe. Don't repeat their name every message.
 - Write in ONE clean language (the user's) — NEVER mix Arabic/Chinese/foreign scripts or niqqud into a Hebrew answer.
 
+=== DATA & CHARTS (visualize numbers) ===
+When the user gives you data to compare/visualize, or asks for a chart/graph/גרף/תרשים, output a chart by emitting a fenced code block with language "chart" containing ONLY JSON. It renders as a real drawn chart.
+Format: \`\`\`chart\n{"type":"bar","title":"...","labels":["א","ב","ג"],"data":[10,25,15]}\n\`\`\`
+- type: "bar" | "line" | "area" | "pie". For multiple data series use "series":[{"name":"2024","data":[...]},{"name":"2025","data":[...]}] instead of "data".
+- Keep labels/data aligned in length. Numbers only in data (no units/strings). Add a short "title".
+- Put the chart in your reply where it fits, and add a sentence of insight around it. Only chart when it genuinely helps — don't chart trivial single numbers.
+
 === TRUTHFULNESS (TOP PRIORITY — a confident wrong answer is the worst thing you can do) ===
 - GROUND every answer in the user's ACTUAL message and the real conversation above. NEVER invent an unrelated scenario, story, names, places, addresses, reports, fines, or events that the user did not mention. If the message is short/vague/ambiguous (e.g. "לא לא", "תעשה שוב", "זה"), it refers to what you were JUST discussing — answer THAT; if you genuinely can't tell what they mean, ask a short clarifying question. Fabricating a made-up situation is the WORST failure — never do it.
 - Verify any specific real-world fact with [SEARCH] before stating it (a specific business/place, whether it exists, kosher/open/hours, address, "the nearest X", current prices). Your training data on local specifics is outdated.
@@ -4266,6 +4273,80 @@ async function extractMemory(userMsg, aiReply) {
     } catch {}
 }
 
+/* ── מנוע גרפים: מצייר SVG מ-JSON (בלי ספריות חיצוניות). תומך bar/line/pie, סדרה אחת או כמה. ── */
+const _CHART_COLORS = ['#38bdf8', '#4285F4', '#9C6ADE', '#34a853', '#fbbc05', '#ea4335', '#06b6d4', '#f97316'];
+function _renderChart(spec) {
+    try {
+        if (typeof spec === 'string') spec = JSON.parse(spec);
+        const type = (spec.type || 'bar').toLowerCase();
+        const labels = spec.labels || [];
+        let series = spec.series;
+        if (!series && spec.data) series = [{ name: spec.name || '', data: spec.data }];
+        if (!Array.isArray(series) || !series.length) return null;
+        series = series.map(s => ({ name: s.name || '', data: (s.data || []).map(Number) }));
+        const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+        const W = 580, H = 340, padL = 46, padR = 16, padT = spec.title ? 40 : 18, padB = 54;
+        const plotW = W - padL - padR, plotH = H - padT - padB, y0 = padT + plotH;
+        const all = series.flatMap(s => s.data);
+        const maxV = Math.max(1, ...all), minV = Math.min(0, ...all);
+        const n = labels.length || series[0].data.length;
+        const yFor = v => padT + plotH * (1 - (v - minV) / ((maxV - minV) || 1));
+        const xLine = i => padL + (n > 1 ? plotW * i / (n - 1) : plotW / 2);
+        let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;font-family:inherit;color:var(--text)" xmlns="http://www.w3.org/2000/svg">`;
+        if (spec.title) svg += `<text x="${W / 2}" y="24" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">${esc(spec.title)}</text>`;
+        if (type !== 'pie') {
+            for (let g = 0; g <= 4; g++) {
+                const yy = padT + plotH * g / 4, val = maxV - (maxV - minV) * g / 4;
+                svg += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" stroke="currentColor" stroke-opacity="0.13"/>`;
+                svg += `<text x="${padL - 7}" y="${(yy + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="currentColor" fill-opacity="0.6">${Math.round(val)}</text>`;
+            }
+        }
+        if (type === 'pie') {
+            const data = series[0].data, total = data.reduce((a, b) => a + b, 0) || 1;
+            const cx = W / 2, cy = padT + plotH / 2, r = Math.min(plotW, plotH) / 2 - 6; let ang = -Math.PI / 2;
+            data.forEach((v, i) => {
+                const a2 = ang + 2 * Math.PI * v / total, large = (a2 - ang) > Math.PI ? 1 : 0;
+                const x1 = cx + r * Math.cos(ang), y1 = cy + r * Math.sin(ang), x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+                svg += `<path d="M${cx} ${cy} L${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)} Z" fill="${_CHART_COLORS[i % _CHART_COLORS.length]}" stroke="var(--bg)" stroke-width="2"/>`;
+                ang = a2;
+            });
+        } else if (type === 'line' || type === 'area') {
+            series.forEach((s, si) => {
+                const col = _CHART_COLORS[si % _CHART_COLORS.length];
+                const pts = s.data.map((v, i) => `${xLine(i).toFixed(1)},${yFor(v).toFixed(1)}`).join(' ');
+                if (type === 'area') svg += `<polygon points="${padL},${y0} ${pts} ${padL + plotW},${y0}" fill="${col}" fill-opacity="0.15"/>`;
+                svg += `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+                s.data.forEach((v, i) => { svg += `<circle cx="${xLine(i).toFixed(1)}" cy="${yFor(v).toFixed(1)}" r="3.2" fill="${col}"/>`; });
+            });
+        } else { // bar
+            const gw = plotW / n, bw = Math.min(gw * 0.72 / series.length, 48);
+            series.forEach((s, si) => {
+                s.data.forEach((v, i) => {
+                    const x = padL + gw * i + (gw - bw * series.length) / 2 + si * bw;
+                    const h = plotH * (v - minV) / ((maxV - minV) || 1);
+                    svg += `<rect x="${x.toFixed(1)}" y="${(y0 - h).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="3" fill="${_CHART_COLORS[si % _CHART_COLORS.length]}"/>`;
+                });
+            });
+        }
+        if (type !== 'pie') labels.forEach((l, i) => {
+            const x = type === 'bar' ? padL + (plotW / n) * (i + 0.5) : xLine(i);
+            svg += `<text x="${x.toFixed(1)}" y="${H - padB + 20}" text-anchor="middle" font-size="10.5" fill="currentColor" fill-opacity="0.75">${esc(l)}</text>`;
+        });
+        // מקרא (legend) — לעוגה או לכמה סדרות
+        const legItems = type === 'pie' ? labels.map((l, i) => ({ nm: l, c: i })) : (series.length > 1 ? series.map((s, i) => ({ nm: s.name, c: i })) : []);
+        if (legItems.length) {
+            let lx = padL; const ly = H - 14;
+            legItems.forEach(it => {
+                svg += `<rect x="${lx}" y="${ly - 9}" width="11" height="11" rx="2" fill="${_CHART_COLORS[it.c % _CHART_COLORS.length]}"/>`;
+                svg += `<text x="${lx + 15}" y="${ly}" font-size="11" fill="currentColor">${esc(it.nm)}</text>`;
+                lx += 34 + String(it.nm || '').length * 7;
+            });
+        }
+        svg += '</svg>';
+        return `<div class="chart-box" style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px 12px;margin:12px 0;overflow-x:auto">${svg}</div>`;
+    } catch (e) { return null; }
+}
+
 /* ── marked + highlight.js renderer ── */
 const _renderer = new marked.Renderer();
 const _escapeHtml = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -4275,6 +4356,8 @@ _renderer.code = function(arg, langArg) {
     let lang = (typeof arg === 'object' && arg !== null) ? arg.lang : langArg;
     // אבטחה: מחרוזת השפה מוזרקת ל-onclick — מנקים לתווים בטוחים בלבד כדי למנוע פריצה מהמחרוזת
     lang = (lang || '').toString().split(/\s+/)[0].replace(/[^a-zA-Z0-9+#_-]/g, '').slice(0, 20);
+    // 📊 בלוק chart → גרף SVG מצויר (במקום קוד). אם ה-JSON לא תקין — נופל להצגת קוד רגילה.
+    if (lang.toLowerCase() === 'chart') { const _c = _renderChart(text); if (_c) return _c; }
     const hljsReady = typeof hljs !== 'undefined';
     const language = (hljsReady && lang && hljs.getLanguage(lang)) ? lang : (lang || 'plaintext');
     let highlighted;
