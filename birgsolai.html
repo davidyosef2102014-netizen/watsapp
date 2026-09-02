@@ -140,7 +140,19 @@
         .sb-settings-btn { background: none; border: none; cursor: pointer; color: var(--muted); padding: 6px; border-radius: 8px; transition: background .15s, color .15s; display: flex; align-items: center; gap: 6px; font-size: 13px; width: 100%; margin-bottom: 4px; }
         .sb-settings-btn:hover { background: var(--surf2); color: var(--text); }
         .settings-panel { display: none; background: var(--surf2); border-radius: 12px; padding: 14px; margin-bottom: 8px; border: 1px solid var(--border); }
-        .settings-panel.open { display: block; max-height: 52vh; overflow-y: auto; }
+        /* מסך הגדרות מלא וגדול (במקום פאנל קטן) */
+        .settings-panel.open {
+            display: block; position: fixed; inset: 0; z-index: 9600;
+            background: var(--bg); border: none; border-radius: 0; margin: 0;
+            max-height: none; height: 100%; overflow-y: auto;
+            padding: 26px max(18px, calc(50vw - 290px)) 40px;
+        }
+        .settings-panel.open .sp-title { font-size: 21px; text-transform: none; letter-spacing: 0; color: var(--text); margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+        .settings-panel.open .sp-close { font-size: 26px; }
+        .settings-panel.open .sp-row { padding: 15px 4px; margin-bottom: 0; border-bottom: 1px solid var(--border); }
+        .settings-panel.open .sp-label { font-size: 15px; }
+        .settings-panel.open .sp-select { font-size: 14px; padding: 8px 13px; border-radius: 10px; }
+        .settings-panel.open .sp-toggle { transform: scale(1.2); }
         .sp-close { background: none; border: none; font-size: 18px; line-height: 1; cursor: pointer; color: var(--muted); padding: 0 2px; border-radius: 6px; }
         .sp-close:hover { color: var(--text); background: var(--surf); }
         .sp-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; }
@@ -1491,9 +1503,22 @@
     <div class="live-controls" dir="ltr">
         <button class="live-rbtn end" onclick="endLive()" title="סיים שיחה"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
         <button class="live-rbtn" id="live-cam-btn" onclick="toggleLiveCam()" title="מצלמה"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
+        <button class="live-rbtn" id="live-voice-btn" onclick="openVoicePicker()" title="קול ומהירות"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
         <button class="live-rbtn mic-right" id="live-mute-btn" onclick="toggleLiveMute()" title="מיקרופון"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
     </div>
     <div class="live-model-label">BIRGSOL AI 3.5</div>
+</div>
+
+<!-- ══ VOICE PICKER (לייב) ══ -->
+<div id="voice-picker" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:400px;width:100%;padding:24px 22px;max-height:90vh;overflow-y:auto;direction:rtl">
+        <div style="font-size:18px;font-weight:800;margin-bottom:4px" data-i18n="vp_title">בחר קול</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px" data-i18n="vp_sub">הקול שבו BIRGSOL ידבר איתך בלייב</div>
+        <div id="vp-voices" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px"></div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:8px" data-i18n="live_speed">מהירות דיבור</div>
+        <div id="vp-speeds" style="display:flex;gap:6px;margin-bottom:20px"></div>
+        <button onclick="closeVoicePicker()" style="width:100%;background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:16px;padding:13px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer" data-i18n="vp_done">מעולה, בואו נתחיל</button>
+    </div>
 </div>
 
 <!-- ══ SIDEBAR ══ -->
@@ -1562,26 +1587,6 @@
             <div class="sp-row">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> <span data-i18n="style_picker_label">בחירת סגנון לתמונה</span></span>
                 <button class="sp-toggle" id="sp-stylepick" onclick="toggleStylePicker()"></button>
-            </div>
-            <div class="sp-row">
-                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg> <span data-i18n="live_voice">קול בלייב</span></span>
-                <select class="sp-select" id="sp-live-voice" onchange="setLiveVoice(this.value)">
-                    <option value="Aoede" data-i18n="voice_maya">Emma · נשי רך</option>
-                    <option value="Kore" data-i18n="voice_noa">Olivia · נשי בהיר</option>
-                    <option value="Leda" data-i18n="voice_tal">Aria · נשי צעיר</option>
-                    <option value="Charon" data-i18n="voice_daniel">Liam · גברי חם</option>
-                    <option value="Puck" data-i18n="voice_eitan">Noah · גברי אנרגטי</option>
-                    <option value="Fenrir" data-i18n="voice_ran">Ethan · גברי עמוק</option>
-                </select>
-            </div>
-            <div class="sp-row">
-                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> <span data-i18n="live_speed">מהירות דיבור</span></span>
-                <select class="sp-select" id="sp-live-speed" onchange="setLiveSpeed(this.value)">
-                    <option value="0.9" data-i18n="speed_slow">איטי</option>
-                    <option value="1" data-i18n="speed_normal">רגיל</option>
-                    <option value="1.15" data-i18n="speed_fast">מהיר</option>
-                    <option value="1.3" data-i18n="speed_vfast">מהיר מאוד</option>
-                </select>
             </div>
             <div class="sp-row">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="10" cy="19" r="2.5"/><path d="M12 2a10 10 0 0 0 0 20"/></svg> <span data-i18n="bg_label">רקע</span></span>
@@ -3563,6 +3568,33 @@ function setLiveSpeed(v) { localStorage.setItem('birgsol_live_rate', v); }
 // ── רקע: לבן (ברירת מחדל) / תכלת ──
 function applyBg(v) { document.documentElement.classList.toggle('bg-white', v === 'white'); try { localStorage.setItem('birgsol_bg', v); } catch (e) {} }
 function _liveVoiceName() { const v = localStorage.getItem('birgsol_live_voice'); const OK = ['Aoede', 'Kore', 'Leda', 'Charon', 'Puck', 'Fenrir']; return OK.includes(v) ? v : 'Aoede'; } // שם קול של Gemini TTS
+// ── מסך בחירת קול בלייב (נפתח בפעם הראשונה + מכפתור ⋮) ──
+const _LIVE_VOICES = [
+    { v: 'Aoede', n: 'Emma', d: 'נשי רך' }, { v: 'Kore', n: 'Olivia', d: 'נשי בהיר' }, { v: 'Leda', n: 'Aria', d: 'נשי צעיר' },
+    { v: 'Charon', n: 'Liam', d: 'גברי חם' }, { v: 'Puck', n: 'Noah', d: 'גברי אנרגטי' }, { v: 'Fenrir', n: 'Ethan', d: 'גברי עמוק' }
+];
+const _LIVE_SPEEDS = [{ s: '0.9', l: 'איטי' }, { s: '1', l: 'רגיל' }, { s: '1.15', l: 'מהיר' }, { s: '1.3', l: 'מהיר מאוד' }];
+function _buildVoicePicker() {
+    const cur = _liveVoiceName(), curSpeed = localStorage.getItem('birgsol_live_rate') || '1';
+    const vc = document.getElementById('vp-voices'); if (!vc) return; vc.innerHTML = '';
+    _LIVE_VOICES.forEach(o => {
+        const b = document.createElement('button'), act = o.v === cur;
+        b.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:11px 13px;border-radius:14px;cursor:pointer;font-family:inherit;text-align:right;border:1.5px solid ' + (act ? '#4285F4' : 'var(--border)') + ';background:' + (act ? 'linear-gradient(135deg,rgba(56,189,248,.16),rgba(66,133,244,.16))' : 'var(--surf)') + ';color:var(--text)';
+        b.innerHTML = '<span style="font-weight:700;font-size:14px">' + o.n + '</span><span style="font-size:11.5px;color:var(--muted)">' + o.d + '</span>';
+        b.onclick = () => { setLiveVoice(o.v); _buildVoicePicker(); };
+        vc.appendChild(b);
+    });
+    const sc = document.getElementById('vp-speeds'); if (!sc) return; sc.innerHTML = '';
+    _LIVE_SPEEDS.forEach(o => {
+        const b = document.createElement('button'), act = o.s === curSpeed;
+        b.textContent = o.l;
+        b.style.cssText = 'flex:1;padding:9px 4px;border-radius:12px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;border:1.5px solid ' + (act ? '#4285F4' : 'var(--border)') + ';background:' + (act ? 'linear-gradient(135deg,rgba(56,189,248,.16),rgba(66,133,244,.16))' : 'var(--surf)') + ';color:var(--text)';
+        b.onclick = () => { setLiveSpeed(o.s); _buildVoicePicker(); };
+        sc.appendChild(b);
+    });
+}
+function openVoicePicker() { _buildVoicePicker(); const p = document.getElementById('voice-picker'); if (p) p.style.display = 'flex'; }
+function closeVoicePicker() { const p = document.getElementById('voice-picker'); if (p) p.style.display = 'none'; try { localStorage.setItem('birgsol_voice_chosen', '1'); } catch (e) {} }
 function _liveRate() { const r = parseFloat(localStorage.getItem('birgsol_live_rate') || '1'); return (r >= 0.5 && r <= 2) ? r : 1; }
 // בורר סגנון לתמונה — כברירת מחדל דולק (מציג ריאליסטי/ציור/קריקטורה/אנימה). כיבוי: ישר ריאליסטי בלי לשאול.
 function toggleStylePicker() {
@@ -3659,7 +3691,8 @@ const L10N_EXTRA = {
         guest_login:'התחבר', guest_signup:'הירשם בחינם',
         live_voice:'קול בלייב', live_speed:'מהירות דיבור', speed_slow:'איטי', speed_normal:'רגיל', speed_fast:'מהיר', speed_vfast:'מהיר מאוד',
         voice_maya:'Emma · נשי רך', voice_noa:'Olivia · נשי בהיר', voice_tal:'Aria · נשי צעיר', voice_daniel:'Liam · גברי חם', voice_eitan:'Noah · גברי אנרגטי', voice_ran:'Ethan · גברי עמוק',
-        bg_label:'רקע', bg_white:'לבן', bg_teal:'תכלת'
+        bg_label:'רקע', bg_white:'לבן', bg_teal:'תכלת',
+        vp_title:'בחר קול', vp_sub:'הקול שבו BIRGSOL ידבר איתך בלייב', vp_done:'מעולה, בואו נתחיל'
     },
     en: {
         install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker',
@@ -3683,7 +3716,8 @@ const L10N_EXTRA = {
         guest_login:'Log in', guest_signup:'Sign up free',
         live_voice:'Live voice', live_speed:'Speech speed', speed_slow:'Slow', speed_normal:'Normal', speed_fast:'Fast', speed_vfast:'Very fast',
         voice_maya:'Emma · soft female', voice_noa:'Olivia · bright female', voice_tal:'Aria · young female', voice_daniel:'Liam · warm male', voice_eitan:'Noah · energetic male', voice_ran:'Ethan · deep male',
-        bg_label:'Background', bg_white:'White', bg_teal:'Sky blue'
+        bg_label:'Background', bg_white:'White', bg_teal:'Sky blue',
+        vp_title:'Choose a voice', vp_sub:'The voice BIRGSOL speaks in during live', vp_done:"Great, let's go"
     }
 };
 Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
@@ -8338,6 +8372,8 @@ function startLive() {
     _setLiveState('idle');
     _startWave();
     _warmupHFTTS();
+    // פעם ראשונה בלייב — פותחים אוטומטית את מסך בחירת הקול
+    try { if (!localStorage.getItem('birgsol_voice_chosen')) openVoicePicker(); } catch (e) {}
     document.getElementById('live-glow-canvas').onclick = () => {
         if (!_liveBusy && _liveActive) _liveLoop();
     };
