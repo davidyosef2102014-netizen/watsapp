@@ -1565,8 +1565,12 @@
             <div class="sp-row">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg> <span data-i18n="live_voice">קול בלייב</span></span>
                 <select class="sp-select" id="sp-live-voice" onchange="setLiveVoice(this.value)">
-                    <option value="female" data-i18n="voice_female">נשי</option>
-                    <option value="male" data-i18n="voice_male">גברי</option>
+                    <option value="Aoede" data-i18n="voice_maya">מאיה · נשי רך</option>
+                    <option value="Kore" data-i18n="voice_noa">נועה · נשי בהיר</option>
+                    <option value="Leda" data-i18n="voice_tal">טל · נשי צעיר</option>
+                    <option value="Charon" data-i18n="voice_daniel">דניאל · גברי חם</option>
+                    <option value="Puck" data-i18n="voice_eitan">איתן · גברי אנרגטי</option>
+                    <option value="Fenrir" data-i18n="voice_ran">רן · גברי עמוק</option>
                 </select>
             </div>
             <div class="sp-row">
@@ -3547,7 +3551,7 @@ function toggleFollowups() {
 // ── קול ומהירות בלייב ──
 function setLiveVoice(v) { localStorage.setItem('birgsol_live_voice', v); }
 function setLiveSpeed(v) { localStorage.setItem('birgsol_live_rate', v); }
-function _liveVoiceName() { return localStorage.getItem('birgsol_live_voice') === 'male' ? 'Charon' : 'Aoede'; } // Gemini TTS: Charon=גברי, Aoede=נשי
+function _liveVoiceName() { const v = localStorage.getItem('birgsol_live_voice'); const OK = ['Aoede', 'Kore', 'Leda', 'Charon', 'Puck', 'Fenrir']; return OK.includes(v) ? v : 'Aoede'; } // שם קול של Gemini TTS
 function _liveRate() { const r = parseFloat(localStorage.getItem('birgsol_live_rate') || '1'); return (r >= 0.5 && r <= 2) ? r : 1; }
 // בורר סגנון לתמונה — כברירת מחדל דולק (מציג ריאליסטי/ציור/קריקטורה/אנימה). כיבוי: ישר ריאליסטי בלי לשאול.
 function toggleStylePicker() {
@@ -3642,7 +3646,8 @@ const L10N_EXTRA = {
         files_connect:'חבר ›', files_change:'החלף', files_remove:'הסר',
         autosave_label:'שמירת קוד אוטומטית לתיקייה',
         guest_login:'התחבר', guest_signup:'הירשם בחינם',
-        live_voice:'קול בלייב', live_speed:'מהירות דיבור', voice_female:'נשי', voice_male:'גברי', speed_slow:'איטי', speed_normal:'רגיל', speed_fast:'מהיר', speed_vfast:'מהיר מאוד'
+        live_voice:'קול בלייב', live_speed:'מהירות דיבור', speed_slow:'איטי', speed_normal:'רגיל', speed_fast:'מהיר', speed_vfast:'מהיר מאוד',
+        voice_maya:'מאיה · נשי רך', voice_noa:'נועה · נשי בהיר', voice_tal:'טל · נשי צעיר', voice_daniel:'דניאל · גברי חם', voice_eitan:'איתן · גברי אנרגטי', voice_ran:'רן · גברי עמוק'
     },
     en: {
         install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker',
@@ -3664,7 +3669,8 @@ const L10N_EXTRA = {
         files_connect:'Connect ›', files_change:'Change', files_remove:'Remove',
         autosave_label:'Auto-save code to folder',
         guest_login:'Log in', guest_signup:'Sign up free',
-        live_voice:'Live voice', live_speed:'Speech speed', voice_female:'Female', voice_male:'Male', speed_slow:'Slow', speed_normal:'Normal', speed_fast:'Fast', speed_vfast:'Very fast'
+        live_voice:'Live voice', live_speed:'Speech speed', speed_slow:'Slow', speed_normal:'Normal', speed_fast:'Fast', speed_vfast:'Very fast',
+        voice_maya:'Maya · soft female', voice_noa:'Noa · bright female', voice_tal:'Tal · young female', voice_daniel:'Daniel · warm male', voice_eitan:'Eitan · energetic male', voice_ran:'Ran · deep male'
     }
 };
 Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
@@ -3766,7 +3772,7 @@ function initSettings() {
     const spOn = localStorage.getItem('birgsol_style_picker_off') !== '1'; // בורר סגנון דולק כברירת מחדל
     document.getElementById('sp-stylepick')?.classList.toggle('on', spOn);
     // קול ומהירות בלייב — טוענים את הבחירה השמורה
-    const _lvSel = document.getElementById('sp-live-voice'); if (_lvSel) _lvSel.value = localStorage.getItem('birgsol_live_voice') || 'female';
+    const _lvSel = document.getElementById('sp-live-voice'); if (_lvSel) _lvSel.value = (typeof _liveVoiceName === 'function') ? _liveVoiceName() : 'Aoede';
     const _lsSel = document.getElementById('sp-live-speed'); if (_lsSel) _lsSel.value = localStorage.getItem('birgsol_live_rate') || '1';
     const asOn = localStorage.getItem('birgsol_autosave_code') !== '0'; // שמירת קוד אוטומטית דולקת כברירת מחדל
     document.getElementById('sp-autosave')?.classList.toggle('on', asOn);
