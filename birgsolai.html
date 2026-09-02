@@ -2615,12 +2615,13 @@ function _buildModelMenu() {
     MODELS.forEach(m => {
         const allowed = _modelAllowed(m), active = m.id === cur;
         const it = document.createElement('div');
-        it.style.cssText = 'display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;cursor:pointer;' + (active ? 'background:linear-gradient(135deg,rgba(66,133,244,.14),rgba(56,189,248,.14));' : '');
+        it.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:9px;cursor:pointer;' + (active ? 'background:linear-gradient(135deg,rgba(66,133,244,.14),rgba(56,189,248,.14));' : '');
         it.onmouseenter = () => { if (!active) it.style.background = 'var(--surf2)'; };
         it.onmouseleave = () => { if (!active) it.style.background = ''; };
-        const lock = allowed ? '' : '<span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">🔒 ' + (TIERS[m.minTier] ? TIERS[m.minTier].badge : m.minTier) + '</span>';
-        const check = active ? '<span style="color:#4285F4;font-weight:800;width:12px">✓</span>' : '<span style="width:12px;display:inline-block"></span>';
-        it.innerHTML = check + '<div style="flex:1"><div style="font-weight:700;font-size:13px' + (allowed ? '' : ';opacity:.6') + '">' + m.brand + '</div><div style="font-size:11px;color:var(--muted)">' + m.desc + '</div></div>' + lock;
+        const lock = allowed ? '' : '<span style="margin-inline-start:auto;font-size:10px;color:var(--muted)">🔒 ' + (TIERS[m.minTier] ? TIERS[m.minTier].badge : m.minTier) + '</span>';
+        const check = active ? '<span style="color:#4285F4;font-weight:800;width:11px">✓</span>' : '<span style="width:11px;display:inline-block"></span>';
+        // שמות קטנים ובלי תיאורים (לבקשת דוד) — רק שם הגרסה, בלי הקידומת "BIRGSOL AI"
+        it.innerHTML = check + '<div style="flex:1;font-weight:600;font-size:12px' + (allowed ? '' : ';opacity:.6') + '">' + m.brand.replace(/^BIRGSOL AI\s*/i, '') + '</div>' + lock;
         it.onclick = () => { if (allowed) setModelId(m.id); else { _closeModelMenu(); if (typeof openPricingModal === 'function') openPricingModal(); } };
         mn.appendChild(it);
     });
@@ -3635,7 +3636,7 @@ const L10N_EXTRA = {
         mem_off_on:'הזיכרון כבוי — לא אלמד עליך דברים חדשים', mem_off_off:'הזיכרון פעיל שוב',
         canvas_title:'Canvas — תצוגה חיה', canvas_live:'תצוגה חיה', canvas_code:'קוד',
         code_completing:'משלים את הקוד…',
-        mode_chip_image:'@תמונות · כל הודעה יוצרת תמונה', ph_image:'תאר תמונה ליצירה…',
+        mode_chip_image:'@תמונות · כל הודעה יוצרת תמונה', ph_image:'@תמונה · תאר תמונה ליצירה…', ph_search:'@חיפוש · שאל כל שאלה, BIRGSOL יחפש באינטרנט',
         install_ios:'התקנה באייפון (Safari):\n\n1️⃣ לחץ על כפתור השיתוף ⬆️ בתחתית המסך\n2️⃣ בחר "הוסף למסך הבית" (Add to Home Screen)\n3️⃣ לחץ "הוסף"\n\nהאפליקציה תיפתח במסך מלא כמו אפליקציה רגילה.\n\n(אין צורך חובה להתקין — אפשר פשוט להמשיך להשתמש באתר.)',
         install_android:'להוריד את אפליקציית BIRGSOL AI?\n\nהיא עצמאית — עם אייקון משלה, עובדת גם בלי Chrome.\nאחרי ההורדה: פתח את הקובץ והתקן (אם יישאל — אשר "התקנה ממקור לא ידוע").\n\n(אין חובה — אפשר גם פשוט להמשיך להשתמש באתר.)',
         install_done:'BIRGSOL AI הותקן! 🎉', install_already:'אתה כבר באפליקציה 🙂',
@@ -3658,7 +3659,7 @@ const L10N_EXTRA = {
         mem_off_on:'Memory off — I won\'t learn new things about you', mem_off_off:'Memory active again',
         canvas_title:'Canvas — live preview', canvas_live:'Live preview', canvas_code:'Code',
         code_completing:'Completing the code…',
-        mode_chip_image:'@images · every message creates an image', ph_image:'Describe an image to create…',
+        mode_chip_image:'@images · every message creates an image', ph_image:'@image · Describe an image to create…', ph_search:'@search · Ask anything, BIRGSOL will search',
         install_ios:'Install on iPhone (Safari):\n\n1️⃣ Tap the Share button ⬆️ at the bottom of the screen\n2️⃣ Choose "Add to Home Screen"\n3️⃣ Tap "Add"\n\nThe app will open in full screen like a regular app.\n\n(Installing is optional — you can just keep using the site.)',
         install_android:'Download the BIRGSOL AI app?\n\nIt\'s standalone — with its own icon, works even without Chrome.\nAfter downloading: open the file and install (if asked, allow "Install from unknown source").\n\n(Optional — you can also just keep using the site.)',
         install_done:'BIRGSOL AI installed! 🎉', install_already:'You\'re already in the app 🙂',
@@ -4133,11 +4134,11 @@ function _updateModeChip() {
     const inp = document.getElementById('userInput');
     const isImg = (typeof currentMode !== 'undefined' && currentMode === 'image');
     const isSearch = (typeof currentMode !== 'undefined' && currentMode === 'search');
-    if (chip) chip.style.display = isImg ? 'block' : 'none';
+    if (chip) chip.style.display = 'none'; // הצ'יפ הכחול הוסר — החיווי עכשיו בפלייסהולדר (@תמונה) באפור
     if (inp) inp.placeholder = isImg ? _t('ph_image') : isSearch ? (_t('ph_search') || 'שאל כל שאלה — BIRGSOL יחפש באינטרנט') : _t('ph');
     document.body.classList.toggle('image-mode', isImg); // עיצוב ייעודי למצב תמונה
     const ex = document.getElementById('img-examples');
-    if (ex) ex.style.display = isImg ? 'flex' : 'none';
+    if (ex) ex.style.display = 'none'; // ההצעות לתמונות הוסרו (לבקשת דוד)
 }
 // לחיצה על דוגמה במצב תמונה — ממלא ושולח
 function _imgExample(t) { const inp = document.getElementById('userInput'); if (inp) { inp.value = t; } if (typeof send === 'function') send(); }
