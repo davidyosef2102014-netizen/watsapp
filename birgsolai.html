@@ -1266,7 +1266,7 @@
     <!-- FORGOT PASSWORD CARD -->
     <div id="forgot-card" class="login-card" style="display:none;">
         <div class="login-logo">
-            <div class="l-star" style="font-size:32px;">🔑</div>
+            <div class="l-star" style="display:flex;align-items:center;justify-content:center;color:#4285F4"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
             <h1>שחזור סיסמה</h1>
             <p>זיהוי חשבון ואיפוס סיסמה</p>
         </div>
@@ -1494,7 +1494,7 @@
     <div class="live-header">
         <span class="live-header-logo"></span>
         <span class="live-header-name">BIRGSOL AI 3.5</span>
-        <span class="live-header-info">GPT-4o · עדכון אפריל 2024 · 🌐 אינטרנט</span>
+        <span class="live-header-info" style="display:inline-flex;align-items:center;gap:4px">BIRGSOL AI · <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> אינטרנט</span>
     </div>
     <div class="live-orb" id="live-orb"><b></b><b></b><b></b><b></b></div>
     <div class="live-dots"><i></i><i></i><i></i><i></i><i></i></div>
@@ -1782,7 +1782,7 @@
             <div id="img-prev">
                 <div id="img-prev-img" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
                 <div id="img-prev-doc" style="display:none;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:9px 14px;max-width:260px">
-                    <span style="font-size:22px">📄</span>
+                    <span style="display:inline-flex;color:var(--muted)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
                     <div style="min-width:0;flex:1">
                         <div id="file-name-label" style="font-size:13px;font-weight:600;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
                         <div id="file-size-label" style="font-size:11px;color:var(--muted)"></div>
@@ -2631,7 +2631,7 @@ function _buildModelMenu() {
         it.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:9px;cursor:pointer;' + (active ? 'background:linear-gradient(135deg,rgba(66,133,244,.14),rgba(56,189,248,.14));' : '');
         it.onmouseenter = () => { if (!active) it.style.background = 'var(--surf2)'; };
         it.onmouseleave = () => { if (!active) it.style.background = ''; };
-        const lock = allowed ? '' : '<span style="margin-inline-start:auto;font-size:10px;color:var(--muted)">🔒 ' + (TIERS[m.minTier] ? TIERS[m.minTier].badge : m.minTier) + '</span>';
+        const lock = allowed ? '' : '<span style="margin-inline-start:auto;display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' + (TIERS[m.minTier] ? TIERS[m.minTier].badge : m.minTier) + '</span>';
         const check = active ? '<span style="color:#4285F4;font-weight:800;width:11px">✓</span>' : '<span style="width:11px;display:inline-block"></span>';
         // שמות קטנים ובלי תיאורים (לבקשת דוד) — רק שם הגרסה, בלי הקידומת "BIRGSOL AI"
         it.innerHTML = check + '<div style="flex:1;font-weight:600;font-size:12px' + (allowed ? '' : ';opacity:.6') + '">' + m.brand.replace(/^BIRGSOL AI\s*/i, '') + '</div>' + lock;
@@ -2867,7 +2867,7 @@ function _renderMemoryPanel() {
     for (const c of order) {
         if (groups[c] && groups[c].length) {
             html += `<div style="font-weight:700;margin:10px 0 4px;color:var(--blue,#4285F4)">${esc2(cats[c])}</div>`;
-            for (const tt of groups[c]) html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="flex:1">${esc2(tt)}</span><button class="mem-del" data-t="${esc2(tt).replace(/"/g, '&quot;')}" style="background:none;border:none;color:#ff5a5a;cursor:pointer;font-size:16px" title="${esc2(_t('mem_delete'))}">🗑</button></div>`;
+            for (const tt of groups[c]) html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="flex:1">${esc2(tt)}</span><button class="mem-del" data-t="${esc2(tt).replace(/"/g, '&quot;')}" style="background:none;border:none;color:#ff5a5a;cursor:pointer;display:inline-flex;padding:2px" title="${esc2(_t('mem_delete'))}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>`;
         }
     }
     body.innerHTML = html;
@@ -3887,8 +3887,8 @@ function closeAuth() {
 // חסימת אורח: אחרי GUEST_LIMIT הודעות, או בניסיון ליצור תמונה — מזמינים להתחבר
 function _guestGate() {
     if (currentUser) return false; // מחובר — אין חסימה
-    if (currentMode === 'image') { _promptGuestAuth('כדי ליצור תמונות, התחבר או הירשם בחינם 🎨'); return true; }
-    if (_guestUsed() >= GUEST_LIMIT) { _promptGuestAuth('נהנית מ-BIRGSOL? התחבר או הירשם בחינם כדי להמשיך ✨'); return true; }
+    if (currentMode === 'image') { _promptGuestAuth('כדי ליצור תמונות, התחבר או הירשם בחינם'); return true; }
+    if (_guestUsed() >= GUEST_LIMIT) { _promptGuestAuth('נהנית מ-BIRGSOL? התחבר או הירשם בחינם כדי להמשיך'); return true; }
     return false;
 }
 function _promptGuestAuth(msg) {
@@ -4839,7 +4839,7 @@ function toggleVoice() {
     btn.classList.add('recording');
     btn.title = 'עצור הקלטה';
     const savedPlaceholder = ta.placeholder;
-    ta.placeholder = '🎙 מקשיב...';
+    ta.placeholder = 'מקשיב…';
     let finalTranscript = '';
     _voiceRec.onresult = e => {
         let interim = '';
@@ -5177,7 +5177,7 @@ function addMsg(role, text, img = null, md = false, fileLabel = '') {
         row.className = 'msg-row user';
         const _imgArr = Array.isArray(img) ? img : (img ? [img] : []);
         const imgH = _imgArr.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${_imgArr.map(u => `<img src="${encodeURI(u)}" class="user-img" alt="תמונה">`).join('')}</div>` : '';
-        const fileH = fileLabel ? `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);border-radius:8px;padding:4px 8px;font-size:12px;margin-top:4px">📄 ${esc2(fileLabel)}</div>` : '';
+        const fileH = fileLabel ? `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);border-radius:8px;padding:4px 8px;font-size:12px;margin-top:4px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:.75"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> ${esc2(fileLabel)}</div>` : '';
         row.dataset.histBefore = hist.length;
         row.innerHTML = `<div class="user-bub-wrap"><button class="edit-msg-btn" onclick="editMsg(this)" title="ערוך הודעה">${IC.pencil}</button><div class="user-bub">${escHtml(text).replace(/\n/g,'<br>')}${imgH}${fileH ? '<br>' + fileH : ''}</div></div>`;
     } else {
@@ -7646,7 +7646,7 @@ async function browserLook(q, opts) {
     // שער PRO/ULTRA
     if (currentTier !== 'pro' && currentTier !== 'ultra') {
         if (!opts.skipUser) addMsg('user', q);
-        const r = addMsg('ai', '🔒 ראיית הדפדפן זמינה ל-Pro ו-Ultra בלבד. שדרג כדי ש-BIRGSOL יוכל להסתכל בדפדפן שלך.');
+        const r = addMsg('ai', 'ראיית הדפדפן זמינה ל-Pro ו-Ultra בלבד. שדרג כדי ש-BIRGSOL יוכל להסתכל בדפדפן שלך.');
         return;
     }
     if (!opts.skipUser) addMsg('user', q);
