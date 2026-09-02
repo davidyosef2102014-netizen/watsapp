@@ -7322,16 +7322,25 @@ async function _renderMath(el) {
 /* מזהה קישור בהודעה ומעשיר את ההקשר ל-AI:
    יוטיוב → כותרת + ערוץ (noembed). כל קישור אחר → תוכן הדף (r.jina.ai). שניהם CORS-פתוחים. */
 async function _fetchLinkInfo(text) {
-    // יוטיוב — שולף כותרת + ערוץ
+    // יוטיוב — שולף כותרת+ערוץ (noembed) וגם מנסה למשוך תמלול/תוכן (r.jina.ai מחלץ כתוביות לרוב) כדי לסכם באמת
     const yt = text.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([\w-]{11})/i);
     if (yt) {
+        let title = '', channel = '', transcript = '';
         try {
             const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + yt[1]), { signal: AbortSignal.timeout(8000) });
             const d = await r.json();
-            if (d && d.title) {
-                return `\n\n[מידע על סרטון היוטיוב שהמשתמש שלח — כותרת: "${d.title}"${d.author_name ? ', ערוץ: ' + d.author_name : ''}. הסבר על מה הסרטון על סמך הכותרת והערוץ. אם דרושים פרטים נוספים, חפש את שם הסרטון עם [SEARCH].]`;
-            }
+            if (d && d.title) { title = d.title; channel = d.author_name || ''; }
         } catch {}
+        try {
+            const jr = await fetch('https://r.jina.ai/https://www.youtube.com/watch?v=' + yt[1], { headers: { 'X-Return-Format': 'markdown' }, signal: AbortSignal.timeout(15000) });
+            if (jr.ok) { const jt = (await jr.text()).slice(0, 6000); if (jt && jt.length > 200) transcript = jt; }
+        } catch {}
+        if (title || transcript) {
+            let out = `\n\n[סרטון יוטיוב שהמשתמש שלח${title ? ' — כותרת: "' + title + '"' + (channel ? ', ערוץ: ' + channel : '') : ''}]`;
+            if (transcript) out += `\n[תוכן/תמלול הסרטון]:\n${transcript}\n\n[סכם את הסרטון על סמך התמלול הזה — הנקודות המרכזיות. אם התמלול חלקי, ציין זאת.]`;
+            else out += `\n[אין תמלול זמין — הסבר בקצרה על מה הסרטון לפי הכותרת והערוץ, וציין שזו הערכה מהכותרת בלבד. אם צריך, חפש את שם הסרטון עם [SEARCH].]`;
+            return out;
+        }
         return '';
     }
     // כל קישור אחר — קורא את תוכן הדף
