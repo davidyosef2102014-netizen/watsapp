@@ -1565,12 +1565,12 @@
             <div class="sp-row">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg> <span data-i18n="live_voice">קול בלייב</span></span>
                 <select class="sp-select" id="sp-live-voice" onchange="setLiveVoice(this.value)">
-                    <option value="Aoede" data-i18n="voice_maya">מאיה · נשי רך</option>
-                    <option value="Kore" data-i18n="voice_noa">נועה · נשי בהיר</option>
-                    <option value="Leda" data-i18n="voice_tal">טל · נשי צעיר</option>
-                    <option value="Charon" data-i18n="voice_daniel">דניאל · גברי חם</option>
-                    <option value="Puck" data-i18n="voice_eitan">איתן · גברי אנרגטי</option>
-                    <option value="Fenrir" data-i18n="voice_ran">רן · גברי עמוק</option>
+                    <option value="Aoede" data-i18n="voice_maya">Emma · נשי רך</option>
+                    <option value="Kore" data-i18n="voice_noa">Olivia · נשי בהיר</option>
+                    <option value="Leda" data-i18n="voice_tal">Aria · נשי צעיר</option>
+                    <option value="Charon" data-i18n="voice_daniel">Liam · גברי חם</option>
+                    <option value="Puck" data-i18n="voice_eitan">Noah · גברי אנרגטי</option>
+                    <option value="Fenrir" data-i18n="voice_ran">Ethan · גברי עמוק</option>
                 </select>
             </div>
             <div class="sp-row">
@@ -3647,7 +3647,7 @@ const L10N_EXTRA = {
         autosave_label:'שמירת קוד אוטומטית לתיקייה',
         guest_login:'התחבר', guest_signup:'הירשם בחינם',
         live_voice:'קול בלייב', live_speed:'מהירות דיבור', speed_slow:'איטי', speed_normal:'רגיל', speed_fast:'מהיר', speed_vfast:'מהיר מאוד',
-        voice_maya:'מאיה · נשי רך', voice_noa:'נועה · נשי בהיר', voice_tal:'טל · נשי צעיר', voice_daniel:'דניאל · גברי חם', voice_eitan:'איתן · גברי אנרגטי', voice_ran:'רן · גברי עמוק'
+        voice_maya:'Emma · נשי רך', voice_noa:'Olivia · נשי בהיר', voice_tal:'Aria · נשי צעיר', voice_daniel:'Liam · גברי חם', voice_eitan:'Noah · גברי אנרגטי', voice_ran:'Ethan · גברי עמוק'
     },
     en: {
         install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker',
@@ -3670,7 +3670,7 @@ const L10N_EXTRA = {
         autosave_label:'Auto-save code to folder',
         guest_login:'Log in', guest_signup:'Sign up free',
         live_voice:'Live voice', live_speed:'Speech speed', speed_slow:'Slow', speed_normal:'Normal', speed_fast:'Fast', speed_vfast:'Very fast',
-        voice_maya:'Maya · soft female', voice_noa:'Noa · bright female', voice_tal:'Tal · young female', voice_daniel:'Daniel · warm male', voice_eitan:'Eitan · energetic male', voice_ran:'Ran · deep male'
+        voice_maya:'Emma · soft female', voice_noa:'Olivia · bright female', voice_tal:'Aria · young female', voice_daniel:'Liam · warm male', voice_eitan:'Noah · energetic male', voice_ran:'Ethan · deep male'
     }
 };
 Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
