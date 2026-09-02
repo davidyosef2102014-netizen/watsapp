@@ -82,7 +82,8 @@
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         html, body { width: 100%; height: 100%; overflow: hidden; color: var(--text); font-family: 'Assistant', sans-serif; }
-        html {
+        html { background: #ffffff; background-attachment: fixed; } /* רקע לבן כברירת מחדל */
+        html.bg-teal {                                              /* תכלת — נבחר בהגדרות */
             background:
                 radial-gradient(ellipse 140% 120% at 50% -10%, #ffffff 0%, #e4eff9 45%, #ccddf2 75%, #bdd1ec 100%);
             background-attachment: fixed;
@@ -1580,6 +1581,13 @@
                     <option value="1" data-i18n="speed_normal">רגיל</option>
                     <option value="1.15" data-i18n="speed_fast">מהיר</option>
                     <option value="1.3" data-i18n="speed_vfast">מהיר מאוד</option>
+                </select>
+            </div>
+            <div class="sp-row">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="10" cy="19" r="2.5"/><path d="M12 2a10 10 0 0 0 0 20"/></svg> <span data-i18n="bg_label">רקע</span></span>
+                <select class="sp-select" id="sp-bg" onchange="applyBg(this.value)">
+                    <option value="white" data-i18n="bg_white">לבן</option>
+                    <option value="teal" data-i18n="bg_teal">תכלת</option>
                 </select>
             </div>
             <div class="sp-row">
@@ -3552,6 +3560,8 @@ function toggleFollowups() {
 // ── קול ומהירות בלייב ──
 function setLiveVoice(v) { localStorage.setItem('birgsol_live_voice', v); }
 function setLiveSpeed(v) { localStorage.setItem('birgsol_live_rate', v); }
+// ── רקע: לבן (ברירת מחדל) / תכלת ──
+function applyBg(v) { document.documentElement.classList.toggle('bg-teal', v === 'teal'); try { localStorage.setItem('birgsol_bg', v); } catch (e) {} }
 function _liveVoiceName() { const v = localStorage.getItem('birgsol_live_voice'); const OK = ['Aoede', 'Kore', 'Leda', 'Charon', 'Puck', 'Fenrir']; return OK.includes(v) ? v : 'Aoede'; } // שם קול של Gemini TTS
 function _liveRate() { const r = parseFloat(localStorage.getItem('birgsol_live_rate') || '1'); return (r >= 0.5 && r <= 2) ? r : 1; }
 // בורר סגנון לתמונה — כברירת מחדל דולק (מציג ריאליסטי/ציור/קריקטורה/אנימה). כיבוי: ישר ריאליסטי בלי לשאול.
@@ -3648,7 +3658,8 @@ const L10N_EXTRA = {
         autosave_label:'שמירת קוד אוטומטית לתיקייה',
         guest_login:'התחבר', guest_signup:'הירשם בחינם',
         live_voice:'קול בלייב', live_speed:'מהירות דיבור', speed_slow:'איטי', speed_normal:'רגיל', speed_fast:'מהיר', speed_vfast:'מהיר מאוד',
-        voice_maya:'Emma · נשי רך', voice_noa:'Olivia · נשי בהיר', voice_tal:'Aria · נשי צעיר', voice_daniel:'Liam · גברי חם', voice_eitan:'Noah · גברי אנרגטי', voice_ran:'Ethan · גברי עמוק'
+        voice_maya:'Emma · נשי רך', voice_noa:'Olivia · נשי בהיר', voice_tal:'Aria · נשי צעיר', voice_daniel:'Liam · גברי חם', voice_eitan:'Noah · גברי אנרגטי', voice_ran:'Ethan · גברי עמוק',
+        bg_label:'רקע', bg_white:'לבן', bg_teal:'תכלת'
     },
     en: {
         install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker',
@@ -3671,7 +3682,8 @@ const L10N_EXTRA = {
         autosave_label:'Auto-save code to folder',
         guest_login:'Log in', guest_signup:'Sign up free',
         live_voice:'Live voice', live_speed:'Speech speed', speed_slow:'Slow', speed_normal:'Normal', speed_fast:'Fast', speed_vfast:'Very fast',
-        voice_maya:'Emma · soft female', voice_noa:'Olivia · bright female', voice_tal:'Aria · young female', voice_daniel:'Liam · warm male', voice_eitan:'Noah · energetic male', voice_ran:'Ethan · deep male'
+        voice_maya:'Emma · soft female', voice_noa:'Olivia · bright female', voice_tal:'Aria · young female', voice_daniel:'Liam · warm male', voice_eitan:'Noah · energetic male', voice_ran:'Ethan · deep male',
+        bg_label:'Background', bg_white:'White', bg_teal:'Sky blue'
     }
 };
 Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
@@ -3775,6 +3787,9 @@ function initSettings() {
     // קול ומהירות בלייב — טוענים את הבחירה השמורה
     const _lvSel = document.getElementById('sp-live-voice'); if (_lvSel) _lvSel.value = (typeof _liveVoiceName === 'function') ? _liveVoiceName() : 'Aoede';
     const _lsSel = document.getElementById('sp-live-speed'); if (_lsSel) _lsSel.value = localStorage.getItem('birgsol_live_rate') || '1';
+    // רקע — מחילים את הבחירה השמורה (לבן ברירת מחדל)
+    applyBg(localStorage.getItem('birgsol_bg') || 'white');
+    const _bgSel = document.getElementById('sp-bg'); if (_bgSel) _bgSel.value = localStorage.getItem('birgsol_bg') || 'white';
     const asOn = localStorage.getItem('birgsol_autosave_code') !== '0'; // שמירת קוד אוטומטית דולקת כברירת מחדל
     document.getElementById('sp-autosave')?.classList.toggle('on', asOn);
     try { if (typeof _restoreFilesFolder === 'function') _restoreFilesFolder(); } catch (e) {} // שחזר תיקיית "BIRGSOL AI" אם חוברה
