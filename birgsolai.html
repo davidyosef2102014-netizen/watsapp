@@ -84,12 +84,12 @@
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         html, body { width: 100%; height: 100%; overflow: hidden; color: var(--text); font-family: 'Heebo', 'Assistant', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-        html {                                                      /* תכלת — ברירת מחדל */
+        html { background: #ffffff; background-attachment: fixed; }  /* לבן — ברירת מחדל */
+        html.bg-teal {                                              /* תכלת — נבחר בהגדרות */
             background:
                 radial-gradient(ellipse 140% 120% at 50% -10%, #ffffff 0%, #e4eff9 45%, #ccddf2 75%, #bdd1ec 100%);
             background-attachment: fixed;
         }
-        html.bg-white { background: #ffffff; }                      /* לבן — נבחר בהגדרות */
         body { display: flex; background: transparent; }
 
         /* ══════════════ SIDEBAR ══════════════ */
@@ -149,8 +149,14 @@
             max-height: none; height: 100%; overflow-y: auto;
             padding: 26px max(18px, calc(50vw - 290px)) 40px;
         }
+        .settings-panel.open { background: var(--surf); }
         .settings-panel.open .sp-title { font-size: 21px; text-transform: none; letter-spacing: 0; color: var(--text); margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-        .settings-panel.open .sp-close { font-size: 26px; }
+        .settings-panel.open .sp-close {
+            font-size: 20px; width: 40px; height: 40px; border-radius: 50%;
+            background: var(--surf2); color: var(--text);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .settings-panel.open .sp-close:hover { background: var(--border); }
         .settings-panel.open .sp-row { padding: 15px 4px; margin-bottom: 0; border-bottom: 1px solid var(--border); }
         .settings-panel.open .sp-label { font-size: 15px; }
         .settings-panel.open .sp-select { font-size: 14px; padding: 8px 13px; border-radius: 10px; }
@@ -1553,7 +1559,7 @@
         <div class="settings-panel" id="settings-panel">
             <div class="sp-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
                 <span data-i18n="settings_title">הגדרות תצוגה</span>
-                <button class="sp-close" onclick="toggleSettings()" aria-label="Close settings" title="סגור">✕</button>
+                <button class="sp-close" onclick="toggleSettings()" aria-label="Close settings" title="סגור"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
             <div class="sp-row">
                 <span class="sp-label" data-i18n="your_plan">הגרסה שלך</span>
@@ -3568,7 +3574,7 @@ function toggleFollowups() {
 function setLiveVoice(v) { localStorage.setItem('birgsol_live_voice', v); }
 function setLiveSpeed(v) { localStorage.setItem('birgsol_live_rate', v); }
 // ── רקע: לבן (ברירת מחדל) / תכלת ──
-function applyBg(v) { document.documentElement.classList.toggle('bg-white', v === 'white'); try { localStorage.setItem('birgsol_bg', v); } catch (e) {} }
+function applyBg(v) { document.documentElement.classList.toggle('bg-teal', v === 'teal'); try { localStorage.setItem('birgsol_bg', v); } catch (e) {} }
 function _liveVoiceName() { const v = localStorage.getItem('birgsol_live_voice'); const OK = ['Aoede', 'Kore', 'Leda', 'Charon', 'Puck', 'Fenrir']; return OK.includes(v) ? v : 'Aoede'; } // שם קול של Gemini TTS
 // ── מסך בחירת קול בלייב (נפתח בפעם הראשונה + מכפתור ⋮) ──
 const _LIVE_VOICES = [
@@ -3823,9 +3829,9 @@ function initSettings() {
     // קול ומהירות בלייב — טוענים את הבחירה השמורה
     const _lvSel = document.getElementById('sp-live-voice'); if (_lvSel) _lvSel.value = (typeof _liveVoiceName === 'function') ? _liveVoiceName() : 'Aoede';
     const _lsSel = document.getElementById('sp-live-speed'); if (_lsSel) _lsSel.value = localStorage.getItem('birgsol_live_rate') || '1';
-    // רקע — מחילים את הבחירה השמורה (תכלת ברירת מחדל)
-    applyBg(localStorage.getItem('birgsol_bg') || 'teal');
-    const _bgSel = document.getElementById('sp-bg'); if (_bgSel) _bgSel.value = localStorage.getItem('birgsol_bg') || 'teal';
+    // רקע — מחילים את הבחירה השמורה (לבן ברירת מחדל)
+    applyBg(localStorage.getItem('birgsol_bg') || 'white');
+    const _bgSel = document.getElementById('sp-bg'); if (_bgSel) _bgSel.value = localStorage.getItem('birgsol_bg') || 'white';
     const asOn = localStorage.getItem('birgsol_autosave_code') !== '0'; // שמירת קוד אוטומטית דולקת כברירת מחדל
     document.getElementById('sp-autosave')?.classList.toggle('on', asOn);
     try { if (typeof _restoreFilesFolder === 'function') _restoreFilesFolder(); } catch (e) {} // שחזר תיקיית "BIRGSOL AI" אם חוברה
