@@ -8634,20 +8634,12 @@ async function _liveLoop() {
     _stopThinkSound(); // עצור את צליל החשיבה כשמתחילים לענות
     if (!_liveActive || _liveStopped) { _liveBusy = false; return; }
     _setLiveState('speaking');
-    // אבחון למנהל בלבד: מציג את הטקסט המדויק שנשלח ל-TTS ואיזה מנוע דיבר בפועל (לא מוצג למשתמש רגיל)
-    const _isAdmin = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser));
-    const _diag = document.getElementById('live-transcript');
-    if (_isAdmin) {
-        _diag.style.cssText = 'font-size:12px;line-height:1.5;color:#334155;max-width:90%;white-space:pre-wrap;text-align:center;direction:rtl;opacity:.85';
-        _diag.textContent = '🗣️ טקסט לדיבור:\n' + reply + '\n\n⏳ מנוע: מחפש...';
-    } else {
-        _diag.textContent = ''; // משתמש רגיל — בלי טקסט, רק קול
-    }
+    document.getElementById('live-transcript').textContent = ''; // בלי טקסט — רק קול
 
     // תקרת זמן להקראה — קוטעים רק אם הוא באמת נתקע (עבר את התקרה), לא כשסיים תקין
     let _spokeDone = false;
     await Promise.race([
-        _liveSpeakText(reply).then((prov) => { _spokeDone = true; if (_isAdmin && _diag) _diag.textContent = '🗣️ טקסט לדיבור:\n' + reply + '\n\n🔊 מנוע שדיבר: ' + prov; }),
+        _liveSpeakText(reply).then(() => { _spokeDone = true; }),
         new Promise(r => setTimeout(r, 120000)) // תקרה גבוהה — תשובה ארוכה לא נקטעת
 
     ]);
