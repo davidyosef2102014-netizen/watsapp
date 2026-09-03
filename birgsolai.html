@@ -226,11 +226,12 @@
         @keyframes sparkle { 0%,100%{transform:scale(1)}50%{transform:scale(1.05)} }
 
         .gem-hello {
-            font-size: 2rem; font-weight: 700; line-height: 1.15; margin-bottom: 6px;
+            font-size: 1.6rem; font-weight: 700; line-height: 1.15; margin-bottom: 6px;
             background: linear-gradient(to left, #4285F4, #9C6ADE, #EA4335);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
-        .gem-sub { font-size: 1.25rem; font-weight: 500; color: var(--muted); margin-bottom: 40px; }
+        .gem-sub { font-size: 1.02rem; font-weight: 500; color: var(--muted); margin-bottom: 40px; }
+        @media (max-width: 520px) { .gem-hello { font-size: 1.4rem; } .gem-sub { font-size: .95rem; } }
 
         /* Suggestion cards - Gemini style 2-row grid */
         .sug-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 580px; width: 100%; }
@@ -266,7 +267,7 @@
         .user-bub-wrap { display: inline-block; position: relative; max-width: 72%; vertical-align: top; }
         .user-bub {
             background: var(--surf2); border-radius: 18px 18px 4px 18px;
-            padding: 11px 16px; font-size: 14.5px; line-height: 1.6;
+            padding: 10px 15px; font-size: 14px; line-height: 1.6;
             overflow-wrap: break-word; word-break: normal;
         }
         .user-img { max-width: 200px; border-radius: 10px; }
@@ -281,7 +282,7 @@
         }
         .ai-body { flex: 1; min-width: 0; }
         .ai-name { font-size: 13.5px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
-        .ai-txt { font-size: 14.5px; line-height: 1.7; color: var(--text); }
+        .ai-txt { font-size: 14px; line-height: 1.68; color: var(--text); }
 
         /* markdown */
         .ai-txt h1,.ai-txt h2,.ai-txt h3 { margin: 14px 0 7px; font-weight: 700; }
@@ -573,7 +574,7 @@
 
         textarea {
             flex: 1; border: none; outline: none;
-            padding: 9px 8px; font-size: 16px; resize: none;
+            padding: 9px 8px; font-size: 14.5px; resize: none;
             max-height: 140px; min-height: 38px;
             font-family: inherit; background: transparent;
             color: var(--text); line-height: 1.55; direction: rtl;
@@ -1009,17 +1010,17 @@
         html, body { height: 100dvh; }
         #main { height: 100dvh; }
         @media (max-width: 600px) {
-            .gem-hello { font-size: 1.9rem; }
-            .gem-sub { font-size: 1.3rem; margin-bottom: 28px; }
+            .gem-hello { font-size: 1.45rem; }
+            .gem-sub { font-size: 1rem; margin-bottom: 26px; }
             #welcome { padding: 20px 14px 170px; }
-            .gem-star { width: 68px; height: 68px; margin-bottom: 16px; }
+            .gem-star { width: 62px; height: 62px; margin-bottom: 14px; }
             .sug-grid { grid-template-columns: 1fr; gap: 8px; }
             .input-area { padding: 6px 12px 14px; }
             .msg-row { padding: 4px 12px; }
             .user-bub-wrap { max-width: 90%; }
-            .user-bub { font-size: 14.5px; padding: 10px 14px; }
-            .ai-txt { font-size: 14.5px; }
-            .ai-ava { width: 27px; height: 27px; font-size: 12px; }
+            .user-bub { font-size: 13.5px; padding: 9px 13px; }
+            .ai-txt { font-size: 13.5px; }
+            .ai-ava { width: 26px; height: 26px; font-size: 12px; }
             .topbar { padding: 0 8px; }
             .ver-pill { display: none; }
             .tb-name { font-size: 0.95rem; }
