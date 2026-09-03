@@ -72,9 +72,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <style>
         :root {
-            --bg:       #eef2fb;
+            --bg:       #ffffff;
             --surf:     #ffffff;
-            --surf2:    #f1f3f4;
+            --surf2:    #f4f5f7;
             --border:   rgba(0,0,0,0.08);
             --blue:     #4285F4;
             --purple:   #38bdf8;
@@ -432,8 +432,8 @@
             background:transparent; color:var(--muted); font-size:11.5px; font-weight:500;
             cursor:pointer; font-family:inherit; transition:all .15s; text-align:center;
         }
-        .mode-pill.active { background:var(--surf2); color:var(--text); font-weight:600; }
-        .mode-pill:hover:not(.active) { background:rgba(0,0,0,.05); color:var(--text); }
+        .mode-pill.active { background:rgba(56,189,248,.14); color:#0e8fc0; font-weight:700; }
+        .mode-pill:hover:not(.active) { background:rgba(0,0,0,.04); color:var(--text); }
 
         /* live wave button */
         .live-chip-row { padding:4px 10px 12px; }
@@ -537,7 +537,7 @@
         .input-area {
             position: absolute; bottom: 0; width: 100%;
             padding: 8px 22px 22px;
-            background: linear-gradient(to top, #eef2fb 78%, transparent);
+            background: linear-gradient(to top, var(--bg) 72%, transparent);
             z-index: 1500; /* מעל מפות Leaflet (שמגיעות ל-z-index ~1000) — אחרת המפה מכסה את תיבת ההקלדה */
         }
         .input-wrap { max-width: 760px; margin: 0 auto; }
@@ -548,13 +548,13 @@
         .rm-img { background: rgba(200,40,40,.85); border: none; color: white; width: 18px; height: 18px; border-radius: 50%; font-size: 8px; cursor: pointer; margin-top: -34px; margin-right: -8px; display: flex; align-items: center; justify-content: center; }
 
         .pill {
-            background: var(--surf); border-radius: 22px;
-            border: 1px solid var(--border);
-            box-shadow: 0 2px 12px rgba(0,0,0,.10), 0 1px 4px rgba(0,0,0,.06);
+            background: var(--surf); border-radius: 26px;
+            border: 1px solid #d9dce1;
+            box-shadow: 0 2px 8px rgba(30,50,90,.06);
             transition: border-color .2s, box-shadow .2s;
-            padding: 6px 6px 6px 6px;
+            padding: 6px;
         }
-        .pill:focus-within { border-color: rgba(66,133,244,.4); box-shadow: 0 2px 16px rgba(66,133,244,.15); }
+        .pill:focus-within { border-color: #b9bec6; box-shadow: 0 3px 14px rgba(30,50,90,.09); }
 
         .pill-inner { display: flex; align-items: flex-end; gap: 6px; }
         .p-btn {
