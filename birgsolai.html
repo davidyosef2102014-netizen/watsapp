@@ -72,7 +72,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <style>
         :root {
-            --bg:       #ffffff;
+            --bg:       #eef2fb;
             --surf:     #ffffff;
             --surf2:    #f4f5f7;
             --border:   rgba(0,0,0,0.08);
@@ -84,12 +84,12 @@
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         html, body { width: 100%; height: 100%; overflow: hidden; color: var(--text); font-family: 'Heebo', 'Assistant', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-        html { background: #ffffff; background-attachment: fixed; }  /* לבן — ברירת מחדל */
-        html.bg-teal {                                              /* תכלת — נבחר בהגדרות */
+        html {                                                      /* תכלת — ברירת מחדל */
             background:
                 radial-gradient(ellipse 140% 120% at 50% -10%, #ffffff 0%, #e4eff9 45%, #ccddf2 75%, #bdd1ec 100%);
             background-attachment: fixed;
         }
+        html.bg-white { background: #ffffff; --bg: #ffffff; }        /* לבן — נבחר בהגדרות (גם משתנה הרקע הופך ללבן) */
         body { display: flex; background: transparent; }
 
         /* ══════════════ SIDEBAR ══════════════ */
@@ -3575,7 +3575,7 @@ function toggleFollowups() {
 function setLiveVoice(v) { localStorage.setItem('birgsol_live_voice', v); }
 function setLiveSpeed(v) { localStorage.setItem('birgsol_live_rate', v); }
 // ── רקע: לבן (ברירת מחדל) / תכלת ──
-function applyBg(v) { document.documentElement.classList.toggle('bg-teal', v === 'teal'); try { localStorage.setItem('birgsol_bg', v); } catch (e) {} }
+function applyBg(v) { document.documentElement.classList.toggle('bg-white', v === 'white'); try { localStorage.setItem('birgsol_bg', v); } catch (e) {} }
 function _liveVoiceName() { const v = localStorage.getItem('birgsol_live_voice'); const OK = ['Aoede', 'Kore', 'Leda', 'Charon', 'Puck', 'Fenrir']; return OK.includes(v) ? v : 'Aoede'; } // שם קול של Gemini TTS
 // ── מסך בחירת קול בלייב (נפתח בפעם הראשונה + מכפתור ⋮) ──
 const _LIVE_VOICES = [
@@ -3830,9 +3830,9 @@ function initSettings() {
     // קול ומהירות בלייב — טוענים את הבחירה השמורה
     const _lvSel = document.getElementById('sp-live-voice'); if (_lvSel) _lvSel.value = (typeof _liveVoiceName === 'function') ? _liveVoiceName() : 'Aoede';
     const _lsSel = document.getElementById('sp-live-speed'); if (_lsSel) _lsSel.value = localStorage.getItem('birgsol_live_rate') || '1';
-    // רקע — מחילים את הבחירה השמורה (לבן ברירת מחדל)
-    applyBg(localStorage.getItem('birgsol_bg') || 'white');
-    const _bgSel = document.getElementById('sp-bg'); if (_bgSel) _bgSel.value = localStorage.getItem('birgsol_bg') || 'white';
+    // רקע — מחילים את הבחירה השמורה (תכלת ברירת מחדל)
+    applyBg(localStorage.getItem('birgsol_bg') || 'teal');
+    const _bgSel = document.getElementById('sp-bg'); if (_bgSel) _bgSel.value = localStorage.getItem('birgsol_bg') || 'teal';
     const asOn = localStorage.getItem('birgsol_autosave_code') !== '0'; // שמירת קוד אוטומטית דולקת כברירת מחדל
     document.getElementById('sp-autosave')?.classList.toggle('on', asOn);
     try { if (typeof _restoreFilesFolder === 'function') _restoreFilesFolder(); } catch (e) {} // שחזר תיקיית "BIRGSOL AI" אם חוברה
