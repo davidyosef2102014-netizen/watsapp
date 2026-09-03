@@ -7710,6 +7710,38 @@ async function browserLook(q, opts) {
     }
 }
 
+/* 🔬 מחקר עמוק (חשיבה לסירוגין) — רק במצב חיפוש. לולאה סוכנית: מפרק את השאלה לשאילתות,
+   מחפש, בודק מה חסר, מחפש שוב, ומחזיר את כל הממצאים לסינתזה. מציג כל שלב בשקיפות. */
+async function _deepResearch(query, statusEl) {
+    const _esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const _step = (txt) => { if (statusEl) { statusEl.innerHTML = `<span class="agent-step"><span class="agent-step-dot"></span><b>${_esc(txt)}</b></span>`; statusEl.style.display = 'flex'; } };
+    const _askQs = async (sys, user) => {
+        try {
+            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.3, max_tokens: 200 }, { signal: AbortSignal.timeout(9000) });
+            if (!r.ok) return [];
+            const j = await r.json();
+            const raw = (j?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+            const arr = JSON.parse(raw).q;
+            return Array.isArray(arr) ? arr.filter(x => x && typeof x === 'string') : [];
+        } catch (e) { return []; }
+    };
+    // 1. פירוק ל-3 שאילתות מחקר
+    _step('מנסח שאלות מחקר…');
+    let subQs = await _askQs('פרק את שאלת המשתמש ל-3 שאילתות חיפוש קצרות וממוקדות שיחד יכסו אותה לעומק מזוויות שונות. ענה JSON בלבד: {"q":["...","...","..."]}', query);
+    if (!subQs.length) subQs = [query];
+    subQs = subQs.slice(0, 3);
+    // 2. חיפוש סבב ראשון
+    let all = '';
+    for (const sq of subQs) { _step('מחפש: ' + sq); const res = await webSearch(sq).catch(() => ''); if (res) all += `\n\n### ${sq}\n${res}`; }
+    // 3. בדיקת פערים — חשיבה לסירוגין
+    _step('בודק אמינות ומה עוד חסר…');
+    const more = (await _askQs('לפניך שאלת המשתמש ותוצאות חיפוש. האם חסר מידע כדי לענות תשובה מלאה ואמינה? אם כן — החזר עד 2 שאילתות חיפוש נוספות שימלאו את החסר. אם מספיק — החזר מערך ריק. ענה JSON בלבד: {"q":[]}', 'שאלה: ' + query + '\n\nתוצאות עד כה:\n' + all.slice(0, 4000))).slice(0, 2);
+    // 4. סבב שני (רק אם צריך)
+    for (const sq of more) { _step('מחפש מקור נוסף: ' + sq); const res = await webSearch(sq).catch(() => ''); if (res) all += `\n\n### ${sq}\n${res}`; }
+    _step('מסכם את המחקר…');
+    return all.trim() || (await webSearch(query).catch(() => ''));
+}
+
 async function send() {
     if (busy) return;
     const inp = document.getElementById('userInput');
@@ -7990,8 +8022,9 @@ async function send() {
             // and that error HTML got appended straight into the results, confusing the model into
             // doubting otherwise-good Tavily results and defaulting to "לא מצאתי מידע". Tavily alone
             // already returns real, current news (verified directly).
-            let results = await webSearch(_qForSearch);
-            status.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(preview)}</b></span>`;
+            // מצב חיפוש → מחקר עמוק (חשיבה לסירוגין, כמה סבבים). מצב שיחה → חיפוש מהיר יחיד.
+            let results = _searchMode ? await _deepResearch(_qForSearch, status) : await webSearch(_qForSearch);
+            status.innerHTML = `<span class="agent-step"><span style="font-size:10px">✓</span><b>${esc2(_searchMode ? 'מחקר עמוק הושלם' : preview)}</b></span>`;
             // מקורות החיפוש — נאספים ומוצגים באופן קבוע מתחת לתשובה (שקיפות בסגנון Perplexity)
             try { _lastTurnSources = _lastTurnSources.concat(_extractDomains(results)); } catch (e) {}
             const lastMsg = messages[messages.length - 1];
@@ -8000,6 +8033,8 @@ async function send() {
                     lastMsg.content += `\n\n[תוצאות חיפוש משפטי — מקורות בלבד]:\n${results}\n\n⚖️ הוראה מחייבת: הסתמך אך ורק על התוצאות לעיל. אל תמציא, אל תצטט ואל תזכיר שום פסק דין, מספר תיק, סעיף חוק או תקדים שאינו מופיע מילה-במילה בתוצאות. אם התוצאות אינן כוללות פסיקה אמיתית וברורה שרלוונטית לשאלה — כתוב בדיוק: "לא מצאתי פסיקה אמיתית שאני יכול לאמת — אל תסתמך על זה, ופנה לעורך דין." בכל מקרה, כשמדובר בפסיקה — הוסף בסוף אזהרה שהמשתמש חייב לאמת מול עורך דין לפני שהוא שולח משהו לרשות. לעולם אל תמציא פסק דין שנראה אמיתי.`;
                 } else if (_newsDigest) {
                     lastMsg.content += `\n\n[מבזק חדשות — תוצאות חיפוש חי על החדשות בישראל של היום]:\n${results}\n\nכתוב מבזק חדשות מסודר בשפת המשתמש: פתח בשורת התאריך של היום (${_newsDateStr}), ואז הצג את 4–6 הידיעות/הכותרות המובילות בישראל להיום כרשימה — כל ידיעה בכותרת קצרה ומשפט הסבר. הסתמך אך ורק על תוצאות החיפוש לעיל; דווח רק על אירועים מהיום או סמוך לו. אם אין ידיעות עדכניות של היום בתוצאות — כתוב שלא מצאת חדשות עדכניות של היום, ואל תמציא ואל תשתמש בחדשות ישנות מהאימון שלך.`;
+                } else if (_searchMode) {
+                    lastMsg.content += `\n\n[תוצאות מחקר מעמיק מהאינטרנט — נאספו מכמה מקורות]:\n${results}\n\nכתוב תשובת מחקר מקיפה ומאורגנת בשפת המשתמש, על סמך המקורות לעיל בלבד:\n1. פתח בתשובה ישירה וברורה לשאלה.\n2. פרט לעומק לפי נושאים/נקודות — נצל את המידע העשיר שנאסף.\n3. הסתמך אך ורק על המקורות — אל תמציא עובדות, מספרים, תאריכים או קישורים שלא מופיעים בהם.\n4. אם מקורות סותרים — ציין זאת. אם פרט חסר — אמור זאת, אל תשלים מהדמיון.\n5. בסוף, שורה קצרה על מה התבססת. אל תמציא פסקי דין/מחירים/כתובות שלא הופיעו.`;
                 } else {
                     lastMsg.content += `\n\n[מידע עדכני מהאינטרנט]:\n${results}\n\nחוקים נוקשים (חובה):\n1. ענה אך ורק לפי המידע שלמעלה. אסור להשתמש בידע הפנימי שלך מהאימון כדי להשלים פרטים חסרים.\n2. אם פרט מסוים (כתובת, שם, מספר טלפון, דירוג, תאריך, מחיר) לא מופיע במפורש בתוצאות — אל תמציא אותו. כתוב "פרט זה לא מופיע בתוצאות החיפוש".\n3. אם עסק/מקום בתוצאות נמצא בעיר אחרת מזו שהמשתמש ביקש — אל תניח שהוא בעיר המבוקשת. ציין את העיר האמיתית שלו, או אמור שלא מצאת בעיר המבוקשת.\n4. אל תערבב בין מקורות שונים ליצירת "עובדה" חדשה. כל פרט חייב לבוא ממקור יחיד וברור.\n5. אם המידע לא מספיק לענות — כתוב בדיוק: "לא מצאתי מידע עדכני מספק על זה." בלי להשלים מהדמיון.`;
                 }
