@@ -509,7 +509,7 @@
         .style-chip:active { transform:scale(.96); }
 
         /* action buttons (Gemini style — appear on hover) */
-        .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
+        .ai-acts { display: flex; gap: 4px; margin-top: 10px; opacity: .7; transition: opacity .2s; }
         .msg-row:hover .ai-acts { opacity: 1; }
         .ai-act {
             background: none; border: none; cursor: pointer;
@@ -5192,6 +5192,7 @@ function addMsg(role, text, img = null, md = false, fileLabel = '') {
                 <div class="ai-txt">${content}</div>
                 <div class="ai-acts">
                     <button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>
+                    <button class="ai-act" onclick="_readMsg(this)">${_SPK_SVG} הקרא</button>
                 </div>
             </div>`;
     }
@@ -5243,9 +5244,39 @@ function copyCode(btn) {
 function copyIt(btn) {
     const t = btn.closest('.ai-body').querySelector('.ai-txt').innerText;
     navigator.clipboard.writeText(t).then(() => {
-        btn.textContent = '✅ הועתק';
-        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; }, 2000);
+        btn.textContent = 'הועתק';
+        setTimeout(() => { btn.innerHTML = IC.copy + ' העתק'; }, 1800);
     });
+}
+// אייקון רמקול + כפתור הקראה
+const _SPK_SVG = '<svg class="ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
+let _readAudio = null, _readBtn = null;
+function _readBtnReset(b) { if (b) b.innerHTML = _SPK_SVG + ' הקרא'; }
+async function _readMsg(btn) {
+    // אם כבר מקריא — עצור (טוגל)
+    if (_readAudio) { try { _readAudio.pause(); } catch (e) {} _readAudio = null; _readBtnReset(_readBtn); const wasSame = (_readBtn === btn); _readBtn = null; if (wasSame) return; }
+    _readBtn = btn; btn.innerHTML = _SPK_SVG + ' טוען…';
+    let txt = (btn.closest('.ai-body')?.querySelector('.ai-txt')?.innerText || '')
+        .replace(/```[\s\S]*?```/g, ' קטע קוד. ').replace(/\s{2,}/g, ' ').trim().slice(0, 2200);
+    if (!txt) { _readBtnReset(btn); _readBtn = null; return; }
+    try {
+        const res = await _ghProxy('gemini', '/v1beta/models/gemini-2.5-flash-preview-tts:generateContent',
+            { contents: [{ parts: [{ text: txt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: (typeof _liveVoiceName === 'function' ? _liveVoiceName() : 'Aoede') } } } } },
+            { signal: AbortSignal.timeout(20000) });
+        if (!res.ok) throw new Error('tts ' + res.status);
+        const j = await res.json();
+        const part = j?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+        if (!part?.data) throw new Error('no audio');
+        const pcm = Uint8Array.from(atob(part.data), c => c.charCodeAt(0));
+        const rate = parseInt(part.mimeType?.match(/rate=(\d+)/)?.[1] || '24000');
+        const blob = part.mimeType?.includes('pcm') ? _pcmToWav(pcm, rate) : new Blob([pcm], { type: part.mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = new Audio(url); _readAudio = a; try { a.playbackRate = (typeof _liveRate === 'function' ? _liveRate() : 1); } catch (e) {}
+        btn.innerHTML = _SPK_SVG + ' עוצר';
+        const done = () => { try { URL.revokeObjectURL(url); } catch (e) {} if (_readAudio === a) _readAudio = null; _readBtnReset(btn); if (_readBtn === btn) _readBtn = null; };
+        a.onended = done; a.onerror = done;
+        await a.play();
+    } catch (e) { _readBtnReset(btn); _readBtn = null; }
 }
 
 /* ── IMAGE GENERATION (Pollinations.ai) ── */
@@ -8266,6 +8297,7 @@ async function send() {
         // Action buttons
         const acts = document.createElement('div'); acts.className = 'ai-acts';
         acts.innerHTML = `<button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>
+            <button class="ai-act" onclick="_readMsg(this)">${_SPK_SVG} הקרא</button>
             <button class="ai-act" onclick="regenerate()">${IC.refresh} נסה שוב</button>`;
         body.appendChild(acts);
         // ── מקורות קבועים מתחת לתשובה (שקיפות/אמון, בסגנון Perplexity) — רק אם חיפשנו והמתג דלוק ──
