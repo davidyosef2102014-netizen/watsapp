@@ -7296,7 +7296,7 @@ async function callAI(messages, onChunk, signal=null) {
         // עכשיו 2 בלבד (guard מכבד cooldown + try אחת עם מפתח טרי), ואז Gemini (שהוא ממילא זה שעונה כש-Groq נחנק).
         { name: 'Groq gpt-oss-120b (code)', fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Groq gpt-oss (acct 2)',    fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
-        { name: 'Gemini (code)',             fn: () => _tryGemini().then(_tw) },
+        { name: 'Gemini (code)',             fn: () => _tryGemini() }, // מזרים בעצמו — בלי _tw
         // מעבר אמון: הוסרו Mistral+Cohere מהקוד — הם נותנים קוד גרוע/מזייף. עדיף שגיאה כנה מקוד לא-אמין. gpt-oss (×2) + Gemini מספיקים.
     ] : (function () {
         // סדר השרשרת לפי המודל שהמשתמש בחר בבורר — הנבחר ראשון, השאר כגיבוי
