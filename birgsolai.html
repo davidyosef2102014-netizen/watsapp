@@ -5929,19 +5929,20 @@ async function _tryTavily(query) {
 }
 // תרגום שאילתת חיפוש לאנגלית — לחיפוש עם כיסוי טוב בהרבה (עברית לרוב מחזירה ריק)
 async function _translateToEn(text) {
-    // חשוב: GPT-4o-mini, NOT Groq — ל-Groq/llama יש תרגום עברית שבור לגמרי (מחזיר שטויות אקראיות)
-    try {
-        const r = await _ghAI({
-            model: 'openai/gpt-4o-mini', temperature: 0, max_tokens: 80,
-            messages: [
-                { role: 'system', content: 'Translate this web-search query to concise, natural English for a search engine. The user is in ISRAEL — for ambiguous LOCAL places (a museum, train/bus station, store, restaurant, street, mall) assume Israel and add "Israel" (or the Israeli city if implied) to the query, UNLESS another country is explicitly mentioned. Keep proper nouns/place names accurate. Output ONLY the English query — no quotes, no explanation.' },
-                { role: 'user', content: text }
-            ]
-        }, AbortSignal.timeout(9000));
-        const j = await r.json();
-        const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, '');
-        return (t && t.length > 1 && t.length < 300) ? t : null;
-    } catch { return null; }
+    // תרגום שאילתת חיפוש לאנגלית (Tavily מדייק הרבה יותר באנגלית). רץ על מודלים חיים — gpt-oss-20b ואז Gemini.
+    // (בעבר רץ על gpt-4o-mini דרך GitHub Models שמת → התרגום תמיד נכשל והחיפוש נפל ל-Serper עם תוצאות ישנות = הזיות.)
+    const sys = 'Translate this web-search query to concise, natural English for a search engine. The user is in ISRAEL — for ambiguous LOCAL places (a museum, train/bus station, store, restaurant, street, mall) assume Israel and add "Israel" (or the Israeli city if implied) to the query, UNLESS another country is explicitly mentioned. Keep proper nouns/place names accurate. Output ONLY the English query — no quotes, no explanation.';
+    const _clean = t => (t || '').trim().replace(/^["']+|["']+$/g, '').replace(/\n[\s\S]*$/, '').trim();
+    const _ok = t => (t && t.length > 1 && t.length < 300 && !/[֐-׿]/.test(t)) ? t : null;
+    const _groq = async (model) => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model, messages: [{ role: 'system', content: sys }, { role: 'user', content: text }], temperature: 0, max_tokens: 80, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) }); if (!r.ok) return null; const j = await r.json(); return _ok(_clean(j?.choices?.[0]?.message?.content)); };
+    const _gem = async () => { const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts: [{ text: sys + '\n\nQuery: ' + text }] }], generationConfig: { temperature: 0, maxOutputTokens: 80 } }, { signal: AbortSignal.timeout(9000) }); if (!r.ok) return null; const j = await r.json(); return _ok(_clean(j?.candidates?.[0]?.content?.parts?.[0]?.text)); };
+    const _mistral = async () => { const r = await _ghFetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'system', content: sys }, { role: 'user', content: text }], temperature: 0, max_tokens: 80 }), signal: AbortSignal.timeout(9000) }); if (!r.ok) return null; const j = await r.json(); return _ok(_clean(j?.choices?.[0]?.message?.content)); };
+    const _cf = async () => { const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'cfai', model: '@cf/meta/llama-3.1-8b-instruct', messages: [{ role: 'system', content: sys }, { role: 'user', content: text }], temperature: 0, max_tokens: 80 }), signal: AbortSignal.timeout(12000) }); if (!r.ok) return null; const j = await r.json(); return _ok(_clean(j.text)); };
+    // כל המודלים ברצף — אם אחד נחנק (429), התרגום עדיין עובד דרך הבא. קריטי, כי חיפוש אנגלית תלוי בזה.
+    for (const attempt of [() => _groq('openai/gpt-oss-20b'), _gem, () => _groq('openai/gpt-oss-120b'), _mistral, _cf]) {
+        try { const t = await attempt(); if (t) return t; } catch (e) {}
+    }
+    return null;
 }
 // Serper — תוצאות גוגל אמיתיות + מקומי ישראל (Google Places) בעברית. מעולה לשאלות מקומיות/עובדתיות.
 async function _trySerper(query) {
@@ -5980,35 +5981,31 @@ async function webSearch(query) {
     const _cached = _searchCacheGet(_ck);
     if (_cached) return _cached;
     const _wrap = (v) => { if (v) { _searchCache.set(_ck, { v, t: Date.now() }); if (_searchCache.size > 60) _searchCache.delete(_searchCache.keys().next().value); } return v; };
-    // Tavily (advanced) הוא המקור הראשי — מחזיר תשובה מסונתזת נקייה ומדויקת. Serper (גוגל/מקומי ישראל) רץ
-    // במקביל כגיבוי והעשרה: אם Tavily החזיר תשובה — נותנים ל-Serper ~2.5ש' להוסיף; אם Tavily ריק (קורה בעברית) —
-    // נותנים ל-Serper עד 8ש' כדי להבטיח כיסוי (גוגל חזק בעברית ובתוצאות מקומיות).
-    const tavilyP = _tryTavily(query);
-    const serperP = _trySerper(query).catch(() => null); // רץ במקביל — משמש רק אם Tavily יחזיר ריק
-    const tv = await tavilyP.catch(() => null);
-    // Tavily (הראשי, בנוי ל-AI, תשובה נקייה ~1ש) ענה → מחזירים מיד בלי להמתין ל-Serper. מהירות מקסימלית.
+    // 🌐 Tavily מדייק הרבה יותר באנגלית. לשאילתה בעברית — מתרגמים לאנגלית תחילה ומחפשים באנגלית (התשובה
+    // עצמה נכתבת בעברית ע"י המודל). זה מונע את הנפילה ל-Serper עם תוצאות ישנות/מגורדות = מקור עיקרי להזיות.
+    const _isHeb = /[֐-׿]/.test(query);
+    let engQuery = query;
+    if (_isHeb) { const en = await _translateToEn(query).catch(() => null); if (en) engQuery = en; }
+    // Tavily על השאילתה האנגלית — המקור הראשי והמדויק
+    const tv = await _tryTavily(engQuery).catch(() => null);
     if (tv) return _wrap(tv);
-    // Tavily ריק (קורה לפעמים בעברית) → Serper כגיבוי שמבטיח כיסוי בעברית/מקומי
+    // גיבוי 1: Tavily על השאילתה המקורית (אם התרגום נכשל או לא מצא)
+    if (_isHeb && engQuery !== query) { const tvHe = await _tryTavily(query).catch(() => null); if (tvHe) return _wrap(tvHe); }
+    // גיבוי 2: Serper (גוגל) — על האנגלית, שמדויק יותר
     let sp = null;
     try {
-        const raced = await Promise.race([serperP, new Promise(r => setTimeout(() => r('__t__'), 4000))]);
+        const raced = await Promise.race([_trySerper(engQuery).catch(() => null), new Promise(r => setTimeout(() => r('__t__'), 4000))]);
         sp = (raced === '__t__') ? null : raced;
     } catch { sp = null; }
     if (sp) return _wrap(sp);
-    console.warn('[search] Serper+Tavily both empty, trying English + free chain');
-    // עברית לרוב מחזירה ריק ב-Tavily — מתרגמים לאנגלית ומנסים שוב (זה מה שבאמת מוצא את התשובה)
-    if (/[֐-׿]/.test(query)) {
-        try {
-            const en = await _translateToEn(query);
-            if (en && en.toLowerCase() !== query.toLowerCase()) { const _r = await _tryTavily(en); if (_r) return _wrap(_r); }
-        } catch (e) { console.warn('[search] Tavily(en) failed:', e.message); }
-    }
-    const wq = encodeURIComponent(query);
+    console.warn('[search] Tavily+Serper empty, trying free chain');
+    const wq = encodeURIComponent(engQuery);       // אנגלית — Yahoo/DDG מדייקים יותר
+    const wqHe = encodeURIComponent(query);         // עברית מקורית — לויקיפדיה העברית
     const [yahoo, ddg, wiki] = await Promise.allSettled([
         fetch(`https://r.jina.ai/https://search.yahoo.com/search?p=${wq}`, { headers: { 'X-Return-Format': 'markdown' }, signal: AbortSignal.timeout(7000) }).then(r => r.text()),
         fetch(`https://api.duckduckgo.com/?q=${wq}&format=json&no_html=1&no_redirect=1`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()),
         // no exintro — full article plaintext, not just the lead paragraph, so follow-up "more details" questions can be answered
-        fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&titles=${wq}&format=json&origin=*`, { signal: AbortSignal.timeout(6000) }).then(r => r.json())
+        fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&titles=${wqHe}&format=json&origin=*`, { signal: AbortSignal.timeout(6000) }).then(r => r.json())
     ]);
     let out = '';
     if (yahoo.status === 'fulfilled' && yahoo.value && !/^ParamValidationError/.test(yahoo.value)) {
