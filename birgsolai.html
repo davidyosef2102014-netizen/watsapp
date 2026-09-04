@@ -7226,12 +7226,10 @@ async function callAI(messages, onChunk, signal=null) {
     // עוקף את ה-cooldown — כך ש-429 על חשבון אחד מנתב מיד לחשבון Groq אחר, לתשובות מהירות גם בדקה עמוסה.
     const _groqTry = (payload) => _stream('groq', payload);
     const stages = isCode ? [
-        // הפחתת עומס על gpt-oss: היו 4 קריאות Groq זהות שהיכו את אותה מכסת TPM וכולן נפלו ב-429 יחד.
-        // עכשיו 2 בלבד (guard מכבד cooldown + try אחת עם מפתח טרי), ואז Gemini (שהוא ממילא זה שעונה כש-Groq נחנק).
-        { name: 'Groq gpt-oss-120b (code)', fn: () => _groqGuard({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
-        { name: 'Groq gpt-oss (acct 2)',    fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
+        // קוד: gpt-oss-120b ראשון (הכי חזק לקוד), Gemini שני, Cloudflare רשת ביטחון. (לבקשת דוד)
+        { name: 'Groq gpt-oss-120b (code)', fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
         { name: 'Gemini (code)',             fn: () => _tryGemini() }, // מזרים בעצמו — בלי _tw
-        // מעבר אמון: הוסרו Mistral+Cohere מהקוד — הם נותנים קוד גרוע/מזייף. עדיף שגיאה כנה מקוד לא-אמין. gpt-oss (×2) + Gemini מספיקים.
+        { name: 'Cloudflare (code)',         fn: () => _tryCloudflare() },
     ] : (function () {
         // סדר השרשרת לפי המודל שהמשתמש בחר בבורר — הנבחר ראשון, השאר כגיבוי
         const _sGem  = { name: 'Gemini',   fn: () => _tryGemini() }; // מזרים בעצמו (streamGenerateContent) — בלי _tw
@@ -7253,13 +7251,14 @@ async function callAI(messages, onChunk, signal=null) {
         // 🛡️ אחזקה מקסימלית לכל הטיירים (כולל FREE): המנוע הנבחר ראשון, ואז נפילה דרך *כל* המנועים
         // לפני שמוותרים — כך כמעט לעולם לא מגיעים ל"שגיאת חיבור" כל עוד ולו מנוע אחד עובד.
         // סולם: 3.5 PRO(120b) > 3.5 FLASH(Gemini) > 3.0 PRO(Cloudflare) > 3.0 FLASH(Mistral) > 2.0 PRO(20b) > 2.0 FLASH(בסיסי)
-        if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים ראשונים (Mistral מדולג — פחות נצמד להקשר)
-        if (_mid === 'pro')    return [_sGpt2, _sGem, _sGpt, _sMis, _sCloud];     // 3.5 PRO — gpt-oss-120b (הכי חכם) ראשון
-        if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sMis, _sCloud];     // 3.5 FLASH — Gemini ראשי
-        if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2, _sMis];     // 3.0 PRO — Cloudflare ראשון
-        if (_mid === '3.0')    return [_sMis, _sGem, _sGpt, _sGpt2, _sCloud];     // 3.0 FLASH — Mistral ראשון
-        if (_mid === '2.0pro') return [_sGpt, _sGem, _sGpt2, _sMis, _sCloud];     // 2.0 PRO — gpt-oss-20b ראשון
-        return [_sGpt, _sGem, _sMis, _sCloud];                                    // 2.0 FLASH — בסיסי
+        // כלל: Mistral תמיד אחרון (מדליף/מזייף), ו-Cloudflare תמיד לפניו כרשת ביטחון.
+        if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים בלבד (Mistral מדולג — מזייף)
+        if (_mid === 'pro')    return [_sGpt2, _sGpt, _sGem, _sCloud, _sMis];     // 3.5 PRO — 120b, 20b, Gemini(#3), Cloudflare, Mistral(אחרון)
+        if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sCloud, _sMis];     // 3.5 FLASH — Gemini ראשי
+        if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2, _sMis];     // 3.0 PRO — Cloudflare ראשון, Mistral אחרון
+        if (_mid === '3.0')    return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 3.0 FLASH
+        if (_mid === '2.0pro') return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 2.0 PRO
+        return [_sGpt, _sGem, _sCloud, _sMis];                                    // 2.0 FLASH — בסיסי
     })();
 
     // שני סבבים: אם כל המנועים נכשלו בסבב הראשון (עומס רגעי), ממתינים קצת ומנסים שוב פעם אחת
