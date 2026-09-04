@@ -5986,77 +5986,11 @@ async function webSearch(query) {
     const _isHeb = /[֐-׿]/.test(query);
     let engQuery = query;
     if (_isHeb) { const en = await _translateToEn(query).catch(() => null); if (en) engQuery = en; }
-    // Tavily על השאילתה האנגלית — המקור הראשי והמדויק
-    const tv = await _tryTavily(engQuery).catch(() => null);
-    if (tv) return _wrap(tv);
-    // גיבוי 1: Tavily על השאילתה המקורית (אם התרגום נכשל או לא מצא)
-    if (_isHeb && engQuery !== query) { const tvHe = await _tryTavily(query).catch(() => null); if (tvHe) return _wrap(tvHe); }
-    // גיבוי 2: Serper (גוגל) — על האנגלית, שמדויק יותר
-    let sp = null;
-    try {
-        const raced = await Promise.race([_trySerper(engQuery).catch(() => null), new Promise(r => setTimeout(() => r('__t__'), 4000))]);
-        sp = (raced === '__t__') ? null : raced;
-    } catch { sp = null; }
-    if (sp) return _wrap(sp);
-    console.warn('[search] Tavily+Serper empty, trying free chain');
-    const wq = encodeURIComponent(engQuery);       // אנגלית — Yahoo/DDG מדייקים יותר
-    const wqHe = encodeURIComponent(query);         // עברית מקורית — לויקיפדיה העברית
-    const [yahoo, ddg, wiki] = await Promise.allSettled([
-        fetch(`https://r.jina.ai/https://search.yahoo.com/search?p=${wq}`, { headers: { 'X-Return-Format': 'markdown' }, signal: AbortSignal.timeout(7000) }).then(r => r.text()),
-        fetch(`https://api.duckduckgo.com/?q=${wq}&format=json&no_html=1&no_redirect=1`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()),
-        // no exintro — full article plaintext, not just the lead paragraph, so follow-up "more details" questions can be answered
-        fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&titles=${wqHe}&format=json&origin=*`, { signal: AbortSignal.timeout(6000) }).then(r => r.json())
-    ]);
-    let out = '';
-    if (yahoo.status === 'fulfilled' && yahoo.value && !/^ParamValidationError/.test(yahoo.value)) {
-        const cleaned = _cleanYahooResults(yahoo.value);
-        if (cleaned) out += `[קטעי חיפוש גולמיים מהרשת — חלץ מהם רק עובדה ברורה ורלוונטית, והתעלם מרעש/שברי טקסט]\n${cleaned}\n\n`;
-    }
-    if (ddg.status === 'fulfilled') {
-        const d = ddg.value;
-        if (d.Answer)       out += `${d.Answer}\n\n`;
-        if (d.AbstractText) out += `${d.AbstractText}\n`;
-        (d.RelatedTopics||[]).slice(0,3).forEach(t => { if (t.Text) out += `• ${t.Text}\n`; });
-    }
-    let gotWiki = false, wikiTitle = '';
-    if (wiki.status === 'fulfilled') {
-        const pages = Object.values(wiki.value?.query?.pages || {});
-        const p = pages[0];
-        if (p && p.extract && !p.missing) {
-            out += `[Wikipedia: ${p.title}] ${p.extract.slice(0, 2500)}\n`;
-            wikiTitle = p.title; gotWiki = true;
-        }
-    }
-    // Fallback: exact title didn't match — full-text search, then take the TOP 3 hits
-    // (not just #1 — the most relevant title, e.g. the main article on an operation,
-    // sometimes ranks 2nd or 3rd behind a narrower sub-article)
-    let wikiTitles = [];
-    if (!gotWiki) {
-        try {
-            const srch = await fetch(`https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${wq}&srlimit=3&format=json&origin=*`, { signal: AbortSignal.timeout(5000) }).then(r => r.json());
-            const hits = (srch?.query?.search || []).map(h => h.title);
-            if (hits.length) {
-                // shortest title first — main/overview articles tend to have shorter titles than narrow sub-articles
-                hits.sort((a,b) => a.length - b.length);
-                const titlesParam = hits.map(encodeURIComponent).join('|');
-                const ext = await fetch(`https://he.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&titles=${titlesParam}&format=json&origin=*`, { signal: AbortSignal.timeout(6000) }).then(r => r.json());
-                const pages2 = Object.values(ext?.query?.pages || {});
-                // keep original relevance order when appending, but cap total length
-                for (const t of hits) {
-                    const p2 = pages2.find(pp => pp.title === t);
-                    if (p2 && p2.extract && !p2.missing) {
-                        out += `[Wikipedia: ${p2.title}] ${p2.extract.slice(0, 1500)}\n`;
-                        wikiTitles.push(p2.title); gotWiki = true;
-                    }
-                }
-            }
-        } catch {}
-    } else {
-        wikiTitles = [wikiTitle];
-    }
-    if (gotWiki) out += `\n(מאמרי ויקיפדיה מלאים: ${wikiTitles.map(t=>`https://he.wikipedia.org/wiki/${encodeURIComponent(t)}`).join(' , ')} — אפשר [BROWSE] לקריאה מלאה אם נדרשים עוד פרטים)\n`;
-    const _final = out.trim();
-    return _final ? _wrap(_final) : '❌ לא נמצאו תוצאות.';
+    // Tavily בלבד — ראשי ויחיד, תמיד באנגלית. בלי Serper/גירוד (שהיו מקור ההזיות עם תוצאות ישנות).
+    let tv = await _tryTavily(engQuery).catch(() => null);
+    // אם התרגום נכשל והאנגלית ריקה — ניסיון אחרון על העברית המקורית (עדיין Tavily בלבד)
+    if (!tv && _isHeb && engQuery !== query) tv = await _tryTavily(query).catch(() => null);
+    return _wrap(tv) || '❌ לא מצאתי תוצאות.';
 }
 
 /* Jina.ai reader — converts any URL to clean Markdown */
@@ -7305,7 +7239,7 @@ async function callAI(messages, onChunk, signal=null) {
         const _sGpt  = { name: 'gpt-oss-20b',  fn: () => _groqGuard({ model: 'openai/gpt-oss-20b', messages, ..._chatCfg }) };
         // gpt-oss-120b = גיבוי איכות למקרים קשים (חזק אך איטי/כבד).
         const _sGpt2 = { name: 'gpt-oss-120b', fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) };
-        const _sMis  = { name: 'Mistral',  fn: () => _tryMistral().then(_tw) };
+        const _sMis  = { name: 'Mistral',  fn: () => _stream('mistral', { model: 'mistral-small-latest', messages, temperature: _isGroundedTurn ? 0.1 : 0.7, max_tokens: 2048 }) }; // מזרים (מהיר)
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
         const _sCloud = { name: 'Cloudflare AI', fn: () => _tryCloudflare().then(_tw) }; // גיבוי אחרון — מכסה יומית נפרדת, מונע "שגיאת חיבור"
         const _mid = (typeof currentModelId === 'function') ? currentModelId() : 'flash';
