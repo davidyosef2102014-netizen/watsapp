@@ -5937,7 +5937,7 @@ async function _translateToEn(text) {
     const _groq = async (model) => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model, messages: [{ role: 'system', content: sys }, { role: 'user', content: text }], temperature: 0, max_tokens: 80, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) }); if (!r.ok) return null; const j = await r.json(); return _ok(_clean(j?.choices?.[0]?.message?.content)); };
     const _gem = async () => { const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts: [{ text: sys + '\n\nQuery: ' + text }] }], generationConfig: { temperature: 0, maxOutputTokens: 80 } }, { signal: AbortSignal.timeout(9000) }); if (!r.ok) return null; const j = await r.json(); return _ok(_clean(j?.candidates?.[0]?.content?.parts?.[0]?.text)); };
     const _mistral = async () => { const r = await _ghFetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'system', content: sys }, { role: 'user', content: text }], temperature: 0, max_tokens: 80 }), signal: AbortSignal.timeout(9000) }); if (!r.ok) return null; const j = await r.json(); return _ok(_clean(j?.choices?.[0]?.message?.content)); };
-    const _cf = async () => { const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'cfai', model: '@cf/meta/llama-3.1-8b-instruct', messages: [{ role: 'system', content: sys }, { role: 'user', content: text }], temperature: 0, max_tokens: 80 }), signal: AbortSignal.timeout(12000) }); if (!r.ok) return null; const j = await r.json(); return _ok(_clean(j.text)); };
+    const _cf = async () => { const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'cfai', model: '@cf/meta/llama-4-scout-17b-16e-instruct', messages: [{ role: 'system', content: sys }, { role: 'user', content: text }], temperature: 0, max_tokens: 80 }), signal: AbortSignal.timeout(12000) }); if (!r.ok) return null; const j = await r.json(); return _ok(_clean(j.text)); };
     // כל המודלים ברצף — אם אחד נחנק (429), התרגום עדיין עובד דרך הבא. קריטי, כי חיפוש אנגלית תלוי בזה.
     for (const attempt of [() => _groq('openai/gpt-oss-20b'), _gem, () => _groq('openai/gpt-oss-120b'), _mistral, _cf]) {
         try { const t = await attempt(); if (t) return t; } catch (e) {}
@@ -7234,7 +7234,7 @@ async function callAI(messages, onChunk, signal=null) {
         const res = await fetch(GH_WORKER, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ op: 'cfai', model: '@cf/meta/llama-3.1-8b-instruct', messages: cfMsgs, temperature: _isGroundedTurn ? 0.1 : 0.6, max_tokens: 1024 }),
+            body: JSON.stringify({ op: 'cfai', model: '@cf/meta/llama-4-scout-17b-16e-instruct', messages: cfMsgs, temperature: _isGroundedTurn ? 0.1 : 0.6, max_tokens: 1024 }),
             signal: AbortSignal.timeout(22000)
         });
         if (!res.ok) throw new Error('cfai ' + res.status);
