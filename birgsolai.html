@@ -7086,7 +7086,7 @@ async function callAI(messages, onChunk, signal=null) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
             body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, temperature: _isGroundedTurn ? 0.1 : (_codeNow ? 0.2 : 0.7) } }),
-            signal: AbortSignal.timeout(_codeNow ? 30000 : 20000)
+            signal: AbortSignal.timeout(_codeNow ? 30000 : 13000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
         const reader = res.body.getReader();
@@ -7268,9 +7268,10 @@ async function callAI(messages, onChunk, signal=null) {
 
     // ריטריי אוטומטי — הלקוח לא רואה שגיאה. בין סבבים מציגים חיווי חלק "השרת עמוס — מנסה שוב",
     // וממשיכים לנסות. הכיתוב נעלם מעצמו ברגע שמנוע כלשהו מצליח (הוא דורס עם התשובה). קוד — פחות סבבים.
+    // 2 סבבים בלבד — עם Cloudflare כרשת ביטחון בשרשרת, סבב אחד כמעט תמיד מצליח, אז זה מהיר.
+    // אם צריך עוד ניסיונות (עומס אמיתי) — הם קורים בשכבה החיצונית (agentLoop) עם החיווי "עומס".
     let _lastFail = '';
-    const _rounds = (typeof currentMode !== 'undefined' && currentMode === 'code') ? 3 : 5;
-    for (let round = 0; round < _rounds; round++) {
+    for (let round = 0; round < 2; round++) {
         for (const s of stages) {
             try { return await s.fn(); }
             catch(e) {
@@ -7279,10 +7280,7 @@ async function callAI(messages, onChunk, signal=null) {
                 console.warn(`[AI] ${s.name}:`, e.message);
             }
         }
-        if (round < _rounds - 1) {
-            try { onChunk(typeof _t === 'function' ? _t('srv_busy') : 'השרת עמוס — מנסה שוב, נא להמתין…'); } catch(e) {}
-            await new Promise(r => setTimeout(r, 1400)); // המתנה קצרה לפני הסבב הבא
-        }
+        if (round === 0) await new Promise(r => setTimeout(r, 700)); // המתנה קצרה לפני הסבב השני
     }
     throw new Error('all providers failed — ' + _lastFail);
 }
@@ -8128,10 +8126,10 @@ async function send() {
             // עומס רגעי — הלקוח לא רואה שגיאה, רק חיווי חלק "השרת עמוס, מנסה שוב", ומנסים שוב אוטומטית עוד כמה פעמים.
             let _reason = (e && e.message) || '';
             const _busyTxt = (typeof _t === 'function' ? _t('srv_busy') : 'השרת עמוס — מנסה שוב, נא להמתין…');
-            // עד 3 ניסיונות אוטומטיים נוספים (מעבר ל-5 הסבבים שבתוך callAI) — סה"כ הרבה ניסיונות לפני שמוותרים
-            for (let _r = 0; _r < 3 && !fullText && !_stopped; _r++) {
+            // ניסיון אוטומטי נוסף אחד (מעבר ל-2 הסבבים שבתוך callAI). Cloudflare תופס לרוב מהר בסבב הראשון.
+            for (let _r = 0; _r < 1 && !fullText && !_stopped; _r++) {
                 try { txt.innerHTML = '<span style="color:var(--muted)">' + esc2(_busyTxt) + '</span><span class="stream-cursor"></span>'; } catch (_) {}
-                await new Promise(r => setTimeout(r, 1400));
+                await new Promise(r => setTimeout(r, 800));
                 try { fullText = await agentLoop(messages, txt, status, cw, 4, (_abortCtrl && _abortCtrl.signal) || null); }
                 catch (e2) { if (e2.name === 'AbortError') { _stopped = true; } else { _reason = (e2 && e2.message) || _reason; } }
             }
