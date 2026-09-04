@@ -7141,20 +7141,42 @@ async function callAI(messages, onChunk, signal=null) {
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
         // במצב קוד Gemini הוא לרוב המנוע שבפועל עונה (Groq נחנק ב-429 על פרומפט גדול) — לכן צריך תקרת פלט גדולה כדי שלא ייחתך קוד ארוך.
         const _codeNow = (typeof currentMode !== 'undefined' && currentMode === 'code');
-        // gemini-3.6-flash — המודל החדש (gemini-flash-latest נותב למשהו עמוס/503). נבדק חי: עברית מושלמת ב-3ש.
-        // ⚠️ ה-3.6 דוחה thinkingConfig.thinkingBudget (HTTP 400) — לכן לא שולחים אותו כאן.
-        const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
+        // 🚀 סטרימינג (streamGenerateContent + alt=sse) — הטקסט מופיע מילה-מילה מיד, מהיר כמו גוגל עצמה,
+        // במקום להמתין לתשובה המלאה. ה-3.6 דוחה thinkingConfig — לכן לא שולחים אותו.
+        const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
             body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, temperature: _isGroundedTurn ? 0.1 : (_codeNow ? 0.2 : 0.7) } }),
-            signal: AbortSignal.timeout(_codeNow ? 30000 : 14000)
+            signal: AbortSignal.timeout(_codeNow ? 30000 : 20000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
-        const j = await res.json();
-        try { if (j?.usageMetadata?.candidatesTokenCount) _turnTokens += j.usageMetadata.candidatesTokenCount; } catch (e) {}
-        const text = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        if (!text) throw new Error('gemini empty');
-        return text;
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let full = '', buf = '', aborted = false;
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += dec.decode(value, { stream: true });
+                const lines = buf.split('\n'); buf = lines.pop() || '';
+                for (const line of lines) {
+                    if (!line.startsWith('data:')) continue;
+                    const d = line.slice(5).trim();
+                    if (!d || d === '[DONE]') continue;
+                    try {
+                        const j = JSON.parse(d);
+                        const t = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                        if (t) { full += t; onChunk(full); }
+                        if (j?.usageMetadata?.candidatesTokenCount) _turnTokens += j.usageMetadata.candidatesTokenCount;
+                    } catch (e) {}
+                }
+            }
+        } catch (e) {
+            if (e.name === 'AbortError') { aborted = true; } else throw e;
+        } finally { try { reader.cancel(); } catch (e) {} }
+        if (aborted) { if (full) return full; throw Object.assign(new Error('aborted'), { name: 'AbortError' }); }
+        if (!full.trim()) throw new Error('gemini empty');
+        return full;
     };
     const _tryOpenRouterKey = async (apiKey) => {
         const res = await _ghFetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -7278,7 +7300,7 @@ async function callAI(messages, onChunk, signal=null) {
         // מעבר אמון: הוסרו Mistral+Cohere מהקוד — הם נותנים קוד גרוע/מזייף. עדיף שגיאה כנה מקוד לא-אמין. gpt-oss (×2) + Gemini מספיקים.
     ] : (function () {
         // סדר השרשרת לפי המודל שהמשתמש בחר בבורר — הנבחר ראשון, השאר כגיבוי
-        const _sGem  = { name: 'Gemini',   fn: () => _tryGemini().then(_tw) };
+        const _sGem  = { name: 'Gemini',   fn: () => _tryGemini() }; // מזרים בעצמו (streamGenerateContent) — בלי _tw
         // צ'אט ראשי = gpt-oss-20b: נבדק חי (UTF-8 תקין) — עברית מושלמת ב-0.75 שניות, וקטן פי-6 מ-120b → מהיר ופחות 429.
         const _sGpt  = { name: 'gpt-oss-20b',  fn: () => _groqGuard({ model: 'openai/gpt-oss-20b', messages, ..._chatCfg }) };
         // gpt-oss-120b = גיבוי איכות למקרים קשים (חזק אך איטי/כבד).
