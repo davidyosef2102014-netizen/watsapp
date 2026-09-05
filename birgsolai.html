@@ -7058,12 +7058,14 @@ async function callAI(messages, onChunk, signal=null) {
         if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
         // במצב קוד Gemini הוא לרוב המנוע שבפועל עונה (Groq נחנק ב-429 על פרומפט גדול) — לכן צריך תקרת פלט גדולה כדי שלא ייחתך קוד ארוך.
         const _codeNow = (typeof currentMode !== 'undefined' && currentMode === 'code');
-        // 🚀 סטרימינג (streamGenerateContent + alt=sse) — הטקסט מופיע מילה-מילה מיד, מהיר כמו גוגל עצמה,
-        // במקום להמתין לתשובה המלאה. ה-3.6 דוחה thinkingConfig — לכן לא שולחים אותו.
+        // 🚀 סטרימינג (streamGenerateContent + alt=sse) — הטקסט מופיע מילה-מילה מיד, מהיר כמו גוגל עצמה.
+        // ⚡ הפתרון לאיטיות של 3.6: gemini-3 משתמש ב-thinkingLevel (לא thinkingBudget — זה מה שהחזיר 400).
+        //   'minimal' = אפס חשיבה = מהיר (~1.7ש) ותשובה מלאה שלא נחתכת. בקוד 'low' = קצת חשיבה לאיכות.
+        const _thinkLevel = _codeNow ? 'low' : 'minimal';
         const res = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, temperature: _isGroundedTurn ? 0.1 : (_codeNow ? 0.2 : 0.7) } }),
+            body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, temperature: _isGroundedTurn ? 0.1 : (_codeNow ? 0.2 : 0.7), thinkingConfig: { thinkingLevel: _thinkLevel } } }),
             signal: AbortSignal.timeout(_codeNow ? 30000 : 13000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
@@ -7237,7 +7239,7 @@ async function callAI(messages, onChunk, signal=null) {
         // כלל: Mistral תמיד אחרון (מדליף/מזייף), ו-Cloudflare תמיד לפניו כרשת ביטחון.
         if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים בלבד (Mistral מדולג — מזייף)
         if (_mid === 'pro')    return [_sGpt, _sGpt2, _sGem, _sCloud, _sMis];     // 3.5 PRO — gpt-oss-20b ראשי, 120b, Gemini(#3), Cloudflare, Mistral(אחרון) (לבחירת דוד)
-        if (_mid === 'flash')  return [_sCloud, _sGpt, _sGem, _sGpt2, _sMis];     // 3.5 FLASH — Cloudflare ראשי (מהיר + מכסה נפרדת = לא שורף Gemini/Groq), gpt-oss-20b/Gemini גיבוי
+        if (_mid === 'flash')  return [_sGem, _sCloud, _sGpt, _sGpt2, _sMis];     // 3.5 FLASH — Gemini ראשי (thinkingLevel:minimal = מהיר ~1.7ש), Cloudflare/gpt-oss גיבוי (לבחירת דוד)
         if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2, _sMis];     // 3.0 PRO — Cloudflare ראשון, Mistral אחרון
         if (_mid === '3.0')    return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 3.0 FLASH
         if (_mid === '2.0pro') return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 2.0 PRO
