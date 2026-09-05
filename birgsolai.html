@@ -322,6 +322,20 @@
         .think-block .think-body { margin-top: 8px; white-space: pre-wrap; font-size: 13px; color: var(--muted, #777); line-height: 1.6; }
         .code-canvas:hover { background: rgba(167,139,250,.28); }
 
+        /* ── כרטיס-קוד במצב צ'אט: הקוד מוסתר, כרטיס קומפקטי שנפתח בקנבס ── */
+        .code-artifact { background: none !important; border: none !important; padding: 0 !important; margin: 6px 0 !important; box-shadow: none !important; }
+        .artifact-card { display: flex; align-items: center; gap: 12px; width: 100%; text-align: start;
+            background: var(--surf2, #f4f4f8); border: 1px solid var(--border, #e2e4ea); border-radius: 14px;
+            padding: 12px 14px; cursor: pointer; font-family: inherit; transition: border-color .15s, background .15s, transform .06s; }
+        .artifact-card:hover { border-color: #a78bfa; background: rgba(167,139,250,.08); }
+        .artifact-card:active { transform: scale(.99); }
+        .artifact-ic { flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #38bdf8, #4285F4); color: #fff; }
+        .artifact-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .artifact-title { font-weight: 700; font-size: 14px; color: var(--text, #111); }
+        .artifact-sub { font-size: 12px; color: var(--muted, #777); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .artifact-arrow { flex-shrink: 0; color: var(--muted, #999); }
+
         /* ── Canvas side panel ── */
         .canvas-panel {
             position: fixed; top: 0; left: 0; bottom: 0; width: 54%; min-width: 320px;
@@ -4472,6 +4486,24 @@ _renderer.code = function(arg, langArg) {
     const runBtn  = runnable ? `<button class="code-run" onclick="runCode(this,'${language}')">▶ הרץ</button>` : '';
     const dlBtn   = `<button class="code-dl"  onclick="downloadCode(this,'${ext}')">⬇ הורד</button>`;
     const cnvBtn  = `<button class="code-canvas" onclick="openCanvas(this,'${language}','${ext}')">⧉ Canvas</button>`;
+    // 📄 במצב צ'אט (לא מצב-קוד): לא מציגים את הקוד הגולמי בבועה — הוא מוסתר וניתן ככרטיס-קובץ קומפקטי
+    //   שנפתח בקנבס (צפייה/עריכה/הרצה/הורדה). הקוד נשאר ב-DOM (pre מוסתר) כדי שהקנבס יחלץ אותו.
+    const _inChat = (typeof currentMode !== 'undefined' && currentMode !== 'code');
+    if (_inChat) {
+        const _lineCount = (text || '').split('\n').length;
+        return `<div class="code-block code-artifact">
+            <pre style="display:none"><code class="hljs">${highlighted}</code></pre>
+            <button class="artifact-card" onclick="openCanvas(this,'${language}','${ext}')" title="פתח בקנבס">
+                <span class="artifact-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+                <span class="artifact-main">
+                    <span class="artifact-title">קוד ${language}</span>
+                    <span class="artifact-sub">${_lineCount} שורות · לחץ לצפייה ועריכה בקנבס</span>
+                </span>
+                <span class="artifact-arrow"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </button>
+            <iframe class="code-preview" sandbox="allow-scripts allow-forms"></iframe>
+        </div>`;
+    }
     return `<div class="code-block">
         <div class="code-header">
             <span class="code-lang">${language}</span>
@@ -4652,7 +4684,7 @@ let _canvasLang = 'html', _canvasExt = 'html', _canvasTimer = null;
 
 function openCanvas(btn, lang, ext) {
     const block = btn.closest('.code-block');
-    const code = block.querySelector('code').innerText;
+    const code = block.querySelector('code').textContent; // textContent (לא innerText) — עובד גם כשה-pre מוסתר (מצב צ'אט)
     _canvasLang = (lang || 'plaintext').toLowerCase();
     if (typeof _looksLikeHtml === 'function' && _looksLikeHtml(code) && !['css','js','javascript'].includes(_canvasLang)) { _canvasLang = 'html'; ext = 'html'; }
     _canvasExt = ext || 'txt';
@@ -4669,21 +4701,24 @@ function closeCanvas() {
     document.body.classList.remove('code-split');
 }
 
-// טעינה אוטומטית של הקוד שנוצר לתוך הקנבס (מצב קוד) — תצוגה חיה, עדכון בכל שיפור
+// טעינה אוטומטית של הקוד שנוצר לתוך הקנבס — תצוגה חיה, עדכון בכל שיפור.
+// מצב קוד → פיצול מסך (code-split). מצב צ'אט → הקוד מוסתר בבועה (כרטיס-קובץ) ונפתח בקנבס כפאנל מרחף.
 function _autoCanvasFromMsg(txtEl) {
-    if (typeof currentMode === 'undefined' || currentMode !== 'code' || !txtEl) return;
+    if (typeof currentMode === 'undefined' || !txtEl) return;
+    const _codeMode = (currentMode === 'code');
     const blocks = [...txtEl.querySelectorAll('.code-block')];
     if (!blocks.length) return;
     let best = null, bestLen = 0, bestLang = '';
     for (const b of blocks) {
         const codeEl = b.querySelector('code'); if (!codeEl) continue;
-        const lang = (b.querySelector('.code-lang')?.textContent || '').toLowerCase();
-        const t = codeEl.innerText || '';
+        // מצב קוד: התג .code-lang. מצב צ'אט (כרטיס): נשען על זיהוי HTML למטה, שפה מהכותרת אם קיימת
+        const lang = (b.querySelector('.code-lang')?.textContent || b.querySelector('.artifact-title')?.textContent || '').toLowerCase().replace('קוד','').trim();
+        const t = codeEl.textContent || ''; // textContent — עובד גם על pre מוסתר
         if (lang === 'html') { best = t; bestLang = 'html'; break; } // HTML עדיף (תצוגה חיה מלאה)
         if (t.length > bestLen) { bestLen = t.length; best = t; bestLang = lang; }
     }
     if (!best) return;
-    if (window.innerWidth >= 701) document.body.classList.add('code-split');
+    if (_codeMode && window.innerWidth >= 701) document.body.classList.add('code-split'); // פיצול מסך רק במצב קוד
     document.getElementById('canvas-panel').classList.add('open');
     _canvasLang = bestLang || 'plaintext';
     if (typeof _looksLikeHtml === 'function' && _looksLikeHtml(best) && _canvasLang !== 'css' && _canvasLang !== 'js' && _canvasLang !== 'javascript') _canvasLang = 'html'; // זיהוי HTML גם אם התיוג היה שגוי
@@ -7238,8 +7273,8 @@ async function callAI(messages, onChunk, signal=null) {
         // סולם: 3.5 PRO(120b) > 3.5 FLASH(Gemini) > 3.0 PRO(Cloudflare) > 3.0 FLASH(Mistral) > 2.0 PRO(20b) > 2.0 FLASH(בסיסי)
         // כלל: Mistral תמיד אחרון (מדליף/מזייף), ו-Cloudflare תמיד לפניו כרשת ביטחון.
         if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים בלבד (Mistral מדולג — מזייף)
-        if (_mid === 'pro')    return [_sGpt, _sGpt2, _sGem, _sCloud, _sMis];     // 3.5 PRO — gpt-oss-20b ראשי, 120b, Gemini(#3), Cloudflare, Mistral(אחרון) (לבחירת דוד)
-        if (_mid === 'flash')  return [_sGem, _sCloud, _sGpt, _sGpt2, _sMis];     // 3.5 FLASH — Gemini ראשי (thinkingLevel:minimal = מהיר ~1.7ש), Cloudflare/gpt-oss גיבוי (לבחירת דוד)
+        if (_mid === 'pro')    return [_sGpt, _sCloud, _sGem, _sGpt2, _sMis];     // 3.5 PRO — gpt-oss-20b ראשי, Cloudflare(גיבוי מהיר), Gemini(#3), 120b(כבד-אחרון), Mistral (לבחירת דוד: Gemini #3)
+        if (_mid === 'flash')  return [_sGem, _sGpt, _sCloud, _sGpt2, _sMis];     // 3.5 FLASH — Gemini ראשי (minimal ~1.7ש), gpt-oss-20b(גיבוי מהיר 0.9ש), Cloudflare, 120b(כבד), Mistral
         if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2, _sMis];     // 3.0 PRO — Cloudflare ראשון, Mistral אחרון
         if (_mid === '3.0')    return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 3.0 FLASH
         if (_mid === '2.0pro') return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 2.0 PRO
@@ -7547,9 +7582,9 @@ async function bsSaveCodeBlocks(blocks) {
     const counts = {}, files = [];
     for (const b of blocks) {
         const codeEl = b.querySelector('code'); if (!codeEl) continue;
-        const code = codeEl.innerText;
+        const code = codeEl.textContent; // textContent — עובד גם על pre מוסתר (כרטיס-קוד במצב צ'אט)
         if (!code || code.trim().length < 150) continue; // דלג על קטעי קוד זעירים/דוגמאות — לא "סתם קוד", רק קבצים אמיתיים
-        let lang = (b.querySelector('.code-lang')?.textContent || '').toLowerCase().trim();
+        let lang = (b.querySelector('.code-lang')?.textContent || b.querySelector('.artifact-title')?.textContent || '').toLowerCase().replace('קוד','').trim();
         if (!lang && typeof _looksLikeHtml === 'function' && _looksLikeHtml(code)) lang = 'html';
         const name = _bsExplicitName(code) || _bsNameForLang(lang, counts);
         files.push({ name, code });
