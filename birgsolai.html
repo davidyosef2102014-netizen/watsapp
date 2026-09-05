@@ -7066,7 +7066,7 @@ async function callAI(messages, onChunk, signal=null) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
             body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: _codeNow ? 8192 : 2048, temperature: _isGroundedTurn ? 0.1 : (_codeNow ? 0.2 : 0.7), thinkingConfig: { thinkingLevel: _thinkLevel } } }),
-            signal: AbortSignal.timeout(_codeNow ? 30000 : 13000)
+            signal: AbortSignal.timeout(_codeNow ? 30000 : 9000)
         });
         if (!res.ok) throw new Error('gemini ' + res.status);
         const reader = res.body.getReader();
@@ -7260,7 +7260,7 @@ async function callAI(messages, onChunk, signal=null) {
                 console.warn(`[AI] ${s.name}:`, e.message);
             }
         }
-        if (round === 0) await new Promise(r => setTimeout(r, 700)); // המתנה קצרה לפני הסבב השני
+        if (round === 0) await new Promise(r => setTimeout(r, 400)); // המתנה קצרה לפני הסבב השני
     }
     throw new Error('all providers failed — ' + _lastFail);
 }
