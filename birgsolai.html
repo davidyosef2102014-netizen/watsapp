@@ -5526,13 +5526,28 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
             { role: 'system', content: 'Translate the following image description to simple, literal English. Output ONLY the translation, max 20 words, no explanation, no quotes.' },
             { role: 'user', content: prompt }
         ];
-        // תרגום דרך Groq gpt-oss-20b (reasoning_effort:low כדי שלא יחזיר ריק). llama מת (404) — היה גורם לפרומפט עברי → ג'יבריש/ערבית בתמונה.
+        // 1️⃣ Gemini (thinkingLevel:minimal) — אמין, מחזיר תוכן נקי ומהיר. המנוע העדיף לתרגום פרומפט תמונה.
+        //    (gpt-oss-120b עם reasoning_effort:low החזיר content ריק — כל התקציב הלך ל-reasoning → פרומפט ריק → תמונה אקראית/איש-זקן.)
         try {
-            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: transMessages, temperature: 0.2, max_tokens: 220, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(14000) });
-            if (r.ok) { const j = await r.json(); const t = j?.choices?.[0]?.message?.content?.trim().replace(/^["']+|["']+$/g, ''); if (t && !_looksLikeError(t) && t.length > 2 && t.length < 400) engPrompt = t; }
+            const gr = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
+                body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Translate this image description to simple literal English. Output ONLY the translation, max 20 words, no quotes:\n\n' + prompt }] }], generationConfig: { maxOutputTokens: 120, temperature: 0.2, thinkingConfig: { thinkingLevel: 'minimal' } } }),
+                signal: AbortSignal.timeout(9000)
+            });
+            if (gr.ok) { const gj = await gr.json(); const gt = gj?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().replace(/^["']+|["']+$/g, ''); if (gt && !_looksLikeError(gt) && gt.length > 2 && gt.length < 400) engPrompt = gt; }
         } catch { /* fall through */ }
 
-        // גיבוי: Pollinations text
+        // 2️⃣ גיבוי: Groq gpt-oss-20b. max_tokens גבוה (512) כדי שה-content לא יֵצא ריק, + חילוץ מ-reasoning אם content ריק.
+        if (engPrompt === prompt) {
+            try {
+                const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: transMessages, temperature: 0.2, max_tokens: 512, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(12000) });
+                if (r.ok) { const j = await r.json(); const m = j?.choices?.[0]?.message; let t = (m?.content || '').trim().replace(/^["']+|["']+$/g, '');
+                    if ((!t || t.length < 3) && m?.reasoning) { const rm = m.reasoning.match(/["“]([^"”]{3,200})["”]/); if (rm) t = rm[1].trim(); } // חילוץ התרגום מתוך ה-reasoning אם content ריק
+                    if (t && !_looksLikeError(t) && t.length > 2 && t.length < 400) engPrompt = t; }
+            } catch { /* fall through */ }
+        }
+
+        // 3️⃣ גיבוי אחרון: Pollinations text
         if (engPrompt === prompt) {
             try {
                 const r = await fetch('https://text.pollinations.ai/', {
@@ -5819,9 +5834,8 @@ async function editImage(imgDataUrl, instruction) {
                 if (tr.ok) { const tj = await tr.json(); const tt = tj?.choices?.[0]?.message?.content?.trim(); if (tt) eng = tt; }
             } catch (e) {}
         }
-        // 1. qwen-image-edit (DashScope) — יש מכסה
-        const qEdit = await _qwenImageEdit(imgDataUrl, eng);
-        if (qEdit) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, qEdit); return; }
+        // 1. qwen-image-edit הוסר — מכסת QWEN החינמית נגמרה (403 FreeTierOnly, 2026-09-07). העריכה האמיתית
+        //    עוברת עכשיו ישר ל-gptimage (Pollinations, חינם, מותנה-פיקסלים) בצעד 3 למטה, עם SiliconFlow כביניים.
         // 2. FLUX Kontext (SiliconFlow) — אם יש balance
         const edited = await _siliconflowEdit(imgDataUrl, eng);
         if (edited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, edited); return; }
@@ -5852,14 +5866,14 @@ async function editImage(imgDataUrl, instruction) {
     if (allL > 0 && ascL / allL < 0.6) {
         try {
             const r = await _ghProxy('groq', '/openai/v1/chat/completions', {
-                model: 'openai/gpt-oss-120b',
+                model: 'openai/gpt-oss-20b',
                 messages: [
                     { role: 'system', content: 'Translate to English. Output ONLY the translation, no explanation.' },
                     { role: 'user', content: instruction }
                 ],
-                temperature: 0.2, max_tokens: 60
+                temperature: 0.2, max_tokens: 256, reasoning_effort: 'low'
             }, { signal: AbortSignal.timeout(8000) });
-            if (r.ok) { const j = await r.json(); const t = j?.choices?.[0]?.message?.content?.trim(); if (t && t.length > 0) engInstruction = t; }
+            if (r.ok) { const j = await r.json(); const m = j?.choices?.[0]?.message; let t = (m?.content || '').trim(); if ((!t || t.length < 2) && m?.reasoning) { const rm = m.reasoning.match(/["“]([^"”]{2,200})["”]/); if (rm) t = rm[1].trim(); } if (t && t.length > 0) engInstruction = t; }
         } catch {}
     }
 
