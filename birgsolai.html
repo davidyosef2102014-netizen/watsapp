@@ -2032,7 +2032,7 @@ function openConversation(convId) {
     currentConvId = convId;
     if (currentUser) localStorage.setItem('birgsol_open_conv_' + currentUser, currentConvId);
     hist = Array.isArray(found.messages) ? JSON.parse(JSON.stringify(found.messages)) : [];
-    isFirstMsg = false; _lastImg = "";
+    isFirstMsg = false; _lastImg = ""; _lastImgDesc = ""; _lastImgDescFor = "";
 
     // רנדר מחדש את כל ההודעות
     const cw = document.getElementById('chat-window');
@@ -4240,6 +4240,8 @@ function _exitCodeCanvas() {
 let hist = [], fileUrl = "", fileContent = "", fileName = "", busy = false, isFirstMsg = true;
 let mediaFile = null; // קובץ אודיו/וידאו שממתין לתמלול (Whisper) בעת שליחה
 let _lastImg = ""; // התמונה האחרונה שהמשתמש העלה בשיחה — לזכירה בשאלות המשך ("תסתכל שוב", "ההבדל")
+let _lastImgDesc = "";    // 🖼️ "קליטת תמונה": תיאור טקסטואלי שנוצר מיד בהעלאה (Gemini ראייה) — כך שהמודל יודע על מה מדובר גם בלי לצרף שוב
+let _lastImgDescFor = ""; // איזו תמונה (dataUrl) התיאור הנ"ל מתאר — למניעת קליטה כפולה
 let imgList = []; // כמה תמונות מצורפות להודעה אחת (עד MAX_IMAGES). fileUrl = הראשונה (תאימות לאחור)
 const MAX_IMAGES = 4;
 let _groqCooldownUntil = 0; // כש-Groq מגיע למגבלת קצב, נותנים לו לנוח עד הזמן הזה (במקום לפסול לכל השיחה)
@@ -5192,6 +5194,52 @@ function _addImageToList(dataUrl) {
     document.getElementById('img-prev-doc').style.display = 'none';
     document.getElementById('img-prev-label').style.display = 'none';
     updateBtn();
+    _lastImg = dataUrl;          // זכור מיד — כדי ש"התמונה הזאת" יעבוד כבר בהודעה הבאה
+    _captureImage(dataUrl);      // 🖼️ קליטה מיידית ברקע — מנתח את התמונה כדי שהמודל "יֵדע" עליה
+}
+
+// 🖼️ קליטת תמונה: ברגע שמעלים תמונה, מנתחים אותה ברקע (Gemini ראייה, thinkingLevel:minimal)
+//    ושומרים תיאור עשיר. כך גם מודל שלא "רואה" תמונות, וגם שאלת-המשך כמו "מה יש בתמונה הזאת" —
+//    יודעים בדיוק על מה מדובר בלי לצרף את התמונה שוב. (לבקשת דוד, 2026-09-08)
+function _imgCapturedLabel() {
+    const _lg = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+    return ({
+        he: '✓ התמונה נקלטה — אפשר לשאול עליה',
+        en: '✓ Image captured — you can ask about it',
+        ar: '✓ تم التقاط الصورة — يمكنك السؤال عنها',
+        ru: '✓ Изображение распознано — можно спрашивать',
+        fr: '✓ Image analysée — vous pouvez poser des questions'
+    })[_lg] || '✓ התמונה נקלטה — אפשר לשאול עליה';
+}
+function _markImgCaptured() {
+    try {
+        const lbl = document.getElementById('img-prev-label');
+        const prev = document.getElementById('img-prev');
+        if (lbl && prev && prev.classList.contains('on')) { // רק אם התצוגה המקדימה עדיין פתוחה (לא נשלח/נמחק)
+            lbl.textContent = _imgCapturedLabel();
+            lbl.style.display = 'block';
+            lbl.style.color = '#22c55e'; lbl.style.fontSize = '12px'; lbl.style.fontWeight = '600';
+        }
+    } catch (e) {}
+}
+async function _captureImage(dataUrl) {
+    if (!dataUrl || dataUrl.indexOf('data:image') !== 0) return;
+    if (_lastImgDescFor === dataUrl && _lastImgDesc) { _markImgCaptured(); return; } // כבר נקלט
+    try {
+        const mt = (dataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
+        const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
+        if (!b64) return;
+        const _lg = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+        const _langName = ({ he: 'Hebrew', en: 'English', ar: 'Arabic', ru: 'Russian', fr: 'French' })[_lg] || 'Hebrew';
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', {
+            contents: [{ role: 'user', parts: [
+                { text: 'Describe this image in rich, specific detail so it can be discussed later without seeing it again: the main subject(s), what they are doing, colors, background/setting, any visible text, mood and style. Write the description in ' + _langName + ', up to 90 words. Output ONLY the description.' },
+                { inlineData: { mimeType: mt, data: b64 } }
+            ] }],
+            generationConfig: { maxOutputTokens: 300, temperature: 0.3, thinkingConfig: { thinkingLevel: 'minimal' } }
+        }, { signal: AbortSignal.timeout(15000) });
+        if (r.ok) { const j = await r.json(); const t = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); if (t && t.length > 5) { _lastImgDesc = t; _lastImgDescFor = dataUrl; _markImgCaptured(); } }
+    } catch (e) { /* קליטה ברקע — כישלון שקט, ה-vision הרגיל עדיין עובד */ }
 }
 function _renderImgThumbs() {
     const box = document.getElementById('img-prev-img');
@@ -7899,6 +7947,13 @@ async function send() {
         messages[0].content += `\n\n[מי אתה כרגע] אתה BIRGSOL AI, גרסה 3.5, שנבנה ע"י דוד יוסף זאבי. כרגע אתה פועל על המודל "${_brand}" ובמצב "${_modeName}". אם המשתמש שואל על איזו גרסה/מודל/מצב אתה רץ — ענה במדויק לפי זה (לדוגמה: "אני BIRGSOL AI 3.5, רץ עכשיו על ${_brand} במצב ${_modeName}"). אל תמציא שמות מודלים חיצוניים.`;
         messages[0].content += `\n\n[היכולות שלך — יש לך את כולן בפועל, לעולם אל תגיד שאין לך אותן]:\n✔️ ליצור תמונות מתיאור — כשמבקשים "צור/צייר/תעשה תמונה/איור/לוגו" פלוט שורת [IMAGE: description in English] והמערכת מייצרת אותה באמת.\n✔️ לערוך תמונות שהמשתמש מעלה — כשהוא מעלה תמונה ומבקש שינוי, המערכת עורכת אותה באמת ברמת הפיקסלים. לעולם אל תגיד "אני לא יכול לערוך תמונות" — אתה כן יכול, וזה עובד.\n✔️ לראות ולנתח תמונות שהמשתמש מעלה (ראייה ממשית).\n✔️ לחפש מידע חי ועדכני באינטרנט ([SEARCH]).\n✔️ לקרוא מסמכים מצורפים (Word/PDF/Excel/טקסט).\n✔️ לכתוב ולהריץ קוד.\nכשמבקשים ממך משהו שאחת היכולות האלה מכסה — פשוט בצע, אל תסרב ואל תמעיט בעצמך.\n⚠️ פתרון הפניות בתמונות: כשמבקשים "צור איור של זה" / "תמונה של זה" / "תצייר את זה" — המילה "זה" מתייחסת ל**נושא האחרון שדיברתם עליו בשיחה**. כלול אותו במפורש ובמלואו בתוך [IMAGE: ...]. לעולם אל תיצור נושא אקראי שלא קשור לשיחה (למשל "שלג") — אם באמת לא ברור למה הכוונה, שאל.`;
     } catch (e) {}
+    // 🖼️ קליטת-תמונה: אם המשתמש מתייחס לתמונה שהועלתה (בין אם צירף עכשיו ובין אם רק אמר "התמונה הזאת")
+    //    ויש לנו תיאור שנקלט מראש — מזריקים אותו, כדי שהמודל יֵדע בדיוק על מה מדובר גם אם אינו מודל-ראייה.
+    try {
+        if (_lastImgDesc && (_refImg || (img && _lastImgDescFor === img) || (!img && /תמונ|בצילום|בתמונה|הזאת|הזו|הזה|רוא|בה\b|עליה|שלה|look|image|picture|photo|\bit\b|\bthis\b/i.test(q)))) {
+            messages[0].content += `\n\n[התמונה שהמשתמש העלה בשיחה — תיאור מדויק שכבר נקלט אוטומטית]:\n${_lastImgDesc}\n\nכשהמשתמש מדבר על "התמונה"/"הצילום"/"זה"/"בה" — הכוונה לתמונה הזו. התייחס לתיאור לעיל. אם הוא מבקש לערוך/לשנות אותה — זה נתמך, בצע.`;
+        }
+    } catch (e) {}
     // תיקייה מחוברת + שמירה אוטומטית → מזכירים למודל (בכל מצב) לשמור כל קוד בשם יציב כדי שעריכות ידרסו את אותו קובץ
     if (typeof _bsDir !== 'undefined' && _bsDir && localStorage.getItem('birgsol_autosave_code') !== '0') {
         messages[0].content += '\n\n[PROJECT FOLDER CONNECTED] Every code block you output is auto-saved as a REAL file in the user\'s folder. Keep filenames STABLE across edits so an update OVERWRITES the same file (reuse index.html, script.js, styles.css, main.py). To target a specific file, start the code block with a comment: // file: name.ext (HTML: <!-- file: index.html -->). When asked to change/fix/add to code, re-output the FULL updated file with the SAME filename — never a partial snippet.';
@@ -8342,7 +8397,7 @@ function startNew() {
     const cw = document.getElementById('chat-window');
     cw.innerHTML = ''; cw.style.display = 'none';
     document.getElementById('welcome').style.display = 'flex';
-    hist = []; isFirstMsg = true; currentConvId = null; _lastImg = "";
+    hist = []; isFirstMsg = true; currentConvId = null; _lastImg = ""; _lastImgDesc = ""; _lastImgDescFor = "";
     if (currentUser) localStorage.removeItem('birgsol_open_conv_' + currentUser);
     closeSidebar(); updateGreeting(); renderConvList();
 }
