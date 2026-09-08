@@ -5642,19 +5642,24 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     //    (Pollinations gptimage, חינם, מקבל את התמונה עצמה). אם נכשל — ממשיך לשרשרת FLUX למטה
     //    שמייצרת מחדש לפי התיאור (הגיבוי הישן). ──
     if (editSrcUrl && !imgSrc) {
-        try {
-            // בעריכה — שולחים ל-gptimage רק את ההוראה (הוא רואה את הפיקסלים; תיאור המקור רק "מושך" אותו
-            // לשחזר במקום לשנות). ה-safePrompt (תיאור+שינוי) נשאר לגיבוי FLUX שכן מייצר מחדש מאפס.
-            const editPrompt = (editInstruction && editInstruction.trim()) ? editInstruction.trim() : safePrompt;
-            const eUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(editPrompt)}?image=${encodeURIComponent(editSrcUrl)}&model=gptimage&nologo=true`;
-            const eRes = await fetch(eUrl, { signal: AbortSignal.timeout(55000) });
-            if (eRes.ok && (eRes.headers.get('content-type') || '').startsWith('image/')) {
-                const blob = await eRes.blob();
-                if (blob && blob.size > 2000) {
-                    imgSrc = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(blob); });
+        // עריכה אמיתית מותנית-פיקסלים דרך gptimage (חינם, בלי מפתח, רואה את הפיקסלים). שולחים הוראת-עריכה
+        // ברורה + "שמור את השאר זהה" — כדי שיֵערוך במקום לצייר מחדש. 3 ניסיונות (gptimage לפעמים מחזיר ריק/
+        // קטן) עם seed שונה, לפני נפילה ל-FLUX שמייצר מחדש (לא עריכה אמיתית — הגיבוי האחרון בלבד).
+        const _instr = (editInstruction && editInstruction.trim()) ? editInstruction.trim() : safePrompt;
+        const editPrompt = _instr + '. Keep the rest of the image exactly the same — same subject, pose, composition, background, lighting, colors and style. Edit the given image, do not redraw it from scratch.';
+        for (let _eTry = 0; _eTry < 3 && !imgSrc; _eTry++) {
+            try {
+                const _sd = Math.floor(Math.random() * 999999);
+                const eUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(editPrompt)}?image=${encodeURIComponent(editSrcUrl)}&model=gptimage&nologo=true&seed=${_sd}`;
+                const eRes = await fetch(eUrl, { signal: AbortSignal.timeout(55000) });
+                if (eRes.ok && (eRes.headers.get('content-type') || '').startsWith('image/')) {
+                    const blob = await eRes.blob();
+                    if (blob && blob.size > 2000) {
+                        imgSrc = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(blob); });
+                    }
                 }
-            }
-        } catch { /* ניפול לשרשרת FLUX למטה */ }
+            } catch (e) { if (e && e.name === 'AbortError') break; /* אחרת — ננסה שוב */ }
+        }
     }
 
     // Qwen-image הוסר — FLUX ראשי. איכות קודם: FLUX.1-dev (28 צעדים, איכותי) ראשי; Cloudflare schnell (מהיר, ~ללא הגבלה) כגיבוי.
