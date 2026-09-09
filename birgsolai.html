@@ -5845,6 +5845,29 @@ async function _siliconflowEdit(imgDataUrl, engInstruction) {
     return null; // כל המפתחות מוגבלים כרגע → נפילה לגיבוי (תאר+צור מחדש)
 }
 
+// 🎨 Qwen-Image-Edit דרך HuggingFace (ספק fal-ai) — עריכת תמונה אמיתית ואיכותית, חינם עם טוקן HF (בלי כרטיס אשראי!).
+//    מנסה 2509 (חדש) → base → FLUX.1-Kontext-dev כגיבוי. שולחים את התמונה כ-base64 ישירות (fal מקבל data URI) —
+//    בלי אירוח תמונה, שהיה נקודת-הכשל של העריכה הישנה. מחזיר URL ציבורי (fal.media) או null.
+async function _qwenImageEditHF(imgDataUrl, engInstruction) {
+    if (!imgDataUrl || !engInstruction) return null;
+    const _models = ['fal-ai/qwen-image-edit-2509', 'fal-ai/qwen-image-edit', 'fal-ai/flux-kontext/dev'];
+    for (const pid of _models) {
+        try {
+            const r = await _ghFetch('https://router.huggingface.co/fal-ai/' + pid, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_url: imgDataUrl, prompt: engInstruction }),
+                signal: AbortSignal.timeout(60000)
+            });
+            if (!r.ok) continue;
+            const j = await r.json();
+            const url = j?.images?.[0]?.url || j?.image?.url || (Array.isArray(j?.images) && typeof j.images[0] === 'string' ? j.images[0] : null);
+            if (url) return url;
+        } catch (e) { if (e && e.name === 'AbortError') throw e; }
+    }
+    return null;
+}
+
 async function editImage(imgDataUrl, instruction) {
     showChat();
     const cw = document.getElementById('chat-window');
@@ -5883,12 +5906,15 @@ async function editImage(imgDataUrl, instruction) {
         const _allL = (instruction.match(/\p{L}/gu) || []).length, _ascL = (instruction.match(/[a-zA-Z]/g) || []).length;
         if (_allL > 0 && _ascL / _allL < 0.6) {
             try {
-                const tr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'Translate this image-edit instruction to concise English. Output ONLY the translation, no explanation.' }, { role: 'user', content: instruction }], temperature: 0.2, max_tokens: 80, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) });
-                if (tr.ok) { const tj = await tr.json(); const tt = tj?.choices?.[0]?.message?.content?.trim(); if (tt) eng = tt; }
+                const tr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: 'Translate this image-edit instruction to concise English. Output ONLY the translation, no explanation.' }, { role: 'user', content: instruction }], temperature: 0.2, max_tokens: 256, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) });
+                if (tr.ok) { const tj = await tr.json(); const m = tj?.choices?.[0]?.message; let tt = (m?.content || '').trim(); if ((!tt || tt.length < 2) && m?.reasoning) { const rm = m.reasoning.match(/["“]([^"”]{2,200})["”]/); if (rm) tt = rm[1].trim(); } if (tt) eng = tt; }
             } catch (e) {}
         }
-        // 1. qwen-image-edit הוסר — מכסת QWEN החינמית נגמרה (403 FreeTierOnly, 2026-09-07). העריכה האמיתית
-        //    עוברת עכשיו ישר ל-gptimage (Pollinations, חינם, מותנה-פיקסלים) בצעד 3 למטה, עם SiliconFlow כביניים.
+        // 1. 🎨 Qwen-Image-Edit דרך HuggingFace (fal-ai) — עורך אמיתי איכותי, חינם עם טוקן HF (בלי כרטיס!). המנוע הראשי.
+        skelTxt.textContent = 'עורך את התמונה עם QWEN…';
+        const qHF = await _qwenImageEditHF(imgDataUrl, eng);
+        if (qHF) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, qHF); return; }
+        skelTxt.textContent = 'עורך את התמונה…';
         // 2. FLUX Kontext (SiliconFlow) — אם יש balance
         const edited = await _siliconflowEdit(imgDataUrl, eng);
         if (edited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, edited); return; }
