@@ -1611,6 +1611,10 @@
                 <button class="sp-toggle" id="sp-stylepick" onclick="toggleStylePicker()"></button>
             </div>
             <div class="sp-row">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> <span data-i18n="remote_ctrl_label">שליטה מרחוק (מחשב זה)</span></span>
+                <button class="sp-toggle" id="sp-remote" onclick="toggleRemoteHost()"></button>
+            </div>
+            <div class="sp-row">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="10" cy="19" r="2.5"/><path d="M12 2a10 10 0 0 0 0 20"/></svg> <span data-i18n="bg_label">רקע</span></span>
                 <select class="sp-select" id="sp-bg" onchange="applyBg(this.value)">
                     <option value="white" data-i18n="bg_white">לבן</option>
@@ -2971,6 +2975,7 @@ async function _finishLogin(user) {
     checkPremium();
     document.getElementById('login-screen').style.display = 'none';
     updateUserChip(); updateFreeBanner(); updateGreeting(); updateAdminVisibility(); _updateGuestUI();
+    if (localStorage.getItem('birgsol_remote_host') === '1') { try { _startRemoteHost(); } catch (e) {} } // מארח שליטה-מרחוק אם הופעל
     // טען הוראות אישיות + גרסה מהענן ברקע
     ghReadFresh('db/ai_users.json').then(u => {
         if (u && u[user]) {
@@ -3697,7 +3702,7 @@ Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
    מוגדר עברית + אנגלית; שאר השפות נופלות לאנגלית כדי שלא יישארו בעברית. */
 const L10N_EXTRA = {
     he: {
-        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה',
+        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)',
         privacy_title:'מדיניות פרטיות — BIRGSOL AI', got_it:'הבנתי',
         mem_off:'כבה זיכרון (אל תלמד עליי)', clear_all:'מחק הכל', mem_loading:'טוען…',
         mem_empty:'עדיין לא נשמרו עובדות עליך. ככל שתשוחח יותר, BIRGSOL ילמד ויזכור כאן דברים.',
@@ -3722,7 +3727,7 @@ const L10N_EXTRA = {
         vp_title:'בחר קול', vp_sub:'הקול שבו BIRGSOL ידבר איתך בלייב', vp_done:'מעולה, בואו נתחיל'
     },
     en: {
-        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker',
+        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)',
         privacy_title:'Privacy Policy — BIRGSOL AI', got_it:'Got it',
         mem_off:'Turn off memory (don\'t learn about me)', clear_all:'Delete all', mem_loading:'Loading…',
         mem_empty:'No facts saved about you yet. The more you chat, the more BIRGSOL will learn and remember here.',
@@ -3853,6 +3858,7 @@ function initSettings() {
     const _bgSel = document.getElementById('sp-bg'); if (_bgSel) _bgSel.value = localStorage.getItem('birgsol_bg') || 'teal';
     const asOn = localStorage.getItem('birgsol_autosave_code') !== '0'; // שמירת קוד אוטומטית דולקת כברירת מחדל
     document.getElementById('sp-autosave')?.classList.toggle('on', asOn);
+    document.getElementById('sp-remote')?.classList.toggle('on', localStorage.getItem('birgsol_remote_host') === '1'); // שליטה מרחוק
     try { if (typeof _restoreFilesFolder === 'function') _restoreFilesFolder(); } catch (e) {} // שחזר תיקיית "BIRGSOL AI" אם חוברה
 
     // deep-think feature toggle (default on)
@@ -7971,6 +7977,77 @@ async function _browserAgent(goal) {
         busy = false; updateBtn();
         try { _extSend({ type: 'birgsol-stop' }); } catch (e) {}
     }
+    return (hist[hist.length - 1] && hist[hist.length - 1].content) || 'הסוכן סיים.'; // התוצאה — לשליטה מרחוק
+}
+
+/* ══════════════ 🌐 שליטה מרחוק — התחברות דרך החשבון ══════════════
+   המחשב עם התוסף = "מארח". כשמפעילים, הוא בודק את db/agent/<user>.json כל כמה שניות;
+   פקודה שנשלחה ממכשיר אחר (טלפון) של אותו חשבון → מורצת מקומית עם הזרוע → התוצאה נכתבת בחזרה.
+   הכל דרך db/ הקיים — בלי שינוי Worker. עובד "רק עם הכרום פתוח" (הטאב של BIRGSOL פתוח במחשב). */
+let _remoteHostTimer = null;
+let _remoteLastId = null;
+let _remoteBusy = false;
+function _remotePath() { return 'db/agent/' + encodeURIComponent(currentUser || 'guest') + '.json'; }
+function toggleRemoteHost(on) {
+    if (on == null) on = localStorage.getItem('birgsol_remote_host') !== '1';
+    localStorage.setItem('birgsol_remote_host', on ? '1' : '0');
+    document.getElementById('sp-remote')?.classList.toggle('on', on);
+    if (on) _startRemoteHost(); else _stopRemoteHost();
+    if (typeof _tierToast === 'function') _tierToast(on ? '🌐 המחשב זמין לשליטה מרחוק (השאר את BIRGSOL פתוח)' : 'שליטה מרחוק כבויה');
+    return on;
+}
+function _stopRemoteHost() { if (_remoteHostTimer) { clearInterval(_remoteHostTimer); _remoteHostTimer = null; } }
+async function _startRemoteHost() {
+    if (_remoteHostTimer || !currentUser) return;
+    // רק מחשב עם הזרוע יכול להיות מארח
+    const ping = await _extSend({ type: 'birgsol-ping' }, 6000);
+    if (!ping || !ping.ok) { return; } // אין תוסף → לא מארח
+    _remoteHostTimer = setInterval(_remoteHostTick, 6000);
+    _remoteHostTick();
+}
+async function _remoteHostTick() {
+    if (_remoteBusy || busy) return;
+    let data; try { data = await ghReadFresh(_remotePath()); } catch (e) { return; }
+    const cmd = data && data.cmd;
+    if (!cmd || !cmd.id || cmd.id === _remoteLastId) return;
+    if (data.result && data.result.id === cmd.id) { _remoteLastId = cmd.id; return; } // כבר בוצע
+    _remoteLastId = cmd.id; _remoteBusy = true;
+    try {
+        if (typeof _tierToast === 'function') _tierToast('🌐 קיבלתי פקודה מרחוק — מבצע…');
+        const answer = await _browserAgent(String(cmd.goal || '').slice(0, 500));
+        await ghUpdate(_remotePath(), (d) => { d = d || {}; d.result = { id: cmd.id, text: (answer || 'בוצע').slice(0, 4000), ts: Date.now() }; return d; });
+    } catch (e) {
+        try { await ghUpdate(_remotePath(), (d) => { d = d || {}; d.result = { id: cmd.id, text: 'שגיאה: ' + (e && e.message || e), ts: Date.now() }; return d; }); } catch (e2) {}
+    }
+    _remoteBusy = false;
+}
+// שליחת פקודה למחשב המרוחק (מהטלפון) + המתנה לתוצאה
+async function _sendRemote(goal) {
+    addMsg('user', goal);
+    const inp = document.getElementById('userInput'); if (inp) { inp.value = ''; inp.style.height = 'auto'; }
+    if (isFirstMsg) { addToHistory(goal); isFirstMsg = false; }
+    const row = addMsg('ai', '🌐 שולח למחשב שלך…');
+    const txt = row.querySelector('.ai-txt');
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    try {
+        await ghUpdate(_remotePath(), (d) => { d = d || {}; d.cmd = { id, goal: String(goal).slice(0, 500), ts: Date.now() }; d.result = null; return d; });
+    } catch (e) { txt.textContent = 'לא הצלחתי לשלוח למחשב. נסה שוב.'; hist[hist.length - 1].content = txt.textContent; return; }
+    // ממתין לתוצאה עד ~3 דקות
+    const deadline = Date.now() + 180000;
+    while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 5000));
+        let d; try { d = await ghReadFresh(_remotePath()); } catch (e) { continue; }
+        if (d && d.result && d.result.id === id) {
+            txt.innerHTML = ''; const ans = document.createElement('div');
+            try { ans.innerHTML = mdSafe(d.result.text || 'בוצע.'); } catch (e) { ans.textContent = d.result.text || 'בוצע.'; }
+            txt.appendChild(ans); hist[hist.length - 1].content = d.result.text || 'בוצע.';
+            const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+            return;
+        }
+        txt.textContent = '🌐 המחשב מבצע… (ממתין לתשובה)';
+    }
+    txt.textContent = 'המחשב לא הגיב. ודא ש-BIRGSOL פתוח בכרום במחשב, עם התוסף, ושהשליטה מרחוק מופעלת שם.';
+    hist[hist.length - 1].content = txt.textContent;
 }
 
 /* 🔬 מחקר עמוק (חשיבה לסירוגין) — רק במצב חיפוש. לולאה סוכנית: מפרק את השאלה לשאילתות,
@@ -8015,8 +8092,13 @@ async function send() {
     if (_guestGate()) return;
     if (!currentUser) localStorage.setItem('birgsol_guest_used', String(_guestUsed() + 1));
 
-    // ── סוכן הדפדפן: "סוכן: ..." / "תלחץ/תמלא/תזמין ... בדפדפן" → BIRGSOL פועל בדף לבד (PRO/ULTRA) ──
-    if (_isBrowserAct(q) && !fileUrl && !fileContent && !mediaFile) { await _browserAgent(q); return; }
+    // ── סוכן הדפדפן: "סוכן: ..." / "תלחץ/תמלא/תזמין ... בדפדפן" → פועל בדף לבד (PRO/ULTRA) ──
+    if (_isBrowserAct(q) && !fileUrl && !fileContent && !mediaFile) {
+        const _ping = await _extSend({ type: 'birgsol-ping' }, 4000);
+        if (_ping && _ping.ok) { await _browserAgent(q); }        // תוסף מקומי → הרצה מקומית
+        else { await _sendRemote(q); }                            // אין תוסף כאן → שליחה למחשב המרוחק (שליטה מרחוק)
+        return;
+    }
     // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף (PRO/ULTRA) ──
     if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile) { await browserLook(q); return; }
 
