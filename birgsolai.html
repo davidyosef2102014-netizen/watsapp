@@ -5868,6 +5868,26 @@ async function _qwenImageEditHF(imgDataUrl, engInstruction) {
     return null;
 }
 
+// 🎨 עריכת תמונה עם FLUX.2 [klein] 4B דרך Cloudflare (החשבון של דוד) — עריכה אמיתית איכותית, חינם,
+//    רישיון מסחרי Apache-2.0, ~80 עריכות/יום (מכסת 10K נוירונים, מתאפסת יומית). דורש את ה-Worker המעודכן
+//    (WORKER-birgsol-image-updated.js). מזהה Worker מעודכן לפי edited:true — אחרת מחזיר null ונופל ל-QWEN/gptimage.
+async function _cfFluxEdit(imgDataUrl, engInstruction) {
+    if (!imgDataUrl || !engInstruction) return null;
+    try {
+        const b64 = imgDataUrl.includes(',') ? imgDataUrl.split(',')[1] : imgDataUrl;
+        const r = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: engInstruction, image_b64: b64 }),
+            signal: AbortSignal.timeout(60000)
+        });
+        if (!r.ok) return null;
+        const j = await r.json().catch(() => null);
+        if (j && j.edited === true && j.image) return 'data:image/' + (j.type === 'png' ? 'png' : 'jpeg') + ';base64,' + j.image;
+    } catch (e) { if (e && e.name === 'AbortError') throw e; }
+    return null;
+}
+
 async function editImage(imgDataUrl, instruction) {
     showChat();
     const cw = document.getElementById('chat-window');
@@ -5910,12 +5930,16 @@ async function editImage(imgDataUrl, instruction) {
                 if (tr.ok) { const tj = await tr.json(); const m = tj?.choices?.[0]?.message; let tt = (m?.content || '').trim(); if ((!tt || tt.length < 2) && m?.reasoning) { const rm = m.reasoning.match(/["“]([^"”]{2,200})["”]/); if (rm) tt = rm[1].trim(); } if (tt) eng = tt; }
             } catch (e) {}
         }
-        // 1. 🎨 Qwen-Image-Edit דרך HuggingFace (fal-ai) — עורך אמיתי איכותי, חינם עם טוקן HF (בלי כרטיס!). המנוע הראשי.
+        // 1. 🎨 FLUX.2 [klein] דרך Cloudflare (החשבון שלך, חינם, מסחרי Apache, ~80/יום) — העורך הראשי היציב.
+        skelTxt.textContent = 'עורך את התמונה…';
+        const cfEdit = await _cfFluxEdit(imgDataUrl, eng);
+        if (cfEdit) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, cfEdit); return; }
+        // 2. Qwen-Image-Edit דרך HuggingFace — איכות מעולה כשיש קרדיט HF (בלי כרטיס).
         skelTxt.textContent = 'עורך את התמונה עם QWEN…';
         const qHF = await _qwenImageEditHF(imgDataUrl, eng);
         if (qHF) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, qHF); return; }
         skelTxt.textContent = 'עורך את התמונה…';
-        // 2. FLUX Kontext (SiliconFlow) — אם יש balance
+        // 3. FLUX Kontext (SiliconFlow) — אם יש balance
         const edited = await _siliconflowEdit(imgDataUrl, eng);
         if (edited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, edited); return; }
     } catch (e) { if (e.name === 'AbortError') return; }
