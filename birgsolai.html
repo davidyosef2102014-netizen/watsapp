@@ -7749,6 +7749,7 @@ async function _bsListFiles() {
 /* ══ זרוע הדפדפן — BIRGSOL מסתכל בדף שאתה גולש בו דרך תוסף Chrome (רק PRO/ULTRA) ══
    האפליקציה = המוח; התוסף = הזרוע. אומרים "תסתכל בדפדפן" → פוקד על התוסף → מקבל טקסט+צילום → מנתח ועונה. */
 const BIRGSOL_EXT_ID = 'lenhfjfofokbajhodncnnlmhmblhijek';
+let _agentStop = false; // דגל עצירה לסוכן הדפדפן
 function _extSend(msg, timeoutMs = 25000) {
     return new Promise((resolve) => {
         if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) { resolve({ ok: false, error: 'no-ext' }); return; }
@@ -7841,6 +7842,120 @@ async function browserLook(q, opts) {
     }
 }
 
+/* ══════════════ 🤖 סוכן דפדפן — רואה → מחליט → פועל → רואה שוב ══════════════
+   נשלט דרך זרוע BIRGSOL (תוסף Chrome v2+). מקבל מטרה, ומבצע צעדים בדף עד שהיא הושלמה.
+   אבטחה: לפני פעולה בלתי-הפיכה (שליחה/תשלום/מחיקה/אישור) — עוצר ומבקש אישור מהמשתמש. */
+function _isBrowserAct(q) {
+    if (!q) return false;
+    if (/^\s*סוכן\b|^\s*agent\b/i.test(q)) return true; // "סוכן: ..." טריגר ישיר
+    const act = /תלחץ|לחץ|תלחצי|תמלא|מלא|תמלאי|תבצע|בצע|תזמין|הזמן|תירשם|הירשם|תשלח(?!\s*לי)|תחפש\s*ב|תיכנס|היכנס|תוסיף\s*לעגלה|fill|click|book|order|submit|sign\s*up|log\s*in|add\s*to\s*cart/i.test(q);
+    const browser = /דפדפן|בדף|באתר|בטאב|בעמוד|בכרטיסייה|browser|tab|page|site|website/i.test(q);
+    return act && browser;
+}
+async function _browserAgent(goal) {
+    if (currentTier !== 'pro' && currentTier !== 'ultra') {
+        addMsg('user', goal);
+        addMsg('ai', 'סוכן הדפדפן זמין ל-Pro ו-Ultra בלבד. שדרג כדי ש-BIRGSOL יפעל בדפדפן עבורך.');
+        return;
+    }
+    addMsg('user', goal);
+    const inp = document.getElementById('userInput'); if (inp) { inp.value = ''; inp.style.height = 'auto'; }
+    if (isFirstMsg) { addToHistory(goal); isFirstMsg = false; }
+    busy = true; updateBtn();
+    _agentStop = false;
+    const row = addMsg('ai', '');
+    const body = row.querySelector('.ai-body');
+    const txt = row.querySelector('.ai-txt');
+    const status = document.createElement('div'); status.className = 'agent-status'; status.style.display = 'block';
+    body.insertBefore(status, txt);
+    const _esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const _step = (t, dot) => { status.innerHTML = `<span class="agent-step">${dot ? '<span class="agent-step-dot"></span>' : '<span style="font-size:10px">✓</span>'}<b>${_esc(t)}</b></span>`; };
+    // כפתור עצירה
+    const acts = document.createElement('div'); acts.className = 'ai-acts';
+    acts.innerHTML = '<button class="ai-act" onclick="_agentStop=true;_extSend({type:\'birgsol-stop\'})">⏹ עצור סוכן</button>';
+    body.appendChild(acts);
+    const cw = document.getElementById('chat-window');
+
+    const _sensitive = /שלח|תשלח|שליחה|אשר|אישור|קנה|רכוש|רכישה|תשלום|שלם|הזמן|הזמנה|מחק|מחיקה|פרסם|submit|send|confirm|pay|buy|purchase|order|delete|checkout|place\s*order/i;
+    let stepsLog = [];
+    try {
+        // מצב התחלתי
+        _step('מתחבר לדפדפן…', true);
+        let state = await _extSend({ type: 'birgsol-look' }, 30000);
+        if (!state || !state.ok) {
+            const m = (state && state.error === 'no-ext') ? 'צריך את זרוע BIRGSOL (תוסף Chrome) מותקנת ומעודכנת (גרסה 2+). התקן/עדכן ורענן.'
+                    : (state && state.error === 'no-page') ? 'לא מצאתי דף פתוח בדפדפן. פתח את האתר בטאב אחר ונסה שוב.'
+                    : 'לא הצלחתי להתחבר לדפדפן' + (state && state.error ? ' (' + state.error + ')' : '') + '.';
+            txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; status.remove(); return;
+        }
+        const MAX = 14;
+        for (let stepN = 1; stepN <= MAX && !_agentStop; stepN++) {
+            if (state.stopped) { _step('נעצר על ידי המשתמש', false); break; }
+            // בונים תיאור הדף לסוכן
+            const fieldsTxt = (state.fields || []).slice(0, 60).map(f =>
+                `[${f.ref}] ${f.kind}${f.label ? ' "' + f.label + '"' : ''}${f.value ? ' =' + JSON.stringify(f.value) : ''}${f.checked != null ? (f.checked ? ' (מסומן)' : ' (לא מסומן)') : ''}`).join('\n');
+            const sys = 'You are BIRGSOL, an autonomous browser agent. Decide the SINGLE next action to progress toward the user\'s GOAL, based only on the current page. Respond with ONLY a JSON object, no prose:\n' +
+                '{"reason":"<short reason in Hebrew>","op":"click|type|select|scroll|key|navigate|wait|done","ref":<element number or null>,"text":"<text for type/select>","key":"Enter","dir":"down|up","url":"<for navigate>","done":<true|false>,"answer":"<final message to the user in Hebrew, only when done>"}\n' +
+                'Rules: use the [ref] numbers from the element list. ONE action per step. If the goal is achieved OR you cannot proceed, set done:true with an answer. Never invent refs. NEVER type passwords, credit-card, or ID numbers — if the goal needs them, set done:true and ask the user to enter them manually. Prefer typing into fields then clicking the submit/search button.';
+            const user = 'GOAL: ' + goal + '\n\nCURRENT PAGE:\ntitle: ' + (state.title || '') + '\nurl: ' + (state.url || '') +
+                '\n\nINTERACTIVE ELEMENTS:\n' + (fieldsTxt || '(none)') +
+                '\n\nPAGE TEXT (excerpt):\n' + (state.text || '').slice(0, 3500) +
+                (stepsLog.length ? '\n\nACTIONS DONE SO FAR:\n' + stepsLog.join('\n') : '') +
+                '\n\nReturn the next action as JSON.';
+            _step('חושב על הצעד הבא… (' + stepN + '/' + MAX + ')', true);
+            let decision = null;
+            try {
+                const r = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: sys + '\n\n' + user }] }], generationConfig: { maxOutputTokens: 500, temperature: 0.2, thinkingConfig: { thinkingLevel: 'minimal' }, responseMimeType: 'application/json' } }),
+                    signal: AbortSignal.timeout(20000)
+                });
+                if (r.ok) { const j = await r.json(); const t = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); decision = JSON.parse(t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
+            } catch (e) {}
+            if (!decision) { // גיבוי: gpt-oss-120b
+                try {
+                    const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.2, max_tokens: 700, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
+                    if (r.ok) { const j = await r.json(); const c = j?.choices?.[0]?.message?.content || '{}'; decision = JSON.parse(c.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
+                } catch (e) {}
+            }
+            if (!decision || !decision.op) { _step('לא הצלחתי להחליט על צעד — עוצר', false); stepsLog.push('(failed to decide)'); break; }
+
+            if (decision.done) { _step('הושלם ✓', false); txt.innerHTML = ''; const ans = document.createElement('div'); try { ans.innerHTML = mdSafe(decision.answer || 'סיימתי.'); } catch (e) { ans.textContent = decision.answer || 'סיימתי.'; } txt.appendChild(ans); hist[hist.length - 1].content = decision.answer || 'סיימתי.'; break; }
+
+            // תיאור הצעד למשתמש
+            const target = (state.fields || []).find(f => f.ref === decision.ref);
+            const human = ({ click: 'לוחץ על', type: 'מקליד ב', select: 'בוחר ב', scroll: 'גולל', key: 'מקיש ' + (decision.key || 'Enter'), navigate: 'עובר ל', wait: 'ממתין' })[decision.op] || decision.op;
+            const label = target ? ('"' + (target.label || target.kind) + '"') : (decision.url || decision.dir || '');
+            _step((decision.reason ? decision.reason + ' — ' : '') + human + ' ' + label, true);
+
+            // 🛡️ אישור לפני פעולה בלתי-הפיכה
+            const risky = (decision.op === 'click' && target && _sensitive.test(target.label || '')) || (decision.op === 'key' && decision.key === 'Enter') || (decision.op === 'navigate');
+            if (risky) {
+                const ok = await _confirm('הסוכן רוצה: ' + human + ' ' + label + '\n\nלאשר את הפעולה הזו?');
+                if (!ok) { _step('הפעולה בוטלה על ידך — עוצר', false); stepsLog.push('user declined: ' + human + ' ' + label); break; }
+            }
+            if (_agentStop) break;
+
+            // ביצוע
+            const act = { op: decision.op, ref: decision.ref, text: decision.text, key: decision.key, dir: decision.dir, url: decision.url, ms: decision.ms };
+            const res = await _extSend({ type: 'birgsol-act', action: act }, 45000);
+            stepsLog.push(`${stepN}. ${human} ${label}${res && res.ok ? '' : ' [נכשל: ' + ((res && res.error) || '?') + ']'}`);
+            if (res && (res.ok || res.acted)) { state = res; } // מצב הדף המעודכן
+            else if (res && res.error === 'no-ext') { txt.innerHTML = _esc('הזרוע התנתקה. ודא שהתוסף פעיל ורענן.'); break; }
+            if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+        }
+        if (_agentStop && (!hist[hist.length - 1].content)) { const m = 'הסוכן נעצר.'; txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; }
+        if (!hist[hist.length - 1].content) { const m = 'סיימתי את הצעדים שיכולתי. בדוק את הדף בדפדפן.'; const d = document.createElement('div'); d.textContent = m; txt.appendChild(d); hist[hist.length - 1].content = m; }
+        // צילום מסך אחרון
+        if (state && state.screenshot) { const im = document.createElement('img'); im.src = state.screenshot; im.style.cssText = 'max-width:100%;border-radius:12px;margin-top:9px;display:block;border:1px solid var(--border);cursor:pointer'; im.onclick = () => window.open(state.screenshot, '_blank'); txt.appendChild(im); }
+    } catch (e) {
+        txt.textContent = 'שגיאת סוכן: ' + (e && e.message || e);
+    } finally {
+        busy = false; updateBtn();
+        try { _extSend({ type: 'birgsol-stop' }); } catch (e) {}
+    }
+}
+
 /* 🔬 מחקר עמוק (חשיבה לסירוגין) — רק במצב חיפוש. לולאה סוכנית: מפרק את השאלה לשאילתות,
    מחפש, בודק מה חסר, מחפש שוב, ומחזיר את כל הממצאים לסינתזה. מציג כל שלב בשקיפות. */
 async function _deepResearch(query, statusEl) {
@@ -7883,6 +7998,8 @@ async function send() {
     if (_guestGate()) return;
     if (!currentUser) localStorage.setItem('birgsol_guest_used', String(_guestUsed() + 1));
 
+    // ── סוכן הדפדפן: "סוכן: ..." / "תלחץ/תמלא/תזמין ... בדפדפן" → BIRGSOL פועל בדף לבד (PRO/ULTRA) ──
+    if (_isBrowserAct(q) && !fileUrl && !fileContent && !mediaFile) { await _browserAgent(q); return; }
     // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף (PRO/ULTRA) ──
     if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile) { await browserLook(q); return; }
 
