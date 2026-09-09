@@ -7891,7 +7891,7 @@ async function _browserAgent(goal) {
                     : 'לא הצלחתי להתחבר לדפדפן' + (state && state.error ? ' (' + state.error + ')' : '') + '.';
             txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; status.remove(); return;
         }
-        const MAX = 14;
+        const MAX = _admin ? 16 : 6; // משתמש רגיל — מקסימום צעדים נמוך (הגבלה גבוהה)
         for (let stepN = 1; stepN <= MAX && !_agentStop; stepN++) {
             if (state.stopped) { _step('נעצר על ידי המשתמש', false); break; }
             // בונים תיאור הדף לסוכן
@@ -7939,11 +7939,13 @@ async function _browserAgent(goal) {
             const label = target ? ('"' + (target.label || target.kind) + '"') : (decision.url || decision.dir || '');
             _step((decision.reason ? decision.reason + ' — ' : '') + human + ' ' + label, true);
 
-            // 🛡️ אישור לפני פעולה בלתי-הפיכה. מנהל (דוד): מאשר רק על כסף/מחיקה; משתמש רגיל: גם שליחה/Enter/מעבר-דף.
+            // 🔒 הרצת קוד (exec) — למנהל בלבד. משתמש רגיל שקיבל exec איכשהו — נחסם.
+            if (decision.op === 'exec' && !_admin) { _step('פעולה מתקדמת (קוד) חסומה למשתמש רגיל — עוצר', false); stepsLog.push('blocked exec for non-admin'); break; }
+            // 🛡️ אישור: מנהל (דוד) — רק על כסף/מחיקה (השאר זורם). משתמש רגיל — אישור על *כל* פעולה שמשנה מצב (פיקוח מלא).
             const _hardSensitive = /תשלום|שלם|קנה|רכוש|רכישה|מחק|מחיקה|pay|buy|purchase|checkout|delete|place\s*order/i;
             const risky = _admin
                 ? (decision.op === 'click' && target && _hardSensitive.test(target.label || ''))
-                : ((decision.op === 'click' && target && _sensitive.test(target.label || '')) || (decision.op === 'key' && decision.key === 'Enter') || (decision.op === 'navigate'));
+                : ['click', 'type', 'select', 'navigate', 'key'].includes(decision.op);
             if (risky) {
                 const ok = await _confirm('הסוכן רוצה: ' + human + ' ' + label + '\n\nלאשר את הפעולה הזו?');
                 if (!ok) { _step('הפעולה בוטלה על ידך — עוצר', false); stepsLog.push('user declined: ' + human + ' ' + label); break; }
