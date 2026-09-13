@@ -7917,21 +7917,30 @@ async function _browserAgent(goal, opts) {
     const row = addMsg('ai', '');
     const body = row.querySelector('.ai-body');
     const txt = row.querySelector('.ai-txt');
-    const status = document.createElement('div'); status.className = 'agent-status'; status.style.display = 'block';
+    const status = document.createElement('div'); status.className = 'agent-status';
     body.insertBefore(status, txt);
-    status.style.cssText = 'display:block'; // רשימת צעדים גדלה — הסוכן "מדבר" תוך כדי
+    status.style.cssText = 'display:block';
     const _esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    // תצוגה מקופלת בסגנון "BIRGSOL in Chrome" — כל הצעדים מאחורי הקלעים; לחיצה פותחת ומראה מה הוא עושה
+    const _hdr = document.createElement('div');
+    _hdr.style.cssText = 'display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:var(--surf2,#f0f2f6);border:1px solid var(--border,#e2e4ea);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;user-select:none;color:var(--text)';
+    _hdr.innerHTML = '<span class="agent-step-dot" id="_bic_dot"></span><span>BIRGSOL in Chrome</span><span id="_bic_chev" style="opacity:.55;font-size:11px">▾</span>';
+    const _det = document.createElement('div');
+    _det.style.cssText = 'display:none;margin-top:8px;padding-inline-start:10px;border-inline-start:2px solid var(--border,#e2e4ea)';
+    status.appendChild(_hdr); status.appendChild(_det);
+    let _open = false;
+    _hdr.onclick = () => { _open = !_open; _det.style.display = _open ? 'block' : 'none'; const ch = _hdr.querySelector('#_bic_chev'); if (ch) ch.textContent = _open ? '▴' : '▾'; };
+    const _finishHdr = () => { try { const d = _hdr.querySelector('#_bic_dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; } catch (e) {} };
     let _lastStepLine = null;
     const _step = (t, dot) => {
-        // הצעד הקודם "מסתיים" (הופך ל-✓) כשמגיע צעד חדש
         if (_lastStepLine) { const d = _lastStepLine.querySelector('.agent-step-dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; }
         const line = document.createElement('div');
-        line.style.cssText = 'display:flex;align-items:center;gap:7px;padding:3px 0;font-size:13px;line-height:1.4';
+        line.style.cssText = 'display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12.5px;line-height:1.4;color:var(--muted)';
         line.innerHTML = `${dot ? '<span class="agent-step-dot"></span>' : '<span style="color:#22c55e">✓</span>'}<b style="font-weight:500">${_esc(t)}</b>`;
-        status.appendChild(line);
+        _det.appendChild(line);
         _lastStepLine = dot ? line : null;
-        while (status.children.length > 14) status.removeChild(status.firstChild); // שומר את ה-14 האחרונים
-        const cw2 = document.getElementById('chat-window'); if (cw2) cw2.scrollTo({ top: cw2.scrollHeight, behavior: 'smooth' });
+        while (_det.children.length > 25) _det.removeChild(_det.firstChild);
+        if (_open) { const cw2 = document.getElementById('chat-window'); if (cw2) cw2.scrollTo({ top: cw2.scrollHeight, behavior: 'smooth' }); }
     };
     // כפתור עצירה
     const acts = document.createElement('div'); acts.className = 'ai-acts';
@@ -7973,7 +7982,9 @@ async function _browserAgent(goal, opts) {
                 'Rules:\n' +
                 '- Use the [ref] numbers from the element list. ONE action per step.\n' +
                 '- If the GOAL names a website but you are NOT on it yet, use op:navigate with the real full URL (you know common sites — e.g. Alibaba Model Studio = https://bailian.console.alibabacloud.com , Cloudflare dashboard = https://dash.cloudflare.com , Google = https://www.google.com ).\n' +
+                '- You ALSO receive a SCREENSHOT of the current page — study it to understand the layout, see what actually happened after your last action, and pick the correct element. Trust the screenshot + element list together.\n' +
                 '- If a needed element is not in the list, op:scroll to reveal it.\n' +
+                '- Work step-by-step through the WHOLE task; do not give up early — only set done:true when the goal is truly complete or genuinely blocked.\n' +
                 '- Prefer typing into fields, then clicking the submit/search button.\n' +
                 '- When the goal is achieved OR you cannot proceed, set done:true with a Hebrew answer.\n' +
                 '- Never invent refs. NEVER type passwords, credit-card, or ID numbers — if the goal needs them, set done:true and ask the user to enter them manually.\n' +
@@ -7987,10 +7998,12 @@ async function _browserAgent(goal, opts) {
             _step('חושב על הצעד הבא… (' + stepN + '/' + MAX + ')', true);
             let decision = null;
             try {
+                const _parts = [{ text: sys + '\n\n' + user }];
+                if (state.screenshot) { const _sb = state.screenshot.includes(',') ? state.screenshot.split(',')[1] : ''; if (_sb) _parts.push({ inlineData: { mimeType: 'image/jpeg', data: _sb } }); } // 👁️ ראייה — הסוכן רואה את הדף
                 const r = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
                     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: sys + '\n\n' + user }] }], generationConfig: { maxOutputTokens: 500, temperature: 0.2, thinkingConfig: { thinkingLevel: 'minimal' }, responseMimeType: 'application/json' } }),
-                    signal: AbortSignal.timeout(20000)
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: _parts }], generationConfig: { maxOutputTokens: 900, temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json' } }),
+                    signal: AbortSignal.timeout(28000)
                 });
                 if (r.ok) { const j = await r.json(); const t = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); decision = JSON.parse(t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
             } catch (e) {}
@@ -8002,7 +8015,7 @@ async function _browserAgent(goal, opts) {
             }
             if (!decision || !decision.op) { _step('לא הצלחתי להחליט על צעד — עוצר', false); stepsLog.push('(failed to decide)'); break; }
 
-            if (decision.done) { _step('הושלם ✓', false); txt.innerHTML = ''; const ans = document.createElement('div'); try { ans.innerHTML = mdSafe(decision.answer || 'סיימתי.'); } catch (e) { ans.textContent = decision.answer || 'סיימתי.'; } txt.appendChild(ans); hist[hist.length - 1].content = decision.answer || 'סיימתי.'; break; }
+            if (decision.done) { _step('הושלם ✓', false); _finishHdr(); txt.innerHTML = ''; const ans = document.createElement('div'); try { ans.innerHTML = mdSafe(decision.answer || 'סיימתי.'); } catch (e) { ans.textContent = decision.answer || 'סיימתי.'; } txt.appendChild(ans); hist[hist.length - 1].content = decision.answer || 'סיימתי.'; break; }
 
             // תיאור הצעד למשתמש
             const target = (state.fields || []).find(f => f.ref === decision.ref);
@@ -8032,6 +8045,7 @@ async function _browserAgent(goal, opts) {
             else if (res && res.error === 'no-ext') { txt.innerHTML = _esc('הזרוע התנתקה. ודא שהתוסף פעיל ורענן.'); break; }
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
         }
+        _finishHdr();
         if (_agentStop && (!hist[hist.length - 1].content)) { const m = 'הסוכן נעצר.'; txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; }
         if (!hist[hist.length - 1].content) { const m = 'סיימתי את הצעדים שיכולתי. בדוק את הדף בדפדפן.'; const d = document.createElement('div'); d.textContent = m; txt.appendChild(d); hist[hist.length - 1].content = m; }
         // צילום מסך אחרון
