@@ -6657,6 +6657,32 @@ const RE_MAPS   = /\[MAPS:\s*(.+?)\]/gi;
 const RE_IMAGE  = /\[IMAGE:\s*(.+?)\]/gi;       // כלי סוכן: הסוכן מחליט לבד לצייר תמונה באמצע תשובה
 const RE_BROWSER = /\[BROWSER\]/i;              // כלי סוכן: הסוכן מחליט להסתכל בדף שהמשתמש גולש בו (דרך התוסף)
 const RE_AGENT  = /\[AGENT:\s*([\s\S]+?)\]/i;   // כלי סוכן: המודל מחליט לבד להפעיל את סוכן-הדפדפן שיבצע פעולה בדף
+// 🖥️ כלי-על — פעילים רק באפליקציית הדסקטופ (window.BIRGSOL_NATIVE): טרמינל אמיתי + קבצים
+const RE_RUN       = /\[RUN:\s*([\s\S]+?)\]/gi;        // [RUN: shell command] — הרצת פקודת טרמינל
+const RE_READFILE  = /\[READFILE:\s*([\s\S]+?)\]/gi;   // [READFILE: path] — קריאת קובץ
+const RE_WRITEFILE = /\[WRITEFILE:\s*([\s\S]+?)\]/gi;  // [WRITEFILE: path|||content] — כתיבת קובץ
+function _isDesktop() { return typeof window !== 'undefined' && !!window.BIRGSOL_NATIVE && window.BIRGSOL_NATIVE.isDesktop; }
+async function _execNativeTool(m, kind) {
+    if (!_isDesktop()) return '[' + kind + '] זמין רק באפליקציית הדסקטופ של BIRGSOL.';
+    try {
+        if (kind === 'run') {
+            const r = await window.BIRGSOL_NATIVE.runCommand((m[1] || '').trim());
+            if (!r) return '[הרצה נכשלה]';
+            return '[פלט הפקודה]\n' + ((r.stdout || '') + (r.stderr ? '\n[stderr]\n' + r.stderr : '')).slice(0, 8000) + (r.ok ? '' : '\n[קוד יציאה: ' + (r.code != null ? r.code : '?') + (r.error ? ' — ' + r.error : '') + ']');
+        }
+        if (kind === 'readfile') {
+            const p = (m[1] || '').trim(); const r = await window.BIRGSOL_NATIVE.readFile(p);
+            return r && r.ok ? ('[תוכן ' + p + ']\n' + String(r.content).slice(0, 8000)) : ('[קריאת ' + p + ' נכשלה: ' + ((r && r.error) || '?') + ']');
+        }
+        if (kind === 'writefile') {
+            const raw = (m[1] || ''); const idx = raw.indexOf('|||');
+            const p = (idx >= 0 ? raw.slice(0, idx) : raw).trim(); const c = idx >= 0 ? raw.slice(idx + 3) : '';
+            const r = await window.BIRGSOL_NATIVE.writeFile(p, c);
+            return r && r.ok ? ('[נכתב הקובץ ' + p + ']') : ('[כתיבת ' + p + ' נכשלה: ' + ((r && r.error) || '?') + ']');
+        }
+    } catch (e) { return '[' + kind + ' שגיאה: ' + (e && e.message || e) + ']'; }
+    return '[' + kind + ' לא בוצע]';
+}
 const RE_REMEMBER = /\[REMEMBER:\s*(.+?)\]/gi;  // כלי סוכן: הסוכן מחליט לבד לשמור עובדה אמיתית על המשתמש
 
 async function executeTool(match, type, statusEl, cw) {
@@ -6871,14 +6897,21 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4, signal=null) 
         const browseMatches = [...fullText.matchAll(RE_BROWSE)];
         const mapsMatches   = [...fullText.matchAll(RE_MAPS)];
         const rememberMatches = [...fullText.matchAll(RE_REMEMBER)];
-        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0;
+        // 🖥️ כלי-על native (רק בדסקטופ): טרמינל + קבצים
+        const runMatches   = _isDesktop() ? [...fullText.matchAll(RE_RUN)] : [];
+        const readMatches  = _isDesktop() ? [...fullText.matchAll(RE_READFILE)] : [];
+        const writeMatches = _isDesktop() ? [...fullText.matchAll(RE_WRITEFILE)] : [];
+        RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0; RE_RUN.lastIndex = 0; RE_READFILE.lastIndex = 0; RE_WRITEFILE.lastIndex = 0;
         // [IMAGE] הוסר מהסוכן בכוונה — הסוכן לא יוצר תמונות (יצירת תמונה רק דרך "צור תמונה של…"). תגית [IMAGE] אם תיפלט — רק תנוקה, לא תבוצע.
 
-        if (!searchMatches.length && !browseMatches.length && !mapsMatches.length && !rememberMatches.length) break; // no tools → done
+        if (!searchMatches.length && !browseMatches.length && !mapsMatches.length && !rememberMatches.length && !runMatches.length && !readMatches.length && !writeMatches.length) break; // no tools → done
 
         // Show agent status area
         if (!statusEl.innerHTML) {
             statusEl.style.display = 'block';
+        }
+        if (runMatches.length || readMatches.length || writeMatches.length) {
+            try { statusEl.innerHTML = '<span class="agent-step"><span class="agent-step-dot"></span><b>' + (runMatches.length ? 'מריץ בטרמינל…' : 'עובד עם קבצים…') + '</b></span>'; statusEl.style.display = 'block'; } catch (e) {}
         }
 
         // Execute all tool calls in parallel
@@ -6886,13 +6919,16 @@ async function agentLoop(messages, txtEl, statusEl, cw, maxIter=4, signal=null) 
             ...searchMatches.map(m => executeTool(m, 'search', statusEl, cw)),
             ...browseMatches.map(m => executeTool(m, 'browse',  statusEl, cw)),
             ...mapsMatches.map(m => executeTool(m, 'maps',  statusEl, cw)),
-            ...rememberMatches.map(m => executeTool(m, 'remember', statusEl, cw))
+            ...rememberMatches.map(m => executeTool(m, 'remember', statusEl, cw)),
+            ...runMatches.map(m => _execNativeTool(m, 'run')),
+            ...readMatches.map(m => _execNativeTool(m, 'readfile')),
+            ...writeMatches.map(m => _execNativeTool(m, 'writefile'))
         ];
         const toolResults = await Promise.all(toolPromises);
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
         // Add to conversation: AI said X, here are tool results
-        const cleanResponse = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').replace(RE_IMAGE,'').replace(RE_REMEMBER,'').trim();
+        const cleanResponse = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').replace(RE_IMAGE,'').replace(RE_REMEMBER,'').replace(RE_RUN,'').replace(RE_READFILE,'').replace(RE_WRITEFILE,'').trim();
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0;
         messages.push({ role: 'assistant', content: cleanResponse || fullText });
         messages.push({ role: 'user',      content: toolResults.join('\n') + '\n\nעכשיו ענה על בסיס המידע שקיבלת.' });
@@ -8235,6 +8271,10 @@ async function send() {
         // 🤖 סוכן דפדפן — המודל מחליט לבד מתי להפעיל (Pro/Ultra/מנהל)
         if (currentTier === 'pro' || currentTier === 'ultra' || ADMIN_USERS.includes(currentUser)) {
             messages[0].content += `\n\n[סוכן דפדפן — יכולת אמת] יש לך זרוע שפועלת בדפדפן של המשתמש: נכנסת לאתרים, לוחצת, ממלאת ושולחת טפסים, חוקרת דפים. כשהמשתמש מבקש **לבצע פעולה בדפדפן או באתר** (להיכנס לאתר מסוים, ללחוץ, למלא/לשלוח טופס, לחפש באתר ספציפי ולפתוח תוצאה, להזמין, להירשם, "תיכנס ל...", "תחפש ב<אתר>", "תלחץ", "תמלא") — פלוט **שורה אחת בלבד ותו לא**: [AGENT: <תיאור המשימה המלא באנגלית>]. המערכת תפעיל את הסוכן שיבצע זאת בפועל בדפדפן. השתמש בזה **רק** לפעולות אמת בדפדפן — לשאלת ידע כללית פשוט תענה כרגיל (אל תפלוט AGENT). דוגמאות: "תיכנס לוויקיפדיה ותחפש חתול" → [AGENT: go to wikipedia.org, search for "cat" and open the article]; "תזמין לי תור באתר X" → [AGENT: on site X, book an appointment ...].`;
+        }
+        // 🖥️ מצב דסקטופ — למודל יש טרמינל אמיתי + קבצים (כמו Claude Code)
+        if (_isDesktop()) {
+            messages[0].content += `\n\n[מצב דסקטופ — כוח אמת] אתה רץ באפליקציית הדסקטופ של BIRGSOL, עם גישה אמיתית למחשב. יש לך הכלים האלה — פלוט את התגית והמערכת תבצע ותחזיר לך את התוצאה, ואז תמשיך:\n• [RUN: <shell command>] — הרצת פקודת טרמינל אמיתית (npm, python, git, dir וכו'). המשתמש מאשר כל פקודה.\n• [READFILE: <path>] — קריאת תוכן קובץ.\n• [WRITEFILE: <path>|||<content>] — כתיבת/יצירת קובץ (הנתיב, ואז ||| , ואז התוכן המלא).\nהשתמש בהם כדי לבצע משימות פיתוח אמיתיות: להריץ קוד, לבדוק שגיאות ולתקן, ליצור פרויקטים, לבדוק APIs. אחרי כל כלי תקבל את הפלט — נתח אותו והמשך עד שהמשימה הושלמה. השתמש בכלים האלה רק כשצריך פעולה אמת במחשב.`;
         }
     } catch (e) {}
     // 🖼️ קליטת-תמונה: אם המשתמש מתייחס לתמונה שהועלתה (בין אם צירף עכשיו ובין אם רק אמר "התמונה הזאת")
