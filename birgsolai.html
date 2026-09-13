@@ -7962,7 +7962,7 @@ async function _browserAgent(goal, opts) {
                     : 'לא הצלחתי להתחבר לדפדפן' + (state && state.error ? ' (' + state.error + ')' : '') + '.';
             txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; status.remove(); return;
         }
-        const MAX = _admin ? 16 : 6; // משתמש רגיל — מקסימום צעדים נמוך (הגבלה גבוהה)
+        const MAX = _admin ? 30 : 6; // מנהל — עד 30 צעדים למשימות ארוכות (הזמנות/טפסים מרובי-שלבים). משתמש רגיל — 6 (הגבלה גבוהה)
         for (let stepN = 1; stepN <= MAX && !_agentStop; stepN++) {
             if (state.stopped) { _step('נעצר על ידי המשתמש', false); break; }
             // בונים תיאור הדף לסוכן
