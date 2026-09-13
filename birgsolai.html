@@ -7877,8 +7877,20 @@ async function _browserAgent(goal) {
     const txt = row.querySelector('.ai-txt');
     const status = document.createElement('div'); status.className = 'agent-status'; status.style.display = 'block';
     body.insertBefore(status, txt);
+    status.style.cssText = 'display:block'; // רשימת צעדים גדלה — הסוכן "מדבר" תוך כדי
     const _esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-    const _step = (t, dot) => { status.innerHTML = `<span class="agent-step">${dot ? '<span class="agent-step-dot"></span>' : '<span style="font-size:10px">✓</span>'}<b>${_esc(t)}</b></span>`; };
+    let _lastStepLine = null;
+    const _step = (t, dot) => {
+        // הצעד הקודם "מסתיים" (הופך ל-✓) כשמגיע צעד חדש
+        if (_lastStepLine) { const d = _lastStepLine.querySelector('.agent-step-dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; }
+        const line = document.createElement('div');
+        line.style.cssText = 'display:flex;align-items:center;gap:7px;padding:3px 0;font-size:13px;line-height:1.4';
+        line.innerHTML = `${dot ? '<span class="agent-step-dot"></span>' : '<span style="color:#22c55e">✓</span>'}<b style="font-weight:500">${_esc(t)}</b>`;
+        status.appendChild(line);
+        _lastStepLine = dot ? line : null;
+        while (status.children.length > 14) status.removeChild(status.firstChild); // שומר את ה-14 האחרונים
+        const cw2 = document.getElementById('chat-window'); if (cw2) cw2.scrollTo({ top: cw2.scrollHeight, behavior: 'smooth' });
+    };
     // כפתור עצירה
     const acts = document.createElement('div'); acts.className = 'ai-acts';
     acts.innerHTML = '<button class="ai-act" onclick="_agentStop=true;_extSend({type:\'birgsol-stop\'})">⏹ עצור סוכן</button>';
