@@ -1615,6 +1615,10 @@
                 <button class="sp-toggle" id="sp-remote" onclick="toggleRemoteHost()"></button>
             </div>
             <div class="sp-row">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> <span data-i18n="desktop_app_label">אפליקציית דסקטופ (כוח מלא)</span></span>
+                <button onclick="downloadDesktopInstaller()" style="background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:9px;padding:6px 15px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px" data-i18n="desktop_app_btn">הורד והתקן</button>
+            </div>
+            <div class="sp-row">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="10" cy="19" r="2.5"/><path d="M12 2a10 10 0 0 0 0 20"/></svg> <span data-i18n="bg_label">רקע</span></span>
                 <select class="sp-select" id="sp-bg" onchange="applyBg(this.value)">
                     <option value="white" data-i18n="bg_white">לבן</option>
@@ -3702,7 +3706,7 @@ Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
    מוגדר עברית + אנגלית; שאר השפות נופלות לאנגלית כדי שלא יישארו בעברית. */
 const L10N_EXTRA = {
     he: {
-        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)',
+        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)', desktop_app_label:'אפליקציית דסקטופ (כוח מלא)', desktop_app_btn:'הורד והתקן',
         privacy_title:'מדיניות פרטיות — BIRGSOL AI', got_it:'הבנתי',
         mem_off:'כבה זיכרון (אל תלמד עליי)', clear_all:'מחק הכל', mem_loading:'טוען…',
         mem_empty:'עדיין לא נשמרו עובדות עליך. ככל שתשוחח יותר, BIRGSOL ילמד ויזכור כאן דברים.',
@@ -3727,7 +3731,7 @@ const L10N_EXTRA = {
         vp_title:'בחר קול', vp_sub:'הקול שבו BIRGSOL ידבר איתך בלייב', vp_done:'מעולה, בואו נתחיל'
     },
     en: {
-        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)',
+        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install',
         privacy_title:'Privacy Policy — BIRGSOL AI', got_it:'Got it',
         mem_off:'Turn off memory (don\'t learn about me)', clear_all:'Delete all', mem_loading:'Loading…',
         mem_empty:'No facts saved about you yet. The more you chat, the more BIRGSOL will learn and remember here.',
@@ -8038,6 +8042,31 @@ let _remoteHostTimer = null;
 let _remoteLastId = null;
 let _remoteBusy = false;
 function _remotePath() { return 'db/agent/' + encodeURIComponent(currentUser || 'guest') + '.json'; }
+// 🖥️ הורדת מתקין אוטומטי לאפליקציית הדסקטופ — לחיצה מורידה .bat שמוריד+מחלץ+מפעיל את הכל לבד (בלי Node).
+function downloadDesktopInstaller() {
+    const bat = [
+        '@echo off',
+        'chcp 65001 >nul',
+        'title BIRGSOL Desktop',
+        'set "DIR=%USERPROFILE%\\BIRGSOL-Desktop"',
+        'set "ELDIR=%DIR%\\electron"',
+        'if not exist "%DIR%" mkdir "%DIR%"',
+        'echo Downloading BIRGSOL app files...',
+        'powershell -NoProfile -Command "$b=\'https://raw.githubusercontent.com/davidyosef2102014-netizen/watsapp/master/desktop/\'; iwr ($b+\'main.js\') -OutFile \'%DIR%\\main.js\'; iwr ($b+\'preload.js\') -OutFile \'%DIR%\\preload.js\'; iwr ($b+\'package.json\') -OutFile \'%DIR%\\package.json\'"',
+        'if not exist "%ELDIR%\\electron.exe" ( echo Downloading Electron ~110MB, one time please wait... & powershell -NoProfile -Command "iwr \'https://github.com/electron/electron/releases/download/v44.3.0/electron-v44.3.0-win32-x64.zip\' -OutFile \'%DIR%\\el.zip\'" & echo Extracting... & powershell -NoProfile -Command "Expand-Archive -Force \'%DIR%\\el.zip\' \'%ELDIR%\'" & del "%DIR%\\el.zip" )',
+        'echo Launching BIRGSOL...',
+        'start "" "%ELDIR%\\electron.exe" "%DIR%"'
+    ].join('\r\n');
+    try {
+        const blob = new Blob([bat], { type: 'application/octet-stream' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'BIRGSOL-Desktop-Install.bat';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+        _alert('הורד הקובץ "BIRGSOL-Desktop-Install.bat".\n\nלחץ עליו לחיצה כפולה כדי להתקין ולהפעיל את אפליקציית הדסקטופ (בפעם הראשונה יוריד את Electron, ~110MB).\n\n(אם Windows מציג אזהרה: More info → Run anyway.)');
+    } catch (e) { _alert('שגיאה בהורדת המתקין: ' + (e && e.message || e)); }
+}
 function toggleRemoteHost(on) {
     if (on == null) on = localStorage.getItem('birgsol_remote_host') !== '1';
     localStorage.setItem('birgsol_remote_host', on ? '1' : '0');
