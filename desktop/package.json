@@ -1,0 +1,21 @@
+{
+  "name": "birgsol-desktop",
+  "version": "1.0.0",
+  "description": "BIRGSOL AI Desktop — code mode + browser agent with real terminal, files, and no-CORS network (like Claude Code).",
+  "main": "main.js",
+  "author": "David Yosef Zevi — BIRGSOL",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.birgsol.desktop",
+    "productName": "BIRGSOL AI",
+    "win": { "target": "nsis" },
+    "nsis": { "oneClick": true, "perMachine": false }
+  }
+}
