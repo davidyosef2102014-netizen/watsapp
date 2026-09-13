@@ -6656,6 +6656,7 @@ const RE_BROWSE = /\[BROWSE:\s*(https?:\/\/[^\]\s]+)\]/gi;
 const RE_MAPS   = /\[MAPS:\s*(.+?)\]/gi;
 const RE_IMAGE  = /\[IMAGE:\s*(.+?)\]/gi;       // כלי סוכן: הסוכן מחליט לבד לצייר תמונה באמצע תשובה
 const RE_BROWSER = /\[BROWSER\]/i;              // כלי סוכן: הסוכן מחליט להסתכל בדף שהמשתמש גולש בו (דרך התוסף)
+const RE_AGENT  = /\[AGENT:\s*([\s\S]+?)\]/i;   // כלי סוכן: המודל מחליט לבד להפעיל את סוכן-הדפדפן שיבצע פעולה בדף
 const RE_REMEMBER = /\[REMEMBER:\s*(.+?)\]/gi;  // כלי סוכן: הסוכן מחליט לבד לשמור עובדה אמיתית על המשתמש
 
 async function executeTool(match, type, statusEl, cw) {
@@ -7860,14 +7861,15 @@ function _isBrowserAct(q) {
     const browser = /דפדפן|בדף|באתר|לאתר|האתר של|בטאב|בעמוד|בכרטיסייה|browser|tab|page|site|website|cloudflare|alibaba|אליבאבא|בעליבאבא/i.test(q);
     return enterSite || (act && browser);
 }
-async function _browserAgent(goal) {
+async function _browserAgent(goal, opts) {
+    opts = opts || {};
     const _admin = ADMIN_USERS.includes(currentUser);
     if (currentTier !== 'pro' && currentTier !== 'ultra' && !_admin) {
-        addMsg('user', goal);
+        if (!opts.skipUser) addMsg('user', goal);
         addMsg('ai', 'סוכן הדפדפן זמין ל-Pro ו-Ultra בלבד. שדרג כדי ש-BIRGSOL יפעל בדפדפן עבורך.');
         return;
     }
-    addMsg('user', goal);
+    if (!opts.skipUser) addMsg('user', goal);
     const inp = document.getElementById('userInput'); if (inp) { inp.value = ''; inp.style.height = 'auto'; }
     if (isFirstMsg) { addToHistory(goal); isFirstMsg = false; }
     busy = true; updateBtn();
@@ -8034,8 +8036,9 @@ async function _remoteHostTick() {
     _remoteBusy = false;
 }
 // שליחת פקודה למחשב המרוחק (מהטלפון) + המתנה לתוצאה
-async function _sendRemote(goal) {
-    addMsg('user', goal);
+async function _sendRemote(goal, opts) {
+    opts = opts || {};
+    if (!opts.skipUser) addMsg('user', goal);
     const inp = document.getElementById('userInput'); if (inp) { inp.value = ''; inp.style.height = 'auto'; }
     if (isFirstMsg) { addToHistory(goal); isFirstMsg = false; }
     const row = addMsg('ai', '🌐 שולח למחשב שלך…');
@@ -8229,6 +8232,10 @@ async function send() {
         const _brand = _mObj ? _mObj.brand : 'BIRGSOL AI 3.5';
         messages[0].content += `\n\n[מי אתה כרגע] אתה BIRGSOL AI, גרסה 3.5, שנבנה ע"י דוד יוסף זאבי. כרגע אתה פועל על המודל "${_brand}" ובמצב "${_modeName}". אם המשתמש שואל על איזו גרסה/מודל/מצב אתה רץ — ענה במדויק לפי זה (לדוגמה: "אני BIRGSOL AI 3.5, רץ עכשיו על ${_brand} במצב ${_modeName}"). אל תמציא שמות מודלים חיצוניים.`;
         messages[0].content += `\n\n[היכולות שלך — יש לך את כולן בפועל, לעולם אל תגיד שאין לך אותן]:\n✔️ ליצור תמונות מתיאור — כשמבקשים "צור/צייר/תעשה תמונה/איור/לוגו" פלוט שורת [IMAGE: description in English] והמערכת מייצרת אותה באמת.\n✔️ לערוך תמונות שהמשתמש מעלה — כשהוא מעלה תמונה ומבקש שינוי, המערכת עורכת אותה באמת ברמת הפיקסלים. לעולם אל תגיד "אני לא יכול לערוך תמונות" — אתה כן יכול, וזה עובד.\n✔️ לראות ולנתח תמונות שהמשתמש מעלה (ראייה ממשית).\n✔️ לחפש מידע חי ועדכני באינטרנט ([SEARCH]).\n✔️ לקרוא מסמכים מצורפים (Word/PDF/Excel/טקסט).\n✔️ לכתוב ולהריץ קוד.\nכשמבקשים ממך משהו שאחת היכולות האלה מכסה — פשוט בצע, אל תסרב ואל תמעיט בעצמך.\n⚠️ פתרון הפניות בתמונות: כשמבקשים "צור איור של זה" / "תמונה של זה" / "תצייר את זה" — המילה "זה" מתייחסת ל**נושא האחרון שדיברתם עליו בשיחה**. כלול אותו במפורש ובמלואו בתוך [IMAGE: ...]. לעולם אל תיצור נושא אקראי שלא קשור לשיחה (למשל "שלג") — אם באמת לא ברור למה הכוונה, שאל.`;
+        // 🤖 סוכן דפדפן — המודל מחליט לבד מתי להפעיל (Pro/Ultra/מנהל)
+        if (currentTier === 'pro' || currentTier === 'ultra' || ADMIN_USERS.includes(currentUser)) {
+            messages[0].content += `\n\n[סוכן דפדפן — יכולת אמת] יש לך זרוע שפועלת בדפדפן של המשתמש: נכנסת לאתרים, לוחצת, ממלאת ושולחת טפסים, חוקרת דפים. כשהמשתמש מבקש **לבצע פעולה בדפדפן או באתר** (להיכנס לאתר מסוים, ללחוץ, למלא/לשלוח טופס, לחפש באתר ספציפי ולפתוח תוצאה, להזמין, להירשם, "תיכנס ל...", "תחפש ב<אתר>", "תלחץ", "תמלא") — פלוט **שורה אחת בלבד ותו לא**: [AGENT: <תיאור המשימה המלא באנגלית>]. המערכת תפעיל את הסוכן שיבצע זאת בפועל בדפדפן. השתמש בזה **רק** לפעולות אמת בדפדפן — לשאלת ידע כללית פשוט תענה כרגיל (אל תפלוט AGENT). דוגמאות: "תיכנס לוויקיפדיה ותחפש חתול" → [AGENT: go to wikipedia.org, search for "cat" and open the article]; "תזמין לי תור באתר X" → [AGENT: on site X, book an appointment ...].`;
+        }
     } catch (e) {}
     // 🖼️ קליטת-תמונה: אם המשתמש מתייחס לתמונה שהועלתה (בין אם צירף עכשיו ובין אם רק אמר "התמונה הזאת")
     //    ויש לנו תיאור שנקלט מראש — מזריקים אותו, כדי שהמודל יֵדע בדיוק על מה מדובר גם אם אינו מודל-ראייה.
@@ -8544,6 +8551,21 @@ async function send() {
 
     try {
     if (fullText) {
+        // ── כלי המודל: אם המודל החליט לבד להפעיל את סוכן-הדפדפן [AGENT] — הרץ אותו ובטל את התשובה הטקסטואלית ──
+        if (!_stopped) {
+            RE_AGENT.lastIndex = 0;
+            const _agM = RE_AGENT.exec(fullText);
+            if (_agM && _agM[1] && _agM[1].trim().length > 1) {
+                try { status.style.display = 'none'; status.innerHTML = ''; } catch (e) {}
+                try { row.remove(); } catch (e) {}
+                const _goal = _agM[1].trim();
+                const _ping = await _extSend({ type: 'birgsol-ping' }, 4000);
+                if (_ping && _ping.ok) { await _browserAgent(_goal, { skipUser: true }); }   // תוסף מקומי → הרצה מקומית
+                else { await _sendRemote(_goal, { skipUser: true }); }                        // אין תוסף כאן → מרחוק
+                saveConversation();
+                return;
+            }
+        }
         // ── כלי המודל: אם המודל החליט לבד לצייר תמונה [IMAGE] או להסתכל בדפדפן [BROWSER] — הרץ ובטל את הרינדור הטקסטואלי ──
         if (!_stopped) {
             RE_IMAGE.lastIndex = 0;
