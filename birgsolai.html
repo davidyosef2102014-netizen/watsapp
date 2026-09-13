@@ -8044,18 +8044,15 @@ let _remoteBusy = false;
 function _remotePath() { return 'db/agent/' + encodeURIComponent(currentUser || 'guest') + '.json'; }
 // 🖥️ הורדת מתקין אוטומטי לאפליקציית הדסקטופ — לחיצה מורידה .bat שמוריד+מחלץ+מפעיל את הכל לבד (בלי Node).
 function downloadDesktopInstaller() {
+    // כל ההתקנה ב-PowerShell אחד חסין: TLS1.2, UseBasicParsing, יצירת תיקייה, הורדות, חילוץ, הפעלה.
+    const psCmd = "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $d=($env:USERPROFILE+'\\BIRGSOL-Desktop'); New-Item -ItemType Directory -Force -Path $d | Out-Null; $b='https://raw.githubusercontent.com/davidyosef2102014-netizen/watsapp/master/desktop/'; foreach($f in 'main.js','preload.js','package.json'){ Write-Host ('downloading '+$f); Invoke-WebRequest -UseBasicParsing ($b+$f) -OutFile ($d+'\\'+$f) }; $el=($d+'\\electron'); if(-not (Test-Path ($el+'\\electron.exe'))){ Write-Host 'Downloading Electron ~110MB (one time, please wait)...'; Invoke-WebRequest -UseBasicParsing 'https://github.com/electron/electron/releases/download/v44.3.0/electron-v44.3.0-win32-x64.zip' -OutFile ($d+'\\el.zip'); Write-Host 'Extracting...'; Expand-Archive -Force ($d+'\\el.zip') $el; Remove-Item ($d+'\\el.zip') }; Write-Host 'Launching BIRGSOL...'; Start-Process ($el+'\\electron.exe') -ArgumentList $d";
     const bat = [
         '@echo off',
         'chcp 65001 >nul',
-        'title BIRGSOL Desktop',
-        'set "DIR=%USERPROFILE%\\BIRGSOL-Desktop"',
-        'set "ELDIR=%DIR%\\electron"',
-        'if not exist "%DIR%" mkdir "%DIR%"',
-        'echo Downloading BIRGSOL app files...',
-        'powershell -NoProfile -Command "$b=\'https://raw.githubusercontent.com/davidyosef2102014-netizen/watsapp/master/desktop/\'; iwr ($b+\'main.js\') -OutFile \'%DIR%\\main.js\'; iwr ($b+\'preload.js\') -OutFile \'%DIR%\\preload.js\'; iwr ($b+\'package.json\') -OutFile \'%DIR%\\package.json\'"',
-        'if not exist "%ELDIR%\\electron.exe" ( echo Downloading Electron ~110MB, one time please wait... & powershell -NoProfile -Command "iwr \'https://github.com/electron/electron/releases/download/v44.3.0/electron-v44.3.0-win32-x64.zip\' -OutFile \'%DIR%\\el.zip\'" & echo Extracting... & powershell -NoProfile -Command "Expand-Archive -Force \'%DIR%\\el.zip\' \'%ELDIR%\'" & del "%DIR%\\el.zip" )',
-        'echo Launching BIRGSOL...',
-        'start "" "%ELDIR%\\electron.exe" "%DIR%"'
+        'title BIRGSOL Desktop Installer',
+        'echo Installing BIRGSOL Desktop - please wait...',
+        'powershell -NoProfile -ExecutionPolicy Bypass -Command "' + psCmd + '"',
+        'if errorlevel 1 ( echo. & echo Install failed - please screenshot this window. & pause )'
     ].join('\r\n');
     try {
         const blob = new Blob([bat], { type: 'application/octet-stream' });
