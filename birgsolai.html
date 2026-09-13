@@ -8714,7 +8714,12 @@ async function send() {
 
         // Strip leftover tool call lines
         RE_SEARCH.lastIndex = 0; RE_BROWSE.lastIndex = 0; RE_MAPS.lastIndex = 0; RE_IMAGE.lastIndex = 0; RE_REMEMBER.lastIndex = 0;
-        let cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').replace(RE_IMAGE,'').replace(RE_REMEMBER,'').trim();
+        RE_RUN.lastIndex = 0; RE_READFILE.lastIndex = 0; RE_WRITEFILE.lastIndex = 0;
+        // אם המודל פלט תגית טרמינל/קובץ בדפדפן רגיל (בלי אפליקציית דסקטופ) — לא מציגים אותה גולמית; רומזים שצריך את אפליקציית הדסקטופ
+        const _hadNativeTag = !_isDesktop() && (RE_RUN.test(fullText) || RE_READFILE.test(fullText) || RE_WRITEFILE.test(fullText));
+        RE_RUN.lastIndex = 0; RE_READFILE.lastIndex = 0; RE_WRITEFILE.lastIndex = 0;
+        let cleanText = fullText.replace(RE_SEARCH,'').replace(RE_BROWSE,'').replace(RE_MAPS,'').replace(RE_IMAGE,'').replace(RE_REMEMBER,'').replace(RE_RUN,'').replace(RE_READFILE,'').replace(RE_WRITEFILE,'').trim();
+        if (_hadNativeTag && !cleanText) cleanText = '⚙️ הפעולה הזו (טרמינל/קבצים) עובדת רק ב**אפליקציית הדסקטופ** של BIRGSOL — פתח אותה משם. בדפדפן הרגיל אני יכול לענות, לחפש, ליצור ולערוך תמונות.';
         // רשת ביטחון: אם התשובה בעברית ומודל-גיבוי הדליף שפה זרה/ניקוד — מנקים ניקוד, ערבית ו-CJK (סינית/יפנית)
         if (!['zh','ja','ko'].includes((typeof _resolveLang === 'function') ? _resolveLang() : 'he')) {
             cleanText = cleanText.replace(/[֑-ׇֽֿׁׂׅׄ؀-ۿݐ-ݿ一-鿿぀-ヿ㐀-䶿]/g, '').replace(/ {2,}/g, ' ');
