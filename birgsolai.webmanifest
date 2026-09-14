@@ -2,7 +2,7 @@
   "id": "/watsapp/birgsolai.html",
   "name": "BIRGSOL AI",
   "short_name": "BIRGSOL AI",
-  "description": "BIRGSOL AI — עוזר AI חכם וחינמי: שיחה טבעית, כתיבת קוד, יצירה ועריכת תמונות, חיפוש חי באינטרנט, וקריאת מסמכים (Word/PDF/Excel). נבנה ע\"י דוד יוסף זאבי.",
+  "description": "BIRGSOL AI — your AI model: smart chat, coding, image generation & editing, live web search, and document reading (Word/PDF/Excel).",
   "start_url": "/watsapp/birgsolai.html",
   "scope": "/watsapp/",
   "display": "standalone",
