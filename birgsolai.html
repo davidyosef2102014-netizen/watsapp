@@ -7897,9 +7897,12 @@ function _isBrowserAct(q) {
     if (/^\s*סוכן\b|^\s*agent\b/i.test(q)) return true; // "סוכן: ..." טריגר ישיר
     // "תיכנס/לך/פתח ל[אתר/דף/URL]" — מבין לבד שצריך לפעול בדפדפן, בלי המילה "סוכן"
     const enterSite = /(תיכנס|היכנס|כנס|תכנס|לך|תלך|גש|נווט|פתח|תפתח)\s+ל?\s*(ה?אתר|ה?דף|ה?עמוד|ה?טאב|https?:\/\/|www\.)/i.test(q) || /https?:\/\/\S+/.test(q);
-    const act = /תלחץ|לחץ|תלחצי|תמלא|מלא|תמלאי|תבצע|בצע|תזמין|הזמן|תירשם|הירשם|תשלח(?!\s*לי)|תחפש\s*ב|תוסיף\s*לעגלה|תיצור|תצור|תעדכן|תוריד|תכתוב\s*ב|fill|click|book|order|submit|sign\s*up|log\s*in|add\s*to\s*cart|create|generate/i.test(q);
-    const browser = /דפדפן|בדף|באתר|לאתר|האתר של|בטאב|בעמוד|בכרטיסייה|browser|tab|page|site|website|cloudflare|alibaba|אליבאבא|בעליבאבא/i.test(q);
-    return enterSite || (act && browser);
+    // פעולות דפדפן מובהקות — מפעילות סוכן לבד גם בלי אזכור "אתר" (אלה כמעט תמיד פעולה בדף)
+    const strongAct = /תלחץ|לחצי?\b|תלחצי|תמלא|מלאי?\b|תמלאי|תזמין|הזמן\b|תירשם|הירשם|תוסיף\s*לעגלה|גלול|תגלול|בחר\s*מהתפריט|click|fill|book\b|order\b|sign\s*up|log\s*in|add\s*to\s*cart|scroll/i.test(q);
+    // פעולות מעורפלות (חיפוש/יצירה/שליחה) — מפעילות רק עם אזכור אתר/דפדפן
+    const act = /תבצע|בצע|תשלח(?!\s*לי)|תחפש\s*ב|submit|תעדכן\s*ב/i.test(q);
+    const browser = /דפדפן|בדף|באתר|לאתר|האתר של|בטאב|בעמוד|בכרטיסייה|browser|tab|page|site|website|cloudflare|alibaba|אליבאבא|בעליבאבא|ויקיפדיה|wikipedia|גוגל|google|יוטיוב|youtube|אמזון|amazon|אל\s*על|el\s*al/i.test(q);
+    return enterSite || strongAct || (act && browser);
 }
 async function _browserAgent(goal, opts) {
     opts = opts || {};
