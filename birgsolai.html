@@ -7975,6 +7975,7 @@ async function _browserAgent(goal, opts) {
             txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; status.remove(); return;
         }
         const MAX = _admin ? 30 : 6; // מנהל — עד 30 צעדים למשימות ארוכות (הזמנות/טפסים מרובי-שלבים). משתמש רגיל — 6 (הגבלה גבוהה)
+        let _failStreak = 0; // כשלים רצופים בקבלת החלטה — נותנים כמה ניסיונות לפני עצירה
         for (let stepN = 1; stepN <= MAX && !_agentStop; stepN++) {
             if (state.stopped) { _step('נעצר על ידי המשתמש', false); break; }
             // בונים תיאור הדף לסוכן
@@ -8005,18 +8006,25 @@ async function _browserAgent(goal, opts) {
                 if (state.screenshot) { const _sb = state.screenshot.includes(',') ? state.screenshot.split(',')[1] : ''; if (_sb) _parts.push({ inlineData: { mimeType: 'image/jpeg', data: _sb } }); } // 👁️ ראייה — הסוכן רואה את הדף
                 const r = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
                     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-                    body: JSON.stringify({ contents: [{ role: 'user', parts: _parts }], generationConfig: { maxOutputTokens: 900, temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json' } }),
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: _parts }], generationConfig: { maxOutputTokens: 2000, temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json' } }),
                     signal: AbortSignal.timeout(28000)
                 });
                 if (r.ok) { const j = await r.json(); const t = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); decision = JSON.parse(t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
             } catch (e) {}
             if (!decision) { // גיבוי: gpt-oss-120b
                 try {
-                    const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.2, max_tokens: 700, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
+                    const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.2, max_tokens: 2000, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) });
                     if (r.ok) { const j = await r.json(); const c = j?.choices?.[0]?.message?.content || '{}'; decision = JSON.parse(c.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
                 } catch (e) {}
             }
-            if (!decision || !decision.op) { _step('לא הצלחתי להחליט על צעד — עוצר', false); stepsLog.push('(failed to decide)'); break; }
+            if (!decision || !decision.op) {
+                _failStreak++;
+                if (_failStreak >= 3) { _step('לא הצלחתי להחליט על צעד — עוצר', false); stepsLog.push('(failed to decide x3)'); break; }
+                _step('לא התקבלה החלטה ברורה — מרענן ומנסה שוב…', true);
+                try { const _rs = await _extSend({ type: 'birgsol-look' }, 30000); if (_rs && _rs.ok) state = _rs; } catch (e) {}
+                continue; // ניסיון חוזר — כשל בודד לא מפסיק את כל המשימה
+            }
+            _failStreak = 0; // הצלחה — מאפסים את מונה הכשלים
 
             if (decision.done) { _step('הושלם ✓', false); _finishHdr(); txt.innerHTML = ''; const ans = document.createElement('div'); try { ans.innerHTML = mdSafe(decision.answer || 'סיימתי.'); } catch (e) { ans.textContent = decision.answer || 'סיימתי.'; } txt.appendChild(ans); hist[hist.length - 1].content = decision.answer || 'סיימתי.'; break; }
 
