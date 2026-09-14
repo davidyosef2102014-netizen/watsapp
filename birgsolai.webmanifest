@@ -1,18 +1,42 @@
 {
+  "id": "/watsapp/birgsolai.html",
   "name": "BIRGSOL AI",
   "short_name": "BIRGSOL AI",
-  "description": "העוזר החכם של BIRGSOL — שיחות, תמונות, חיפוש באינטרנט ועוד",
-  "dir": "rtl",
-  "lang": "he",
-  "start_url": "./birgsolai.html",
-  "scope": "./",
+  "description": "BIRGSOL AI — עוזר AI חכם וחינמי: שיחה טבעית, כתיבת קוד, יצירה ועריכת תמונות, חיפוש חי באינטרנט, וקריאת מסמכים (Word/PDF/Excel). נבנה ע\"י דוד יוסף זאבי.",
+  "start_url": "/watsapp/birgsolai.html",
+  "scope": "/watsapp/",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#eef4fd",
-  "theme_color": "#eef4fd",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#eef2fb",
+  "theme_color": "#38bdf8",
+  "orientation": "any",
+  "lang": "he",
+  "dir": "rtl",
+  "categories": ["productivity", "utilities", "education"],
   "icons": [
-    { "src": "./birgsol-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./birgsol-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./birgsol-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "birgsolai-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "birgsolai-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "birgsolai-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "birgsolai-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
