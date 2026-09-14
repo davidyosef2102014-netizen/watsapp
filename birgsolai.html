@@ -7970,7 +7970,7 @@ async function _browserAgent(goal, opts) {
         let state = await _extSend({ type: 'birgsol-look' }, 30000);
         if (!state || !state.ok) {
             const m = (state && state.error === 'no-ext') ? 'צריך את זרוע BIRGSOL (תוסף Chrome) מותקנת ומעודכנת (גרסה 2+). התקן/עדכן ורענן.'
-                    : (state && state.error === 'no-page') ? 'לא מצאתי דף פתוח בדפדפן. פתח אתר בטאב אחר (למשל ויקיפדיה) ונסה שוב.'
+                    : (state && state.error === 'no-page') ? '🌐 כדי לפעול אני צריך אתר פתוח. פתח טאב חדש עם האתר שתרצה (למשל האתר של אל על) ונסה שוב — או פשוט תגיד לי "תיכנס לאתר X ותעשה Y" ואני אפתח אותו בעצמי.'
                     : 'לא הצלחתי להתחבר לדפדפן' + (state && state.error ? ' (' + state.error + ')' : '') + '.';
             txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; status.remove(); return;
         }
