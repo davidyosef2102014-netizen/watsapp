@@ -5896,20 +5896,52 @@ async function _qwenImageEditHF(imgDataUrl, engInstruction) {
 // 🎨 עריכת תמונה עם FLUX.2 [klein] 4B דרך Cloudflare (החשבון של דוד) — עריכה אמיתית איכותית, חינם,
 //    רישיון מסחרי Apache-2.0, ~80 עריכות/יום (מכסת 10K נוירונים, מתאפסת יומית). דורש את ה-Worker המעודכן
 //    (WORKER-birgsol-image-updated.js). מזהה Worker מעודכן לפי edited:true — אחרת מחזיר null ונופל ל-QWEN/gptimage.
+// מקטין תמונה לפני עריכה — פותר כשלים רגעיים של Cloudflare על תמונות גדולות, ומהיר יותר.
+// משטח שקיפות ללבן וממיר ל-JPEG (נרמול פורמט). נכשל בשקט → מחזיר את המקור.
+async function _downscaleForEdit(dataUrl, maxDim, q) {
+    maxDim = maxDim || 1280; q = q || 0.85;
+    try {
+        return await new Promise((resolve) => {
+            const im = new Image();
+            im.onload = () => {
+                try {
+                    const w = im.naturalWidth || im.width, h = im.naturalHeight || im.height;
+                    if (!w || !h) return resolve(dataUrl);
+                    const scale = Math.min(1, maxDim / Math.max(w, h));
+                    const nw = Math.max(1, Math.round(w * scale)), nh = Math.max(1, Math.round(h * scale));
+                    const c = document.createElement('canvas'); c.width = nw; c.height = nh;
+                    const ctx = c.getContext('2d');
+                    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, nw, nh);
+                    ctx.drawImage(im, 0, 0, nw, nh);
+                    resolve(c.toDataURL('image/jpeg', q));
+                } catch (e) { resolve(dataUrl); }
+            };
+            im.onerror = () => resolve(dataUrl);
+            im.src = dataUrl;
+        });
+    } catch (e) { return dataUrl; }
+}
+
 async function _cfFluxEdit(imgDataUrl, engInstruction) {
     if (!imgDataUrl || !engInstruction) return null;
-    try {
-        const b64 = imgDataUrl.includes(',') ? imgDataUrl.split(',')[1] : imgDataUrl;
-        const r = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: engInstruction, image_b64: b64 }),
-            signal: AbortSignal.timeout(120000)
-        });
-        if (!r.ok) return null;
-        const j = await r.json().catch(() => null);
-        if (j && j.edited === true && j.image) return 'data:image/' + (j.type === 'png' ? 'png' : 'jpeg') + ';base64,' + j.image;
-    } catch (e) { if (e && e.name === 'AbortError') throw e; }
+    // הקטנה + נרמול ל-JPEG — כדי שתמונות גדולות/PNG לא יכשלו ב-Cloudflare
+    const _src = await _downscaleForEdit(imgDataUrl, 1280, 0.85);
+    const b64 = _src.includes(',') ? _src.split(',')[1] : _src;
+    for (let _try = 0; _try < 3; _try++) {   // ניסיון חוזר — הכשל של Cloudflare בד"כ רגעי; בד"כ מצליח בניסיון 2
+        try {
+            const r = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: engInstruction, image_b64: b64 }),
+                signal: AbortSignal.timeout(75000)
+            });
+            if (r.ok) {
+                const j = await r.json().catch(() => null);
+                if (j && j.edited === true && j.image) return 'data:image/' + (j.type === 'png' ? 'png' : 'jpeg') + ';base64,' + j.image;
+            }
+        } catch (e) { if (e && e.name === 'AbortError') return null; } // תקיעה — אין טעם לנסות שוב
+        if (_try < 2) await new Promise(res => setTimeout(res, 700)); // המתנה קצרה לפני ניסיון חוזר
+    }
     return null;
 }
 
