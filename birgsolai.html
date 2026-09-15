@@ -5403,9 +5403,24 @@ function isImageRequest(q) {
 }
 function isImageEditRequest(q) {
     if (!q) return false;
-    const kw = ['הפוך','שנה','ערוך','תצבע','צבע','תהפוך','make it','change','turn it','color','recolor','modify',
-        'לוורוד','לאדום','לכחול','לירוק','ללבן','לשחור','לצהוב','לכתום','ללילך','לסגול','לאפור','לכסף','לזהב'];
-    return kw.some(k => q.includes(k));
+    const ql = q.toLowerCase();
+    // פעלים/הוראות עריכה בעברית — רשימה רחבה (הוספה, הסרה, החלפה, צביעה, שיפור, רקע, סיבוב, גזירה וכו')
+    const he = ['הפוך','תהפוך','שנה','תשנה','ערוך','תערוך','עריכ','תצבע','צבע','תצבוע',
+        'תוסיף','הוסף','תוסף','תוספ','הסר','תסיר','מחק','תמחק','הורד','תוריד','שים','תשים','הנח','הצב','תציב',
+        'החלף','תחליף','המר','תמיר','תקן','תתקן','שפר','תשפר','נקה','תנקה','טשטש','תטשטש','חדד','תחדד',
+        'גזור','תגזור','חתוך','תחתוך','קצץ','תקצץ','הגדל','תגדיל','הקטן','תקטין','מתח','סובב','תסובב','הפוך אותו',
+        'הבהר','תבהיר','הכהה','תכהה','האר','תאיר','רקע','לרקע','ברקע','בלי ה','ללא ה','עשה','תעשה','הראה אותו','הראה אותה',
+        'תעצב','עצב','המחש','תלביש','הלבש','תוריד לו','תוסיף לו','תוסיף לה','תשנה לו','תשנה לה'];
+    // צבעים עם קידומת "ל" (הפוך לכחול)
+    const heColors = ['לוורוד','לורוד','לאדום','לכחול','לירוק','ללבן','לשחור','לצהוב','לכתום','ללילך','לסגול','לאפור','לכסף','לזהב','לחום','לתכלת'];
+    // אנגלית
+    const en = ['make it','change','turn it','turn the','recolor','recolour','colour','color','modify','edit ','edit the',
+        'add ','adds ','remove','delete','erase','replace','swap','put ','insert','fix ','improve','enhance','retouch',
+        'crop','rotate','resize','flip','blur','sharpen','background','without','paint','make the'];
+    if (he.some(k => q.includes(k))) return true;
+    if (heColors.some(k => q.includes(k))) return true;
+    if (en.some(k => ql.includes(k))) return true;
+    return false;
 }
 
 /* ── Style picker: shows 4 buttons in chat, resolves with chosen style ── */
@@ -8291,8 +8306,8 @@ async function send() {
         return;
     }
 
-    // Image editing — uploaded image + transformation request
-    if (fileUrl && q && isImageEditRequest(q)) {
+    // Image editing — uploaded image + transformation request (בקשת קריאה/תרגום/ניתוח → ניתוח, לא עריכה)
+    if (fileUrl && q && !_wantsAnalyze && isImageEditRequest(q)) {
         if (!_quotaOK()) { _quotaBlock(q, fileUrl); return; }
         const imgToEdit = fileUrl;
         addMsg('user', q, imgToEdit);
