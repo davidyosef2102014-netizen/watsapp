@@ -6010,9 +6010,9 @@ async function editImage(imgDataUrl, instruction) {
         if (edited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, edited); return; }
     } catch (e) { if (e.name === 'AbortError') return; }
 
-    // ── כל העורכים האמיתיים נכשלו. ננסה gptimage (עריכה על הפיקסלים דרך URL מאורח); אם גם זה נכשל —
-    //    שגיאה כנה עם הסיבה, בלי ליצור תמונה חדשה (שזה מה שהטריד את דוד). ──
-    let engInstruction = instruction; // תרגום לאנגלית (gptimage מדייק יותר באנגלית)
+    // ── כל העורכים האמיתיים נכשלו. ננסה gptimage (עריכה על הפיקסלים דרך URL מאורח). ──
+    const _isAdminEdit = (typeof ADMIN_USERS !== 'undefined') && ADMIN_USERS.includes(currentUser);
+    let engInstruction = instruction; // תרגום לאנגלית (gptimage/FLUX מדייקים יותר באנגלית)
     {
         const allL = (instruction.match(/\p{L}/gu) || []).length, ascL = (instruction.match(/[a-zA-Z]/g) || []).length;
         if (allL > 0 && ascL / allL < 0.6) {
@@ -6023,28 +6023,43 @@ async function editImage(imgDataUrl, instruction) {
         }
     }
     skelTxt.textContent = 'עורך את התמונה…';
-    try {
-        const editSrc = await _hostImage(imgDataUrl).catch(() => null);
-        if (editSrc) {
-            const editPrompt = engInstruction + '. Keep the rest of the image exactly the same — same subject, pose, composition, background, lighting, colors and style. Edit the given image, do not redraw it.';
-            for (let _t = 0; _t < 2; _t++) {
-                try {
-                    const _sd = Math.floor(Math.random() * 999999);
-                    const eUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(editPrompt) + '?image=' + encodeURIComponent(editSrc) + '&model=gptimage&nologo=true&seed=' + _sd;
-                    const eRes = await fetch(eUrl, { signal: AbortSignal.timeout(45000) });
-                    if (eRes.ok && (eRes.headers.get('content-type') || '').startsWith('image/')) {
-                        const blob = await eRes.blob();
-                        if (blob && blob.size > 2000) {
-                            const durl = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(blob); });
-                            if (durl) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, durl); return; }
-                        }
+    let editSrc = null;
+    try { editSrc = await _hostImage(imgDataUrl).catch(() => null); } catch (e) { if (e && e.name === 'AbortError') return; }
+    if (editSrc) {
+        const editPrompt = engInstruction + '. Keep the rest of the image exactly the same — same subject, pose, composition, background, lighting, colors and style. Edit the given image, do not redraw it.';
+        for (let _t = 0; _t < 2; _t++) {
+            try {
+                const _sd = Math.floor(Math.random() * 999999);
+                const eUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(editPrompt) + '?image=' + encodeURIComponent(editSrc) + '&model=gptimage&nologo=true&seed=' + _sd;
+                const eRes = await fetch(eUrl, { signal: AbortSignal.timeout(45000) });
+                if (eRes.ok && (eRes.headers.get('content-type') || '').startsWith('image/')) {
+                    const blob = await eRes.blob();
+                    if (blob && blob.size > 2000) {
+                        const durl = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(blob); });
+                        if (durl) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, durl); return; }
                     }
-                } catch (e) { if (e && e.name === 'AbortError') break; }
-            }
+                }
+            } catch (e) { if (e && e.name === 'AbortError') break; }
         }
-    } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
 
-    // הגענו לכאן = כל העורכים נכשלו → שגיאה כנה עם הסיבה (לא יוצרים תמונה חדשה!)
+    // ── משתמש רגיל: גיבוי אחרון — יצירה-מחדש לפי תיאור (עדיף תמונה מאשר שגיאה). מנהל (דוד): שגיאה כנה עם הסיבה, לאבחון. ──
+    if (!_isAdminEdit) {
+        let description = '';
+        try {
+            const mt = (imgDataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
+            const b64d = imgDataUrl.includes(',') ? imgDataUrl.split(',')[1] : '';
+            if (b64d) {
+                const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts: [{ text: 'Describe this image in precise detail so it can be recreated EXACTLY: subject, pose/shape/materials/colors, background, lighting, camera angle, composition, art style. Output ONLY the description in English, up to 120 words.' }, { inlineData: { mimeType: mt, data: b64d } }] }], generationConfig: { maxOutputTokens: 400 } }, { signal: AbortSignal.timeout(15000) });
+                if (r.ok) { const j = await r.json(); description = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); }
+            }
+        } catch (e) {}
+        const finalPrompt = (description ? description + '. ' : '') + 'Keep EVERYTHING exactly the same — same subject, pose, composition, background, lighting, colors and style — and ONLY apply this single change: ' + engInstruction;
+        await generateImage(finalPrompt, row, { model: 'flux-realism', suffix: 'photorealistic, product photography, highly detailed, sharp focus, 8k' }, editSrc, engInstruction);
+        return;
+    }
+
+    // מנהל — שגיאה כנה עם הסיבה (לא יוצרים תמונה חדשה)
     const _diag = (window._cfEditDiag ? String(window._cfEditDiag).replace(/[<>]/g, '') : '');
     if (skelEl) { skelEl.innerHTML = '<div style="font-size:26px">⚠️</div><div>לא הצלחתי לערוך את התמונה כרגע</div>' + (_diag ? '<div style="font-size:11px;opacity:.65;direction:ltr">' + _diag + '</div>' : ''); skelEl.style.cssText += 'animation:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:14px;font-weight:600;text-align:center;padding:14px;'; }
     if (skelTxt) skelTxt.remove();
