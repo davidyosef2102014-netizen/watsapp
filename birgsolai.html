@@ -1619,6 +1619,10 @@
                 <button onclick="downloadDesktopInstaller()" style="background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:9px;padding:6px 15px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px" data-i18n="desktop_app_btn">הורד והתקן</button>
             </div>
             <div class="sp-row">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h5V5a2 2 0 1 1 4 0v2h5v5h2a2 2 0 1 1 0 4h-2v5h-5v-2a2 2 0 1 0-4 0v2H4v-5H2a2 2 0 1 1 0-4h2z"/></svg> <span data-i18n="agent_ext_label">תוסף Chrome — סוכן הדפדפן</span></span>
+                <button onclick="downloadAgentExtension()" style="background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:9px;padding:6px 15px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px" data-i18n="agent_ext_btn">הורד והתקן</button>
+            </div>
+            <div class="sp-row">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="10" cy="19" r="2.5"/><path d="M12 2a10 10 0 0 0 0 20"/></svg> <span data-i18n="bg_label">רקע</span></span>
                 <select class="sp-select" id="sp-bg" onchange="applyBg(this.value)">
                     <option value="white" data-i18n="bg_white">לבן</option>
@@ -3706,7 +3710,7 @@ Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
    מוגדר עברית + אנגלית; שאר השפות נופלות לאנגלית כדי שלא יישארו בעברית. */
 const L10N_EXTRA = {
     he: {
-        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)', desktop_app_label:'אפליקציית דסקטופ (כוח מלא)', desktop_app_btn:'הורד והתקן',
+        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)', desktop_app_label:'אפליקציית דסקטופ (כוח מלא)', desktop_app_btn:'הורד והתקן', agent_ext_label:'תוסף Chrome — סוכן הדפדפן', agent_ext_btn:'הורד והתקן',
         privacy_title:'מדיניות פרטיות — BIRGSOL AI', got_it:'הבנתי',
         mem_off:'כבה זיכרון (אל תלמד עליי)', clear_all:'מחק הכל', mem_loading:'טוען…',
         mem_empty:'עדיין לא נשמרו עובדות עליך. ככל שתשוחח יותר, BIRGSOL ילמד ויזכור כאן דברים.',
@@ -3731,7 +3735,7 @@ const L10N_EXTRA = {
         vp_title:'בחר קול', vp_sub:'הקול שבו BIRGSOL ידבר איתך בלייב', vp_done:'מעולה, בואו נתחיל'
     },
     en: {
-        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install',
+        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install', agent_ext_label:'Chrome extension — browser agent', agent_ext_btn:'Download & install',
         privacy_title:'Privacy Policy — BIRGSOL AI', got_it:'Got it',
         mem_off:'Turn off memory (don\'t learn about me)', clear_all:'Delete all', mem_loading:'Loading…',
         mem_empty:'No facts saved about you yet. The more you chat, the more BIRGSOL will learn and remember here.',
@@ -8126,6 +8130,49 @@ let _remoteLastId = null;
 let _remoteBusy = false;
 function _remotePath() { return 'db/agent/' + encodeURIComponent(currentUser || 'guest') + '.json'; }
 // 🖥️ הורדת מתקין אוטומטי לאפליקציית הדסקטופ — לחיצה מורידה .bat שמוריד+מחלץ+מפעיל את הכל לבד (בלי Node).
+// הורדת תוסף ה-Chrome (זרוע הסוכן) + הצגת הוראות התקנה. הקובץ מאוחסן בריפו ומוכן להורדה.
+function downloadAgentExtension() {
+    const _en = (localStorage.getItem('birgsol_lang') === 'en');
+    // 1) הורדה
+    try {
+        const a = document.createElement('a');
+        a.href = 'birgsol-extension.zip?v=' + Date.now();
+        a.download = 'birgsol-extension.zip';
+        document.body.appendChild(a); a.click(); a.remove();
+    } catch (e) { try { window.open('birgsol-extension.zip', '_blank'); } catch (e2) {} }
+    // 2) הוראות התקנה — חלון מוקפץ
+    const steps = _en ? [
+        'The file <b>birgsol-extension.zip</b> is downloading — <b>Extract</b> it (right-click → Extract All).',
+        'In Chrome open: <b>chrome://extensions</b>',
+        'Turn on <b>Developer mode</b> (toggle at the top-right).',
+        'Click <b>Load unpacked</b>.',
+        'Select the extracted <b>birgsol-extension</b> folder.',
+        'Done! Refresh BIRGSOL — the browser agent is ready. Just type e.g. "סוכן: …" or a browser action.'
+    ] : [
+        'הקובץ <b>birgsol-extension.zip</b> יורד עכשיו — <b>חלץ</b> אותו (קליק ימני → חלץ הכל / Extract All).',
+        'בכרום פתח את הכתובת: <b>chrome://extensions</b>',
+        'הפעל <b>מצב מפתח (Developer mode)</b> — המתג בפינה הימנית העליונה.',
+        'לחץ <b>טען פריט לא ארוז (Load unpacked)</b>.',
+        'בחר את התיקייה <b>birgsol-extension</b> שחילצת.',
+        'זהו! רענן את BIRGSOL — הסוכן מוכן. פשוט כתוב "סוכן: …" או פעולת דפדפן.'
+    ];
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(3px)';
+    const dir = _en ? 'ltr' : 'rtl';
+    ov.innerHTML = '<div dir="' + dir + '" style="background:var(--surf,#fff);color:var(--text,#0f172a);max-width:460px;width:100%;border-radius:18px;padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:inherit">' +
+        '<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px"><span style="font-size:22px">🧩</span><b style="font-size:17px">' + (_en ? 'Install the browser-agent extension' : 'התקנת תוסף סוכן הדפדפן') + '</b></div>' +
+        '<div style="font-size:13px;color:var(--muted,#64748b);margin-bottom:14px">' + (_en ? 'One-time setup (about a minute). The .zip is downloading now.' : 'התקנה חד-פעמית (כדקה). קובץ ה-zip יורד עכשיו.') + '</div>' +
+        '<ol style="margin:0;padding-inline-start:20px;font-size:14px;line-height:1.9">' + steps.map(s => '<li>' + s + '</li>').join('') + '</ol>' +
+        '<div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end">' +
+        '<button id="_extRedl" style="background:var(--surf2,#f0f2f6);color:var(--text);border:1px solid var(--border,#e2e4ea);border-radius:9px;padding:8px 14px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px">' + (_en ? 'Download again' : 'הורד שוב') + '</button>' +
+        '<button id="_extDone" style="background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:9px;padding:8px 16px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px">' + (_en ? 'Got it' : 'הבנתי') + '</button>' +
+        '</div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+    ov.querySelector('#_extDone').onclick = () => ov.remove();
+    ov.querySelector('#_extRedl').onclick = () => { try { const a = document.createElement('a'); a.href = 'birgsol-extension.zip?v=' + Date.now(); a.download = 'birgsol-extension.zip'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) {} };
+}
+
 function downloadDesktopInstaller() {
     // קבצי האפליקציה מוטמעים כ-base64 ונכתבים מקומית (בלי להוריד .js מהאינטרנט — כך Windows Defender לא חוסם).
     const _MAIN_B64 = "Ly8gQklSR1NPTCBBSSBEZXNrdG9wIOKAlCBFbGVjdHJvbiBzaGVsbCDXqdeg15XXqtefINecLUJJUkdTT0wg15vXldeXINeQ157Xqjog15jXqNee15nXoNecLCDXp9eR16bXmdedLCDXldeo16nXqiDXkdec15kgQ09SUy4KLy8g15jXldei158g15DXqiDXlNeQ16TXnNeZ16fXpteZ15Qg15TXl9eZ15QgKGdpdGh1Yi5pbykg4oCUINeb15og16nXm9ecINei15PXm9eV158g15HXkNeq16gg157Xqtei15PXm9efINeS150g15HXkNek15zXmden16bXmdeULCDXkdec15kg15zXkdeg15XXqiDXnteX15PXqS4KLy8g15LXqdeoIG5hdGl2ZSDXoNeX16nXoyDXnC13aW5kb3cuQklSR1NPTF9OQVRJVkUgKNeo15DXlCBwcmVsb2FkLmpzKS4g157XpteRINeU16fXldeTL9eU16HXldeb158g157XlteU15nXnSDXkNeV16rXlSDXldee15PXnNeZ16fXmdedINeZ15vXldec15XXqi3XotecLgoKY29uc3QgeyBhcHAsIEJyb3dzZXJXaW5kb3csIGlwY01haW4sIGRpYWxvZyB9ID0gcmVxdWlyZSgnZWxlY3Ryb24nKTsKY29uc3QgcGF0aCA9IHJlcXVpcmUoJ3BhdGgnKTsKY29uc3QgeyBleGVjIH0gPSByZXF1aXJlKCdjaGlsZF9wcm9jZXNzJyk7CmNvbnN0IGZzID0gcmVxdWlyZSgnZnMvcHJvbWlzZXMnKTsKY29uc3Qgb3MgPSByZXF1aXJlKCdvcycpOwoKY29uc3QgQVBQX1VSTCA9ICdodHRwczovL2RhdmlkeW9zZWYyMTAyMDE0LW5ldGl6ZW4uZ2l0aHViLmlvL3dhdHNhcHAvYmlyZ3NvbGFpLmh0bWwnOwoKZnVuY3Rpb24gY3JlYXRlV2luZG93KCkgewogIGNvbnN0IHdpbiA9IG5ldyBCcm93c2VyV2luZG93KHsKICAgIHdpZHRoOiAxMjgwLCBoZWlnaHQ6IDg2MCwKICAgIHRpdGxlOiAnQklSR1NPTCBBSScsCiAgICBpY29uOiBwYXRoLmpvaW4oX19kaXJuYW1lLCAnaWNvbi5wbmcnKSwKICAgIHdlYlByZWZlcmVuY2VzOiB7CiAgICAgIHByZWxvYWQ6IHBhdGguam9pbihfX2Rpcm5hbWUsICdwcmVsb2FkLmpzJyksCiAgICAgIGNvbnRleHRJc29sYXRpb246IHRydWUsICAgLy8g15DXkdeY15fXlDog15TXk9ejINec15Ag16DXmdeS16kg15wtTm9kZSDXmdep15nXqNeV16osINeo16cg15zXktep16gg15TXnteR15XXp9eoCiAgICAgIG5vZGVJbnRlZ3JhdGlvbjogZmFsc2UKICAgIH0KICB9KTsKICB3aW4ubG9hZFVSTChBUFBfVVJMKTsKICAvLyDXp9eZ16nXldeo15nXnSDXl9eZ16bXldeg15nXmdedIOKGkiDXoNek16rXl9eZ150g15HXk9ek15PXpNefLCDXnNeQINeR16rXldeaINeU15DXpNec15nXp9em15nXlAogIHdpbi53ZWJDb250ZW50cy5zZXRXaW5kb3dPcGVuSGFuZGxlcigoeyB1cmwgfSkgPT4geyByZXF1aXJlKCdlbGVjdHJvbicpLnNoZWxsLm9wZW5FeHRlcm5hbCh1cmwpOyByZXR1cm4geyBhY3Rpb246ICdkZW55JyB9OyB9KTsKfQoKYXBwLndoZW5SZWFkeSgpLnRoZW4oKCkgPT4gewogIGNyZWF0ZVdpbmRvdygpOwogIGFwcC5vbignYWN0aXZhdGUnLCAoKSA9PiB7IGlmIChCcm93c2VyV2luZG93LmdldEFsbFdpbmRvd3MoKS5sZW5ndGggPT09IDApIGNyZWF0ZVdpbmRvdygpOyB9KTsKfSk7CmFwcC5vbignd2luZG93LWFsbC1jbG9zZWQnLCAoKSA9PiB7IGlmIChwcm9jZXNzLnBsYXRmb3JtICE9PSAnZGFyd2luJykgYXBwLnF1aXQoKTsgfSk7CgovLyDilZDilZAg15LXqdeoIG5hdGl2ZSDigJQg15vXnNeZLdeU16LXnCDXqdecINeU16HXldeb158v157XpteRLden15XXkyDilZDilZAKCi8vINeU16jXpteqINek16fXldeT16og15jXqNee15nXoNecIOKAlCDXotedINeQ15nXqdeV16gg157XlNee16nXqtee16kgKNeR15jXmdeX15XXqjogTExNL9eh15XXm9efINec15Ag157XqNeZ16Ug15HXqden15gpCmlwY01haW4uaGFuZGxlKCdiaXJnc29sLXJ1bicsIGFzeW5jIChlLCBjbWQsIGN3ZCkgPT4gewogIGNtZCA9IFN0cmluZyhjbWQgfHwgJycpOwogIGNvbnN0IHsgcmVzcG9uc2UgfSA9IGF3YWl0IGRpYWxvZy5zaG93TWVzc2FnZUJveCh7CiAgICB0eXBlOiAncXVlc3Rpb24nLCBidXR0b25zOiBbJ9eU16jXpScsICfXkdeZ15jXldecJ10sIGRlZmF1bHRJZDogMSwgY2FuY2VsSWQ6IDEsCiAgICB0aXRsZTogJ0JJUkdTT0wg4oCUINeU16jXpteqINek16fXldeT15QnLCBtZXNzYWdlOiAn15zXlNeo15nXpSDXkNeqINeU16TXp9eV15PXlCDXlNeR15DXlCDXkdeY16jXnteZ16DXnD8nLCBkZXRhaWw6IGNtZAogIH0pOwogIGlmIChyZXNwb25zZSAhPT0gMCkgcmV0dXJuIHsgb2s6IGZhbHNlLCBlcnJvcjogJ9eR15XXmNecINeiIteZINeU157Xqdeq157XqScgfTsKICByZXR1cm4gbmV3IFByb21pc2UoKHJlc29sdmUpID0+IHsKICAgIGV4ZWMoY21kLCB7IGN3ZDogY3dkIHx8IG9zLmhvbWVkaXIoKSwgdGltZW91dDogMTgwMDAwLCBtYXhCdWZmZXI6IDIwICogMTAyNCAqIDEwMjQsIHdpbmRvd3NIaWRlOiB0cnVlIH0sIChlcnIsIHN0ZG91dCwgc3RkZXJyKSA9PiB7CiAgICAgIHJlc29sdmUoeyBvazogIWVyciwgY29kZTogZXJyID8gKGVyci5jb2RlIHx8IDEpIDogMCwgc3Rkb3V0OiBTdHJpbmcoc3Rkb3V0IHx8ICcnKSwgc3RkZXJyOiBTdHJpbmcoc3RkZXJyIHx8ICcnKSwgZXJyb3I6IGVyciA/IGVyci5tZXNzYWdlIDogbnVsbCB9KTsKICAgIH0pOwogIH0pOwp9KTsKCmlwY01haW4uaGFuZGxlKCdiaXJnc29sLXJlYWRmaWxlJywgYXN5bmMgKGUsIHApID0+IHsKICB0cnkgeyByZXR1cm4geyBvazogdHJ1ZSwgY29udGVudDogYXdhaXQgZnMucmVhZEZpbGUoU3RyaW5nKHApLCAndXRmOCcpIH07IH0KICBjYXRjaCAoZXJyKSB7IHJldHVybiB7IG9rOiBmYWxzZSwgZXJyb3I6IGVyci5tZXNzYWdlIH07IH0KfSk7CmlwY01haW4uaGFuZGxlKCdiaXJnc29sLXdyaXRlZmlsZScsIGFzeW5jIChlLCBwLCBjb250ZW50KSA9PiB7CiAgdHJ5IHsgYXdhaXQgZnMud3JpdGVGaWxlKFN0cmluZyhwKSwgU3RyaW5nKGNvbnRlbnQgPT0gbnVsbCA/ICcnIDogY29udGVudCkpOyByZXR1cm4geyBvazogdHJ1ZSB9OyB9CiAgY2F0Y2ggKGVycikgeyByZXR1cm4geyBvazogZmFsc2UsIGVycm9yOiBlcnIubWVzc2FnZSB9OyB9Cn0pOwppcGNNYWluLmhhbmRsZSgnYmlyZ3NvbC1saXN0ZGlyJywgYXN5bmMgKGUsIHApID0+IHsKICB0cnkgeyBjb25zdCBpdGVtcyA9IGF3YWl0IGZzLnJlYWRkaXIoU3RyaW5nKHAgfHwgb3MuaG9tZWRpcigpKSwgeyB3aXRoRmlsZVR5cGVzOiB0cnVlIH0pOwogICAgcmV0dXJuIHsgb2s6IHRydWUsIGl0ZW1zOiBpdGVtcy5tYXAoaSA9PiAoeyBuYW1lOiBpLm5hbWUsIGRpcjogaS5pc0RpcmVjdG9yeSgpIH0pKSB9OyB9CiAgY2F0Y2ggKGVycikgeyByZXR1cm4geyBvazogZmFsc2UsIGVycm9yOiBlcnIubWVzc2FnZSB9OyB9Cn0pOwovLyDXqNep16og15HXnNeZIENPUlMg4oCUINeR15PXmden16og15vXnCBBUEksINeb157Xldeg15kKaXBjTWFpbi5oYW5kbGUoJ2Jpcmdzb2wtZmV0Y2gnLCBhc3luYyAoZSwgdXJsLCBvcHRpb25zKSA9PiB7CiAgdHJ5IHsKICAgIGNvbnN0IHIgPSBhd2FpdCBmZXRjaChTdHJpbmcodXJsKSwgb3B0aW9ucyB8fCB7fSk7CiAgICBjb25zdCBib2R5ID0gYXdhaXQgci50ZXh0KCk7CiAgICByZXR1cm4geyBvazogdHJ1ZSwgc3RhdHVzOiByLnN0YXR1cywgYm9keTogYm9keS5zbGljZSgwLCAyMDAwMDAwKSB9OwogIH0gY2F0Y2ggKGVycikgeyByZXR1cm4geyBvazogZmFsc2UsIGVycm9yOiBlcnIubWVzc2FnZSB9OyB9Cn0pOwppcGNNYWluLmhhbmRsZSgnYmlyZ3NvbC1pbmZvJywgYXN5bmMgKCkgPT4gKHsgb2s6IHRydWUsIHBsYXRmb3JtOiBwcm9jZXNzLnBsYXRmb3JtLCBob21lOiBvcy5ob21lZGlyKCksIGN3ZDogcHJvY2Vzcy5jd2QoKSB9KSk7Cg==";
