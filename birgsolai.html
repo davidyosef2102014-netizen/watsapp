@@ -1687,6 +1687,8 @@
         <iframe id="canvas-frame" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin allow-pointer-lock allow-downloads allow-popups-to-escape-sandbox"></iframe>
     </div>
 </div>
+<!-- לחצן צף לפתיחה/סגירה של הקנבס (מוצג במצב קוד או כשיש תוכן בקנבס) -->
+<button id="canvas-toggle-btn" onclick="toggleCanvas()" title="פתח קנבס" style="display:none;position:fixed;bottom:92px;left:16px;z-index:1400;background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:999px;padding:9px 15px;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 6px 20px rgba(66,133,244,.42);display:none">⧉ <span data-i18n="canvas_toggle">קנבס</span></button>
 
 <!-- ══ ADMIN PANEL ══ -->
 <div id="admin-overlay">
@@ -3660,12 +3662,12 @@ function _extractDomains(text) {
 /* ── UI translations per language ── */
 const L10N = {
     he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את Birgsol AI...', foot:'Birgsol AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
-          mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה',
+          mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
           your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה',
           settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות', del_confirm:'למחוק את השיחה הזו?',
           srv_busy:'השרת עמוס כרגע — מנסה שוב, נא להמתין…', srv_fail:'השרת עמוס מאוד כרגע. נסה שוב עוד רגע.', retry_btn:'נסה שוב' },
     en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask Birgsol AI...', foot:'Birgsol AI can make mistakes. Check important info.', newChat:'New chat',
-          mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings',
+          mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
           your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language',
           settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out', del_confirm:'Delete this chat?',
           srv_busy:'The server is busy — retrying, please wait…', srv_fail:'The server is very busy right now. Please try again in a moment.', retry_btn:'Try again' },
@@ -4218,6 +4220,7 @@ function setMode(mode) {
     });
     if (mode === 'code') _enterCodeCanvas(); else _exitCodeCanvas();
     _updateModeChip();
+    if (typeof _syncCanvasToggle === 'function') _syncCanvasToggle();
     startNew();
 }
 function _updateModeChip() {
@@ -4710,11 +4713,33 @@ function openCanvas(btn, lang, ext) {
     const previewable = ['html','javascript','js','css'].includes(_canvasLang);
     document.getElementById('ctab-view').style.display = previewable ? '' : 'none';
     canvasTab(previewable ? 'view' : 'code');
+    _syncCanvasToggle();
 }
 
 function closeCanvas() {
     document.getElementById('canvas-panel').classList.remove('open');
     document.body.classList.remove('code-split');
+    _syncCanvasToggle();
+}
+
+// לחצן פתיחה/סגירה של הקנבס — פותח מחדש את הקוד האחרון בלי ליצור מחדש
+function toggleCanvas() {
+    const p = document.getElementById('canvas-panel'); if (!p) return;
+    if (p.classList.contains('open')) { closeCanvas(); return; }
+    p.classList.add('open');
+    if (typeof currentMode !== 'undefined' && currentMode === 'code' && window.innerWidth >= 701) document.body.classList.add('code-split');
+    _syncCanvasToggle();
+}
+function _syncCanvasToggle() {
+    const b = document.getElementById('canvas-toggle-btn'); if (!b) return;
+    const panel = document.getElementById('canvas-panel');
+    const open = panel && panel.classList.contains('open');
+    const hasContent = !!((document.getElementById('canvas-code') || {}).value || '').trim();
+    const inCode = (typeof currentMode !== 'undefined' && currentMode === 'code');
+    b.style.display = (inCode || hasContent) ? 'inline-flex' : 'none';
+    b.style.alignItems = 'center'; b.style.gap = '5px';
+    b.title = open ? 'סגור קנבס' : 'פתח קנבס';
+    b.style.opacity = open ? '0.85' : '1';
 }
 
 // טעינה אוטומטית של הקוד שנוצר לתוך הקנבס — תצוגה חיה, עדכון בכל שיפור.
@@ -4744,6 +4769,7 @@ function _autoCanvasFromMsg(txtEl) {
     const previewable = ['html','javascript','js','css'].includes(_canvasLang);
     document.getElementById('ctab-view').style.display = previewable ? '' : 'none';
     canvasTab(previewable ? 'view' : 'code');
+    _syncCanvasToggle();
     // שמירה אוטומטית של הקוד לתיקיית "BIRGSOL AI" (אם חוברה) — אישור בפעם הראשונה לכל קובץ, אח"כ אוטומטי
     // השמירה לתיקייה מטופלת ב-_autoSaveCodeFiles (נקרא אחרי הרינדור, בכל המצבים)
 }
