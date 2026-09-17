@@ -5931,13 +5931,16 @@ async function _cfFluxEdit(imgDataUrl, engInstruction) {
     // הקטנה + נרמול ל-JPEG — כדי שתמונות גדולות/PNG לא יכשלו ב-Cloudflare
     const _src = await _downscaleForEdit(imgDataUrl, 1280, 0.85);
     const b64 = _src.includes(',') ? _src.split(',')[1] : _src;
+    // ⚠️ קריטי: בלי "שמור על השאר" FLUX.2 מחיל את השינוי על כל התמונה (למשל "הפוך לירוק" → כל התמונה ירוקה).
+    //    ההנחיה הזו כופה עריכה מקומית — משנה רק את מה שביקשו, שאר התמונה נשמר זהה.
+    const _editPrompt = 'Edit the provided image. Apply ONLY this change: ' + engInstruction + '. Keep everything else EXACTLY the same — identical composition, layout, background, subjects, objects, colors, lighting and art style. Do NOT recolor or regenerate the whole image; change only the specific element requested.';
     window._cfEditDiag = '';
     for (let _try = 0; _try < 3; _try++) {   // ניסיון חוזר — הכשל של Cloudflare בד"כ רגעי; בד"כ מצליח בניסיון 2
         try {
             const r = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: engInstruction, image_b64: b64 }),
+                body: JSON.stringify({ prompt: _editPrompt, image_b64: b64 }),
                 signal: AbortSignal.timeout(75000)
             });
             let j = null; try { j = await r.json(); } catch (e) {}
