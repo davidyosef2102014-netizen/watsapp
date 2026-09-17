@@ -5957,6 +5957,26 @@ async function _cfFluxEdit(imgDataUrl, engInstruction) {
     return null;
 }
 
+// 🎨 Qwen-Image-Edit דרך DashScope (המפתחות של דוד ב-Worker המאובטח QWEN_KEYS) — עורך *נאמן* אמיתי:
+//    שומר את התמונה המקורית ומשנה רק את מה שביקשו. מקבל data-URL ישירות. מחזיר data-URL או null.
+async function _qwenImageEditDS(imgDataUrl, engInstruction) {
+    if (!imgDataUrl || !engInstruction) return null;
+    try {
+        const _src = await _downscaleForEdit(imgDataUrl, 1280, 0.92);
+        const payload = { model: 'qwen-image-edit', input: { messages: [{ role: 'user', content: [{ image: _src }, { text: engInstruction }] }] }, parameters: {} };
+        const r = await _ghProxy('qwen', '/api/v1/services/aigc/multimodal-generation/generation', payload, { signal: AbortSignal.timeout(90000) });
+        if (!r.ok) return null;
+        const j = await r.json().catch(() => null);
+        const content = j && j.output && j.output.choices && j.output.choices[0] && j.output.choices[0].message && j.output.choices[0].message.content;
+        let url = null;
+        if (Array.isArray(content)) { for (const it of content) { if (it && it.image) { url = it.image; break; } } }
+        if (!url) return null;
+        // ה-URL של Alibaba זמני → מורידים וממירים ל-data-URL כדי שיישמר
+        try { const ir = await fetch(url, { signal: AbortSignal.timeout(25000) }); if (ir.ok) { const blob = await ir.blob(); if (blob && blob.size > 2000) return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(url); fr.readAsDataURL(blob); }); } } catch (e) {}
+        return url;
+    } catch (e) { if (e && e.name === 'AbortError') throw e; return null; }
+}
+
 async function editImage(imgDataUrl, instruction) {
     showChat();
     const cw = document.getElementById('chat-window');
@@ -5999,72 +6019,21 @@ async function editImage(imgDataUrl, instruction) {
                 if (tr.ok) { const tj = await tr.json(); const m = tj?.choices?.[0]?.message; let tt = (m?.content || '').trim(); if ((!tt || tt.length < 2) && m?.reasoning) { const rm = m.reasoning.match(/["“]([^"”]{2,200})["”]/); if (rm) tt = rm[1].trim(); } if (tt) eng = tt; }
             } catch (e) {}
         }
-        // 1. 🎨 FLUX.2 [klein] דרך Cloudflare (החשבון שלך, חינם, מסחרי Apache, ~80/יום) — העורך הראשי היציב.
+        // 1. ⭐ Qwen-Image-Edit דרך DashScope (המפתחות שלך, מאובטח) — עורך נאמן: שומר את התמונה, משנה רק מה שביקשו.
         skelTxt.textContent = 'עורך את התמונה…';
-        const cfEdit = await _cfFluxEdit(imgDataUrl, eng);
-        if (cfEdit) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, cfEdit); return; }
-        // 2. Qwen-Image-Edit דרך HuggingFace — איכות מעולה כשיש קרדיט HF (בלי כרטיס).
-        skelTxt.textContent = 'עורך את התמונה עם QWEN…';
+        const qDS = await _qwenImageEditDS(imgDataUrl, eng);
+        if (qDS) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, qDS); return; }
+        // 2. Qwen-Image-Edit דרך HuggingFace (אם יש קרדיט HF) — גם נאמן.
+        skelTxt.textContent = 'עורך את התמונה…';
         const qHF = await _qwenImageEditHF(imgDataUrl, eng);
         if (qHF) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, qHF); return; }
-        skelTxt.textContent = 'עורך את התמונה…';
-        // 3. FLUX Kontext (SiliconFlow) — אם יש balance
+        // 3. FLUX.1 Kontext (SiliconFlow, אם יש balance) — עורך נאמן.
         const edited = await _siliconflowEdit(imgDataUrl, eng);
         if (edited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, edited); return; }
     } catch (e) { if (e.name === 'AbortError') return; }
 
-    // ── כל העורכים האמיתיים נכשלו. ננסה gptimage (עריכה על הפיקסלים דרך URL מאורח). ──
-    const _isAdminEdit = (typeof ADMIN_USERS !== 'undefined') && ADMIN_USERS.includes(currentUser);
-    let engInstruction = instruction; // תרגום לאנגלית (gptimage/FLUX מדייקים יותר באנגלית)
-    {
-        const allL = (instruction.match(/\p{L}/gu) || []).length, ascL = (instruction.match(/[a-zA-Z]/g) || []).length;
-        if (allL > 0 && ascL / allL < 0.6) {
-            try {
-                const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: 'Translate to English. Output ONLY the translation, no explanation.' }, { role: 'user', content: instruction }], temperature: 0.2, max_tokens: 256, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) });
-                if (r.ok) { const j = await r.json(); const m = j?.choices?.[0]?.message; let t = (m?.content || '').trim(); if ((!t || t.length < 2) && m?.reasoning) { const rm = m.reasoning.match(/["“]([^"”]{2,200})["”]/); if (rm) t = rm[1].trim(); } if (t) engInstruction = t; }
-            } catch (e) {}
-        }
-    }
-    skelTxt.textContent = 'עורך את התמונה…';
-    let editSrc = null;
-    try { editSrc = await _hostImage(imgDataUrl).catch(() => null); } catch (e) { if (e && e.name === 'AbortError') return; }
-    if (editSrc) {
-        const editPrompt = engInstruction + '. Keep the rest of the image exactly the same — same subject, pose, composition, background, lighting, colors and style. Edit the given image, do not redraw it.';
-        for (let _t = 0; _t < 2; _t++) {
-            try {
-                const _sd = Math.floor(Math.random() * 999999);
-                const eUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(editPrompt) + '?image=' + encodeURIComponent(editSrc) + '&model=gptimage&nologo=true&seed=' + _sd;
-                const eRes = await fetch(eUrl, { signal: AbortSignal.timeout(45000) });
-                if (eRes.ok && (eRes.headers.get('content-type') || '').startsWith('image/')) {
-                    const blob = await eRes.blob();
-                    if (blob && blob.size > 2000) {
-                        const durl = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(blob); });
-                        if (durl) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, durl); return; }
-                    }
-                }
-            } catch (e) { if (e && e.name === 'AbortError') break; }
-        }
-    }
-
-    // ── משתמש רגיל: גיבוי אחרון — יצירה-מחדש לפי תיאור (עדיף תמונה מאשר שגיאה). מנהל (דוד): שגיאה כנה עם הסיבה, לאבחון. ──
-    if (!_isAdminEdit) {
-        let description = '';
-        try {
-            const mt = (imgDataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
-            const b64d = imgDataUrl.includes(',') ? imgDataUrl.split(',')[1] : '';
-            if (b64d) {
-                const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts: [{ text: 'Describe this image in precise detail so it can be recreated EXACTLY: subject, pose/shape/materials/colors, background, lighting, camera angle, composition, art style. Output ONLY the description in English, up to 120 words.' }, { inlineData: { mimeType: mt, data: b64d } }] }], generationConfig: { maxOutputTokens: 400 } }, { signal: AbortSignal.timeout(15000) });
-                if (r.ok) { const j = await r.json(); description = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); }
-            }
-        } catch (e) {}
-        const finalPrompt = (description ? description + '. ' : '') + 'Keep EVERYTHING exactly the same — same subject, pose, composition, background, lighting, colors and style — and ONLY apply this single change: ' + engInstruction;
-        await generateImage(finalPrompt, row, { model: 'flux-realism', suffix: 'photorealistic, product photography, highly detailed, sharp focus, 8k' }, editSrc, engInstruction);
-        return;
-    }
-
-    // מנהל — שגיאה כנה עם הסיבה (לא יוצרים תמונה חדשה)
-    const _diag = (window._cfEditDiag ? String(window._cfEditDiag).replace(/[<>]/g, '') : '');
-    if (skelEl) { skelEl.innerHTML = '<div style="font-size:26px">⚠️</div><div>לא הצלחתי לערוך את התמונה כרגע</div>' + (_diag ? '<div style="font-size:11px;opacity:.65;direction:ltr">' + _diag + '</div>' : ''); skelEl.style.cssText += 'animation:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:14px;font-weight:600;text-align:center;padding:14px;'; }
+    // ── כל העורכים הנאמנים נכשלו → שגיאה כנה. בלי Pollinations, בלי "לדמיין מחדש" תמונה חדשה (לבקשת דוד). ──
+    if (skelEl) { skelEl.innerHTML = '<div style="font-size:26px">⚠️</div><div>לא הצלחתי לערוך את התמונה כרגע</div><div style="font-size:12px;opacity:.7">נסה שוב עוד רגע</div>'; skelEl.style.cssText += 'animation:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:14px;font-weight:600;text-align:center;padding:14px;'; }
     if (skelTxt) skelTxt.remove();
     const _retryBtn = document.createElement('button'); _retryBtn.className = 'ai-act'; _retryBtn.innerHTML = IC.refresh + ' נסה שוב'; _retryBtn.onclick = () => editImage(imgDataUrl, instruction);
     if (actsEl) { actsEl.innerHTML = ''; actsEl.appendChild(_retryBtn); }
