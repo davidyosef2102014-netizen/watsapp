@@ -8167,6 +8167,17 @@ async function _browserAgent(goal, opts) {
             if (res && (res.ok || res.acted)) { state = res; } // מצב הדף המעודכן
             else if (res && res.error === 'no-ext') { txt.innerHTML = _esc('הזרוע התנתקה. ודא שהתוסף פעיל ורענן.'); break; }
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+
+            // 🧭 מודל-שופט (ביקורת עצמית) — כל 5 צעדים מודל שני זול בודק אם יש התקדמות או תקיעה ומכוון מחדש
+            if (stepN % 5 === 0 && stepN < MAX - 1) {
+                try {
+                    _step('בודק התקדמות (שופט)…', true);
+                    const _jsys = 'You are a strict progress auditor for an autonomous browser agent. Given the GOAL and the recent actions + current page, decide if the agent is PROGRESSING toward the goal or STUCK/looping/off-track. Reply with ONLY JSON: {"stuck":true|false,"advice":"<one concrete Hebrew sentence telling it what to do differently; empty string if progressing>"}';
+                    const _juser = 'GOAL: ' + goal + '\nCURRENT PAGE: ' + (state.title || '') + ' — ' + (state.url || '') + '\nRECENT ACTIONS:\n' + stepsLog.slice(-10).join('\n');
+                    const _jr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: _jsys }, { role: 'user', content: _juser }], temperature: 0.1, max_tokens: 400, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
+                    if (_jr.ok) { const _jj = await _jr.json(); let _jc = _jj?.choices?.[0]?.message?.content || '{}'; const _jd = JSON.parse(_jc.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_jd && _jd.stuck && _jd.advice) { stepsLog.push('🧭 JUDGE (second model): the agent seems STUCK. Follow this ADVICE: ' + String(_jd.advice).slice(0, 220)); _step('השופט: ' + String(_jd.advice).slice(0, 60), false); } }
+                } catch (e) {}
+            }
         }
         _finishHdr();
         if (_agentStop && (!hist[hist.length - 1].content)) { const m = 'הסוכן נעצר.'; txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; }
