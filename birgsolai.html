@@ -2982,6 +2982,7 @@ async function _finishLogin(user) {
     document.getElementById('login-screen').style.display = 'none';
     updateUserChip(); updateFreeBanner(); updateGreeting(); updateAdminVisibility(); _updateGuestUI();
     try { localStorage.removeItem('birgsol_remote_host'); } catch (e) {} // שליטה-מרחוק הוסרה (בקשת דוד)
+    try { _handleLaunchParams(); } catch (e) {} // קיצורי-דרך (?mode=) ושיתוף (?text=) — תכונות נייטיביות
     // טען הוראות אישיות + גרסה מהענן ברקע
     ghReadFresh('db/ai_users.json').then(u => {
         if (u && u[user]) {
@@ -4218,6 +4219,19 @@ function setMode(mode) {
     _updateModeChip();
     if (typeof _syncCanvasToggle === 'function') _syncCanvasToggle();
     startNew();
+}
+// קיצורי-דרך (App Shortcuts, ?mode=) ושיתוף (Share Target, ?text=/?title=/?url=) — תכונות נייטיביות שהופכות
+// את האפליקציה ליותר מ-WebView: מצב נבחר מקיצור-דרך, וטקסט שמשותפים אליה מאפליקציות אחרות ממלא את התיבה.
+function _handleLaunchParams() {
+    let p; try { p = new URLSearchParams(location.search); } catch (e) { return; }
+    if (!location.search) return;
+    try {
+        const m = p.get('mode');
+        if (m && ['normal', 'code', 'image', 'search'].includes(m) && typeof setMode === 'function' && m !== currentMode) setMode(m);
+        const shareTxt = (p.get('text') || p.get('title') || '') + (p.get('url') ? (' ' + p.get('url')) : '');
+        if (shareTxt.trim()) { const inp = document.getElementById('userInput'); if (inp) { inp.value = shareTxt.trim(); inp.style.height = 'auto'; inp.focus(); } }
+    } catch (e) {}
+    try { history.replaceState({}, '', location.pathname); } catch (e) {} // ניקוי ה-URL בלי רענון
 }
 function _updateModeChip() {
     const chip = document.getElementById('mode-chip');
