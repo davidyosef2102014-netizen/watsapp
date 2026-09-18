@@ -1611,10 +1611,6 @@
                 <button class="sp-toggle" id="sp-stylepick" onclick="toggleStylePicker()"></button>
             </div>
             <div class="sp-row">
-                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> <span data-i18n="remote_ctrl_label">שליטה מרחוק (מחשב זה)</span></span>
-                <button class="sp-toggle" id="sp-remote" onclick="toggleRemoteHost()"></button>
-            </div>
-            <div class="sp-row">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> <span data-i18n="desktop_app_label">אפליקציית דסקטופ (כוח מלא)</span></span>
                 <button onclick="downloadDesktopInstaller()" style="background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:9px;padding:6px 15px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px" data-i18n="desktop_app_btn">הורד והתקן</button>
             </div>
@@ -2985,7 +2981,7 @@ async function _finishLogin(user) {
     checkPremium();
     document.getElementById('login-screen').style.display = 'none';
     updateUserChip(); updateFreeBanner(); updateGreeting(); updateAdminVisibility(); _updateGuestUI();
-    if (localStorage.getItem('birgsol_remote_host') === '1') { try { _startRemoteHost(); } catch (e) {} } // מארח שליטה-מרחוק אם הופעל
+    try { localStorage.removeItem('birgsol_remote_host'); } catch (e) {} // שליטה-מרחוק הוסרה (בקשת דוד)
     // טען הוראות אישיות + גרסה מהענן ברקע
     ghReadFresh('db/ai_users.json').then(u => {
         if (u && u[user]) {
@@ -8377,9 +8373,7 @@ async function send() {
 
     // ── סוכן הדפדפן: "סוכן: ..." / "תלחץ/תמלא/תזמין ... בדפדפן" → פועל בדף לבד (PRO/ULTRA) ──
     if (_isBrowserAct(q) && !fileUrl && !fileContent && !mediaFile) {
-        const _ping = await _extSend({ type: 'birgsol-ping' }, 4000);
-        if (_ping && _ping.ok) { await _browserAgent(q); }        // תוסף מקומי → הרצה מקומית
-        else { await _sendRemote(q); }                            // אין תוסף כאן → שליחה למחשב המרוחק (שליטה מרחוק)
+        await _browserAgent(q); // הסוכן מטפל גם במקרה שאין תוסף (מציג הודעת התקנה). שליטה-מרחוק הוסרה.
         return;
     }
     // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף (PRO/ULTRA) ──
@@ -8831,9 +8825,7 @@ async function send() {
                 try { status.style.display = 'none'; status.innerHTML = ''; } catch (e) {}
                 try { row.remove(); } catch (e) {}
                 const _goal = _agM[1].trim();
-                const _ping = await _extSend({ type: 'birgsol-ping' }, 4000);
-                if (_ping && _ping.ok) { await _browserAgent(_goal, { skipUser: true }); }   // תוסף מקומי → הרצה מקומית
-                else { await _sendRemote(_goal, { skipUser: true }); }                        // אין תוסף כאן → מרחוק
+                await _browserAgent(_goal, { skipUser: true }); // שליטה-מרחוק הוסרה — הסוכן מטפל גם בהיעדר תוסף
                 saveConversation();
                 return;
             }
