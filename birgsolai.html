@@ -8037,6 +8037,7 @@ async function _browserAgent(goal, opts) {
         const MAX = _admin ? 30 : 6; // מנהל — עד 30 צעדים למשימות ארוכות (הזמנות/טפסים מרובי-שלבים). משתמש רגיל — 6 (הגבלה גבוהה)
         let _failStreak = 0; // כשלים רצופים בקבלת החלטה — נותנים כמה ניסיונות לפני עצירה
         let _actHist = [], _loopBreaks = 0; // גלאי לולאה — זיהוי חזרה על אותה פעולה בדיוק
+        let _hardFails = 0; // כשלים רצופים בביצוע — טריגר ל-Hard-Reset (רענון הדף והמשך)
         for (let stepN = 1; stepN <= MAX && !_agentStop; stepN++) {
             if (state.stopped) { _step('נעצר על ידי המשתמש', false); break; }
             // בונים תיאור הדף לסוכן
@@ -8164,8 +8165,16 @@ async function _browserAgent(goal, opts) {
             _actHist.push(_sig); if (_actHist.length > 8) _actHist.shift();
             stepsLog.push(`${stepN}. ${human} ${label}${res && res.ok ? '' : ' [נכשל: ' + ((res && res.error) || '?') + ']'}`);
             if (res && res.execResult != null) stepsLog.push('   → תוצאה: ' + String(res.execResult).slice(0, 500)); // תוצאת JS חוזרת לסוכן
-            if (res && (res.ok || res.acted)) { state = res; } // מצב הדף המעודכן
+            if (res && (res.ok || res.acted)) { state = res; _hardFails = 0; } // מצב הדף המעודכן
             else if (res && res.error === 'no-ext') { txt.innerHTML = _esc('הזרוע התנתקה. ודא שהתוסף פעיל ורענן.'); break; }
+            else {
+                // 🔄 Hard-Reset — הביצוע נכשל (אתר קרס/סשן נותק). מנסים לרענן את הדף ולהמשיך, עד פעמיים.
+                _hardFails++;
+                if (_hardFails <= 2) {
+                    _step('הדף לא הגיב — מרענן ומנסה להתאושש…', true);
+                    try { const _rl = await _extSend({ type: 'birgsol-act', action: { op: 'navigate', url: state.url || '' } }, 45000); if (_rl && (_rl.ok || _rl.acted)) { state = _rl; stepsLog.push('(hard-reset: reloaded page, continuing)'); } } catch (e) {}
+                } else { _step('הדף לא מתאושש — עוצר', false); stepsLog.push('(unrecoverable after 2 hard-resets)'); break; }
+            }
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
             // 🧭 מודל-שופט (ביקורת עצמית) — כל 5 צעדים מודל שני זול בודק אם יש התקדמות או תקיעה ומכוון מחדש
