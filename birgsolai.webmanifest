@@ -13,6 +13,17 @@
   "lang": "he",
   "dir": "rtl",
   "categories": ["productivity", "utilities", "education"],
+  "shortcuts": [
+    { "name": "צ'אט חדש", "short_name": "צ'אט", "description": "פתח שיחה חדשה", "url": "/watsapp/birgsolai.html?mode=normal", "icons": [{ "src": "birgsol-icon-192.png", "sizes": "192x192" }] },
+    { "name": "יצירת תמונה", "short_name": "תמונה", "description": "צור תמונה", "url": "/watsapp/birgsolai.html?mode=image", "icons": [{ "src": "birgsol-icon-192.png", "sizes": "192x192" }] },
+    { "name": "חיפוש באינטרנט", "short_name": "חיפוש", "description": "חיפוש חי", "url": "/watsapp/birgsolai.html?mode=search", "icons": [{ "src": "birgsol-icon-192.png", "sizes": "192x192" }] },
+    { "name": "מצב קוד", "short_name": "קוד", "description": "כתיבת קוד", "url": "/watsapp/birgsolai.html?mode=code", "icons": [{ "src": "birgsol-icon-192.png", "sizes": "192x192" }] }
+  ],
+  "share_target": {
+    "action": "/watsapp/birgsolai.html",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  },
   "icons": [
     {
       "src": "birgsol-icon-192.png",
