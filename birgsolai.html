@@ -8061,8 +8061,8 @@ async function runNativeAgent(goal, opts) {
             const user = 'GOAL: ' + goal + (_plan ? '\n\nPLAN:\n' + _plan : '') + (stepsLog.length ? '\n\nACTIONS & OUTPUT SO FAR (recent):\n' + stepsLog.slice(-16).join('\n') : '') + '\n\nReturn the next action as JSON.';
             _step('חושב על הצעד הבא… (' + stepN + '/' + MAX + ')', true);
             let decision = null;
-            try { const r = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: sys + '\n\n' + user }] }], generationConfig: { maxOutputTokens: 2000, temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json' } }), signal: AbortSignal.timeout(28000) }); if (r.ok) { const j = await r.json(); decision = JSON.parse((j?.candidates?.[0]?.content?.parts?.[0]?.text || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); } } catch (e) {}
-            if (!decision) { try { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.2, max_tokens: 2000, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) }); if (r.ok) { const j = await r.json(); decision = JSON.parse((j?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); } } catch (e) {} }
+            try { const r = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: sys + '\n\n' + user }] }], generationConfig: { maxOutputTokens: 8000, temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json' } }), signal: AbortSignal.timeout(28000) }); if (r.ok) { const j = await r.json(); decision = JSON.parse((j?.candidates?.[0]?.content?.parts?.[0]?.text || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); } } catch (e) {}
+            if (!decision) { try { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.2, max_tokens: 8000, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) }); if (r.ok) { const j = await r.json(); decision = JSON.parse((j?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); } } catch (e) {} }
             if (!decision || !decision.op) { _failStreak++; if (_failStreak >= 3) { _step('לא הצלחתי להחליט — עוצר', false); break; } _step('מנסה שוב…', true); continue; }
             _failStreak = 0;
             if (decision.done) { _step('הושלם ✓', false); _finishHdr(); txt.innerHTML = ''; const ans = document.createElement('div'); try { ans.innerHTML = mdSafe(decision.answer || 'סיימתי.'); } catch (e) { ans.textContent = decision.answer || 'סיימתי.'; } txt.appendChild(ans); hist[hist.length - 1].content = decision.answer || 'סיימתי.'; break; }
@@ -8090,7 +8090,7 @@ async function runNativeAgent(goal, opts) {
                 else if (decision.op === 'search') { const sr = await webSearch(_q).catch(() => ''); nres = '[תוצאות חיפוש]\n' + String(sr || '(אין תוצאות)').slice(0, 3000); }
             } catch (e) { nres = '[שגיאה: ' + (e && e.message || e) + ']'; }
             stepsLog.push(stepN + '. ' + decision.op + ' ' + _lbl);
-            stepsLog.push('   → ' + String(nres).slice(0, 2500));
+            stepsLog.push('   → ' + String(nres).slice(0, 14000));
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
             if (stepN % 5 === 0 && stepN < MAX - 1) { try { _step('בודק התקדמות (שופט)…', true); const jr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'Audit an autonomous coding agent. Reply ONLY JSON: {"stuck":true|false,"advice":"<one Hebrew sentence or empty>"}' }, { role: 'user', content: 'GOAL: ' + goal + '\nRECENT:\n' + stepsLog.slice(-10).join('\n') }], temperature: 0.1, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); if (jr.ok) { const jj = await jr.json(); const jd = JSON.parse((jj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (jd && jd.stuck && jd.advice) { stepsLog.push('🧭 JUDGE: ' + String(jd.advice).slice(0, 200)); _step('השופט: ' + String(jd.advice).slice(0, 60), false); } } } catch (e) {} }
         }
@@ -8233,14 +8233,14 @@ async function _browserAgent(goal, opts) {
                 if (state.screenshot) { const _sb = state.screenshot.includes(',') ? state.screenshot.split(',')[1] : ''; if (_sb) _parts.push({ inlineData: { mimeType: 'image/jpeg', data: _sb } }); } // 👁️ ראייה — הסוכן רואה את הדף
                 const r = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
                     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-                    body: JSON.stringify({ contents: [{ role: 'user', parts: _parts }], generationConfig: { maxOutputTokens: 2000, temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json' } }),
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: _parts }], generationConfig: { maxOutputTokens: 8000, temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json' } }),
                     signal: AbortSignal.timeout(28000)
                 });
                 if (r.ok) { const j = await r.json(); const t = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); decision = JSON.parse(t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
             } catch (e) {}
             if (!decision) { // גיבוי: gpt-oss-120b
                 try {
-                    const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.2, max_tokens: 2000, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) });
+                    const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.2, max_tokens: 8000, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) });
                     if (r.ok) { const j = await r.json(); const c = j?.choices?.[0]?.message?.content || '{}'; decision = JSON.parse(c.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
                 } catch (e) {}
             }
@@ -8280,7 +8280,7 @@ async function _browserAgent(goal, opts) {
                     else nres = await _execNativeTool([null, _path.trim() + '|||' + _content], 'writefile');
                 } catch (e) { nres = '[שגיאה: ' + (e && e.message || e) + ']'; }
                 stepsLog.push(`${stepN}. ${decision.op} ${_lbl}`);
-                stepsLog.push('   → ' + String(nres).slice(0, 2000)); // הפלט חוזר לסוכן — כדי שיבדוק ויתקדם
+                stepsLog.push('   → ' + String(nres).slice(0, 14000)); // הפלט חוזר לסוכן — כדי שיבדוק ויתקדם
                 _failStreak = 0;
                 if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
                 continue;
