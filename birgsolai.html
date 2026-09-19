@@ -7978,6 +7978,18 @@ function _isBrowserAct(q) {
     const browser = /דפדפן|בדף|באתר|לאתר|האתר של|בטאב|בעמוד|בכרטיסייה|browser|tab|page|site|website|cloudflare|alibaba|אליבאבא|בעליבאבא|ויקיפדיה|wikipedia|גוגל|google|יוטיוב|youtube|אמזון|amazon|אל\s*על|el\s*al/i.test(q);
     return enterSite || strongAct || (act && browser);
 }
+// זיהוי משימת-קוד אוטונומית (קריאה/תיקון/כתיבת קובץ, הרצה בטרמינל, פריסה לגיטהאב) — בדסקטופ בלבד,
+// שם יש טרמינל+קבצים. כך הסוכן "מבין לבד" שצריך לפעול, בלי שהמשתמש יכתוב "סוכן:".
+function _isCodeAgentTask(q) {
+    if (!q) return false;
+    if (!(typeof _isDesktop === 'function' && _isDesktop())) return false; // צריך כלי דסקטופ אמיתיים
+    const path = /[A-Za-z]:[\\/]|\.(html?|js|css|py|json|md|tsx?|jsx|txt|sh|bat)\b/i.test(q); // נתיב או שם קובץ מפורש
+    const fileRef = /בקובץ|את הקובץ|הקובץ|במאגר|בריפו|\brepo\b|בקוד|את הקוד/i.test(q);
+    const actV = /תקרא|קרא|תתקן|תקן\b|תערוך|ערוך|תשנה|שנה\b|תכתוב|כתוב|עדכן|תעדכן|תמחק|תוסיף|תבנה|תריץ|הרץ|debug|fix|edit/i.test(q);
+    const deploy = /(תעלה|העלה|פרוס|תפרוס|deploy|push|commit)/i.test(q) && /גיטהאב|github|לאתר|אונליין|online|לרשת/i.test(q);
+    const terminal = /(תריץ|הרץ|תבצע)\s*(פקודה|בטרמינל|סקריפט|command|script)/i.test(q) || /\bטרמינל\b|\bterminal\b/i.test(q);
+    return (path && actV) || (fileRef && actV) || deploy || terminal;
+}
 // ניתוב פעולות דפדפן. עדיפות: (1) בדסקטופ אם התוסף מחובר דרך הגשר המקומי → הכרום האמיתי של המשתמש (chromeCmd);
 // (2) בדסקטופ עם שליטה נייטיבית → חלון-העבודה של הדסקטופ (web*); (3) בכרום עצמו → התוסף ישירות (_extSend).
 let _agUseChrome = false; // נקבע בתחילת הסוכן: האם הכרום האמיתי זמין דרך הגשר
@@ -8537,7 +8549,7 @@ async function send() {
     if (!currentUser) localStorage.setItem('birgsol_guest_used', String(_guestUsed() + 1));
 
     // ── סוכן הדפדפן: "סוכן: ..." / "תלחץ/תמלא/תזמין ... בדפדפן" → פועל בדף לבד (PRO/ULTRA) ──
-    if (_isBrowserAct(q) && !fileUrl && !fileContent && !mediaFile) {
+    if ((_isBrowserAct(q) || _isCodeAgentTask(q)) && !fileUrl && !fileContent && !mediaFile) {
         await _browserAgent(q); // הסוכן מטפל גם במקרה שאין תוסף (מציג הודעת התקנה). שליטה-מרחוק הוסרה.
         return;
     }
