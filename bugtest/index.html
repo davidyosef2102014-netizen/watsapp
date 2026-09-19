@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מחשבון בדיקה — BIRGSOL</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, Arial, sans-serif;
+      background: linear-gradient(135deg, #1e3a8a, #38bdf8);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .calc {
+      background: rgba(255,255,255,0.12);
+      padding: 28px;
+      border-radius: 18px;
+      width: 320px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.3);
+    }
+    h1 { font-size: 20px; margin: 0 0 18px; text-align: center; }
+    .row { display: flex; gap: 10px; margin-bottom: 14px; }
+    input {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      text-align: center;
+    }
+    .ops { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    button {
+      padding: 14px 0;
+      border: none;
+      border-radius: 10px;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #0ea5e9;
+      color: #fff;
+      transition: transform .1s;
+    }
+    button:active { transform: scale(0.94); }
+    /* באג 5 (CSS): צבע הטקסט של התוצאה זהה לרקע → לא נראה */
+    #result {
+      margin-top: 18px;
+      padding: 16px;
+      background: #ffffff;
+      color: #ffffff;
+      border-radius: 10px;
+      font-size: 22px;
+      font-weight: 800;
+      text-align: center;
+      min-height: 26px;
+    }
+  </style>
+</head>
+<body>
+  <div class="calc">
+    <h1>🧮 מחשבון בדיקה</h1>
+    <div class="row">
+      <input id="a" type="number" placeholder="מספר ראשון" value="6">
+      <input id="b" type="number" placeholder="מספר שני" value="3">
+    </div>
+    <div class="ops">
+      <button onclick="add()">+</button>
+      <button onclick="subtract()">−</button>
+      <button onclick="multiply()">×</button>
+      <button onclick="divide()">÷</button>
+    </div>
+    <div id="result">התוצאה תופיע כאן</div>
+  </div>
+
+  <script>
+    function nums() {
+      var a = parseFloat(document.getElementById('a').value);
+      var b = parseFloat(document.getElementById('b').value);
+      return [a, b];
+    }
+
+    function show(value) {
+      // באג 1 (רנטיים): מזהה שגוי — האלמנט הוא 'result' ולא 'resultt' → getElementById מחזיר null → קריסה
+      document.getElementById('resultt').textContent = value;
+    }
+
+    function add() {
+      var n = nums();
+      show(n[0] + n[1]);
+    }
+
+    function subtract() {
+      var n = nums();
+      // באג 2 (לוגי): מבצע חיבור במקום חיסור
+      show(n[0] + n[1]);
+    }
+
+    function multiply() {
+      var n = nums();
+      // באג 3 (רנטיים): קריאה לפונקציה שלא קיימת
+      show(computeProduct(n[0], n[1]));
+    }
+
+    function divide() {
+      var n = nums();
+      // באג 4 (לוגי): אין הגנה על חלוקה באפס + משתמש באופרטור הכפל במקום חלוקה
+      show(n[0] * n[1]);
+    }
+  </script>
+</body>
+</html>
