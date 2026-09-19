@@ -7978,9 +7978,24 @@ function _isBrowserAct(q) {
     const browser = /דפדפן|בדף|באתר|לאתר|האתר של|בטאב|בעמוד|בכרטיסייה|browser|tab|page|site|website|cloudflare|alibaba|אליבאבא|בעליבאבא|ויקיפדיה|wikipedia|גוגל|google|יוטיוב|youtube|אמזון|amazon|אל\s*על|el\s*al/i.test(q);
     return enterSite || strongAct || (act && browser);
 }
-// ניתוב פעולות דפדפן: בדסקטופ עם שליטה נייטיבית → BIRGSOL_NATIVE.web*; אחרת → התוסף (_extSend).
+// ניתוב פעולות דפדפן. עדיפות: (1) בדסקטופ אם התוסף מחובר דרך הגשר המקומי → הכרום האמיתי של המשתמש (chromeCmd);
+// (2) בדסקטופ עם שליטה נייטיבית → חלון-העבודה של הדסקטופ (web*); (3) בכרום עצמו → התוסף ישירות (_extSend).
+let _agUseChrome = false; // נקבע בתחילת הסוכן: האם הכרום האמיתי זמין דרך הגשר
+async function _agDetectChromeBridge() {
+    _agUseChrome = false;
+    try {
+        if (typeof _isDesktop === 'function' && _isDesktop() && window.BIRGSOL_NATIVE && typeof window.BIRGSOL_NATIVE.chromeAlive === 'function') {
+            const a = await window.BIRGSOL_NATIVE.chromeAlive();
+            _agUseChrome = !!(a && a.alive);
+        }
+    } catch (e) {}
+    return _agUseChrome;
+}
 function _agHasNativeWeb() { return (typeof _isDesktop === 'function' && _isDesktop()) && !!(window.BIRGSOL_NATIVE && window.BIRGSOL_NATIVE.hasWebControl && typeof window.BIRGSOL_NATIVE.webLook === 'function'); }
 async function _agLook() {
+    if (_agUseChrome) { // הכרום האמיתי דרך הגשר
+        try { const r = await window.BIRGSOL_NATIVE.chromeCmd({ op: 'look' }); if (r && r.ok) return r; } catch (e) {}
+    }
     if (_agHasNativeWeb()) {
         try { const r = await window.BIRGSOL_NATIVE.webLook(); if (r && r.ok) return r; return { ok: true, title: '', url: '', text: '(עדיין לא פתוח אתר — השתמש ב-op:navigate כדי לפתוח)', fields: [] }; }
         catch (e) { return { ok: true, title: '', url: '', text: '', fields: [] }; }
@@ -7988,6 +8003,7 @@ async function _agLook() {
     return await _extSend({ type: 'birgsol-look' }, 30000);
 }
 async function _agAct(action) {
+    if (_agUseChrome) { try { return await window.BIRGSOL_NATIVE.chromeCmd(action); } catch (e) { return { ok: false, error: String(e && e.message || e) }; } }
     if (_agHasNativeWeb()) { try { return await window.BIRGSOL_NATIVE.webAct(action); } catch (e) { return { ok: false, error: String(e && e.message || e) }; } }
     return await _extSend({ type: 'birgsol-act', action }, 45000);
 }
@@ -8082,8 +8098,10 @@ async function _browserAgent(goal, opts) {
         addMsg('ai', 'סוכן הדפדפן זמין ל-Pro ו-Ultra בלבד. שדרג כדי ש-BIRGSOL יפעל בדפדפן עבורך.');
         return;
     }
-    // 🖥️ דסקטופ ללא שליטת-דפדפן נייטיבית וללא תוסף → סוכן-קוד (טרמינל/קבצים/גיטהאב/חיפוש). עם שליטה נייטיבית → ממשיכים לסוכן מלא (למטה, דרך _agLook/_agAct).
-    if (typeof _isDesktop === 'function' && _isDesktop() && !_agHasNativeWeb()) {
+    // זהה אם הכרום האמיתי של המשתמש מחובר דרך הגשר המקומי (עדיפות עליונה — "הדפדפן שלך")
+    await _agDetectChromeBridge();
+    // 🖥️ דסקטופ בלי כרום-אמיתי, בלי שליטה נייטיבית ובלי תוסף → סוכן-קוד (טרמינל/קבצים/גיטהאב/חיפוש).
+    if (typeof _isDesktop === 'function' && _isDesktop() && !_agHasNativeWeb() && !_agUseChrome) {
         let _pg0 = null; try { _pg0 = await _extSend({ type: 'birgsol-ping' }, 4000); } catch (e) {}
         if (!_pg0 || !_pg0.ok) return await runNativeAgent(goal, opts);
     }
@@ -8131,7 +8149,7 @@ async function _browserAgent(goal, opts) {
     try {
         // בדיקת תוסף + גרסה — כדי לתת הודעה מדויקת (חסר / ישן / תקין)
         _step('בודק את התוסף…', true);
-        const _pg = _agHasNativeWeb() ? { ok: true, agent: true, version: 'native' } : await _extSend({ type: 'birgsol-ping' }, 6000);
+        const _pg = (_agUseChrome || _agHasNativeWeb()) ? { ok: true, agent: true, version: _agUseChrome ? 'chrome-bridge' : 'native' } : await _extSend({ type: 'birgsol-ping' }, 6000);
         if (!_pg || !_pg.ok) {
             const m = 'לא נמצא התוסף "זרוע BIRGSOL". התקן/הפעל אותו ורענן את הדף.';
             txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; status.remove(); return;
