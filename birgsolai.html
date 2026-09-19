@@ -7978,6 +7978,20 @@ function _isBrowserAct(q) {
     const browser = /דפדפן|בדף|באתר|לאתר|האתר של|בטאב|בעמוד|בכרטיסייה|browser|tab|page|site|website|cloudflare|alibaba|אליבאבא|בעליבאבא|ויקיפדיה|wikipedia|גוגל|google|יוטיוב|youtube|אמזון|amazon|אל\s*על|el\s*al/i.test(q);
     return enterSite || strongAct || (act && browser);
 }
+// ניתוב פעולות דפדפן: בדסקטופ עם שליטה נייטיבית → BIRGSOL_NATIVE.web*; אחרת → התוסף (_extSend).
+function _agHasNativeWeb() { return (typeof _isDesktop === 'function' && _isDesktop()) && !!(window.BIRGSOL_NATIVE && window.BIRGSOL_NATIVE.hasWebControl && typeof window.BIRGSOL_NATIVE.webLook === 'function'); }
+async function _agLook() {
+    if (_agHasNativeWeb()) {
+        try { const r = await window.BIRGSOL_NATIVE.webLook(); if (r && r.ok) return r; return { ok: true, title: '', url: '', text: '(עדיין לא פתוח אתר — השתמש ב-op:navigate כדי לפתוח)', fields: [] }; }
+        catch (e) { return { ok: true, title: '', url: '', text: '', fields: [] }; }
+    }
+    return await _extSend({ type: 'birgsol-look' }, 30000);
+}
+async function _agAct(action) {
+    if (_agHasNativeWeb()) { try { return await window.BIRGSOL_NATIVE.webAct(action); } catch (e) { return { ok: false, error: String(e && e.message || e) }; } }
+    return await _extSend({ type: 'birgsol-act', action }, 45000);
+}
+
 // 🖥️ סוכן-נייטיב (אפליקציית דסקטופ, בלי תוסף) — טרמינל + קבצים + פריסה לגיטהאב + חיפוש באינטרנט.
 // לולאה אוטונומית עם תכנון, ביקורת-עצמית, גלאי-לולאה והגבלות בטיחות. זמין לכל משתמש דסקטופ (מנהל=חופשי, רגיל=עם אישורים).
 async function runNativeAgent(goal, opts) {
@@ -8068,8 +8082,8 @@ async function _browserAgent(goal, opts) {
         addMsg('ai', 'סוכן הדפדפן זמין ל-Pro ו-Ultra בלבד. שדרג כדי ש-BIRGSOL יפעל בדפדפן עבורך.');
         return;
     }
-    // 🖥️ אפליקציית דסקטופ בלי תוסף → סוכן-נייטיב (טרמינל/קבצים/גיטהאב/חיפוש) במקום סוכן-דפדפן
-    if (typeof _isDesktop === 'function' && _isDesktop()) {
+    // 🖥️ דסקטופ ללא שליטת-דפדפן נייטיבית וללא תוסף → סוכן-קוד (טרמינל/קבצים/גיטהאב/חיפוש). עם שליטה נייטיבית → ממשיכים לסוכן מלא (למטה, דרך _agLook/_agAct).
+    if (typeof _isDesktop === 'function' && _isDesktop() && !_agHasNativeWeb()) {
         let _pg0 = null; try { _pg0 = await _extSend({ type: 'birgsol-ping' }, 4000); } catch (e) {}
         if (!_pg0 || !_pg0.ok) return await runNativeAgent(goal, opts);
     }
@@ -8117,7 +8131,7 @@ async function _browserAgent(goal, opts) {
     try {
         // בדיקת תוסף + גרסה — כדי לתת הודעה מדויקת (חסר / ישן / תקין)
         _step('בודק את התוסף…', true);
-        const _pg = await _extSend({ type: 'birgsol-ping' }, 6000);
+        const _pg = _agHasNativeWeb() ? { ok: true, agent: true, version: 'native' } : await _extSend({ type: 'birgsol-ping' }, 6000);
         if (!_pg || !_pg.ok) {
             const m = 'לא נמצא התוסף "זרוע BIRGSOL". התקן/הפעל אותו ורענן את הדף.';
             txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; status.remove(); return;
@@ -8128,7 +8142,7 @@ async function _browserAgent(goal, opts) {
         }
         // מצב התחלתי
         _step('מתחבר לדפדפן…', true);
-        let state = await _extSend({ type: 'birgsol-look' }, 30000);
+        let state = await _agLook();
         if (!state || !state.ok) {
             const m = (state && state.error === 'no-ext') ? 'צריך את זרוע BIRGSOL (תוסף Chrome) מותקנת ומעודכנת (גרסה 2+). התקן/עדכן ורענן.'
                     : (state && state.error === 'no-page') ? '🌐 כדי לפעול אני צריך אתר פתוח. פתח טאב חדש עם האתר שתרצה (למשל האתר של אל על) ונסה שוב — או פשוט תגיד לי "תיכנס לאתר X ותעשה Y" ואני אפתח אותו בעצמי.'
@@ -8138,7 +8152,7 @@ async function _browserAgent(goal, opts) {
         // 🗺️ תכנון תחילה (Plan-and-Solve) — מפרק את המטרה לרשימת צעדים לפני הביצוע, ומציג אותה. עוזר במשימות מרובות-שלבים.
         let _plan = '';
         try {
-            const _natP = _admin && (typeof _isDesktop === 'function' && _isDesktop());
+            const _natP = (typeof _isDesktop === 'function' && _isDesktop());
             _step('מתכנן את המשימה…', true);
             const _psys = 'You plan tasks for an autonomous agent that controls a real browser' + (_natP ? ', a terminal and files' : '') + '. Break the GOAL into a SHORT ordered plan (2-6 concrete high-level steps). Reply with ONLY JSON: {"plan":["צעד 1","צעד 2", ...]} — steps in Hebrew, concise.';
             const _pr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: _psys }, { role: 'user', content: 'GOAL: ' + goal }], temperature: 0.2, max_tokens: 400, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
@@ -8159,7 +8173,7 @@ async function _browserAgent(goal, opts) {
             let diagTxt = '';
             if (_errLogs.length) diagTxt += '\n\nCONSOLE ERRORS (newest last):\n' + _errLogs.map(l => '· [' + l.lv + '] ' + (l.m || '')).join('\n');
             if (_badNet.length) diagTxt += '\n\nFAILED NETWORK REQUESTS:\n' + _badNet.map(n => '· ' + (n.m || 'GET') + ' ' + (n.u || '') + ' → ' + (n.err ? ('ERR ' + n.err) : ('HTTP ' + n.s))).join('\n');
-            const _nativeOK = _admin && (typeof _isDesktop === 'function' && _isDesktop());
+            const _nativeOK = (typeof _isDesktop === 'function' && _isDesktop());
             const sys = 'You are BIRGSOL, an autonomous agent' + (_nativeOK ? ' operating the user\'s real browser AND a real computer (terminal + files)' : ' operating the user\'s real browser') + '. Decide the SINGLE next action toward the GOAL. Respond with ONLY a JSON object, no prose:\n' +
                 '{"reason":"<short reason in Hebrew>","op":"click|type|select|scroll|key|navigate|wait|done' + (_admin ? '|exec' : '') + (_nativeOK ? '|run|readfile|writefile' : '') + '","ref":<element number or null>,"text":"<text for type/select>","key":"Enter","dir":"down|up","url":"<full URL for navigate>"' + (_admin ? ',"code":"<JavaScript to run on the page for op=exec>"' : '') + (_nativeOK ? ',"cmd":"<shell command for op=run>","path":"<file path for readfile/writefile>","content":"<file content for writefile>"' : '') + ',"done":<true|false>,"answer":"<final message to the user in Hebrew, only when done>"}\n' +
                 'Rules:\n' +
@@ -8204,7 +8218,7 @@ async function _browserAgent(goal, opts) {
                 _failStreak++;
                 if (_failStreak >= 3) { _step('לא הצלחתי להחליט על צעד — עוצר', false); stepsLog.push('(failed to decide x3)'); break; }
                 _step('לא התקבלה החלטה ברורה — מרענן ומנסה שוב…', true);
-                try { const _rs = await _extSend({ type: 'birgsol-look' }, 30000); if (_rs && _rs.ok) state = _rs; } catch (e) {}
+                try { const _rs = await _agLook(); if (_rs && _rs.ok) state = _rs; } catch (e) {}
                 continue; // ניסיון חוזר — כשל בודד לא מפסיק את כל המשימה
             }
             _failStreak = 0; // הצלחה — מאפסים את מונה הכשלים
@@ -8213,16 +8227,19 @@ async function _browserAgent(goal, opts) {
 
             // 🖥️ כלי דסקטופ — טרמינל / קריאת-קובץ / כתיבת-קובץ (הסוכן עובר בין דפדפן, טרמינל וקבצים לבד; מנהל בדסקטופ בלבד)
             if (['run', 'readfile', 'writefile'].includes(decision.op)) {
-                if (!_nativeOK) { _step('כלי טרמינל/קבצים זמינים רק למנהל באפליקציית הדסקטופ — עוצר', false); stepsLog.push('native tools unavailable'); break; }
+                if (!_nativeOK) { _step('כלי טרמינל/קבצים זמינים רק באפליקציית הדסקטופ — עוצר', false); stepsLog.push('native tools unavailable'); break; }
                 const _cmd = String(decision.cmd || decision.command || decision.text || decision.code || '');
                 const _path = String(decision.path || decision.file || decision.url || '');
                 const _content = decision.content != null ? String(decision.content) : String(decision.text || '');
                 const _lbl = (decision.op === 'run' ? _cmd : _path).slice(0, 80);
                 _step((decision.reason ? decision.reason + ' — ' : '') + ({ run: '⌨️ מריץ בטרמינל', readfile: '📄 קורא קובץ', writefile: '💾 כותב קובץ' }[decision.op]) + ' ' + _lbl, true);
-                // ⚖️ לא בפזיזות — אישור על פעולות הרסניות/משמעותיות (מחיקה, פריסה, push, פרסום)
-                const _needConfirm = decision.op === 'run' && /rm\s+-rf|rmdir\s+\/s|\bdel\s+\/|\bformat\b|mkfs|drop\s+table|git\s+push|git\s+commit|npm\s+publish|shutdown|reboot|>\s*\/dev\/|curl[^\n]*-X\s*(PUT|POST|DELETE)|:\(\)\s*\{/i.test(_cmd);
-                if (_needConfirm) {
-                    const ok = await _confirm('הסוכן רוצה להריץ פעולה משמעותית:\n\n' + _cmd + '\n\nלאשר?');
+                // ⚖️ הגבלות בטיחות: משתמש רגיל — אישור על כל run/writefile + חסימת פקודות הרסניות; מנהל — אישור רק על הרסני/פריסה.
+                const _destr = /rm\s+-rf|rmdir\s+\/s|\bdel\s+\/[a-z]|\bformat\b|mkfs|drop\s+table|shutdown|reboot|diskpart|>\s*\/dev\/|:\(\)\s*\{/i;
+                if (!_admin) {
+                    if (decision.op === 'run' && _destr.test(_cmd)) { _step('פקודה הרסנית חסומה למשתמש רגיל', false); stepsLog.push('blocked destructive (non-admin): ' + _cmd); continue; }
+                    if (decision.op === 'run' || decision.op === 'writefile') { const ok = await _confirm('הסוכן רוצה ' + (decision.op === 'run' ? 'להריץ בטרמינל' : 'לכתוב קובץ') + ':\n\n' + (decision.op === 'run' ? _cmd : _path) + '\n\nלאשר?'); if (!ok) { _step('בוטל על ידך — עוצר', false); stepsLog.push('user declined'); break; } }
+                } else if (decision.op === 'run' && /git\s+push|git\s+commit|npm\s+publish|ghdeploy\.py|curl[^\n]*-X\s*(PUT|POST|DELETE)|rm\s+-rf|rmdir\s+\/s|\bformat\b|drop\s+table|shutdown|reboot/i.test(_cmd)) {
+                    const ok = await _confirm('הסוכן רוצה פעולה משמעותית:\n\n' + _cmd + '\n\nלאשר?');
                     if (!ok) { _step('בוטל על ידך — עוצר', false); stepsLog.push('user declined: ' + _cmd); break; }
                 }
                 if (_agentStop) break;
@@ -8271,7 +8288,7 @@ async function _browserAgent(goal, opts) {
 
             // ביצוע
             const act = { op: decision.op, ref: decision.ref, text: decision.text, key: decision.key, dir: decision.dir, url: decision.url, ms: decision.ms, code: decision.code };
-            const res = await _extSend({ type: 'birgsol-act', action: act }, 45000);
+            const res = await _agAct(act);
             _actHist.push(_sig); if (_actHist.length > 8) _actHist.shift();
             stepsLog.push(`${stepN}. ${human} ${label}${res && res.ok ? '' : ' [נכשל: ' + ((res && res.error) || '?') + ']'}`);
             if (res && res.execResult != null) stepsLog.push('   → תוצאה: ' + String(res.execResult).slice(0, 500)); // תוצאת JS חוזרת לסוכן
@@ -8282,7 +8299,7 @@ async function _browserAgent(goal, opts) {
                 _hardFails++;
                 if (_hardFails <= 2) {
                     _step('הדף לא הגיב — מרענן ומנסה להתאושש…', true);
-                    try { const _rl = await _extSend({ type: 'birgsol-act', action: { op: 'navigate', url: state.url || '' } }, 45000); if (_rl && (_rl.ok || _rl.acted)) { state = _rl; stepsLog.push('(hard-reset: reloaded page, continuing)'); } } catch (e) {}
+                    try { const _rl = await _agAct({ op: 'navigate', url: state.url || '' }); if (_rl && (_rl.ok || _rl.acted)) { state = _rl; stepsLog.push('(hard-reset: reloaded page, continuing)'); } } catch (e) {}
                 } else { _step('הדף לא מתאושש — עוצר', false); stepsLog.push('(unrecoverable after 2 hard-resets)'); break; }
             }
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
