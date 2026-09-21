@@ -1,0 +1,10 @@
+{
+  "users": [
+    { "name": "דוד",  "password": "David123!",   "age": 12, "active": true },
+    { "name": "גיל",  "password": "Gil@2020",    "age": 45, "active": true },
+    { "name": "נועה", "password": "Noa#secret",  "age": 17, "active": true },
+    { "name": "רון",  "password": "Ron$pass99",  "age": 30, "active": false },
+    { "name": "מאיה", "password": "Maya!pw7",    "age": 22, "active": true },
+    { "name": "יואב", "password": "Yoav*key",    "age": 34, "active": true }
+  ]
+}
