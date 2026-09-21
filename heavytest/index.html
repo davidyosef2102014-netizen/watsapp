@@ -3,47 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>רשימת משימות — מבחן כבד</title>
+  <title>ניהול משתמשים — מבחן אבטחה</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; background: linear-gradient(135deg,#0f172a,#1e3a8a); color:#fff; min-height:100vh; margin:0; display:flex; align-items:center; justify-content:center; }
-    .card { background: rgba(255,255,255,.1); padding: 26px 30px; border-radius: 16px; width: 340px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
-    h1 { font-size: 22px; margin: 0 0 16px; }
-    ul { list-style: none; padding: 0; margin: 0; }
-    /* באג 3 (CSS): טקסט לבן על רקע לבן — הפריטים בלתי-נראים גם כשנטענים */
-    li { background:#ffffff; color:#ffffff; margin-bottom:8px; padding:11px 14px; border-radius:9px; display:flex; align-items:center; gap:10px; }
-    li.done { text-decoration: line-through; opacity:.7; }
-    .dot { width:10px; height:10px; border-radius:50%; background:#f59e0b; flex:none; }
-    li.done .dot { background:#22c55e; }
-    #status { font-size:13px; opacity:.8; margin-top:12px; }
+    body { font-family: system-ui, Arial, sans-serif; background: linear-gradient(135deg,#0f172a,#334155); color:#fff; min-height:100vh; margin:0; display:flex; align-items:center; justify-content:center; }
+    .card { background: rgba(255,255,255,.08); padding: 26px 30px; border-radius: 16px; width: 420px; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+    h1 { font-size: 20px; margin: 0 0 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.12); }
+    th { opacity:.7; font-weight:600; }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+    .on { background:#16a34a; } .off { background:#64748b; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1 id="title">טוען…</h1>
-    <ul id="list"></ul>
-    <div id="status">טוען נתונים…</div>
+    <h1>👥 רשימת משתמשים</h1>
+    <table>
+      <thead><tr><th>שם</th><th>גיל</th><th>סטטוס</th><th>סיסמה</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="status" style="margin-top:12px;font-size:13px;opacity:.75"></div>
   </div>
 
   <script>
-    async function load() {
-      // באג 1 (רשת): שם קובץ שגוי — הקובץ הוא data.json ולא dataa.json → 404 → הנתונים לא נטענים
-      const res = await fetch('./dataa.json');
+    async function loadUsers() {
+      const res = await fetch('./users.json');
       const data = await res.json();
+      const tbody = document.getElementById('rows');
 
-      document.getElementById('title').textContent = data.title;
-      const ul = document.getElementById('list');
+      // ⚠️ פרצת אבטחה: כל המשתמשים מוצגים — כולל לא-פעילים ומתחת לגיל 18 — ללא סינון.
+      data.users.forEach(function (u) {
+        // ⚠️ פרצת אבטחה 1: הדפסת סיסמאות המשתמשים לקונסול (חשיפת מידע רגיש)
+        console.log('סיסמה של ' + u.name + ': ' + u.password);
 
-      data.tasks.forEach(function (t) {
-        const li = document.createElement('li');
-        if (t.done) li.className = 'done';
-        // באג 2 (רנטיים): קריאה למשתנה שלא קיים — icon אינו מוגדר → ReferenceError
-        li.innerHTML = '<span class="dot"></span>' + icon + ' ' + t.text;
-        ul.appendChild(li);
+        const tr = document.createElement('tr');
+        // ⚠️ פרצת אבטחה 2: הצגת הסיסמה הגולמית ב-HTML לעין כל
+        tr.innerHTML = '<td>' + u.name + '</td><td>' + u.age + '</td>' +
+          '<td><span class="badge ' + (u.active ? 'on' : 'off') + '">' + (u.active ? 'פעיל' : 'לא פעיל') + '</span></td>' +
+          '<td>' + u.password + '</td>';
+        tbody.appendChild(tr);
       });
 
-      document.getElementById('status').textContent = data.tasks.length + ' משימות';
+      // ⚠️ פרצת אבטחה 3: שימוש ב-eval על מחרוזת (מסוכן — מאפשר הרצת קוד שרירותי)
+      var expr = "data.users.length";
+      var total = eval(expr);
+      document.getElementById('status').textContent = 'סה"כ ' + total + ' משתמשים';
     }
-    load();
+    loadUsers();
   </script>
 </body>
 </html>
