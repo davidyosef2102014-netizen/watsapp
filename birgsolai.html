@@ -8040,14 +8040,34 @@ async function _trackWrite(fc, path, newContent) {
 function _liveCard(container, opts) {
     if (!container) return;
     const c = document.createElement('div');
-    c.style.cssText = 'margin:7px 0;border:1px solid var(--border,#e2e4ea);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:13px;background:var(--surf2,#f7f8fb);color:var(--text)';
+    c.style.cssText = 'margin:7px 0;border:1px solid var(--border,#e2e4ea);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:13px;background:var(--surf2,#f7f8fb);color:var(--text);flex-wrap:wrap';
+    const _clean = s => String(s == null ? '' : s).replace(/[<>&]/g, '');
     let right = '';
     if (opts.added != null) right = '<span style="margin-inline-start:auto;font-weight:700"><span style="color:#16a34a">+' + opts.added + '</span> <span style="color:#dc2626">−' + opts.removed + '</span></span>';
-    c.innerHTML = '<span>' + (opts.icon || '•') + '</span><span style="font-weight:600">' + (opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:monospace;font-size:12px;color:var(--text);opacity:.85">' + String(opts.name).replace(/[<>&]/g, '') + '</span>' : '') + right;
+    else if (opts.ok != null) right = '<span style="margin-inline-start:auto">' + (opts.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>') + '</span>';
+    c.innerHTML = '<span>' + (opts.icon || '•') + '</span><span style="font-weight:600">' + _clean(opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:monospace;font-size:12px;color:var(--text);opacity:.85">' + _clean(opts.name) + '</span>' : '') + right;
+    if (opts.link) { const a = document.createElement('a'); a.href = opts.link; a.target = '_blank'; a.textContent = '🔗 פתח'; a.style.cssText = 'margin-inline-start:8px;font-size:12px;color:var(--accent,#2563eb);text-decoration:none;flex-basis:100%'; c.appendChild(a); }
     container.appendChild(c);
     const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 }
+// "דיבור חי" — משפט טבעי בגובה העיניים שמופיע בזרימת השיחה תוך כדי עבודה (כמו בן אדם)
+function _liveSay(container, text) {
+    if (!container || !text) return;
+    const p = document.createElement('div');
+    p.style.cssText = 'margin:8px 0;font-size:14px;line-height:1.6;color:var(--text)';
+    try { p.innerHTML = (typeof mdSafe === 'function' ? mdSafe(String(text)) : String(text)); } catch (e) { p.textContent = String(text); }
+    container.appendChild(p);
+    const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+}
 function _base(f) { return String(f).split(/[\\/]/).pop(); }
+// זיהוי הצלחת פריסה בפלט ghdeploy → כרטיס פריסה עם commit + קישור
+function _deployCardFrom(container, cmd, out) {
+    if (!/ghdeploy\.py/.test(cmd || '')) return;
+    const ok = /DEPLOY-OK/.test(out || '');
+    const commit = ((out || '').match(/commit\s+([0-9a-f]{6,})/i) || [])[1] || '';
+    const url = ((out || '').match(/https?:\/\/\S+/) || [])[0] || '';
+    _liveCard(container, { icon: '🚀', verb: ok ? 'העלה לגיטהאב' : 'פריסה נכשלה', name: commit ? ('commit ' + commit) : '', ok: ok, link: ok ? url : '' });
+}
 function _renderFilesCard(container, fc) {
     const files = Object.keys(fc); if (!files.length || !container) return;
     let tA = 0, tR = 0; files.forEach(f => { tA += fc[f].added; tR += fc[f].removed; });
@@ -8134,8 +8154,9 @@ async function runNativeAgent(goal, opts) {
             } catch (e) { nres = '[שגיאה: ' + (e && e.message || e) + ']'; }
             // כרטיס חי בזרימת השיחה — מופיע ברגע הפעולה
             try {
+                _liveSay(body, decision.reason); // מדבר תוך כדי — משפט אנושי לפני הכרטיס
                 if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'יצר' : 'ערך', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
-                else if (decision.op === 'run') _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl });
+                else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl }); }
                 else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path) });
                 else if (decision.op === 'search') _liveCard(body, { icon: '🔎', verb: 'חיפש', name: _q });
             } catch (e) {}
@@ -8330,8 +8351,9 @@ async function _browserAgent(goal, opts) {
                     else { _wDiff = await _trackWrite(_fc, _path.trim(), _content); nres = await _execNativeTool([null, _path.trim() + '|||' + _content], 'writefile'); }
                 } catch (e) { nres = '[שגיאה: ' + (e && e.message || e) + ']'; }
                 try {
+                    _liveSay(body, decision.reason); // מדבר תוך כדי
                     if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'יצר' : 'ערך', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
-                    else if (decision.op === 'run') _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl });
+                    else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl }); }
                     else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path) });
                 } catch (e) {}
                 stepsLog.push(`${stepN}. ${decision.op} ${_lbl}`);
@@ -8346,6 +8368,7 @@ async function _browserAgent(goal, opts) {
             const human = ({ click: 'לוחץ על', type: 'מקליד ב', select: 'בוחר ב', scroll: 'גולל', key: 'מקיש ' + (decision.key || 'Enter'), navigate: 'עובר ל', wait: 'ממתין' })[decision.op] || decision.op;
             const label = target ? ('"' + (target.label || target.kind) + '"') : (decision.url || decision.dir || '');
             _step('🖱️ ' + (decision.reason || (human + ' ' + label)), true);
+            if (decision.reason) { try { _liveSay(body, decision.reason); } catch (e) {} } // מדבר תוך כדי גלישה
 
             // 🔒 הרצת קוד (exec) — למנהל בלבד. משתמש רגיל שקיבל exec איכשהו — נחסם.
             if (decision.op === 'exec' && !_admin) { _step('פעולה מתקדמת (קוד) חסומה למשתמש רגיל — עוצר', false); stepsLog.push('blocked exec for non-admin'); break; }
