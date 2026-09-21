@@ -8074,7 +8074,7 @@ function _agSpinner(container) {
     container.appendChild(wrap);
     const t0 = Date.now();
     const iv = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); const el = wrap.querySelector('._btime'); if (el) el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }, 1000);
-    return { stop: (ok) => { try { clearInterval(iv); const sp = wrap.querySelector('._bspin'); if (sp) { sp.innerHTML = ok === false ? '<span style="color:#dc2626">✗</span>' : '<span style="color:#22c55e">✓</span>'; } } catch (e) {} } };
+    return { stop: (ok) => { try { clearInterval(iv); const s = Math.floor((Date.now() - t0) / 1000); const ft = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); const sp = wrap.querySelector('._bspin'); if (sp) sp.innerHTML = ok === false ? '<span style="color:#dc2626">✗</span>' : '<span style="color:#22c55e">✓</span>'; const el = wrap.querySelector('._btime'); if (el) { el.textContent = (ok === false ? 'נעצר אחרי ' : 'הושלם תוך ') + ft; el.style.opacity = '0.85'; } } catch (e) {} } };
 }
 // זיהוי הצלחת פריסה בפלט ghdeploy → כרטיס פריסה עם commit + קישור
 function _deployCardFrom(container, cmd, out) {
