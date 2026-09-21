@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>רשימת משימות — מבחן כבד</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; background: linear-gradient(135deg,#0f172a,#1e3a8a); color:#fff; min-height:100vh; margin:0; display:flex; align-items:center; justify-content:center; }
+    .card { background: rgba(255,255,255,.1); padding: 26px 30px; border-radius: 16px; width: 340px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+    h1 { font-size: 22px; margin: 0 0 16px; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { background:#ffffff; color:#0f172a; margin-bottom:8px; padding:11px 14px; border-radius:9px; display:flex; align-items:center; gap:10px; }
+    li.done { text-decoration: line-through; opacity:.7; }
+    .dot { width:10px; height:10px; border-radius:50%; background:#f59e0b; flex:none; }
+    li.done .dot { background:#22c55e; }
+    #status { font-size:13px; opacity:.8; margin-top:12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 id="title">טוען…</h1>
+    <ul id="list"></ul>
+    <div id="status">טוען נתונים…</div>
+  </div>
+
+  <script>
+    async function load() {
+      const res = await fetch('./data.json');
+      const data = await res.json();
+
+      document.getElementById('title').textContent = data.title;
+      const ul = document.getElementById('list');
+
+      data.tasks.forEach(function (t) {
+        const li = document.createElement('li');
+        if (t.done) li.className = 'done';
+        li.innerHTML = '<span class="dot"></span>' + t.text;
+        ul.appendChild(li);
+      });
+
+      document.getElementById('status').textContent = data.tasks.length + ' משימות';
+    }
+    load();
+  </script>
+</body>
+</html>
