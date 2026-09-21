@@ -1,0 +1,8 @@
+{
+  "title": "משימות היום",
+  "tasks": [
+    { "id": 1, "text": "ללמוד קוד", "done": true },
+    { "id": 2, "text": "לבנות את BIRGSOL 4.1", "done": false },
+    { "id": 3, "text": "לבדוק את הסוכן", "done": false }
+  ]
+}
