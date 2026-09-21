@@ -3,44 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>רשימת משימות — מבחן כבד</title>
+  <title>ניהול משתמשים — מבחן אבטחה</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; background: linear-gradient(135deg,#0f172a,#1e3a8a); color:#fff; min-height:100vh; margin:0; display:flex; align-items:center; justify-content:center; }
-    .card { background: rgba(255,255,255,.1); padding: 26px 30px; border-radius: 16px; width: 340px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
-    h1 { font-size: 22px; margin: 0 0 16px; }
-    ul { list-style: none; padding: 0; margin: 0; }
-    li { background:#ffffff; color:#0f172a; margin-bottom:8px; padding:11px 14px; border-radius:9px; display:flex; align-items:center; gap:10px; }
-    li.done { text-decoration: line-through; opacity:.7; }
-    .dot { width:10px; height:10px; border-radius:50%; background:#f59e0b; flex:none; }
-    li.done .dot { background:#22c55e; }
-    #status { font-size:13px; opacity:.8; margin-top:12px; }
+    body { font-family: system-ui, Arial, sans-serif; background: linear-gradient(135deg,#0f172a,#334155); color:#fff; min-height:100vh; margin:0; display:flex; align-items:center; justify-content:center; }
+    .card { background: rgba(255,255,255,.08); padding: 26px 30px; border-radius: 16px; width: 420px; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+    h1 { font-size: 20px; margin: 0 0 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.12); }
+    th { opacity:.7; font-weight:600; }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+    .on { background:#16a34a; } .off { background:#64748b; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1 id="title">טוען…</h1>
-    <ul id="list"></ul>
-    <div id="status">טוען נתונים…</div>
+    <h1>👥 רשימת משתמשים</h1>
+    <table>
+      <thead><tr><th>שם</th><th>גיל</th><th>סטטוס</th><th>סיסמה (Base64)</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="status" style="margin-top:12px;font-size:13px;opacity:.75"></div>
   </div>
 
   <script>
-    async function load() {
-      const res = await fetch('./data.json');
+    async function loadUsers() {
+      const res = await fetch('./users.json');
       const data = await res.json();
+      const tbody = document.getElementById('rows');
 
-      document.getElementById('title').textContent = data.title;
-      const ul = document.getElementById('list');
+      // סינון משתמשים פעילים מעל גיל 18
+      const filtered = data.users.filter(u => u.active && u.age > 18);
 
-      data.tasks.forEach(function (t) {
-        const li = document.createElement('li');
-        if (t.done) li.className = 'done';
-        li.innerHTML = '<span class="dot"></span>' + t.text;
-        ul.appendChild(li);
+      filtered.forEach(function (u) {
+        // הצגת סיסמה מוצפנת ב-Base64 במקום גלויה
+        const encodedPwd = btoa(u.password);
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + u.name + '</td><td>' + u.age + '</td>' +
+          '<td><span class="badge ' + (u.active ? 'on' : 'off') + '">' + (u.active ? 'פעיל' : 'לא פעיל') + '</span></td>' +
+          '<td>' + encodedPwd + '</td>';
+        tbody.appendChild(tr);
       });
 
-      document.getElementById('status').textContent = data.tasks.length + ' משימות';
+      // הצגת סך המשתמשים המוצגים ללא שימוש ב‑eval
+      const total = filtered.length;
+      document.getElementById('status').textContent = 'סה"כ ' + total + ' משתמשים פעילים מעל גיל 18';
     }
-    load();
+    loadUsers();
   </script>
 </body>
 </html>
