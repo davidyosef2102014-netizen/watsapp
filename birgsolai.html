@@ -8020,6 +8020,49 @@ async function _agAct(action) {
     return await _extSend({ type: 'birgsol-act', action }, 45000);
 }
 
+// ── כרטיס "קבצים ששונו" (בסגנון Claude Code) — נספרות שורות שנוספו/הוסרו ומוצג כרטיס מתקפל ──
+function _diffCounts(oldStr, newStr) {
+    const o = (oldStr == null ? '' : String(oldStr)).split('\n'), n = (newStr == null ? '' : String(newStr)).split('\n');
+    const cnt = a => { const m = new Map(); a.forEach(l => m.set(l, (m.get(l) || 0) + 1)); return m; };
+    const om = cnt(o), nm = cnt(n); let added = 0, removed = 0;
+    nm.forEach((c, l) => { const d = c - (om.get(l) || 0); if (d > 0) added += d; });
+    om.forEach((c, l) => { const d = c - (nm.get(l) || 0); if (d > 0) removed += d; });
+    return { added, removed };
+}
+async function _trackWrite(fc, path, newContent) {
+    let old = '';
+    try { const r = await window.BIRGSOL_NATIVE.readFile(path); if (r && r.ok) old = r.content || ''; } catch (e) {}
+    const d = _diffCounts(old, newContent);
+    if (fc[path]) { fc[path].added += d.added; fc[path].removed += d.removed; } else { fc[path] = d; }
+    return { ...d, isNew: !old };
+}
+// כרטיס פעולה חי — מופיע בזרימת השיחה ברגע שהסוכן עושה פעולה (בסגנון Claude Code)
+function _liveCard(container, opts) {
+    if (!container) return;
+    const c = document.createElement('div');
+    c.style.cssText = 'margin:7px 0;border:1px solid var(--border,#e2e4ea);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:13px;background:var(--surf2,#f7f8fb);color:var(--text)';
+    let right = '';
+    if (opts.added != null) right = '<span style="margin-inline-start:auto;font-weight:700"><span style="color:#16a34a">+' + opts.added + '</span> <span style="color:#dc2626">−' + opts.removed + '</span></span>';
+    c.innerHTML = '<span>' + (opts.icon || '•') + '</span><span style="font-weight:600">' + (opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:monospace;font-size:12px;color:var(--text);opacity:.85">' + String(opts.name).replace(/[<>&]/g, '') + '</span>' : '') + right;
+    container.appendChild(c);
+    const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+}
+function _base(f) { return String(f).split(/[\\/]/).pop(); }
+function _renderFilesCard(container, fc) {
+    const files = Object.keys(fc); if (!files.length || !container) return;
+    let tA = 0, tR = 0; files.forEach(f => { tA += fc[f].added; tR += fc[f].removed; });
+    const base = f => String(f).split(/[\\/]/).pop();
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-top:10px;border:1px solid var(--border,#e2e4ea);border-radius:12px;overflow:hidden;font-size:13px';
+    const hd = document.createElement('div');
+    hd.style.cssText = 'display:flex;align-items:center;gap:8px;padding:9px 13px;cursor:pointer;background:var(--surf2,#f5f6f9);user-select:none;color:var(--text)';
+    hd.innerHTML = '<span>✏️</span><b style="font-weight:600">ערך ' + files.length + ' קבצים</b><span style="margin-inline-start:auto;font-weight:700"><span style="color:#16a34a">+' + tA + '</span> <span style="color:#dc2626">−' + tR + '</span></span><span class="_fcchev" style="opacity:.5">▾</span>';
+    const bd = document.createElement('div'); bd.style.cssText = 'display:none';
+    files.forEach(f => { const row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 13px;border-top:1px solid var(--border,#eee)'; row.innerHTML = '<span style="opacity:.6">📄</span><span style="flex:1;direction:ltr;text-align:left;font-family:monospace;font-size:12px;color:var(--text)">' + base(f) + '</span><span style="color:#16a34a;font-weight:600">+' + fc[f].added + '</span> <span style="color:#dc2626;font-weight:600">−' + fc[f].removed + '</span>'; bd.appendChild(row); });
+    let open = false; hd.onclick = () => { open = !open; bd.style.display = open ? 'block' : 'none'; const c = hd.querySelector('._fcchev'); if (c) c.textContent = open ? '▴' : '▾'; };
+    wrap.appendChild(hd); wrap.appendChild(bd); container.appendChild(wrap);
+}
+
 // 🖥️ סוכן-נייטיב (אפליקציית דסקטופ, בלי תוסף) — טרמינל + קבצים + פריסה לגיטהאב + חיפוש באינטרנט.
 // לולאה אוטונומית עם תכנון, ביקורת-עצמית, גלאי-לולאה והגבלות בטיחות. זמין לכל משתמש דסקטופ (מנהל=חופשי, רגיל=עם אישורים).
 async function runNativeAgent(goal, opts) {
@@ -8044,7 +8087,7 @@ async function runNativeAgent(goal, opts) {
     const _step = (t, dot) => { if (_lastLine) { const d = _lastLine.querySelector('.agent-step-dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; } const line = document.createElement('div'); line.style.cssText = 'display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12.5px;line-height:1.4;color:var(--muted)'; line.innerHTML = `${dot ? '<span class="agent-step-dot"></span>' : '<span style="color:#22c55e">✓</span>'}<b style="font-weight:500">${_esc(t)}</b>`; _det.appendChild(line); _lastLine = dot ? line : null; while (_det.children.length > 30) _det.removeChild(_det.firstChild); if (_open && cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); };
     const acts = document.createElement('div'); acts.className = 'ai-acts'; acts.innerHTML = '<button class="ai-act" onclick="_agentStop=true">⏹ עצור סוכן</button>'; body.appendChild(acts);
     const cw = document.getElementById('chat-window');
-    let stepsLog = [];
+    let stepsLog = []; const _fc = {}; // _fc = קבצים ששונו לכרטיס הסיכום
     try {
         let _plan = '';
         try {
@@ -8082,13 +8125,20 @@ async function runNativeAgent(goal, opts) {
             }
             if (_agentStop) break;
             _actHist.push(_sig); if (_actHist.length > 8) _actHist.shift();
-            let nres = '';
+            let nres = '', _wDiff = null;
             try {
                 if (decision.op === 'run') nres = await _execNativeTool([null, _cmd.trim()], 'run');
                 else if (decision.op === 'readfile') nres = await _execNativeTool([null, _path.trim()], 'readfile');
-                else if (decision.op === 'writefile') nres = await _execNativeTool([null, _path.trim() + '|||' + _content], 'writefile');
+                else if (decision.op === 'writefile') { _wDiff = await _trackWrite(_fc, _path.trim(), _content); nres = await _execNativeTool([null, _path.trim() + '|||' + _content], 'writefile'); }
                 else if (decision.op === 'search') { const sr = await webSearch(_q).catch(() => ''); nres = '[תוצאות חיפוש]\n' + String(sr || '(אין תוצאות)').slice(0, 3000); }
             } catch (e) { nres = '[שגיאה: ' + (e && e.message || e) + ']'; }
+            // כרטיס חי בזרימת השיחה — מופיע ברגע הפעולה
+            try {
+                if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'יצר' : 'ערך', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
+                else if (decision.op === 'run') _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl });
+                else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path) });
+                else if (decision.op === 'search') _liveCard(body, { icon: '🔎', verb: 'חיפש', name: _q });
+            } catch (e) {}
             stepsLog.push(stepN + '. ' + decision.op + ' ' + _lbl);
             stepsLog.push('   → ' + String(nres).slice(0, 14000));
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
@@ -8157,7 +8207,7 @@ async function _browserAgent(goal, opts) {
     const cw = document.getElementById('chat-window');
 
     const _sensitive = /שלח|תשלח|שליחה|אשר|אישור|קנה|רכוש|רכישה|תשלום|שלם|הזמן|הזמנה|מחק|מחיקה|פרסם|submit|send|confirm|pay|buy|purchase|order|delete|checkout|place\s*order/i;
-    let stepsLog = [];
+    let stepsLog = []; const _fc = {}; // _fc = קבצים ששונו לכרטיס הסיכום
     try {
         // בדיקת תוסף + גרסה — כדי לתת הודעה מדויקת (חסר / ישן / תקין)
         _step('בודק את התוסף…', true);
@@ -8273,12 +8323,17 @@ async function _browserAgent(goal, opts) {
                     if (!ok) { _step('בוטל על ידך — עוצר', false); stepsLog.push('user declined: ' + _cmd); break; }
                 }
                 if (_agentStop) break;
-                let nres = '';
+                let nres = '', _wDiff = null;
                 try {
                     if (decision.op === 'run') nres = await _execNativeTool([null, _cmd.trim()], 'run');
                     else if (decision.op === 'readfile') nres = await _execNativeTool([null, _path.trim()], 'readfile');
-                    else nres = await _execNativeTool([null, _path.trim() + '|||' + _content], 'writefile');
+                    else { _wDiff = await _trackWrite(_fc, _path.trim(), _content); nres = await _execNativeTool([null, _path.trim() + '|||' + _content], 'writefile'); }
                 } catch (e) { nres = '[שגיאה: ' + (e && e.message || e) + ']'; }
+                try {
+                    if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'יצר' : 'ערך', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
+                    else if (decision.op === 'run') _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl });
+                    else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path) });
+                } catch (e) {}
                 stepsLog.push(`${stepN}. ${decision.op} ${_lbl}`);
                 stepsLog.push('   → ' + String(nres).slice(0, 14000)); // הפלט חוזר לסוכן — כדי שיבדוק ויתקדם
                 _failStreak = 0;
