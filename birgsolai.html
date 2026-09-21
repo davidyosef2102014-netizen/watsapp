@@ -8060,6 +8060,22 @@ function _liveSay(container, text) {
     const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 }
 function _base(f) { return String(f).split(/[\\/]/).pop(); }
+// לוגו BIRGSOL מסתובב + טיימר חי — אינדיקציית "עובד" בזמן ריצת הסוכן (כמו ה-✳ של Claude Code)
+function _agSpinner(container) {
+    if (!container) return { stop: () => {} };
+    if (!document.getElementById('_bspin_css')) {
+        const st = document.createElement('style'); st.id = '_bspin_css';
+        st.textContent = '@keyframes _bspinrot{to{transform:rotate(360deg)}}._bspin svg{animation:_bspinrot 1.15s linear infinite;transform-origin:50% 50%}';
+        document.head.appendChild(st);
+    }
+    const wrap = document.createElement('span');
+    wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-inline-start:6px';
+    wrap.innerHTML = '<span class="_bspin" style="display:inline-flex"><svg viewBox="0 0 40 40" width="15" height="15" fill="none" stroke="url(#_bsg)" stroke-width="2.6"><defs><linearGradient id="_bsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#6366f1"/></linearGradient></defs><ellipse cx="20" cy="20" rx="14" ry="6"/><ellipse cx="20" cy="20" rx="14" ry="6" transform="rotate(60 20 20)"/><ellipse cx="20" cy="20" rx="14" ry="6" transform="rotate(120 20 20)"/></svg></span><span class="_btime" style="font-variant-numeric:tabular-nums;opacity:.65;font-size:12px">0:00</span>';
+    container.appendChild(wrap);
+    const t0 = Date.now();
+    const iv = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); const el = wrap.querySelector('._btime'); if (el) el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }, 1000);
+    return { stop: (ok) => { try { clearInterval(iv); const sp = wrap.querySelector('._bspin'); if (sp) { sp.innerHTML = ok === false ? '<span style="color:#dc2626">✗</span>' : '<span style="color:#22c55e">✓</span>'; } } catch (e) {} } };
+}
 // זיהוי הצלחת פריסה בפלט ghdeploy → כרטיס פריסה עם commit + קישור
 function _deployCardFrom(container, cmd, out) {
     if (!/ghdeploy\.py/.test(cmd || '')) return;
@@ -8102,7 +8118,8 @@ async function runNativeAgent(goal, opts) {
     const _det = document.createElement('div'); _det.style.cssText = 'display:none;margin-top:8px;padding-inline-start:10px;border-inline-start:2px solid var(--border,#e2e4ea)';
     status.appendChild(_hdr); status.appendChild(_det);
     let _open = false; _hdr.onclick = () => { _open = !_open; _det.style.display = _open ? 'block' : 'none'; const ch = _hdr.querySelector('#_nic_chev'); if (ch) ch.textContent = _open ? '▴' : '▾'; };
-    const _finishHdr = () => { try { const d = _hdr.querySelector('#_nic_dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; } catch (e) {} };
+    const _spin = _agSpinner(_hdr); // לוגו מסתובב + טיימר
+    const _finishHdr = () => { try { const d = _hdr.querySelector('#_nic_dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; } catch (e) {} try { _spin.stop(true); } catch (e) {} };
     let _lastLine = null;
     const _step = (t, dot) => { if (_lastLine) { const d = _lastLine.querySelector('.agent-step-dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; } const line = document.createElement('div'); line.style.cssText = 'display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12.5px;line-height:1.4;color:var(--muted)'; line.innerHTML = `${dot ? '<span class="agent-step-dot"></span>' : '<span style="color:#22c55e">✓</span>'}<b style="font-weight:500">${_esc(t)}</b>`; _det.appendChild(line); _lastLine = dot ? line : null; while (_det.children.length > 30) _det.removeChild(_det.firstChild); if (_open && cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); };
     const acts = document.createElement('div'); acts.className = 'ai-acts'; acts.innerHTML = '<button class="ai-act" onclick="_agentStop=true">⏹ עצור סוכן</button>'; body.appendChild(acts);
@@ -8209,7 +8226,8 @@ async function _browserAgent(goal, opts) {
     status.appendChild(_hdr); status.appendChild(_det);
     let _open = false;
     _hdr.onclick = () => { _open = !_open; _det.style.display = _open ? 'block' : 'none'; const ch = _hdr.querySelector('#_bic_chev'); if (ch) ch.textContent = _open ? '▴' : '▾'; };
-    const _finishHdr = () => { try { const d = _hdr.querySelector('#_bic_dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; } catch (e) {} };
+    const _spin = _agSpinner(_hdr); // לוגו מסתובב + טיימר
+    const _finishHdr = () => { try { const d = _hdr.querySelector('#_bic_dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; } catch (e) {} try { _spin.stop(true); } catch (e) {} };
     let _lastStepLine = null;
     const _step = (t, dot) => {
         if (_lastStepLine) { const d = _lastStepLine.querySelector('.agent-step-dot'); if (d) d.outerHTML = '<span style="color:#22c55e">✓</span>'; }
