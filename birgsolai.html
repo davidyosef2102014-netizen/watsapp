@@ -8186,7 +8186,7 @@ async function runNativeAgent(goal, opts) {
         if (_agentStop && (!hist[hist.length - 1].content)) { const m = 'הסוכן נעצר.'; txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; }
         if (!hist[hist.length - 1].content) { const m = 'סיימתי את הצעדים שיכולתי.'; const d = document.createElement('div'); d.textContent = m; txt.appendChild(d); hist[hist.length - 1].content = m; }
     } catch (e) { txt.textContent = 'שגיאת סוכן: ' + (e && e.message || e); }
-    finally { busy = false; updateBtn(); }
+    finally { busy = false; updateBtn(); try { saveConversation(); } catch (e) {} } // שמירת שיחת הסוכן להיסטוריה
     return (hist[hist.length - 1] && hist[hist.length - 1].content) || 'הסוכן סיים.';
 }
 
@@ -8451,6 +8451,7 @@ async function _browserAgent(goal, opts) {
     } finally {
         busy = false; updateBtn();
         try { _extSend({ type: 'birgsol-stop' }); } catch (e) {}
+        try { saveConversation(); } catch (e) {} // שמירת שיחת הסוכן להיסטוריה
     }
     return (hist[hist.length - 1] && hist[hist.length - 1].content) || 'הסוכן סיים.'; // התוצאה — לשליטה מרחוק
 }
