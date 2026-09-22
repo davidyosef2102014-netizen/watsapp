@@ -2624,8 +2624,10 @@ const MODELS = [
     { id:'3.0pro', brand:'BIRGSOL AI 3.0 PRO',   kind:'cloudflare', minTier:'free', desc:'גיבוי יציב' },
     { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini',     minTier:'free', desc:'חכם ומהיר' },
     { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss',     minTier:'pro',  desc:'הכי חזק, מעולה לקוד' },
+    { id:'axion',  brand:'BIRGSOL Axion 4.1',    kind:'axion',      minTier:'free', desc:'דגל — צוות מודלים (מוח+שופט+קול)', admin:true },
 ];
-function _modelAllowed(m) { return (TIER_RANK[currentTier] || 0) >= (TIER_RANK[m.minTier] || 0); }
+// admin:true → גלוי רק למנהל (בדיקות לפני השקה). שאר המשתמשים לא רואים/בוחרים אותו.
+function _modelAllowed(m) { if (m.admin && !ADMIN_USERS.includes(currentUser)) return false; return (TIER_RANK[currentTier] || 0) >= (TIER_RANK[m.minTier] || 0); }
 function _bestModelForTier() { for (let i = MODELS.length - 1; i >= 0; i--) if (_modelAllowed(MODELS[i])) return MODELS[i].id; return '2.0pro'; }
 function currentModelId() {
     let id = localStorage.getItem('birgsol_model_' + currentUser) || '';
@@ -7180,10 +7182,74 @@ async function _typewriter(text, onChunk, step) {
 
 let _turnTokens = 0; // סכום טוקנים אמיתי (usage מה-API) לפנייה הנוכחית; אם 0 — נופלים לאומדן לפי אורך
 let _lastTurnSources = []; // דומיינים שהמידע בפנייה הנוכחית הגיע מהם — לשקיפות/אמון (מקורות מתחת לתשובה)
+// ══════════ BIRGSOL Axion 4.1 — צוות מודלים (מנהל בלבד, בדיקות לפני השקה) ══════════
+// מוח (GLM-5.2→GLM-4.5-Flash→120B) → שופט (120B, מודל שונה) → קול (Gemini, עברית חמה).
+async function _axCall(provider, path, model, msgs, maxTok, signal) {
+    const r = await _ghProxy(provider, path, { model, messages: msgs, max_tokens: maxTok, temperature: 0.3 }, { signal: signal || AbortSignal.timeout(45000) });
+    if (!r.ok) throw new Error(provider + ' ' + r.status);
+    const j = await r.json();
+    const t = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
+    if (!t) throw new Error(provider + ' empty');
+    return t;
+}
+async function _axBrain(msgs, signal) {
+    // מוח-על → מוח יציב → גיבוי
+    try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 2500, signal), who: 'GLM-5.2' }; } catch (e) {}
+    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 2500, signal), who: 'GLM-4.5-Flash' }; } catch (e) {}
+    try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2000, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
+    return null;
+}
+async function _axJudge(question, answer, signal) {
+    try {
+        const t = await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', [
+            { role: 'system', content: 'אתה שופט-איכות קפדני. בדוק אם התשובה מכילה טעות עובדתית, חישוב שגוי, קוד שגוי, או מידע שהומצא ללא בסיס. אם הכל תקין — החזר בדיוק "OK". אם יש בעיה — משפט אחד בעברית מה בדיוק לתקן.' },
+            { role: 'user', content: 'שאלה: ' + question + '\n\nתשובה לבדיקה:\n' + answer }
+        ], 300, signal);
+        return /^\s*OK\s*$/i.test(t) ? '' : t;
+    } catch (e) { return ''; }
+}
+async function _axVoice(persona, question, brainText, judgeNote, onChunk, signal) {
+    const sys = persona + '\n\n[מצב Axion — אתה הקול] קיבלת ניתוח ממוח-מומחה. נסח ממנו תשובה סופית בעברית: חמה, טבעית, תמציתית, בטון של BIRGSOL. בלי LaTeX או סימני נוסחה — מספרים ונוסחאות בטקסט רגיל. אל תזכיר "מוח"/"מומחה"/מודלים/צוות — פשוט תענה כ-BIRGSOL.';
+    let u = 'שאלת המשתמש:\n' + question + '\n\nניתוח המוח (בסיס לתשובה):\n' + brainText;
+    if (judgeNote) u += '\n\n⚠️ הערת בקרה — תקן זאת לפני התשובה: ' + judgeNote;
+    const body = { contents: [{ role: 'user', parts: [{ text: u }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { maxOutputTokens: 2048, temperature: 0.6 } };
+    const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', body, { signal: signal || AbortSignal.timeout(30000) });
+    if (!r.ok) throw new Error('voice ' + r.status);
+    const j = await r.json();
+    const t = (j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts[0] && j.candidates[0].content.parts[0].text || '').trim();
+    if (!t) throw new Error('voice empty');
+    await _typewriter(t, onChunk, 8);
+    return t;
+}
+async function _axionPipeline(messages, onChunk, signal) {
+    const sysMsg = messages.find(m => m.role === 'system');
+    const persona = sysMsg && typeof sysMsg.content === 'string' ? sysMsg.content : '';
+    let question = '';
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') { const c = messages[i].content; question = typeof c === 'string' ? c : (Array.isArray(c) ? ((c.find(p => p.type === 'text') || {}).text || '') : ''); break; }
+    }
+    const hard = question.length > 180 || /קוד|code|באג|bug|תתקן|לתקן|תכנית|פסק.?דין|חוק |רפוא|מתמט|כמה זה|חשב|הוכ|נכון ש|כמה עולה|תסביר איך|why|how does/i.test(question);
+    const simple = question.length < 25 && /^(היי|שלום|מה קורה|מה שלומ|הי\b|אהלן|בוקר טוב|ערב טוב|תודה|לילה טוב|מה נשמע)/.test(question);
+    try {
+        if (simple) return await _axVoice(persona, question, '(שיחה קלילה — ענה ישירות, חם וקצר, בלי ניתוח)', '', onChunk, signal);
+        const brainMsgs = messages.filter(m => m.role !== 'system');
+        brainMsgs.unshift({ role: 'system', content: persona + '\n\n[תפקידך: מוח-מומחה] נתח ופתור את הבקשה ביסודיות ובדייקנות. אל תדאג לניסוח יפה — רק תוכן נכון ומלא. אם זה קוד — כתוב קוד נכון ושלם.' });
+        const brain = await _axBrain(brainMsgs, signal);
+        if (!brain) return null; // כל המוחות נפלו → שרשרת רגילה
+        const judgeNote = hard ? await _axJudge(question, brain.text, signal) : '';
+        return await _axVoice(persona, question, brain.text, judgeNote, onChunk, signal);
+    } catch (e) { return null; }
+}
+
 async function callAI(messages, onChunk, signal=null) {
     // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
         m.content.some(c => c.type === 'image_url'));
+
+    // ── Axion 4.1 (מנהל בלבד) — צוות מודלים. כשל → ממשיך לשרשרת הרגילה למטה. ──
+    if (!hasImage && typeof currentModelId === 'function' && currentModelId() === 'axion' && ADMIN_USERS.includes(currentUser)) {
+        try { const t = await _axionPipeline(messages, onChunk, signal); if (t) return t; } catch (e) {}
+    }
 
     // ── Vision path ──
     if (hasImage) {
