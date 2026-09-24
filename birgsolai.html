@@ -7193,10 +7193,11 @@ async function _axCall(provider, path, model, msgs, maxTok, signal) {
     return t;
 }
 async function _axBrain(msgs, signal) {
-    // מוח-על → מוח יציב → גיבוי
-    try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 2500, signal), who: 'GLM-5.2' }; } catch (e) {}
-    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 2500, signal), who: 'GLM-4.5-Flash' }; } catch (e) {}
-    try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2000, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
+    // לפי הבנצ'מרק: GLM-4.7-Flash (קוד נקי) → 120B (מהיר) → GLM-4.5 → GLM-5.2. טוקנים גבוהים כדי שמודל-חשיבה לא יחזיר ריק.
+    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, signal), who: 'GLM-4.7-Flash' }; } catch (e) {}
+    try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
+    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 4000, signal), who: 'GLM-4.5-Flash' }; } catch (e) {}
+    try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, signal), who: 'GLM-5.2' }; } catch (e) {}
     return null;
 }
 async function _axJudge(question, answer, signal) {
@@ -7212,14 +7213,20 @@ async function _axVoice(persona, question, brainText, judgeNote, onChunk, signal
     const sys = persona + '\n\n[מצב Axion — אתה הקול] קיבלת ניתוח ממוח-מומחה. נסח ממנו תשובה סופית בעברית: חמה, טבעית, תמציתית, בטון של BIRGSOL. בלי LaTeX או סימני נוסחה — מספרים ונוסחאות בטקסט רגיל. אל תזכיר "מוח"/"מומחה"/מודלים/צוות — פשוט תענה כ-BIRGSOL.';
     let u = 'שאלת המשתמש:\n' + question + '\n\nניתוח המוח (בסיס לתשובה):\n' + brainText;
     if (judgeNote) u += '\n\n⚠️ הערת בקרה — תקן זאת לפני התשובה: ' + judgeNote;
-    const body = { contents: [{ role: 'user', parts: [{ text: u }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { maxOutputTokens: 2048, temperature: 0.6 } };
-    const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', body, { signal: signal || AbortSignal.timeout(30000) });
-    if (!r.ok) throw new Error('voice ' + r.status);
-    const j = await r.json();
-    const t = (j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts[0] && j.candidates[0].content.parts[0].text || '').trim();
-    if (!t) throw new Error('voice empty');
-    await _typewriter(t, onChunk, 8);
-    return t;
+    // קול ראשי: Gemini (עברית הכי טבעית)
+    try {
+        const body = { contents: [{ role: 'user', parts: [{ text: u }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { maxOutputTokens: 2048, temperature: 0.6 } };
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', body, { signal: signal || AbortSignal.timeout(30000) });
+        if (r.ok) { const j = await r.json(); const t = (j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts[0] && j.candidates[0].content.parts[0].text || '').trim(); if (t) { await _typewriter(t, onChunk, 8); return t; } }
+    } catch (e) {}
+    // גיבוי קול: GPT-OSS-120B מנסח (נשאר בתוך Axion — לא נופל ל-Mistral)
+    try {
+        const t = await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', [{ role: 'system', content: sys }, { role: 'user', content: u }], 2000, signal);
+        if (t) { await _typewriter(t, onChunk, 8); return t; }
+    } catch (e) {}
+    // גיבוי אחרון: מציג את תשובת המוח כמו שהיא (עדיין Axion, לא Mistral)
+    if (brainText) { await _typewriter(brainText, onChunk, 6); return brainText; }
+    throw new Error('voice-failed');
 }
 async function _axionPipeline(messages, onChunk, signal) {
     const sysMsg = messages.find(m => m.role === 'system');
@@ -8348,7 +8355,7 @@ async function _browserAgent(goal, opts) {
         let _actHist = [], _loopBreaks = 0; // גלאי לולאה — זיהוי חזרה על אותה פעולה בדיוק
         let _hardFails = 0; // כשלים רצופים בביצוע — טריגר ל-Hard-Reset (רענון הדף והמשך)
         for (let stepN = 1; stepN <= MAX && !_agentStop; stepN++) {
-            if (state.stopped) { _step('נעצר על ידי המשתמש', false); break; }
+            if (state.stopped && _agentStop) { _step('נעצר על ידי המשתמש', false); break; } // רק עצירה אמיתית של הריצה הזו — לא דגל תקוע מריצה קודמת
             // בונים תיאור הדף לסוכן
             const fieldsTxt = (state.fields || []).slice(0, 60).map(f =>
                 `[${f.ref}] ${f.kind}${f.label ? ' "' + f.label + '"' : ''}${f.value ? ' =' + JSON.stringify(f.value) : ''}${f.checked != null ? (f.checked ? ' (מסומן)' : ' (לא מסומן)') : ''}`).join('\n');
