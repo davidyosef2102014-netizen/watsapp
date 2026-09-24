@@ -7203,13 +7203,12 @@ async function _axCall(provider, path, model, msgs, maxTok, signal) {
     return t;
 }
 async function _axBrain(msgs, signal) {
-    // הכי מתקדם קודם: GLM-5.3 → GLM-5.2 (Cloudflare Workers AI — חינם ואמין), ואז גיבויים חינמיים.
-    for (const cf of ['@cf/zai-org/glm-5.3', '@cf/zai-org/glm-5.2']) {
-        try { const r = await _ghCfai(cf, msgs, 3000, { signal }); if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: cf.split('/').pop() }; } } catch (e) {}
+    // המוח החזק ביותר שהוא חינמי ואמין: GPT-OSS-120B → Llama-3.3-70B → Qwen2.5-Coder-32B (Cloudflare) → GLM-4.7-Flash
+    try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
+    for (const cf of ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/qwen/qwen2.5-coder-32b-instruct']) {
+        try { const r = await _ghCfai(cf, msgs, 2500, { signal }); if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: cf.split('/').pop() }; } } catch (e) {}
     }
     try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, signal), who: 'GLM-4.7-Flash' }; } catch (e) {}
-    try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
-    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 4000, signal), who: 'GLM-4.5-Flash' }; } catch (e) {}
     return null;
 }
 async function _axJudge(question, answer, signal) {
