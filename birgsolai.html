@@ -2185,6 +2185,16 @@ function _ghProxy(provider, path, payload, opts) {
         ...(opts.signal ? { signal: opts.signal } : {})
     });
 }
+// Cloudflare Workers AI (binding ישיר בוורקר) — GLM-5.3/5.2 וכו', חינם ואמין.
+function _ghCfai(model, messages, maxTok, opts) {
+    opts = opts || {};
+    return fetch(GH_WORKER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'cfai', model, messages, max_tokens: maxTok || 2048, ...(opts.temperature != null ? { temperature: opts.temperature } : {}) }),
+        ...(opts.signal ? { signal: opts.signal } : {})
+    });
+}
 /* עטיפה ל-fetch: מזהה ספק מוכר מה-URL ומנתב דרך ה-Worker (מפתח מוזרק בשרת).
    URL לא-מוכר → fetch רגיל. מאפשר להחליף fetch(->_ghFetch( בלי לשנות את שאר הקריאה. */
 const _PROXY_HOSTS = { 'api.groq.com':'groq', 'openrouter.ai':'openrouter', 'router.huggingface.co':'hf', 'generativelanguage.googleapis.com':'gemini', 'api.elevenlabs.io':'eleven', 'api.tavily.com':'tavily', 'api.mistral.ai':'mistral', 'api.cohere.ai':'cohere' };
@@ -7193,11 +7203,13 @@ async function _axCall(provider, path, model, msgs, maxTok, signal) {
     return t;
 }
 async function _axBrain(msgs, signal) {
-    // לפי הבנצ'מרק: GLM-4.7-Flash (קוד נקי) → 120B (מהיר) → GLM-4.5 → GLM-5.2. טוקנים גבוהים כדי שמודל-חשיבה לא יחזיר ריק.
+    // הכי מתקדם קודם: GLM-5.3 → GLM-5.2 (Cloudflare Workers AI — חינם ואמין), ואז גיבויים חינמיים.
+    for (const cf of ['@cf/zai-org/glm-5.3', '@cf/zai-org/glm-5.2']) {
+        try { const r = await _ghCfai(cf, msgs, 3000, { signal }); if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: cf.split('/').pop() }; } } catch (e) {}
+    }
     try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, signal), who: 'GLM-4.7-Flash' }; } catch (e) {}
     try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
     try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 4000, signal), who: 'GLM-4.5-Flash' }; } catch (e) {}
-    try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, signal), who: 'GLM-5.2' }; } catch (e) {}
     return null;
 }
 async function _axJudge(question, answer, signal) {
