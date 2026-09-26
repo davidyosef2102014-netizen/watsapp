@@ -7195,7 +7195,7 @@ let _lastTurnSources = []; // דומיינים שהמידע בפנייה הנו�
 // ══════════ BIRGSOL Axion 4.1 — צוות מודלים (מנהל בלבד, בדיקות לפני השקה) ══════════
 // מוח (GLM-5.2→GLM-4.5-Flash→120B) → שופט (120B, מודל שונה) → קול (Gemini, עברית חמה).
 async function _axCall(provider, path, model, msgs, maxTok, signal) {
-    const r = await _ghProxy(provider, path, { model, messages: msgs, max_tokens: maxTok, temperature: 0.3 }, { signal: signal || AbortSignal.timeout(45000) });
+    const r = await _ghProxy(provider, path, { model, messages: msgs, max_tokens: maxTok, temperature: 0.3 }, { signal: signal || AbortSignal.timeout(16000) });
     if (!r.ok) throw new Error(provider + ' ' + r.status);
     const j = await r.json();
     const t = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
@@ -7203,13 +7203,13 @@ async function _axCall(provider, path, model, msgs, maxTok, signal) {
     return t;
 }
 async function _axBrain(msgs, signal) {
-    // חזית: GLM-5.3 → Qwen-Coder-32B → GLM-4.7-Flash. סוף: GPT-OSS-120B (שני מהסוף) → Llama-3.3-70B (אחרון).
-    const _cf = async (model, maxTok) => { const r = await _ghCfai(model, msgs, maxTok, { signal }); if (!r.ok) throw new Error('cf ' + r.status); const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (!t) throw new Error('cf empty'); return t; };
-    try { return { text: await _axCall('nvidia', '/v1/chat/completions', 'z-ai/glm-5.3', msgs, 4000, signal), who: 'GLM-5.3' }; } catch (e) {}
-    try { return { text: await _cf('@cf/qwen/qwen2.5-coder-32b-instruct', 2500), who: 'Qwen2.5-Coder-32B' }; } catch (e) {}
-    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, signal), who: 'GLM-4.7-Flash' }; } catch (e) {}
-    try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
-    try { return { text: await _cf('@cf/meta/llama-3.3-70b-instruct-fp8-fast', 2500), who: 'Llama-3.3-70B' }; } catch (e) {}
+    // מהירים בחזית כדי ש-Axion יענה מיד (GLM-5.3 ב-NVIDIA איטי מדי לחזית — נשאר אחרון עם timeout קצר).
+    const _cf = async (model, maxTok) => { const r = await _ghCfai(model, msgs, maxTok, { signal: signal || AbortSignal.timeout(16000) }); if (!r.ok) throw new Error('cf ' + r.status); const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (!t) throw new Error('cf empty'); return t; };
+    try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2000, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
+    try { return { text: await _cf('@cf/qwen/qwen2.5-coder-32b-instruct', 2000), who: 'Qwen2.5-Coder-32B' }; } catch (e) {}
+    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 3000, signal), who: 'GLM-4.7-Flash' }; } catch (e) {}
+    try { return { text: await _cf('@cf/meta/llama-3.3-70b-instruct-fp8-fast', 2000), who: 'Llama-3.3-70B' }; } catch (e) {}
+    try { return { text: await _axCall('nvidia', '/v1/chat/completions', 'z-ai/glm-5.3', msgs, 2500, AbortSignal.timeout(14000)), who: 'GLM-5.3' }; } catch (e) {}
     return null;
 }
 async function _axJudge(question, answer, signal) {
