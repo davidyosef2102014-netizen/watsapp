@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedRecord — פורטל רשומות (מעבדת CTF)</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; background: linear-gradient(135deg,#0f766e,#0e7490); color:#fff; min-height:100vh; margin:0; display:flex; align-items:center; justify-content:center; }
+    .card { background: rgba(255,255,255,.1); padding: 26px 30px; border-radius: 16px; width: 380px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+    h1 { font-size: 20px; margin: 0 0 4px; } .sub { font-size:12px; opacity:.7; margin-bottom:16px; }
+    .rec { background:#fff; color:#0f172a; padding:12px 14px; border-radius:10px; margin-top:10px; }
+    .rec b { display:block; margin-bottom:3px; }
+    #who { font-size:13px; opacity:.85; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🏥 MedRecord</h1>
+    <div class="sub">פורטל רשומות רפואיות · מעבדת אימון מבודדת</div>
+    <div id="who">מחובר כ: דוד כהן (מטופל #1)</div>
+    <div id="out">טוען את הרשומה שלך…</div>
+  </div>
+
+  <script>
+    // "מטופל מחובר" — לצורך הדגמה, המשתמש הנוכחי הוא מטופל #1.
+    const CURRENT_PATIENT_ID = 1;
+
+    async function loadMyRecord() {
+      // ⚠️ פרצת אבטחה: השרת מחזיר את *כל* הרשומות (כולל רשומות שאינן ציבוריות),
+      //    והסינון ל"רק שלי" נעשה בצד-הלקוח בלבד. כל התוכן הרגיש כבר הגיע לדפדפן.
+      const res = await fetch('./records.json');
+      const data = await res.json();
+
+      // סינון בצד-לקוח (לא מאובטח!) — רק מציג את הרשומה של המשתמש הנוכחי
+      const mine = data.patients.find(p => p.id === CURRENT_PATIENT_ID);
+
+      const out = document.getElementById('out');
+      if (mine) {
+        out.innerHTML = '<div class="rec"><b>' + mine.name + '</b>' + mine.record + '</div>';
+      } else {
+        out.textContent = 'לא נמצאה רשומה.';
+      }
+      // הערה: data מכיל את כל המטופלים כולל רשומת ADMIN שאינה ציבורית — הדפדפן קיבל אותה.
+    }
+    loadMyRecord();
+  </script>
+</body>
+</html>
