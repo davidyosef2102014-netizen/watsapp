@@ -8157,17 +8157,28 @@ async function _trackWrite(fc, path, newContent) {
 // כרטיס פעולה חי — מופיע בזרימת השיחה ברגע שהסוכן עושה פעולה (בסגנון Claude Code)
 function _liveCard(container, opts) {
     if (!container) return;
+    const wrap = document.createElement('div'); wrap.style.cssText = 'margin:4px 0';
     const c = document.createElement('div');
+    const hasDetail = opts.detail && String(opts.detail).trim();
     // סגנון עדין ואפור-דהוי כמו Claude Code — בלי קופסה בולטת, רק שורה קטנה.
-    c.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted,#8b909a);flex-wrap:wrap';
+    c.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted,#8b909a);flex-wrap:wrap' + (hasDetail ? ';cursor:pointer' : '');
     const _clean = s => String(s == null ? '' : s).replace(/[<>&]/g, '');
     let right = '';
     // מספר שורות קוד שנוספו/הוסרו — רק בעריכת קוד (opts.added מוגדר)
     if (opts.added != null) right = '<span style="margin-inline-start:6px"><span style="color:#16a34a">+' + opts.added + '</span> <span style="color:#dc2626">−' + opts.removed + '</span></span>';
     else if (opts.ok != null) right = '<span style="margin-inline-start:6px">' + (opts.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>') + '</span>';
-    c.innerHTML = '<span style="opacity:.7">' + (opts.icon || '•') + '</span><span>' + _clean(opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:monospace;font-size:11.5px;opacity:.85">' + _clean(opts.name) + '</span>' : '') + right;
+    c.innerHTML = (hasDetail ? '<span class="_lcchev" style="opacity:.6">▸</span>' : '') + '<span style="opacity:.7">' + (opts.icon || '•') + '</span><span>' + _clean(opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:monospace;font-size:11.5px;opacity:.85">' + _clean(opts.name) + '</span>' : '') + right;
+    wrap.appendChild(c);
+    if (hasDetail) {
+        const det = document.createElement('pre');
+        det.style.cssText = 'display:none;margin:4px 0 2px;padding:8px 10px;background:var(--surf2,#f2f3f6);border-radius:8px;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-word;max-height:280px;overflow:auto;color:var(--text);direction:ltr;text-align:left';
+        det.textContent = String(opts.detail).slice(0, 5000);
+        wrap.appendChild(det);
+        let open = false;
+        c.onclick = () => { open = !open; det.style.display = open ? 'block' : 'none'; const ch = c.querySelector('._lcchev'); if (ch) ch.textContent = open ? '▾' : '▸'; };
+    }
     if (opts.link) { const a = document.createElement('a'); a.href = opts.link; a.target = '_blank'; a.textContent = '🔗 פתח'; a.style.cssText = 'margin-inline-start:6px;font-size:11.5px;color:var(--accent,#2563eb);text-decoration:none'; c.appendChild(a); }
-    container.appendChild(c);
+    container.appendChild(wrap);
     const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 }
 // "דיבור חי" — משפט קצר, אפור-דהוי, שמראה מה הסוכן עושה תוך כדי (כמו Claude Code)
@@ -8293,9 +8304,9 @@ async function runNativeAgent(goal, opts) {
             try {
                 _liveSay(body, decision.reason); // מדבר תוך כדי — משפט אנושי לפני הכרטיס
                 if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'יצר' : 'ערך', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
-                else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl }); }
-                else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path) });
-                else if (decision.op === 'search') _liveCard(body, { icon: '🔎', verb: 'חיפש', name: _q });
+                else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl, detail: nres }); }
+                else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path), detail: nres });
+                else if (decision.op === 'search') _liveCard(body, { icon: '🔎', verb: 'חיפש', name: _q, detail: nres });
             } catch (e) {}
             stepsLog.push(stepN + '. ' + decision.op + ' ' + _lbl);
             stepsLog.push('   → ' + String(nres).slice(0, 14000));
@@ -8491,8 +8502,8 @@ async function _browserAgent(goal, opts) {
                 try {
                     _liveSay(body, decision.reason); // מדבר תוך כדי
                     if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'יצר' : 'ערך', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
-                    else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl }); }
-                    else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path) });
+                    else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl, detail: nres }); }
+                    else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path), detail: nres });
                 } catch (e) {}
                 stepsLog.push(`${stepN}. ${decision.op} ${_lbl}`);
                 stepsLog.push('   → ' + String(nres).slice(0, 14000)); // הפלט חוזר לסוכן — כדי שיבדוק ויתקדם
