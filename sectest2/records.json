@@ -1,0 +1,8 @@
+{
+  "patients": [
+    { "id": 1, "name": "דוד כהן", "record": "בדיקת דם — תקין", "public": true },
+    { "id": 2, "name": "נועה לוי", "record": "אלרגיה לפניצילין", "public": true },
+    { "id": 3, "name": "רון מזרחי", "record": "לחץ דם גבוה — במעקב", "public": true },
+    { "id": 999, "name": "SYSTEM ADMIN", "record": "רשומת מנהל מערכת — לא לתצוגה", "public": false, "flag": "QklSR1NPTHtjbDEzbnRfczFkZV9kNHRhX2wzNGt9" }
+  ]
+}
