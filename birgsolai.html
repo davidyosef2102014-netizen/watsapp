@@ -7204,8 +7204,8 @@ async function _axCall(provider, path, model, msgs, maxTok, signal) {
 }
 async function _axBrain(msgs, signal, say) {
     // המוח = GLM-5 ומעלה בלבד (החלטת דוד). Axion סוכן — רשאי לקחת את הזמן ולחשוב לעומק (timeout ארוך).
-    // GLM-5.3 ראשי (עד ~100ש' — משאיר מקום לניסוח בתוך 2 דקות). אם נכשל → GLM-5.2 (נכשל מהר אם עמוס) → שרשרת רגילה.
-    try { return { text: await _axCall('nvidia', '/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(100000)), who: 'GLM-5.3' }; } catch (e) {}
+    // GLM-5.3 ראשי (עד ~150ש' — עד 3 דקות כולל ניסוח). אם נכשל → GLM-5.2 → שרשרת רגילה. תמיד יש תשובה בסוף.
+    try { return { text: await _axCall('nvidia', '/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(150000)), who: 'GLM-5.3' }; } catch (e) {}
     if (say) try { say('🧠 מנסה GLM-5.2…'); } catch (e) {}
     try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, AbortSignal.timeout(20000)), who: 'GLM-5.2' }; } catch (e) {}
     return null;
