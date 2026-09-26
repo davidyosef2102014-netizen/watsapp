@@ -7181,10 +7181,12 @@ async function _consolidateMemory() {
 
 /* ── CALL AI — robust POST with retry + GET fallback ── */
 async function _typewriter(text, onChunk, step) {
-    const words = text.split(' ');
-    const batch = Math.max(step, 8); // words per frame
-    for (let i = 0; i < words.length; i += batch) {
-        onChunk(words.slice(0, i + batch).join(' '));
+    // גילוי חלק תו-אחר-תו (~1.6ש' סה"כ, בקצב קבוע לכל אורך) — זרימה חלקה כמו סטרימינג אמיתי.
+    const total = text.length;
+    const FRAMES = 95; // ~1.6ש' ב-60fps
+    const chunk = Math.max(1, Math.ceil(total / FRAMES));
+    for (let i = chunk; i < total; i += chunk) {
+        onChunk(text.slice(0, i));
         await new Promise(r => setTimeout(r, 16)); // ~60fps
     }
     onChunk(text);
