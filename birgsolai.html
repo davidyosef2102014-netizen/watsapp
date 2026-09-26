@@ -7202,11 +7202,14 @@ async function _axCall(provider, path, model, msgs, maxTok, signal) {
     if (!t) throw new Error(provider + ' empty');
     return t;
 }
+let _axBrainCd = 0; // צינון המוח — כדי לא "לפוצץ" את GLM-5.3 בעומס
 async function _axBrain(msgs, signal, say) {
     // המוח = GLM-5 ומעלה בלבד (החלטת דוד). Axion סוכן — רשאי לקחת את הזמן ולחשוב לעומק (timeout ארוך).
-    // GLM-5.3 ראשי (עד ~150ש' — עד 3 דקות כולל ניסוח). אם נכשל → GLM-5.2 → שרשרת רגילה. תמיד יש תשובה בסוף.
-    try { return { text: await _axCall('nvidia', '/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(150000)), who: 'GLM-5.3' }; } catch (e) {}
-    if (say) try { say('🧠 מנסה GLM-5.2…'); } catch (e) {}
+    // הגנת-עומס: אם GLM-5.3 נכשל/עמוס — נחים 90ש' (לא מפציצים אותו בקריאות), ובינתיים משתמשים ב-GLM-5.2/מהיר.
+    if (Date.now() >= _axBrainCd) {
+        try { return { text: await _axCall('nvidia', '/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(150000)), who: 'GLM-5.3' }; }
+        catch (e) { _axBrainCd = Date.now() + 90000; if (say) try { say('🧠 המוח עמוס — נח רגע, ממשיך בגיבוי…'); } catch (e2) {} }
+    } else if (say) { try { say('🧠 המוח נח (עומס) — ממשיך בגיבוי…'); } catch (e) {} }
     try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, AbortSignal.timeout(20000)), who: 'GLM-5.2' }; } catch (e) {}
     return null;
 }
@@ -7260,7 +7263,15 @@ async function _axionPipeline(messages, onChunk, signal) {
     };
     const stopStatus = () => { if (_statusIv) { clearInterval(_statusIv); _statusIv = null; } };
     try {
-        if (simple) { stopStatus(); return await _axVoice(persona, question, '(שיחה קלילה — ענה ישירות, חם וקצר, בלי ניתוח)', '', onChunk, signal); }
+        // ⚡ שאלה רגילה/קלה → Llama-4 סופר-מהיר עונה מיד (שיחה נורמלית). רק שאלות קשות הולכות למוח העמוק GLM-5.3.
+        if (!hard) {
+            stopStatus(); say('⚡ עונה…');
+            try {
+                const r = await _ghCfai('@cf/meta/llama-4-scout-17b-16e-instruct', messages, 1500, { signal: signal || AbortSignal.timeout(22000) });
+                if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) { await _typewriter(t, onChunk, 8); return t; } }
+            } catch (e) {}
+            // אם המהיר נכשל — ממשיך למוח העמוק
+        }
         const brainMsgs = messages.filter(m => m.role !== 'system');
         brainMsgs.unshift({ role: 'system', content: persona + '\n\n[תפקידך: מוח-מומחה] נתח ופתור את הבקשה ביסודיות ובדייקנות. אל תדאג לניסוח יפה — רק תוכן נכון ומלא. אם זה קוד — כתוב קוד נכון ושלם.' });
         sayThink('🧠 המוח (GLM-5.3) חושב לעומק…');
@@ -8327,7 +8338,7 @@ async function _browserAgent(goal, opts) {
     // תצוגה מקופלת בסגנון "BIRGSOL in Chrome" — כל הצעדים מאחורי הקלעים; לחיצה פותחת ומראה מה הוא עושה
     const _hdr = document.createElement('div');
     _hdr.style.cssText = 'display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:var(--surf2,#f0f2f6);border:1px solid var(--border,#e2e4ea);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;user-select:none;color:var(--text)';
-    _hdr.innerHTML = '<span class="agent-step-dot" id="_bic_dot"></span><span>BIRGSOL in Chrome</span><span id="_bic_chev" style="opacity:.55;font-size:11px">▾</span>';
+    _hdr.innerHTML = '<span class="agent-step-dot" id="_bic_dot"></span><span>BIRGSOL — סוכן</span><span id="_bic_chev" style="opacity:.55;font-size:11px">▾</span>';
     const _det = document.createElement('div');
     _det.style.cssText = 'display:none;margin-top:8px;padding-inline-start:10px;border-inline-start:2px solid var(--border,#e2e4ea)';
     status.appendChild(_hdr); status.appendChild(_det);
