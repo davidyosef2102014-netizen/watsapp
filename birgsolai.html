@@ -8158,21 +8158,23 @@ async function _trackWrite(fc, path, newContent) {
 function _liveCard(container, opts) {
     if (!container) return;
     const c = document.createElement('div');
-    c.style.cssText = 'margin:7px 0;border:1px solid var(--border,#e2e4ea);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:13px;background:var(--surf2,#f7f8fb);color:var(--text);flex-wrap:wrap';
+    // סגנון עדין ואפור-דהוי כמו Claude Code — בלי קופסה בולטת, רק שורה קטנה.
+    c.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted,#8b909a);flex-wrap:wrap';
     const _clean = s => String(s == null ? '' : s).replace(/[<>&]/g, '');
     let right = '';
-    if (opts.added != null) right = '<span style="margin-inline-start:auto;font-weight:700"><span style="color:#16a34a">+' + opts.added + '</span> <span style="color:#dc2626">−' + opts.removed + '</span></span>';
-    else if (opts.ok != null) right = '<span style="margin-inline-start:auto">' + (opts.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>') + '</span>';
-    c.innerHTML = '<span>' + (opts.icon || '•') + '</span><span style="font-weight:600">' + _clean(opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:monospace;font-size:12px;color:var(--text);opacity:.85">' + _clean(opts.name) + '</span>' : '') + right;
-    if (opts.link) { const a = document.createElement('a'); a.href = opts.link; a.target = '_blank'; a.textContent = '🔗 פתח'; a.style.cssText = 'margin-inline-start:8px;font-size:12px;color:var(--accent,#2563eb);text-decoration:none;flex-basis:100%'; c.appendChild(a); }
+    // מספר שורות קוד שנוספו/הוסרו — רק בעריכת קוד (opts.added מוגדר)
+    if (opts.added != null) right = '<span style="margin-inline-start:6px"><span style="color:#16a34a">+' + opts.added + '</span> <span style="color:#dc2626">−' + opts.removed + '</span></span>';
+    else if (opts.ok != null) right = '<span style="margin-inline-start:6px">' + (opts.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>') + '</span>';
+    c.innerHTML = '<span style="opacity:.7">' + (opts.icon || '•') + '</span><span>' + _clean(opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:monospace;font-size:11.5px;opacity:.85">' + _clean(opts.name) + '</span>' : '') + right;
+    if (opts.link) { const a = document.createElement('a'); a.href = opts.link; a.target = '_blank'; a.textContent = '🔗 פתח'; a.style.cssText = 'margin-inline-start:6px;font-size:11.5px;color:var(--accent,#2563eb);text-decoration:none'; c.appendChild(a); }
     container.appendChild(c);
     const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 }
-// "דיבור חי" — משפט טבעי בגובה העיניים שמופיע בזרימת השיחה תוך כדי עבודה (כמו בן אדם)
+// "דיבור חי" — משפט קצר, אפור-דהוי, שמראה מה הסוכן עושה תוך כדי (כמו Claude Code)
 function _liveSay(container, text) {
     if (!container || !text) return;
     const p = document.createElement('div');
-    p.style.cssText = 'margin:8px 0;font-size:14px;line-height:1.6;color:var(--text)';
+    p.style.cssText = 'margin:4px 0;font-size:12.5px;line-height:1.5;color:var(--muted,#8b909a)';
     try { p.innerHTML = (typeof mdSafe === 'function' ? mdSafe(String(text)) : String(text)); } catch (e) { p.textContent = String(text); }
     container.appendChild(p);
     const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
@@ -8231,7 +8233,7 @@ async function runNativeAgent(goal, opts) {
     const status = document.createElement('div'); status.className = 'agent-status'; status.style.cssText = 'display:block'; body.insertBefore(status, txt);
     const _esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const _hdr = document.createElement('div');
-    _hdr.style.cssText = 'display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:var(--surf2,#f0f2f6);border:1px solid var(--border,#e2e4ea);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;user-select:none;color:var(--text)';
+    _hdr.style.cssText = 'display:inline-flex;align-items:center;gap:7px;cursor:pointer;border-radius:14px;padding:3px 10px;font-size:12px;font-weight:500;user-select:none;color:var(--muted,#8b909a);opacity:.9';
     _hdr.innerHTML = '<span class="agent-step-dot" id="_nic_dot"></span><span>BIRGSOL — סוכן קוד</span><span id="_nic_chev" style="opacity:.55;font-size:11px">▾</span>';
     const _det = document.createElement('div'); _det.style.cssText = 'display:none;margin-top:8px;padding-inline-start:10px;border-inline-start:2px solid var(--border,#e2e4ea)';
     status.appendChild(_hdr); status.appendChild(_det);
@@ -8337,7 +8339,7 @@ async function _browserAgent(goal, opts) {
     const _esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     // תצוגה מקופלת בסגנון "BIRGSOL in Chrome" — כל הצעדים מאחורי הקלעים; לחיצה פותחת ומראה מה הוא עושה
     const _hdr = document.createElement('div');
-    _hdr.style.cssText = 'display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:var(--surf2,#f0f2f6);border:1px solid var(--border,#e2e4ea);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;user-select:none;color:var(--text)';
+    _hdr.style.cssText = 'display:inline-flex;align-items:center;gap:7px;cursor:pointer;border-radius:14px;padding:3px 10px;font-size:12px;font-weight:500;user-select:none;color:var(--muted,#8b909a);opacity:.9';
     _hdr.innerHTML = '<span class="agent-step-dot" id="_bic_dot"></span><span>BIRGSOL — סוכן</span><span id="_bic_chev" style="opacity:.55;font-size:11px">▾</span>';
     const _det = document.createElement('div');
     _det.style.cssText = 'display:none;margin-top:8px;padding-inline-start:10px;border-inline-start:2px solid var(--border,#e2e4ea)';
