@@ -7219,7 +7219,8 @@ async function _axJudge(question, answer, signal) {
         return /^\s*OK\s*$/i.test(t) ? '' : t;
     } catch (e) { return ''; }
 }
-async function _axVoice(persona, question, brainText, judgeNote, onChunk, signal) {
+async function _axVoice(persona, question, brainText, judgeNote, onChunk, signal, doStream) {
+    if (doStream === undefined) doStream = true;
     const sys = persona + '\n\n[מצב Axion — אתה הקול] קיבלת ניתוח ממוח-מומחה. נסח ממנו תשובה סופית בעברית: חמה, טבעית, תמציתית, בטון של BIRGSOL. בלי LaTeX או סימני נוסחה — מספרים ונוסחאות בטקסט רגיל. אל תזכיר "מוח"/"מומחה"/מודלים/צוות — פשוט תענה כ-BIRGSOL.';
     let u = 'שאלת המשתמש:\n' + question + '\n\nניתוח המוח (בסיס לתשובה):\n' + brainText;
     if (judgeNote) u += '\n\n⚠️ הערת בקרה — תקן זאת לפני התשובה: ' + judgeNote;
@@ -7227,15 +7228,15 @@ async function _axVoice(persona, question, brainText, judgeNote, onChunk, signal
     try {
         const body = { contents: [{ role: 'user', parts: [{ text: u }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { maxOutputTokens: 2048, temperature: 0.6 } };
         const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', body, { signal: signal || AbortSignal.timeout(30000) });
-        if (r.ok) { const j = await r.json(); const t = (j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts[0] && j.candidates[0].content.parts[0].text || '').trim(); if (t) { await _typewriter(t, onChunk, 8); return t; } }
+        if (r.ok) { const j = await r.json(); const t = (j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts[0] && j.candidates[0].content.parts[0].text || '').trim(); if (t) { if (doStream) await _typewriter(t, onChunk, 8); return t; } }
     } catch (e) {}
     // גיבוי קול: GPT-OSS-120B מנסח (נשאר בתוך Axion — לא נופל ל-Mistral)
     try {
         const t = await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', [{ role: 'system', content: sys }, { role: 'user', content: u }], 2000, signal);
-        if (t) { await _typewriter(t, onChunk, 8); return t; }
+        if (t) { if (doStream) await _typewriter(t, onChunk, 8); return t; }
     } catch (e) {}
     // גיבוי אחרון: מציג את תשובת המוח כמו שהיא (עדיין Axion, לא Mistral)
-    if (brainText) { await _typewriter(brainText, onChunk, 6); return brainText; }
+    if (brainText) { if (doStream) await _typewriter(brainText, onChunk, 6); return brainText; }
     throw new Error('voice-failed');
 }
 async function _axionPipeline(messages, onChunk, signal) {
@@ -7265,11 +7266,19 @@ async function _axionPipeline(messages, onChunk, signal) {
         sayThink('🧠 המוח (GLM-5.3) חושב לעומק…');
         const brain = await _axBrain(brainMsgs, signal, say);
         if (!brain) { stopStatus(); return null; } // כל מוחות GLM-5 נפלו → שרשרת רגילה (נדיר)
-        let judgeNote = '';
-        if (hard) { sayThink('⚖️ ' + brain.who + ' סיים — השופט בודק טעויות…'); judgeNote = await _axJudge(question, brain.text, signal); }
+        // 1) מנסח קודם (תוך כדי) — מחזיק את התשובה בלי להציג עדיין
+        sayThink('🗣️ ' + brain.who + ' סיים — מנסח את התשובה…');
+        let ans = await _axVoice(persona, question, brain.text, '', onChunk, signal, false);
+        // 2) השופט בודק את התשובה *המנוסחת* (מה שהמשתמש יראה), ומתקן אם צריך
+        if (hard && ans) {
+            sayThink('⚖️ בודק את התשובה…');
+            const note = await _axJudge(question, ans, signal);
+            if (note) { sayThink('✍️ מתקן לפי הבקרה…'); const fixed = await _axVoice(persona, question, brain.text, note, onChunk, signal, false); if (fixed) ans = fixed; }
+        }
+        // 3) מציג את התשובה הסופית (המאושרת)
         stopStatus();
-        say('🗣️ מנסח את התשובה…');
-        return await _axVoice(persona, question, brain.text, judgeNote, onChunk, signal);
+        if (ans) { await _typewriter(ans, onChunk, 8); return ans; }
+        return null;
     } catch (e) { stopStatus(); return null; }
 }
 
