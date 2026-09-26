@@ -7202,11 +7202,12 @@ async function _axCall(provider, path, model, msgs, maxTok, signal) {
     if (!t) throw new Error(provider + ' empty');
     return t;
 }
-async function _axBrain(msgs, signal) {
-    // המוח = GLM בלבד (החלטת דוד): GLM-4.7-Flash (מהיר ואמין) → GLM-4.5-Flash → GLM-5.3 (הכי חכם, אחרון כי איטי ב-NVIDIA).
-    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, signal), who: 'GLM-4.7-Flash' }; } catch (e) {}
-    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 4000, signal), who: 'GLM-4.5-Flash' }; } catch (e) {}
-    try { return { text: await _axCall('nvidia', '/v1/chat/completions', 'z-ai/glm-5.3', msgs, 2500, AbortSignal.timeout(14000)), who: 'GLM-5.3' }; } catch (e) {}
+async function _axBrain(msgs, signal, say) {
+    // המוח = GLM-5 ומעלה בלבד (החלטת דוד). Axion סוכן — רשאי לקחת את הזמן ולחשוב לעומק (timeout ארוך).
+    // GLM-5.3 ראשי (עד ~100ש' — משאיר מקום לניסוח בתוך 2 דקות). אם נכשל → GLM-5.2 (נכשל מהר אם עמוס) → שרשרת רגילה.
+    try { return { text: await _axCall('nvidia', '/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(100000)), who: 'GLM-5.3' }; } catch (e) {}
+    if (say) try { say('🧠 מנסה GLM-5.2…'); } catch (e) {}
+    try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, AbortSignal.timeout(20000)), who: 'GLM-5.2' }; } catch (e) {}
     return null;
 }
 async function _axJudge(question, answer, signal) {
@@ -7246,15 +7247,30 @@ async function _axionPipeline(messages, onChunk, signal) {
     }
     const hard = question.length > 180 || /קוד|code|באג|bug|תתקן|לתקן|תכנית|פסק.?דין|חוק |רפוא|מתמט|כמה זה|חשב|הוכ|נכון ש|כמה עולה|תסביר איך|why|how does/i.test(question);
     const simple = question.length < 25 && /^(היי|שלום|מה קורה|מה שלומ|הי\b|אהלן|בוקר טוב|ערב טוב|תודה|לילה טוב|מה נשמע)/.test(question);
+    // סטטוס חי — Axion סוכן, מראה מה הוא עושה תוך כדי (במקום מסך קפוא). נכתב ל-onChunk ומוחלף בתשובה בסוף.
+    const _t0 = Date.now();
+    let _statusIv = null;
+    const say = (t) => { try { onChunk('◍ ' + t); } catch (e) {} };
+    const sayThink = (label) => {
+        if (_statusIv) clearInterval(_statusIv);
+        const base = label;
+        say(base + '  ·  0 שנ׳');
+        _statusIv = setInterval(() => { const s = Math.round((Date.now() - _t0) / 1000); say(base + '  ·  ' + s + ' שנ׳'); }, 1000);
+    };
+    const stopStatus = () => { if (_statusIv) { clearInterval(_statusIv); _statusIv = null; } };
     try {
-        if (simple) return await _axVoice(persona, question, '(שיחה קלילה — ענה ישירות, חם וקצר, בלי ניתוח)', '', onChunk, signal);
+        if (simple) { stopStatus(); return await _axVoice(persona, question, '(שיחה קלילה — ענה ישירות, חם וקצר, בלי ניתוח)', '', onChunk, signal); }
         const brainMsgs = messages.filter(m => m.role !== 'system');
         brainMsgs.unshift({ role: 'system', content: persona + '\n\n[תפקידך: מוח-מומחה] נתח ופתור את הבקשה ביסודיות ובדייקנות. אל תדאג לניסוח יפה — רק תוכן נכון ומלא. אם זה קוד — כתוב קוד נכון ושלם.' });
-        const brain = await _axBrain(brainMsgs, signal);
-        if (!brain) return null; // כל המוחות נפלו → שרשרת רגילה
-        const judgeNote = hard ? await _axJudge(question, brain.text, signal) : '';
+        sayThink('🧠 המוח (GLM-5.3) חושב לעומק…');
+        const brain = await _axBrain(brainMsgs, signal, say);
+        if (!brain) { stopStatus(); return null; } // כל מוחות GLM-5 נפלו → שרשרת רגילה (נדיר)
+        let judgeNote = '';
+        if (hard) { sayThink('⚖️ ' + brain.who + ' סיים — השופט בודק טעויות…'); judgeNote = await _axJudge(question, brain.text, signal); }
+        stopStatus();
+        say('🗣️ מנסח את התשובה…');
         return await _axVoice(persona, question, brain.text, judgeNote, onChunk, signal);
-    } catch (e) { return null; }
+    } catch (e) { stopStatus(); return null; }
 }
 
 async function callAI(messages, onChunk, signal=null) {
