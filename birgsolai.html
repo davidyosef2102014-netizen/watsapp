@@ -3277,6 +3277,21 @@ function _modal(opts) {
 }
 function _alert(message) { return _modal({ message, type: 'alert' }); }
 function _confirm(message) { return _modal({ message, type: 'confirm' }); }
+// פס-אישור בתחתית הדף (לא חוסם, נעים) — לאישורי הסוכן
+function _confirmBar(message) {
+    return new Promise(resolve => {
+        const old = document.getElementById('_agbar'); if (old) old.remove();
+        const bar = document.createElement('div'); bar.id = '_agbar';
+        bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:var(--surf,#fff);border-top:1px solid var(--border,#e2e4ea);box-shadow:0 -6px 24px rgba(0,0,0,.14);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13.5px;color:var(--text)';
+        const msg = document.createElement('div'); msg.style.cssText = 'flex:1;min-width:200px;line-height:1.45;white-space:pre-wrap'; msg.textContent = _tr(message || '');
+        const cancel = document.createElement('button'); cancel.textContent = _tr('ביטול'); cancel.style.cssText = 'padding:8px 16px;border-radius:9px;border:1px solid var(--border,#ccc);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;font-size:13px';
+        const ok = document.createElement('button'); ok.textContent = _tr('אישור'); ok.style.cssText = 'padding:8px 18px;border-radius:9px;border:none;background:linear-gradient(90deg,#38bdf8,#4285F4);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px';
+        const done = (v) => { try { bar.remove(); } catch (e) {} resolve(v); };
+        cancel.onclick = () => done(false); ok.onclick = () => done(true);
+        bar.appendChild(msg); bar.appendChild(cancel); bar.appendChild(ok);
+        document.body.appendChild(bar);
+    });
+}
 function _prompt(message, defaultVal) { return _modal({ message, type: 'prompt', defaultVal }); }
 
 function _tierToast(msg) {
@@ -8288,9 +8303,9 @@ async function runNativeAgent(goal, opts) {
             if (decision.op === 'run' || decision.op === 'writefile') {
                 if (!_admin) {
                     if (decision.op === 'run' && _destructive.test(_cmd)) { _step('פקודה הרסנית חסומה למשתמש רגיל', false); stepsLog.push('blocked destructive for non-admin: ' + _cmd); continue; }
-                    const ok = await _confirm('הסוכן רוצה ' + (decision.op === 'run' ? 'להריץ בטרמינל' : 'לכתוב קובץ') + ':\n\n' + (decision.op === 'run' ? _cmd : _path) + '\n\nלאשר?'); if (!ok) { _step('בוטל על ידך — עוצר', false); break; }
+                    const ok = await _confirmBar('הסוכן רוצה ' + (decision.op === 'run' ? 'להריץ בטרמינל' : 'לכתוב קובץ') + ':\n\n' + (decision.op === 'run' ? _cmd : _path) + '\n\nלאשר?'); if (!ok) { _step('בוטל על ידך — עוצר', false); break; }
                 } else if (decision.op === 'run' && /git\s+push|git\s+commit|npm\s+publish|ghdeploy\.py|curl[^\n]*-X\s*(PUT|POST|DELETE)|rm\s+-rf|\bformat\b|drop\s+table|shutdown|reboot/i.test(_cmd)) {
-                    const ok = await _confirm('הסוכן רוצה פעולה משמעותית:\n\n' + _cmd + '\n\nלאשר?'); if (!ok) { _step('בוטל — עוצר', false); break; }
+                    const ok = await _confirmBar('הסוכן רוצה פעולה משמעותית:\n\n' + _cmd + '\n\nלאשר?'); if (!ok) { _step('בוטל — עוצר', false); break; }
                 }
             }
             if (_agentStop) break;
@@ -8490,9 +8505,9 @@ async function _browserAgent(goal, opts) {
                 const _destr = /rm\s+-rf|rmdir\s+\/s|\bdel\s+\/[a-z]|\bformat\b|mkfs|drop\s+table|shutdown|reboot|diskpart|>\s*\/dev\/|:\(\)\s*\{/i;
                 if (!_admin) {
                     if (decision.op === 'run' && _destr.test(_cmd)) { _step('פקודה הרסנית חסומה למשתמש רגיל', false); stepsLog.push('blocked destructive (non-admin): ' + _cmd); continue; }
-                    if (decision.op === 'run' || decision.op === 'writefile') { const ok = await _confirm('הסוכן רוצה ' + (decision.op === 'run' ? 'להריץ בטרמינל' : 'לכתוב קובץ') + ':\n\n' + (decision.op === 'run' ? _cmd : _path) + '\n\nלאשר?'); if (!ok) { _step('בוטל על ידך — עוצר', false); stepsLog.push('user declined'); break; } }
+                    if (decision.op === 'run' || decision.op === 'writefile') { const ok = await _confirmBar('הסוכן רוצה ' + (decision.op === 'run' ? 'להריץ בטרמינל' : 'לכתוב קובץ') + ':\n\n' + (decision.op === 'run' ? _cmd : _path) + '\n\nלאשר?'); if (!ok) { _step('בוטל על ידך — עוצר', false); stepsLog.push('user declined'); break; } }
                 } else if (decision.op === 'run' && /git\s+push|git\s+commit|npm\s+publish|ghdeploy\.py|curl[^\n]*-X\s*(PUT|POST|DELETE)|rm\s+-rf|rmdir\s+\/s|\bformat\b|drop\s+table|shutdown|reboot/i.test(_cmd)) {
-                    const ok = await _confirm('הסוכן רוצה פעולה משמעותית:\n\n' + _cmd + '\n\nלאשר?');
+                    const ok = await _confirmBar('הסוכן רוצה פעולה משמעותית:\n\n' + _cmd + '\n\nלאשר?');
                     if (!ok) { _step('בוטל על ידך — עוצר', false); stepsLog.push('user declined: ' + _cmd); break; }
                 }
                 if (_agentStop) break;
@@ -8530,7 +8545,7 @@ async function _browserAgent(goal, opts) {
                 ? (decision.op === 'click' && target && _hardSensitive.test(target.label || ''))
                 : ['click', 'type', 'select', 'navigate', 'key'].includes(decision.op);
             if (risky) {
-                const ok = await _confirm('הסוכן רוצה: ' + human + ' ' + label + '\n\nלאשר את הפעולה הזו?');
+                const ok = await _confirmBar('הסוכן רוצה: ' + human + ' ' + label + '\n\nלאשר את הפעולה הזו?');
                 if (!ok) { _step('הפעולה בוטלה על ידך — עוצר', false); stepsLog.push('user declined: ' + human + ' ' + label); break; }
             }
             if (_agentStop) break;
