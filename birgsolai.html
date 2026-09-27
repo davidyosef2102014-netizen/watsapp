@@ -8178,13 +8178,14 @@ function _liveCard(container, opts) {
     const c = document.createElement('div');
     const hasDetail = opts.detail && String(opts.detail).trim();
     // סגנון עדין ואפור-דהוי כמו Claude Code — בלי קופסה בולטת, רק שורה קטנה.
-    c.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted,#8b909a);flex-wrap:wrap' + (hasDetail ? ';cursor:pointer' : '');
+    c.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:13px;line-height:1.5;color:var(--muted,#8b909a);flex-wrap:wrap' + (hasDetail ? ';cursor:pointer' : '');
     const _clean = s => String(s == null ? '' : s).replace(/[<>&]/g, '');
     let right = '';
     // מספר שורות קוד שנוספו/הוסרו — רק בעריכת קוד (opts.added מוגדר)
     if (opts.added != null) right = '<span style="margin-inline-start:6px"><span style="color:#16a34a">+' + opts.added + '</span> <span style="color:#dc2626">−' + opts.removed + '</span></span>';
     else if (opts.ok != null) right = '<span style="margin-inline-start:6px">' + (opts.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>') + '</span>';
-    c.innerHTML = (hasDetail ? '<span class="_lcchev" style="opacity:.6">▸</span>' : '') + '<span style="opacity:.7">' + (opts.icon || '•') + '</span><span>' + _clean(opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:monospace;font-size:11.5px;opacity:.85">' + _clean(opts.name) + '</span>' : '') + right;
+    // שורה נקייה בסגנון Claude Code: אייקון עדין · פעולה · שם-קובץ (מונו) · +X −Y · חץ בסוף
+    c.innerHTML = '<span style="opacity:.6;font-size:12px">' + (opts.icon || '') + '</span><span>' + _clean(opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:ui-monospace,monospace;font-size:12px;opacity:.9">' + _clean(opts.name) + '</span>' : '') + right + (hasDetail ? '<span class="_lcchev" style="opacity:.45;margin-inline-start:auto">›</span>' : '');
     wrap.appendChild(c);
     if (hasDetail) {
         const det = document.createElement('pre');
@@ -8192,7 +8193,7 @@ function _liveCard(container, opts) {
         det.textContent = String(opts.detail).slice(0, 5000);
         wrap.appendChild(det);
         let open = false;
-        c.onclick = () => { open = !open; det.style.display = open ? 'block' : 'none'; const ch = c.querySelector('._lcchev'); if (ch) ch.textContent = open ? '▾' : '▸'; };
+        c.onclick = () => { open = !open; det.style.display = open ? 'block' : 'none'; const ch = c.querySelector('._lcchev'); if (ch) ch.textContent = open ? '⌄' : '›'; };
     }
     if (opts.link) { const a = document.createElement('a'); a.href = opts.link; a.target = '_blank'; a.textContent = '🔗 פתח'; a.style.cssText = 'margin-inline-start:6px;font-size:11.5px;color:var(--accent,#2563eb);text-decoration:none'; c.appendChild(a); }
     container.appendChild(wrap);
@@ -8202,7 +8203,7 @@ function _liveCard(container, opts) {
 function _liveSay(container, text) {
     if (!container || !text) return;
     const p = document.createElement('div');
-    p.style.cssText = 'margin:4px 0;font-size:12.5px;line-height:1.5;color:var(--muted,#8b909a)';
+    p.style.cssText = 'margin:5px 0;font-size:13px;line-height:1.55;color:var(--muted,#8b909a)';
     try { p.innerHTML = (typeof mdSafe === 'function' ? mdSafe(String(text)) : String(text)); } catch (e) { p.textContent = String(text); }
     container.appendChild(p);
     const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
