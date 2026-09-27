@@ -7223,10 +7223,14 @@ let _axBrainCd = 0; // צינון המוח — כדי לא "לפוצץ" את GLM
 async function _axBrain(msgs, signal, say) {
     // המוח = GLM-5 ומעלה בלבד (החלטת דוד). Axion סוכן — רשאי לקחת את הזמן ולחשוב לעומק (timeout ארוך).
     // הגנת-עומס: אם GLM-5.3 נכשל/עמוס — נחים 90ש' (לא מפציצים אותו בקריאות), ובינתיים משתמשים ב-GLM-5.2/מהיר.
+    // מוח ראשי: GLM-5.3-Flash (NVIDIA) — מחזיר תשובה נכונה, איטי (~90-120ש'). reasoning_effort:low מזרז. timeout ארוך שלא ייחתך.
     if (Date.now() >= _axBrainCd) {
-        try { return { text: await _axCall('nvidia', '/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(150000)), who: 'GLM-5.3' }; }
-        catch (e) { _axBrainCd = Date.now() + 90000; if (say) try { say('🧠 המוח עמוס — נח רגע, ממשיך בגיבוי…'); } catch (e2) {} }
-    } else if (say) { try { say('🧠 המוח נח (עומס) — ממשיך בגיבוי…'); } catch (e) {} }
+        try {
+            const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 3000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(175000) });
+            if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: 'GLM-5.3-Flash' }; }
+            throw new Error('glm53flash empty/slow');
+        } catch (e) { _axBrainCd = Date.now() + 120000; }
+    }
     try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, AbortSignal.timeout(20000)), who: 'GLM-5.2' }; } catch (e) {}
     // המשך שרשרת GLM: 4.7 ואז 4.5
     try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, AbortSignal.timeout(45000)), who: 'GLM-4.7-Flash' }; } catch (e) {}
