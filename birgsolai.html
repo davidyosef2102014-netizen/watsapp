@@ -8187,7 +8187,7 @@ function _liveCard(container, opts) {
         let open = false;
         c.onclick = () => { open = !open; det.style.display = open ? 'block' : 'none'; const ch = c.querySelector('._lcchev'); if (ch) ch.textContent = open ? '⌄' : '›'; };
     }
-    if (opts.link) { const a = document.createElement('a'); a.href = opts.link; a.target = '_blank'; a.textContent = '🔗 פתח'; a.style.cssText = 'margin-inline-start:6px;font-size:11.5px;color:var(--accent,#2563eb);text-decoration:none'; c.appendChild(a); }
+    if (opts.link) { const a = document.createElement('a'); a.href = opts.link; a.target = '_blank'; a.textContent = '🔗 open'; a.style.cssText = 'margin-inline-start:6px;font-size:11.5px;color:var(--accent,#2563eb);text-decoration:none'; c.appendChild(a); }
     container.appendChild(wrap);
     const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 }
