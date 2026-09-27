@@ -7268,17 +7268,10 @@ async function _axionPipeline(messages, onChunk, signal) {
     }
     const hard = question.length > 180 || /קוד|code|באג|bug|תתקן|לתקן|תכנית|פסק.?דין|חוק |רפוא|מתמט|כמה זה|חשב|הוכ|נכון ש|כמה עולה|תסביר איך|why|how does/i.test(question);
     const simple = question.length < 25 && /^(היי|שלום|מה קורה|מה שלומ|הי\b|אהלן|בוקר טוב|ערב טוב|תודה|לילה טוב|מה נשמע)/.test(question);
-    // סטטוס חי — Axion סוכן, מראה מה הוא עושה תוך כדי (במקום מסך קפוא). נכתב ל-onChunk ומוחלף בתשובה בסוף.
-    const _t0 = Date.now();
-    let _statusIv = null;
-    const say = (t) => { try { onChunk('◍ ' + t); } catch (e) {} };
-    const sayThink = (label) => {
-        if (_statusIv) clearInterval(_statusIv);
-        const base = label;
-        say(base + '  ·  0 שנ׳');
-        _statusIv = setInterval(() => { const s = Math.round((Date.now() - _t0) / 1000); say(base + '  ·  ' + s + ' שנ׳'); }, 1000);
-    };
-    const stopStatus = () => { if (_statusIv) { clearInterval(_statusIv); _statusIv = null; } };
+    // בלי שום טקסט-סטטוס בזמן ההמתנה — שקט מוחלט עד שהתשובה מופיעה (רק אינדיקציית ה-busy הרגילה).
+    const say = () => {};
+    const sayThink = () => {};
+    const stopStatus = () => {};
     try {
         // ⚡ שאלה רגילה/קלה → Llama-4 סופר-מהיר עונה מיד (שיחה נורמלית). רק שאלות קשות הולכות למוח העמוק GLM-5.3.
         if (!hard) {
