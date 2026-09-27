@@ -7220,24 +7220,25 @@ async function _axCall(provider, path, model, msgs, maxTok, signal) {
     return t;
 }
 let _axBrainCd = 0; // צינון המוח — כדי לא "לפוצץ" את GLM-5.3 בעומס
-async function _axBrain(msgs, signal, say) {
-    // המוח = GLM-5 ומעלה בלבד (החלטת דוד). Axion סוכן — רשאי לקחת את הזמן ולחשוב לעומק (timeout ארוך).
-    // הגנת-עומס: אם GLM-5.3 נכשל/עמוס — נחים 90ש' (לא מפציצים אותו בקריאות), ובינתיים משתמשים ב-GLM-5.2/מהיר.
-    // מוח ראשי: GLM-5.3-Flash (NVIDIA) — מחזיר תשובה נכונה, איטי (~90-120ש'). reasoning_effort:low מזרז. timeout ארוך שלא ייחתך.
-    if (Date.now() >= _axBrainCd) {
+async function _axBrain(msgs, signal, say, level) {
+    // מנועי המוח (כל אחד מחזיר {text,who} או זורק)
+    const glm53 = async () => {
         try {
             const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 3000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(175000) });
             if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: 'GLM-5.3-Flash' }; }
-            throw new Error('glm53flash empty/slow');
-        } catch (e) { _axBrainCd = Date.now() + 120000; }
-    }
-    try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, AbortSignal.timeout(20000)), who: 'GLM-5.2' }; } catch (e) {}
-    // המשך שרשרת GLM: 4.7 ואז 4.5
-    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, AbortSignal.timeout(45000)), who: 'GLM-4.7-Flash' }; } catch (e) {}
-    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 4000, AbortSignal.timeout(45000)), who: 'GLM-4.5-Flash' }; } catch (e) {}
-    // רשת-ביטחון סופית (שלא ייפול לגמרי): GPT-OSS-120B (שני מהסוף) → Llama-3.3-70B (אחרון)
-    try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
-    try { const r = await _ghCfai('@cf/meta/llama-3.3-70b-instruct-fp8-fast', msgs, 2500, { signal: signal || AbortSignal.timeout(20000) }); if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: 'Llama-3.3-70B' }; } } catch (e) {}
+        } catch (e) {}
+        _axBrainCd = Date.now() + 120000; throw new Error('glm53'); // עומס → צינון, לא נפוצץ אותו
+    };
+    const glm52  = async () => ({ text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, AbortSignal.timeout(20000)), who: 'GLM-5.2' });
+    const glm47  = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, AbortSignal.timeout(45000)), who: 'GLM-4.7-Flash' });
+    const glm45  = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 4000, AbortSignal.timeout(45000)), who: 'GLM-4.5-Flash' });
+    const oss120 = async () => ({ text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal), who: 'GPT-OSS-120B' });
+    const llama70 = async () => { const r = await _ghCfai('@cf/meta/llama-3.3-70b-instruct-fp8-fast', msgs, 2500, { signal: signal || AbortSignal.timeout(20000) }); if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: 'Llama-3.3-70B' }; } throw new Error('llama'); };
+    // deep = קוד/משימה קשה → GLM-5.3-Flash קודם (חזק, איטי). mid = קוד קל/רגיל → GLM-4.7-Flash קודם (מהיר). רשת-ביטחון בסוף.
+    let chain;
+    if (level === 'deep') chain = (Date.now() >= _axBrainCd) ? [glm53, glm52, glm47, glm45, oss120, llama70] : [glm52, glm47, glm45, oss120, llama70];
+    else chain = [glm47, glm45, oss120, llama70]; // mid
+    for (const step of chain) { try { const res = await step(); if (res && res.text) return res; } catch (e) {} }
     return null;
 }
 async function _axJudge(question, answer, signal) {
@@ -7273,10 +7274,10 @@ async function _axVoice(persona, question, brainText, judgeNote, onChunk, signal
 async function _axRouter(question, signal) {
     try {
         const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [
-            { role: 'system', content: 'You are a fast router. Decide if the user request needs a STRONG reasoning model. Reply ONLY JSON: {"deep":true} or {"deep":false}. deep=true for: writing/fixing/reviewing/explaining CODE, math, logic, algorithms, or any complex multi-step reasoning. deep=false for: casual chat, greetings, simple facts, short questions.' },
+            { role: 'system', content: 'You are a fast router. Classify the request into ONE level. Reply ONLY JSON: {"level":"fast"} or {"level":"mid"} or {"level":"deep"}. fast = casual chat, greeting, simple/short question. mid = a normal coding task or a moderate question needing some reasoning. deep = HARD/complex coding, tricky algorithms, math proofs, debugging hard bugs, or deep multi-step reasoning.' },
             { role: 'user', content: String(question || '').slice(0, 600) }
         ], max_tokens: 20, temperature: 0 }, { signal: signal || AbortSignal.timeout(9000) });
-        if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || ''; const m = t.match(/"deep"\s*:\s*(true|false)/i); if (m) return m[1].toLowerCase() === 'true'; }
+        if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || ''; const m = t.match(/"level"\s*:\s*"(fast|mid|deep)"/i); if (m) return m[1].toLowerCase(); }
     } catch (e) {}
     return null; // הנתב לא הצליח → נשתמש בגיבוי היוריסטי
 }
@@ -7287,10 +7288,12 @@ async function _axionPipeline(messages, onChunk, signal) {
     for (let i = messages.length - 1; i >= 0; i--) {
         if (messages[i].role === 'user') { const c = messages[i].content; question = typeof c === 'string' ? c : (Array.isArray(c) ? ((c.find(p => p.type === 'text') || {}).text || '') : ''); break; }
     }
-    // 🧭 הנתב (מודל חלש, gpt-oss-20b) מחליט לבד אם צריך מוח חזק. אם הנתב נכשל — גיבוי היוריסטי.
-    const _heur = question.length > 180 || /קוד|code|coding|תכנת|פונקצי|function|\bclass\b|סקריפט|\bscript\b|באג|\bbug\b|debug|שגיא|\berror\b|crash|javascript|\bjs\b|python|\bhtml\b|\bcss\b|\bsql\b|\bapi\b|regex|algorithm|אלגוריתם|תתקן|לתקן|refactor|מתמט|כמה זה|חשב|הוכ|תסביר איך|why|how does|לולאה|מערך|array/i.test(question);
-    let hard = await _axRouter(question, signal);
-    if (hard === null) hard = _heur;
+    // 🧭 הנתב (מודל חלש, gpt-oss-20b) מחליט לבד את הרמה: fast (מהיר), mid (קוד קל→GLM-4.7), deep (קוד קשה→GLM-5.3).
+    const _isCodeH = /קוד|code|coding|תכנת|פונקצי|function|\bclass\b|סקריפט|\bscript\b|באג|\bbug\b|debug|שגיא|\berror\b|crash|javascript|\bjs\b|python|\bhtml\b|\bcss\b|\bsql\b|\bapi\b|regex|algorithm|אלגוריתם|תתקן|לתקן|refactor|לולאה|מערך|array/i.test(question);
+    const _isHardH = question.length > 220 || /פסק.?דין|חוק |רפוא|הוכ|אלגוריתם מורכב|complex|optimi|architecture|ארכיטקטור/i.test(question);
+    let level = await _axRouter(question, signal);
+    if (!level) level = _isHardH ? 'deep' : (_isCodeH ? 'mid' : 'fast'); // גיבוי היוריסטי
+    const hard = (level !== 'fast'); // "קשה" = כל מה שלא מהיר (הולך למוח)
     // אינדיקציית "Thinking" באנגלית, עדינה, בלי טיימר — עד שהתשובה מופיעה (מוחלף ע"י התשובה בסוף).
     const say = () => {};
     const sayThink = () => { try { onChunk('Thinking…'); } catch (e) {} };
@@ -7308,13 +7311,13 @@ async function _axionPipeline(messages, onChunk, signal) {
         const brainMsgs = messages.filter(m => m.role !== 'system');
         brainMsgs.unshift({ role: 'system', content: persona + '\n\n[תפקידך: מוח-מומחה] נתח ופתור את הבקשה ביסודיות ובדייקנות. אל תדאג לניסוח יפה — רק תוכן נכון ומלא. אם זה קוד — כתוב קוד נכון ושלם.' });
         sayThink('עובד על זה…'); // בלי שם מודל, בלי "חושב" — רק אינדיקציה שהוא עובד + טיימר
-        const brain = await _axBrain(brainMsgs, signal, say);
-        if (!brain) { stopStatus(); return null; } // כל מוחות GLM-5 נפלו → שרשרת רגילה (נדיר)
+        const brain = await _axBrain(brainMsgs, signal, say, level);
+        if (!brain) { stopStatus(); return null; } // כל המוחות נפלו → שרשרת רגילה (נדיר)
         // 1) מנסח קודם (תוך כדי) — מחזיק את התשובה בלי להציג עדיין
         sayThink('מנסח את התשובה…');
         let ans = await _axVoice(persona, question, brain.text, '', onChunk, signal, false);
         // 2) השופט בודק את התשובה *המנוסחת* (מה שהמשתמש יראה), ומתקן אם צריך
-        if (hard && ans) {
+        if (level === 'deep' && ans) {
             sayThink('בודק את התשובה…');
             const note = await _axJudge(question, ans, signal);
             if (note) { sayThink('משפר…'); const fixed = await _axVoice(persona, question, brain.text, note, onChunk, signal, false); if (fixed) ans = fixed; }
