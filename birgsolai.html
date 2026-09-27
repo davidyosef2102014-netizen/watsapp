@@ -7228,6 +7228,9 @@ async function _axBrain(msgs, signal, say) {
         catch (e) { _axBrainCd = Date.now() + 90000; if (say) try { say('🧠 המוח עמוס — נח רגע, ממשיך בגיבוי…'); } catch (e2) {} }
     } else if (say) { try { say('🧠 המוח נח (עומס) — ממשיך בגיבוי…'); } catch (e) {} }
     try { return { text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, AbortSignal.timeout(20000)), who: 'GLM-5.2' }; } catch (e) {}
+    // המשך שרשרת GLM: 4.7 ואז 4.5
+    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, AbortSignal.timeout(45000)), who: 'GLM-4.7-Flash' }; } catch (e) {}
+    try { return { text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 4000, AbortSignal.timeout(45000)), who: 'GLM-4.5-Flash' }; } catch (e) {}
     // רשת-ביטחון סופית (שלא ייפול לגמרי): GPT-OSS-120B (שני מהסוף) → Llama-3.3-70B (אחרון)
     try { return { text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal), who: 'GPT-OSS-120B' }; } catch (e) {}
     try { const r = await _ghCfai('@cf/meta/llama-3.3-70b-instruct-fp8-fast', msgs, 2500, { signal: signal || AbortSignal.timeout(20000) }); if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: 'Llama-3.3-70B' }; } } catch (e) {}
