@@ -8170,15 +8170,14 @@ function _liveCard(container, opts) {
     const wrap = document.createElement('div'); wrap.style.cssText = 'margin:4px 0';
     const c = document.createElement('div');
     const hasDetail = opts.detail && String(opts.detail).trim();
-    // סגנון עדין ואפור-דהוי כמו Claude Code — בלי קופסה בולטת, רק שורה קטנה.
-    c.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:13px;line-height:1.5;color:var(--muted,#8b909a);flex-wrap:wrap' + (hasDetail ? ';cursor:pointer' : '');
+    // צ'יפ בסגנון Claude Code: קופסה עדינה ברוחב מלא, אייקון+שם בצד ההתחלה, +X −Y וחץ בצד השני.
+    c.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.5;color:var(--muted,#8b909a);padding:7px 12px;border:1px solid var(--border,#e6e8ec);border-radius:10px;background:var(--surf2,#f7f8fb);box-sizing:border-box' + (hasDetail ? ';cursor:pointer' : '');
     const _clean = s => String(s == null ? '' : s).replace(/[<>&]/g, '');
     let right = '';
     // מספר שורות קוד שנוספו/הוסרו — רק בעריכת קוד (opts.added מוגדר)
-    if (opts.added != null) right = '<span style="margin-inline-start:6px"><span style="color:#16a34a">+' + opts.added + '</span> <span style="color:#dc2626">−' + opts.removed + '</span></span>';
-    else if (opts.ok != null) right = '<span style="margin-inline-start:6px">' + (opts.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>') + '</span>';
-    // שורה נקייה בסגנון Claude Code: אייקון עדין · פעולה · שם-קובץ (מונו) · +X −Y · חץ בסוף
-    c.innerHTML = '<span style="opacity:.6;font-size:12px">' + (opts.icon || '') + '</span><span>' + _clean(opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:ui-monospace,monospace;font-size:12px;opacity:.9">' + _clean(opts.name) + '</span>' : '') + right + (hasDetail ? '<span class="_lcchev" style="opacity:.45;margin-inline-start:auto">›</span>' : '');
+    if (opts.added != null) right = '<span style="color:#16a34a">+' + opts.added + '</span> <span style="color:#dc2626">−' + opts.removed + '</span>';
+    else if (opts.ok != null) right = (opts.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>');
+    c.innerHTML = '<span style="opacity:.6;font-size:12px">' + (opts.icon || '') + '</span><span>' + _clean(opts.verb || '') + '</span>' + (opts.name ? '<span style="direction:ltr;font-family:ui-monospace,monospace;font-size:12px;opacity:.9">' + _clean(opts.name) + '</span>' : '') + '<span style="margin-inline-start:auto;display:inline-flex;align-items:center;gap:8px">' + right + (hasDetail ? '<span class="_lcchev" style="opacity:.5">›</span>' : '') + '</span>';
     wrap.appendChild(c);
     if (hasDetail) {
         const det = document.createElement('pre');
