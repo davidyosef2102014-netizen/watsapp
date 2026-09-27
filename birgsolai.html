@@ -7291,17 +7291,17 @@ async function _axionPipeline(messages, onChunk, signal) {
         }
         const brainMsgs = messages.filter(m => m.role !== 'system');
         brainMsgs.unshift({ role: 'system', content: persona + '\n\n[תפקידך: מוח-מומחה] נתח ופתור את הבקשה ביסודיות ובדייקנות. אל תדאג לניסוח יפה — רק תוכן נכון ומלא. אם זה קוד — כתוב קוד נכון ושלם.' });
-        sayThink('🧠 המוח (GLM-5.3) חושב לעומק…');
+        sayThink('עובד על זה…'); // בלי שם מודל, בלי "חושב" — רק אינדיקציה שהוא עובד + טיימר
         const brain = await _axBrain(brainMsgs, signal, say);
         if (!brain) { stopStatus(); return null; } // כל מוחות GLM-5 נפלו → שרשרת רגילה (נדיר)
         // 1) מנסח קודם (תוך כדי) — מחזיק את התשובה בלי להציג עדיין
-        sayThink('🗣️ ' + brain.who + ' סיים — מנסח את התשובה…');
+        sayThink('מנסח את התשובה…');
         let ans = await _axVoice(persona, question, brain.text, '', onChunk, signal, false);
         // 2) השופט בודק את התשובה *המנוסחת* (מה שהמשתמש יראה), ומתקן אם צריך
         if (hard && ans) {
-            sayThink('⚖️ בודק את התשובה…');
+            sayThink('בודק את התשובה…');
             const note = await _axJudge(question, ans, signal);
-            if (note) { sayThink('✍️ מתקן לפי הבקרה…'); const fixed = await _axVoice(persona, question, brain.text, note, onChunk, signal, false); if (fixed) ans = fixed; }
+            if (note) { sayThink('משפר…'); const fixed = await _axVoice(persona, question, brain.text, note, onChunk, signal, false); if (fixed) ans = fixed; }
         }
         // 3) מציג את התשובה הסופית (המאושרת)
         stopStatus();
