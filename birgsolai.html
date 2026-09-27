@@ -7269,6 +7269,17 @@ async function _axVoice(persona, question, brainText, judgeNote, onChunk, signal
     if (brainText) { if (doStream) await _typewriter(brainText, onChunk, 6); return brainText; }
     throw new Error('voice-failed');
 }
+// 🧭 נתב אוטומטי — מודל חלש ומהיר (gpt-oss-20b) מחליט לבד: משימה עמוקה (קוד/חשיבה) → מוח חזק, או קלה → מהיר.
+async function _axRouter(question, signal) {
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [
+            { role: 'system', content: 'You are a fast router. Decide if the user request needs a STRONG reasoning model. Reply ONLY JSON: {"deep":true} or {"deep":false}. deep=true for: writing/fixing/reviewing/explaining CODE, math, logic, algorithms, or any complex multi-step reasoning. deep=false for: casual chat, greetings, simple facts, short questions.' },
+            { role: 'user', content: String(question || '').slice(0, 600) }
+        ], max_tokens: 20, temperature: 0 }, { signal: signal || AbortSignal.timeout(9000) });
+        if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || ''; const m = t.match(/"deep"\s*:\s*(true|false)/i); if (m) return m[1].toLowerCase() === 'true'; }
+    } catch (e) {}
+    return null; // הנתב לא הצליח → נשתמש בגיבוי היוריסטי
+}
 async function _axionPipeline(messages, onChunk, signal) {
     const sysMsg = messages.find(m => m.role === 'system');
     const persona = sysMsg && typeof sysMsg.content === 'string' ? sysMsg.content : '';
@@ -7276,8 +7287,10 @@ async function _axionPipeline(messages, onChunk, signal) {
     for (let i = messages.length - 1; i >= 0; i--) {
         if (messages[i].role === 'user') { const c = messages[i].content; question = typeof c === 'string' ? c : (Array.isArray(c) ? ((c.find(p => p.type === 'text') || {}).text || '') : ''); break; }
     }
-    const hard = question.length > 180 || /קוד|code|באג|bug|תתקן|לתקן|תכנית|פסק.?דין|חוק |רפוא|מתמט|כמה זה|חשב|הוכ|נכון ש|כמה עולה|תסביר איך|why|how does/i.test(question);
-    const simple = question.length < 25 && /^(היי|שלום|מה קורה|מה שלומ|הי\b|אהלן|בוקר טוב|ערב טוב|תודה|לילה טוב|מה נשמע)/.test(question);
+    // 🧭 הנתב (מודל חלש, gpt-oss-20b) מחליט לבד אם צריך מוח חזק. אם הנתב נכשל — גיבוי היוריסטי.
+    const _heur = question.length > 180 || /קוד|code|coding|תכנת|פונקצי|function|\bclass\b|סקריפט|\bscript\b|באג|\bbug\b|debug|שגיא|\berror\b|crash|javascript|\bjs\b|python|\bhtml\b|\bcss\b|\bsql\b|\bapi\b|regex|algorithm|אלגוריתם|תתקן|לתקן|refactor|מתמט|כמה זה|חשב|הוכ|תסביר איך|why|how does|לולאה|מערך|array/i.test(question);
+    let hard = await _axRouter(question, signal);
+    if (hard === null) hard = _heur;
     // אינדיקציית "Thinking" באנגלית, עדינה, בלי טיימר — עד שהתשובה מופיעה (מוחלף ע"י התשובה בסוף).
     const say = () => {};
     const sayThink = () => { try { onChunk('Thinking…'); } catch (e) {} };
