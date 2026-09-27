@@ -7268,9 +7268,9 @@ async function _axionPipeline(messages, onChunk, signal) {
     }
     const hard = question.length > 180 || /קוד|code|באג|bug|תתקן|לתקן|תכנית|פסק.?דין|חוק |רפוא|מתמט|כמה זה|חשב|הוכ|נכון ש|כמה עולה|תסביר איך|why|how does/i.test(question);
     const simple = question.length < 25 && /^(היי|שלום|מה קורה|מה שלומ|הי\b|אהלן|בוקר טוב|ערב טוב|תודה|לילה טוב|מה נשמע)/.test(question);
-    // בלי שום טקסט-סטטוס בזמן ההמתנה — שקט מוחלט עד שהתשובה מופיעה (רק אינדיקציית ה-busy הרגילה).
+    // אינדיקציית "Thinking" באנגלית, עדינה, בלי טיימר — עד שהתשובה מופיעה (מוחלף ע"י התשובה בסוף).
     const say = () => {};
-    const sayThink = () => {};
+    const sayThink = () => { try { onChunk('Thinking…'); } catch (e) {} };
     const stopStatus = () => {};
     try {
         // ⚡ שאלה רגילה/קלה → Llama-4 סופר-מהיר עונה מיד (שיחה נורמלית). רק שאלות קשות הולכות למוח העמוק GLM-5.3.
@@ -8224,7 +8224,7 @@ function _deployCardFrom(container, cmd, out) {
     const ok = /DEPLOY-OK/.test(out || '');
     const commit = ((out || '').match(/commit\s+([0-9a-f]{6,})/i) || [])[1] || '';
     const url = ((out || '').match(/https?:\/\/\S+/) || [])[0] || '';
-    _liveCard(container, { icon: '🚀', verb: ok ? 'העלה לגיטהאב' : 'פריסה נכשלה', name: commit ? ('commit ' + commit) : '', ok: ok, link: ok ? url : '' });
+    _liveCard(container, { icon: '🚀', verb: ok ? 'Deployed to GitHub' : 'Deploy failed', name: commit ? ('commit ' + commit) : '', ok: ok, link: ok ? url : '' });
 }
 function _renderFilesCard(container, fc) {
     const files = Object.keys(fc); if (!files.length || !container) return;
@@ -8314,10 +8314,10 @@ async function runNativeAgent(goal, opts) {
             // כרטיס חי בזרימת השיחה — מופיע ברגע הפעולה
             try {
                 _liveSay(body, decision.reason); // מדבר תוך כדי — משפט אנושי לפני הכרטיס
-                if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'יצר' : 'ערך', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
-                else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl, detail: nres }); }
-                else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path), detail: nres });
-                else if (decision.op === 'search') _liveCard(body, { icon: '🔎', verb: 'חיפש', name: _q, detail: nres });
+                if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'Created' : 'Edited', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
+                else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'Ran', name: _lbl, detail: nres }); }
+                else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'Read', name: _base(_path), detail: nres });
+                else if (decision.op === 'search') _liveCard(body, { icon: '🔎', verb: 'Searched', name: _q, detail: nres });
             } catch (e) {}
             stepsLog.push(stepN + '. ' + decision.op + ' ' + _lbl);
             stepsLog.push('   → ' + String(nres).slice(0, 14000));
@@ -8513,9 +8513,9 @@ async function _browserAgent(goal, opts) {
                 } catch (e) { nres = '[שגיאה: ' + (e && e.message || e) + ']'; }
                 try {
                     _liveSay(body, decision.reason); // מדבר תוך כדי
-                    if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'יצר' : 'ערך', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
-                    else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'הריץ', name: _lbl, detail: nres }); }
-                    else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'קרא', name: _base(_path), detail: nres });
+                    if (decision.op === 'writefile') _liveCard(body, { icon: '✏️', verb: (_wDiff && _wDiff.isNew) ? 'Created' : 'Edited', name: _base(_path), added: _wDiff ? _wDiff.added : 0, removed: _wDiff ? _wDiff.removed : 0 });
+                    else if (decision.op === 'run') { if (/ghdeploy\.py/.test(_cmd)) _deployCardFrom(body, _cmd, nres); else _liveCard(body, { icon: '⌨️', verb: 'Ran', name: _lbl, detail: nres }); }
+                    else if (decision.op === 'readfile') _liveCard(body, { icon: '📄', verb: 'Read', name: _base(_path), detail: nres });
                 } catch (e) {}
                 stepsLog.push(`${stepN}. ${decision.op} ${_lbl}`);
                 stepsLog.push('   → ' + String(nres).slice(0, 14000)); // הפלט חוזר לסוכן — כדי שיבדוק ויתקדם
