@@ -8197,7 +8197,7 @@ function _liveCard(container, opts) {
     const c = document.createElement('div');
     const hasDetail = opts.detail && String(opts.detail).trim();
     // צ'יפ בסגנון Claude Code: קומפקטי, שורה אחת. פעולה+שם בצד ההתחלה; החץ נצמד לטקסט, ו-+X −Y נדחף לקצה רק כשיש ספירה.
-    c.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.5;color:var(--muted,#8b909a);padding:6px 11px;border:1px solid var(--border,#e6e8ec);border-radius:10px;background:var(--surf2,#f7f8fb);box-sizing:border-box;overflow:hidden' + (hasDetail ? ';cursor:pointer' : '');
+    c.style.cssText = 'display:inline-flex;max-width:100%;align-items:center;gap:7px;font-size:13px;line-height:1.4;color:var(--muted,#8b909a);padding:4px 10px;border:1px solid var(--border,#e6e8ec);border-radius:8px;background:var(--surf2,#f7f8fb);box-sizing:border-box;overflow:hidden;vertical-align:middle' + (hasDetail ? ';cursor:pointer' : '');
     const _clean = s => String(s == null ? '' : s).replace(/[<>&]/g, '');
     let right = '';
     // מספר שורות קוד שנוספו/הוסרו — רק בעריכת קוד (opts.added מוגדר)
