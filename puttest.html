@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="he">
+<head><meta charset="utf-8"><title>Puter GLM Test</title></head>
+<body style="font-family:monospace;padding:16px;background:#0b1020;color:#cde">
+<h3>Puter.js + GLM-5.3 test</h3>
+<pre id="out">loading…</pre>
+<script src="https://js.puter.com/v2/"></script>
+<script>
+const out = document.getElementById('out');
+const log = (s) => { out.textContent += '\n' + s; console.log(s); };
+window.__done = false; window.__result = '';
+(async () => {
+  try {
+    out.textContent = 'puter global: ' + (typeof window.puter);
+    if (!window.puter) { window.__result = 'NO_PUTER_GLOBAL'; window.__done = true; return; }
+    log('puter.ai.chat: ' + (puter.ai && typeof puter.ai.chat));
+    const models = ['z-ai/glm-5.3', 'openrouter:z-ai/glm-5.3', 'glm-5.3', 'z-ai/glm-5.3-flash'];
+    for (const m of models) {
+      const t0 = Date.now();
+      try {
+        const r = await puter.ai.chat('Compute 17*24. Reply with only the number.', { model: m });
+        const txt = (typeof r === 'string') ? r : (r && r.message && r.message.content) || (r && r.text) || JSON.stringify(r).slice(0,200);
+        log('MODEL ' + m + ' => OK ' + ((Date.now()-t0)/1000).toFixed(0) + 's : ' + String(txt).slice(0,120));
+        window.__result = 'WORKED:' + m;
+      } catch (e) {
+        log('MODEL ' + m + ' => ERR ' + ((Date.now()-t0)/1000).toFixed(0) + 's : ' + (e && (e.message||e.error||JSON.stringify(e)) || e));
+      }
+    }
+    window.__done = true;
+  } catch (e) {
+    log('FATAL: ' + (e && e.message || e));
+    window.__result = 'FATAL'; window.__done = true;
+  }
+})();
+</script>
+</body>
+</html>
