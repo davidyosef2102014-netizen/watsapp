@@ -7221,23 +7221,28 @@ async function _axCall(provider, path, model, msgs, maxTok, signal) {
 }
 let _axBrainCd = 0; // צינון המוח — כדי לא "לפוצץ" את GLM-5.3 בעומס
 async function _axBrain(msgs, signal, say, level) {
-    // מנועי המוח (כל אחד מחזיר {text,who} או זורק)
-    const glm53 = async () => {
-        try {
-            const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 3000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(175000) });
-            if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: 'GLM-5.3-Flash' }; }
-        } catch (e) {}
-        _axBrainCd = Date.now() + 120000; throw new Error('glm53'); // עומס → צינון, לא נפוצץ אותו
+    // קריאת NVIDIA (תואם-OpenAI) — קורא content או reasoning_content, עם timeout מותאם.
+    const _nv = async (model, ms, extra) => {
+        const r = await _ghProxy('nvidia', '/v1/chat/completions', Object.assign({ model, messages: msgs, max_tokens: 3000, temperature: 0.3 }, extra || {}), { signal: AbortSignal.timeout(ms) });
+        if (!r.ok) throw new Error('nvidia ' + r.status);
+        const j = await r.json(); const m = (j.choices && j.choices[0] && j.choices[0].message) || {};
+        const t = ((m.content || '') || (m.reasoning_content || '')).trim();
+        if (!t) throw new Error('nvidia empty'); return t;
     };
-    const glm52  = async () => ({ text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.2:free', msgs, 3000, AbortSignal.timeout(20000)), who: 'GLM-5.2' });
-    const glm47  = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 4000, AbortSignal.timeout(45000)), who: 'GLM-4.7-Flash' });
-    const glm45  = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 4000, AbortSignal.timeout(45000)), who: 'GLM-4.5-Flash' });
-    const oss120 = async () => ({ text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal), who: 'GPT-OSS-120B' });
-    const llama70 = async () => { const r = await _ghCfai('@cf/meta/llama-3.3-70b-instruct-fp8-fast', msgs, 2500, { signal: signal || AbortSignal.timeout(20000) }); if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return { text: t, who: 'Llama-3.3-70B' }; } throw new Error('llama'); };
-    // deep = קוד/משימה קשה → GLM-5.3-Flash קודם (חזק, איטי). mid = קוד קל/רגיל → GLM-4.7-Flash קודם (מהיר). רשת-ביטחון בסוף.
+    // מנועי המוח (כל אחד מחזיר {text,who} או זורק)
+    // GLM-5.3 מקבל עדיפות ראשונה — OpenRouter (מהיר כשיש) ואז NVIDIA-flash (חלון הוגן, תופס את ההצלחות).
+    const glm53or = async () => ({ text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(15000)), who: 'GLM-5.3' });
+    const glm53nv = async () => { if (Date.now() < _axBrainCd) throw new Error('cooldown'); try { return { text: await _nv('z-ai/glm-5.3-flash', 75000, { reasoning_effort: 'low' }), who: 'GLM-5.3-Flash' }; } catch (e) { _axBrainCd = Date.now() + 60000; throw e; } };
+    // Nemotron-3-Super — סוס העבודה של Axion (NVIDIA, מהיר ויציב, ממותג BIRGSOL). רישיון NVIDIA Open.
+    const nemotron = async () => ({ text: await _nv('nvidia/nemotron-3-super-120b-a12b', 35000), who: 'BIRGSOL-Core' });
+    const glm47    = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 3500, AbortSignal.timeout(30000)), who: 'GLM-4.7-Flash' });
+    const oss120   = async () => ({ text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal || AbortSignal.timeout(30000)), who: 'GPT-OSS-120B' });
+    // עטיפת retry — ניסיון שני על שגיאה רגעית (503/429/ריק), עם backoff קצר.
+    const _retry = (fn) => async () => { try { return await fn(); } catch (e) { await new Promise(r => setTimeout(r, 1500)); return await fn(); } };
+    // deep = משימה קשה → GLM-5.3 (OpenRouter+NVIDIA) חלון מלא ואז Nemotron. mid = GLM מהיר ואז Nemotron. תמיד רשת-ביטחון בסוף.
     let chain;
-    if (level === 'deep') chain = (Date.now() >= _axBrainCd) ? [glm53, glm52, glm47, glm45, oss120, llama70] : [glm52, glm47, glm45, oss120, llama70];
-    else chain = [glm47, glm45, oss120, llama70]; // mid
+    if (level === 'deep') chain = [glm53or, glm53nv, _retry(nemotron), glm47, _retry(oss120)];
+    else                  chain = [glm53or, _retry(nemotron), glm47, _retry(oss120)];
     for (const step of chain) { try { const res = await step(); if (res && res.text) return res; } catch (e) {} }
     return null;
 }
@@ -7272,14 +7277,25 @@ async function _axVoice(persona, question, brainText, judgeNote, onChunk, signal
 }
 // 🧭 נתב אוטומטי — מודל חלש ומהיר (gpt-oss-20b) מחליט לבד: משימה עמוקה (קוד/חשיבה) → מוח חזק, או קלה → מהיר.
 async function _axRouter(question, signal) {
+    const sys = 'You are a fast router. Classify the request into ONE level. Reply ONLY with compact JSON: {"level":"fast"} or {"level":"mid"} or {"level":"deep"}. fast = casual chat, greeting, simple/short question. mid = a normal coding task or a moderate question needing some reasoning. deep = HARD/complex coding, tricky algorithms, math proofs, debugging hard bugs, or deep multi-step reasoning.';
+    const q = String(question || '').slice(0, 600);
+    // Gemini ראשון — אמין, בלי בעיית "content ריק" של מודלי-reasoning. גיבוי: gpt-oss-20b.
     try {
-        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [
-            { role: 'system', content: 'You are a fast router. Classify the request into ONE level. Reply ONLY JSON: {"level":"fast"} or {"level":"mid"} or {"level":"deep"}. fast = casual chat, greeting, simple/short question. mid = a normal coding task or a moderate question needing some reasoning. deep = HARD/complex coding, tricky algorithms, math proofs, debugging hard bugs, or deep multi-step reasoning.' },
-            { role: 'user', content: String(question || '').slice(0, 600) }
-        ], max_tokens: 20, temperature: 0 }, { signal: signal || AbortSignal.timeout(9000) });
-        if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || ''; const m = t.match(/"level"\s*:\s*"(fast|mid|deep)"/i); if (m) return m[1].toLowerCase(); }
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts: [{ text: sys + '\n\nRequest: ' + q }] }], generationConfig: { temperature: 0, maxOutputTokens: 20, responseMimeType: 'application/json' } }, { signal: signal || AbortSignal.timeout(8000) });
+        if (r.ok) { const j = await r.json(); const t = (j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts[0] && j.candidates[0].content.parts[0].text) || ''; const m = t.match(/"level"\s*:\s*"(fast|mid|deep)"/i); if (m) return m[1].toLowerCase(); }
+    } catch (e) {}
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: q }], max_tokens: 200, temperature: 0, reasoning_effort: 'low' }, { signal: signal || AbortSignal.timeout(9000) });
+        if (r.ok) { const j = await r.json(); const mm = (j.choices && j.choices[0] && j.choices[0].message) || {}; const t = (mm.content || '') || (mm.reasoning_content || ''); const m = t.match(/"level"\s*:\s*"(fast|mid|deep)"/i); if (m) return m[1].toLowerCase(); }
     } catch (e) {}
     return null; // הנתב לא הצליח → נשתמש בגיבוי היוריסטי
+}
+// האם השאלה דורשת מידע עדכני/עובדתי מהעולם האמיתי (חדשות, מחירים, מזג אוויר, ספורט, אנשים, תאריכים)?
+// אם כן — Axion יחפש באינטרנט לפני שהמוח עונה, כדי לא להמציא. שאלות קוד/מתמטיקה/כלליות → בלי חיפוש.
+function _axNeedsSearch(q) {
+    if (!q) return false;
+    if (/^(כתוב|תכתוב|תממש|צור|תבנה|write|create|code|implement|debug|תתקן|תקן|refactor|fix)\b/i.test(q.trim())) return false; // בקשת קוד — לא צריך חיפוש
+    return /חדשות|מבזק|היום|אתמול|הבוקר|עכשיו|השבוע|החודש|השנה|מזג ?אוויר|מחיר|כמה עולה|שער|דולר|יורו|בורסה|מנייה|מניה|תוצא|משחק|ליגה|מי הוא|מי היא|מיהו|מתי|היכן|איפה|כתובת|שעות פתיחה|טלפון|latest|today|news|price|weather|score|who is|when did|current|202[4-9]|פסק.?דין|חוק |פקודת|תקנה/i.test(q);
 }
 async function _axionPipeline(messages, onChunk, signal) {
     const sysMsg = messages.find(m => m.role === 'system');
@@ -7299,17 +7315,26 @@ async function _axionPipeline(messages, onChunk, signal) {
     const sayThink = () => { try { onChunk('Thinking…'); } catch (e) {} };
     const stopStatus = () => {};
     try {
-        // ⚡ שאלה רגילה/קלה → Llama-4 סופר-מהיר עונה מיד (שיחה נורמלית). רק שאלות קשות הולכות למוח העמוק GLM-5.3.
+        // 🌐 חיפוש-אינטרנט לפני התשובה — רק אם השאלה עובדתית/עדכנית. מונע הזיות (תאריכים/מחירים/חדשות/אנשים).
+        let grounding = '';
+        if (_axNeedsSearch(question)) {
+            sayThink();
+            try { const sr = await webSearch(question); if (sr && !/^❌/.test(sr)) grounding = sr; } catch (e) {}
+        }
+        const GROUND_NOTE = grounding ? ('\n\n[מידע עדכני מהאינטרנט — הסתמך אך ורק על זה לעובדות. אל תוסיף תאריכים/מספרים/אירועים/שמות שלא מופיעים כאן; אם חסר מידע — אמור זאת ואל תמציא:]\n' + grounding) : '';
+        // ⚡ שאלה רגילה/קלה → Llama-4 סופר-מהיר עונה מיד (שיחה נורמלית). רק שאלות קשות הולכות למוח העמוק.
         if (!hard) {
             stopStatus(); say('⚡ עונה…');
             try {
-                const r = await _ghCfai('@cf/meta/llama-4-scout-17b-16e-instruct', messages, 1500, { signal: signal || AbortSignal.timeout(22000) });
+                const fastMsgs = grounding ? messages.map(m => m.role === 'system' ? { role: 'system', content: (typeof m.content === 'string' ? m.content : persona) + GROUND_NOTE } : m) : messages;
+                if (grounding && !fastMsgs.some(m => m.role === 'system')) fastMsgs.unshift({ role: 'system', content: persona + GROUND_NOTE });
+                const r = await _ghCfai('@cf/meta/llama-4-scout-17b-16e-instruct', fastMsgs, 1500, { signal: signal || AbortSignal.timeout(22000) });
                 if (r.ok) { const j = await r.json(); const t = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) { await _typewriter(t, onChunk, 8); return t; } }
             } catch (e) {}
             // אם המהיר נכשל — ממשיך למוח העמוק
         }
         const brainMsgs = messages.filter(m => m.role !== 'system');
-        brainMsgs.unshift({ role: 'system', content: persona + '\n\n[תפקידך: מוח-מומחה] נתח ופתור את הבקשה ביסודיות ובדייקנות. אל תדאג לניסוח יפה — רק תוכן נכון ומלא. אם זה קוד — כתוב קוד נכון ושלם.' });
+        brainMsgs.unshift({ role: 'system', content: persona + '\n\n[תפקידך: מוח-מומחה] נתח ופתור את הבקשה ביסודיות ובדייקנות. אל תדאג לניסוח יפה — רק תוכן נכון ומלא. אם זה קוד — כתוב קוד נכון ושלם.' + GROUND_NOTE });
         sayThink('עובד על זה…'); // בלי שם מודל, בלי "חושב" — רק אינדיקציה שהוא עובד + טיימר
         const brain = await _axBrain(brainMsgs, signal, say, level);
         if (!brain) { stopStatus(); return null; } // כל המוחות נפלו → שרשרת רגילה (נדיר)
