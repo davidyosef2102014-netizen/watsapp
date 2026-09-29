@@ -7232,7 +7232,8 @@ async function _axBrain(msgs, signal, say, level) {
     // מנועי המוח (כל אחד מחזיר {text,who} או זורק)
     // GLM-5.3 מקבל עדיפות ראשונה — OpenRouter (מהיר כשיש) ואז NVIDIA-flash (חלון הוגן, תופס את ההצלחות).
     const glm53or = async () => ({ text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(15000)), who: 'GLM-5.3' });
-    const glm53nv = async () => { if (Date.now() < _axBrainCd) throw new Error('cooldown'); try { return { text: await _nv('z-ai/glm-5.3-flash', 75000, { reasoning_effort: 'low' }), who: 'GLM-5.3-Flash' }; } catch (e) { _axBrainCd = Date.now() + 60000; throw e; } };
+    // GLM-5.3-flash ב-NVIDIA — נותנים לו כל ניסיון: עד N ניסיונות מלאים (כל אחד ~92ש, כל ניסיון = צ'אנס חדש לתפוס חלון פנוי בתור).
+    const glm53nv = async (attempts) => { attempts = attempts || 1; let lastErr; for (let i = 0; i < attempts; i++) { try { return { text: await _nv('z-ai/glm-5.3-flash', 92000, { reasoning_effort: 'low' }), who: 'GLM-5.3-Flash' }; } catch (e) { lastErr = e; } } throw (lastErr || new Error('glm53nv')); };
     // Nemotron-3-Super — סוס העבודה של Axion (NVIDIA, מהיר ויציב, ממותג BIRGSOL). רישיון NVIDIA Open.
     const nemotron = async () => ({ text: await _nv('nvidia/nemotron-3-super-120b-a12b', 35000), who: 'BIRGSOL-Core' });
     const glm47    = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 3500, AbortSignal.timeout(30000)), who: 'GLM-4.7-Flash' });
@@ -7241,8 +7242,8 @@ async function _axBrain(msgs, signal, say, level) {
     const _retry = (fn) => async () => { try { return await fn(); } catch (e) { await new Promise(r => setTimeout(r, 1500)); return await fn(); } };
     // deep = משימה קשה → GLM-5.3 (OpenRouter+NVIDIA) חלון מלא ואז Nemotron. mid = GLM מהיר ואז Nemotron. תמיד רשת-ביטחון בסוף.
     let chain;
-    if (level === 'deep') chain = [glm53or, glm53nv, _retry(nemotron), glm47, _retry(oss120)];
-    else                  chain = [glm53or, _retry(nemotron), glm47, _retry(oss120)];
+    if (level === 'deep') chain = [glm53or, () => glm53nv(2), _retry(nemotron), glm47, _retry(oss120)]; // deep: GLM-5.3 מקבל 2 ניסיונות מלאים (~3 דק') לפני שנופל ל-Nemotron
+    else                  chain = [glm53or, _retry(nemotron), glm47, _retry(oss120)]; // mid/רגיל: GLM מהיר (OpenRouter) ואז Nemotron — בלי המתנה ארוכה
     for (const step of chain) { try { const res = await step(); if (res && res.text) return res; } catch (e) {} }
     return null;
 }
