@@ -2256,6 +2256,26 @@ async function openAdminPanel() {
     const body = document.getElementById('admin-body');
     body.textContent = 'טוען…';
     renderAdminUsers(cloudUsers);
+    _renderAxKeyUI(body);
+}
+// שדה מנהל: מפתח OrcaRouter ל-GLM-5.3 חינם — נשמר רק ב-localStorage של המכשיר, לעולם לא בקוד הציבורי.
+function _renderAxKeyUI(body) {
+    if (!body) return;
+    let cur = ''; try { cur = localStorage.getItem('AX_ORCA_KEY') || ''; } catch (e) {}
+    const box = document.createElement('div');
+    box.style.cssText = 'padding:12px 8px;border-bottom:2px solid var(--border);margin-bottom:6px';
+    box.innerHTML = '<div style="font-weight:600;margin-bottom:6px">🔑 מפתח OrcaRouter — GLM-5.3 חינם (Axion)</div>'
+        + '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">נשמר רק במכשיר הזה (localStorage), אף פעם לא בקוד הציבורי.</div>'
+        + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+        + '<input id="_axOrcaInp" type="text" placeholder="sk-orca-..." style="flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surf2);color:var(--text);direction:ltr;font-family:ui-monospace,monospace;font-size:12px">'
+        + '<button id="_axOrcaSave" style="padding:7px 14px;border:none;border-radius:8px;background:var(--accent,#2563eb);color:#fff;cursor:pointer">שמור</button>'
+        + '<button id="_axOrcaClear" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer">מחק</button>'
+        + '</div><div id="_axOrcaMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>';
+    body.insertBefore(box, body.firstChild);
+    const inp = box.querySelector('#_axOrcaInp'), msg = box.querySelector('#_axOrcaMsg');
+    inp.value = cur; msg.textContent = cur ? '✓ מפתח שמור במכשיר' : 'לא מוגדר — Axion משתמש בגיבוי';
+    box.querySelector('#_axOrcaSave').onclick = () => { try { const v = inp.value.trim(); if (!v) { msg.textContent = 'הדבק מפתח קודם'; return; } localStorage.setItem('AX_ORCA_KEY', v); msg.textContent = '✓ נשמר במכשיר בלבד — GLM-5.3 פעיל'; } catch (e) { msg.textContent = 'שגיאה בשמירה'; } };
+    box.querySelector('#_axOrcaClear').onclick = () => { try { localStorage.removeItem('AX_ORCA_KEY'); inp.value = ''; msg.textContent = 'נמחק מהמכשיר'; } catch (e) {} };
 }
 
 function closeAdminPanel() {
@@ -7230,8 +7250,20 @@ async function _axBrain(msgs, signal, say, level) {
         if (!t) throw new Error('nvidia empty'); return t;
     };
     // מנועי המוח (כל אחד מחזיר {text,who} או זורק)
-    // 🥇 GLM-5.3-Flash חינם דרך OrcaRouter — המוח הראשי (עובד! ~9ש, חינם אמיתי). דורש קישור חשבון GitHub ותיק ב-OrcaRouter.
-    const glm53orca = async () => ({ text: await _axCall('orcarouter', '/v1/chat/completions', 'z-ai/glm-5.3-flash-free', msgs, 3000, AbortSignal.timeout(90000)), who: 'GLM-5.3-Flash' });
+    // 🥇 GLM-5.3-Flash חינם דרך OrcaRouter — המוח הראשי (עובד! ~9ש, חינם אמיתי).
+    // אם יש מפתח ב-localStorage (מנהל הדביק) → קריאה ישירה מהדפדפן (OrcaRouter תומך CORS), המפתח לא בקוד הציבורי.
+    // אחרת → דרך ה-Worker (secret ORCAROUTER_KEYS), כשייפרס.
+    const glm53orca = async () => {
+        let lk = ''; try { lk = localStorage.getItem('AX_ORCA_KEY') || ''; } catch (e) {}
+        if (lk) {
+            const r = await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify({ model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 3000, temperature: 0.3 }), signal: AbortSignal.timeout(90000) });
+            if (!r.ok) throw new Error('orca ' + r.status);
+            const j = await r.json(); const m = (j.choices && j.choices[0] && j.choices[0].message) || {};
+            const t = ((m.content || '') || (m.reasoning_content || '')).trim();
+            if (!t) throw new Error('orca empty'); return { text: t, who: 'GLM-5.3-Flash' };
+        }
+        return { text: await _axCall('orcarouter', '/v1/chat/completions', 'z-ai/glm-5.3-flash-free', msgs, 3000, AbortSignal.timeout(90000)), who: 'GLM-5.3-Flash' };
+    };
     // GLM-5.3 גיבוי — OpenRouter (מהיר כשיש grace) ואז NVIDIA-flash (חלון הוגן, תופס את ההצלחות).
     const glm53or = async () => ({ text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(15000)), who: 'GLM-5.3' });
     // GLM-5.3-flash ב-NVIDIA — נותנים לו כל ניסיון: עד N ניסיונות מלאים (כל אחד ~92ש, כל ניסיון = צ'אנס חדש לתפוס חלון פנוי בתור).
