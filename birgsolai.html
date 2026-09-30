@@ -7230,7 +7230,9 @@ async function _axBrain(msgs, signal, say, level) {
         if (!t) throw new Error('nvidia empty'); return t;
     };
     // מנועי המוח (כל אחד מחזיר {text,who} או זורק)
-    // GLM-5.3 מקבל עדיפות ראשונה — OpenRouter (מהיר כשיש) ואז NVIDIA-flash (חלון הוגן, תופס את ההצלחות).
+    // 🥇 GLM-5.3-Flash חינם דרך OrcaRouter — המוח הראשי (עובד! ~9ש, חינם אמיתי). דורש קישור חשבון GitHub ותיק ב-OrcaRouter.
+    const glm53orca = async () => ({ text: await _axCall('orcarouter', '/v1/chat/completions', 'z-ai/glm-5.3-flash-free', msgs, 3000, AbortSignal.timeout(90000)), who: 'GLM-5.3-Flash' });
+    // GLM-5.3 גיבוי — OpenRouter (מהיר כשיש grace) ואז NVIDIA-flash (חלון הוגן, תופס את ההצלחות).
     const glm53or = async () => ({ text: await _axCall('openrouter', '/api/v1/chat/completions', 'z-ai/glm-5.3', msgs, 3000, AbortSignal.timeout(15000)), who: 'GLM-5.3' });
     // GLM-5.3-flash ב-NVIDIA — נותנים לו כל ניסיון: עד N ניסיונות מלאים (כל אחד ~92ש, כל ניסיון = צ'אנס חדש לתפוס חלון פנוי בתור).
     const glm53nv = async (attempts) => { attempts = attempts || 1; let lastErr; for (let i = 0; i < attempts; i++) { try { return { text: await _nv('z-ai/glm-5.3-flash', 92000, { reasoning_effort: 'low' }), who: 'GLM-5.3-Flash' }; } catch (e) { lastErr = e; } } throw (lastErr || new Error('glm53nv')); };
@@ -7242,8 +7244,8 @@ async function _axBrain(msgs, signal, say, level) {
     const _retry = (fn) => async () => { try { return await fn(); } catch (e) { await new Promise(r => setTimeout(r, 1500)); return await fn(); } };
     // deep = משימה קשה → GLM-5.3 (OpenRouter+NVIDIA) חלון מלא ואז Nemotron. mid = GLM מהיר ואז Nemotron. תמיד רשת-ביטחון בסוף.
     let chain;
-    if (level === 'deep') chain = [glm53or, () => glm53nv(2), _retry(nemotron), glm47, _retry(oss120)]; // deep: GLM-5.3 מקבל 2 ניסיונות מלאים (~3 דק') לפני שנופל ל-Nemotron
-    else                  chain = [glm53or, _retry(nemotron), glm47, _retry(oss120)]; // mid/רגיל: GLM מהיר (OpenRouter) ואז Nemotron — בלי המתנה ארוכה
+    if (level === 'deep') chain = [_retry(glm53orca), glm53or, () => glm53nv(2), _retry(nemotron), glm47, _retry(oss120)]; // deep: GLM-5.3-flash חינם ראשון, ואז שאר גיבויי GLM, ואז Nemotron
+    else                  chain = [_retry(glm53orca), glm53or, _retry(nemotron), glm47, _retry(oss120)]; // mid/רגיל: GLM-5.3 חינם ראשון ואז Nemotron
     for (const step of chain) { try { const res = await step(); if (res && res.text) return res; } catch (e) {} }
     return null;
 }
