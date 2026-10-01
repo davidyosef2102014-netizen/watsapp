@@ -6247,15 +6247,17 @@ async function webSearch(query) {
     const _cached = _searchCacheGet(_ck);
     if (_cached) return _cached;
     const _wrap = (v) => { if (v) { _searchCache.set(_ck, { v, t: Date.now() }); if (_searchCache.size > 60) _searchCache.delete(_searchCache.keys().next().value); } return v; };
-    // 🌐 Tavily מדייק הרבה יותר באנגלית. לשאילתה בעברית — מתרגמים לאנגלית תחילה ומחפשים באנגלית (התשובה
-    // עצמה נכתבת בעברית ע"י המודל). זה מונע את הנפילה ל-Serper עם תוצאות ישנות/מגורדות = מקור עיקרי להזיות.
+    // 🇮🇱 עברית קודם! לנושאים ישראליים/מקומיים (מקומות, אנשים, עסקים) החיפוש העברי מדויק הרבה יותר,
+    // והתרגום לאנגלית הורס שמות עבריים (למשל "מחצבת בנימינה" → "Benim" בטורקית = הזיה מוחלטת).
+    // רק אם העברית ריקה (בד"כ נושא גלובלי) מתרגמים לאנגלית ומחפשים שם.
     const _isHeb = /[֐-׿]/.test(query);
-    let engQuery = query;
-    if (_isHeb) { const en = await _translateToEn(query).catch(() => null); if (en) engQuery = en; }
-    // Tavily בלבד — ראשי ויחיד, תמיד באנגלית. בלי Serper/גירוד (שהיו מקור ההזיות עם תוצאות ישנות).
-    let tv = await _tryTavily(engQuery).catch(() => null);
-    // אם התרגום נכשל והאנגלית ריקה — ניסיון אחרון על העברית המקורית (עדיין Tavily בלבד)
-    if (!tv && _isHeb && engQuery !== query) tv = await _tryTavily(query).catch(() => null);
+    let tv = null;
+    if (_isHeb) {
+        tv = await _tryTavily(query).catch(() => null);
+        if (!tv) { const en = await _translateToEn(query).catch(() => null); if (en && en !== query) tv = await _tryTavily(en).catch(() => null); }
+    } else {
+        tv = await _tryTavily(query).catch(() => null);
+    }
     return _wrap(tv) || '❌ לא מצאתי תוצאות.';
 }
 
@@ -7330,7 +7332,7 @@ async function _axRouter(question, signal) {
 function _axNeedsSearch(q) {
     if (!q) return false;
     if (/^(כתוב|תכתוב|תממש|צור|תבנה|write|create|code|implement|debug|תתקן|תקן|refactor|fix)\b/i.test(q.trim())) return false; // בקשת קוד — לא צריך חיפוש
-    return /חדשות|מבזק|היום|אתמול|הבוקר|עכשיו|השבוע|החודש|השנה|מזג ?אוויר|מחיר|כמה עולה|שער|דולר|יורו|בורסה|מנייה|מניה|תוצא|משחק|ליגה|מי הוא|מי היא|מיהו|מתי|היכן|איפה|כתובת|שעות פתיחה|טלפון|latest|today|news|price|weather|score|who is|when did|current|202[4-9]|פסק.?דין|חוק |פקודת|תקנה/i.test(q);
+    return /חדשות|מבזק|היום|אתמול|הבוקר|עכשיו|השבוע|החודש|השנה|מזג ?אוויר|מחיר|כמה עולה|שער|דולר|יורו|בורסה|מנייה|מניה|תוצא|משחק|ליגה|מי הוא|מי היא|מיהו|מתי|היכן|איפה|כתובת|שעות פתיחה|טלפון|latest|today|news|price|weather|score|who is|when did|current|202[4-9]|פסק.?דין|חוק |פקודת|תקנה|תספר לי על|ספר לי על|ספר על|מה זה |מהי |מהו |מי זה |מי זאת |מה ידוע|מידע על|tell me about|what is |information about|חברת|מפעל|מחצב|יישוב|מושב|קיבוץ|שכונת|רחוב /i.test(q);
 }
 async function _axionPipeline(messages, onChunk, signal) {
     const sysMsg = messages.find(m => m.role === 'system');
@@ -7356,7 +7358,7 @@ async function _axionPipeline(messages, onChunk, signal) {
             sayThink();
             try { const sr = await webSearch(question); if (sr && !/^❌/.test(sr)) grounding = sr; } catch (e) {}
         }
-        const GROUND_NOTE = grounding ? ('\n\n[מידע עדכני מהאינטרנט — הסתמך אך ורק על זה לעובדות. אל תוסיף תאריכים/מספרים/אירועים/שמות שלא מופיעים כאן; אם חסר מידע — אמור זאת ואל תמציא. אם מקורות סותרים לגבי מספר/מחיר — תן את הערך שרוב המקורות מסכימים עליו (הקונצנזוס) וציין בקצרה את הטווח; התעלם ממקור בודד עם ערך חריג ולא-הגיוני (פי כמה מהשאר):]\n' + grounding) : '';
+        const GROUND_NOTE = grounding ? ('\n\n[מידע עדכני מהאינטרנט — הסתמך אך ורק על זה לעובדות. אל תוסיף תאריכים/מספרים/אירועים/שמות שלא מופיעים כאן; אם חסר מידע — אמור זאת ואל תמציא. ⚠️ אם המקורות שלמטה לא עוסקים בדיוק בנושא שנשאלת עליו (למשל חזרו על מילה דומה/לא-קשורה) — אל תכפה תשובה מהם! אמור בכנות "לא מצאתי מידע אמין על X" במקום להמציא. אם מקורות סותרים לגבי מספר/מחיר — תן את הערך שרוב המקורות מסכימים עליו (הקונצנזוס) וציין בקצרה את הטווח; התעלם ממקור בודד עם ערך חריג ולא-הגיוני:]\n' + grounding) : '';
         // ⚡ שאלה רגילה/קלה → Llama-4 סופר-מהיר עונה מיד (שיחה נורמלית). רק שאלות קשות הולכות למוח העמוק.
         if (!hard) {
             stopStatus(); say('⚡ עונה…');
