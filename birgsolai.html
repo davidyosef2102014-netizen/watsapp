@@ -8288,12 +8288,13 @@ function _isBrowserAct(q) {
 function _isCodeAgentTask(q) {
     if (!q) return false;
     if (!(typeof _isDesktop === 'function' && _isDesktop())) return false; // צריך כלי דסקטופ אמיתיים
-    const path = /[A-Za-z]:[\\/]|\.(html?|js|css|py|json|md|tsx?|jsx|txt|sh|bat)\b/i.test(q); // נתיב או שם קובץ מפורש
-    const fileRef = /בקובץ|את הקובץ|הקובץ|במאגר|בריפו|\brepo\b|בקוד|את הקוד/i.test(q);
-    const actV = /תקרא|קרא|תתקן|תקן\b|תערוך|ערוך|תשנה|שנה\b|תכתוב|כתוב|עדכן|תעדכן|תמחק|תוסיף|תבנה|תריץ|הרץ|debug|fix|edit/i.test(q);
+    const path = /[A-Za-z]:[\\/]|\.(html?|js|css|py|json|md|tsx?|jsx|txt|sh|bat|java|c|cpp|h|rb|go|rs|php|sql|vue|ya?ml|xml|env)\b/i.test(q); // נתיב או שם קובץ מפורש
+    const fileRef = /בקובץ|את הקובץ|הקובץ|קבצים|במאגר|בריפו|\brepo\b|בקוד|את הקוד|הפרויקט|בפרויקט|התיקייה|בתיקייה|מעבדה|sandbox|sectest|bugtest|heavytest/i.test(q);
+    const actV = /תקרא|קרא|תתקן|תקן\b|תערוך|ערוך|תשנה|שנה\b|תכתוב|כתוב|עדכן|תעדכן|תמחק|תוסיף|תבנה|תריץ|הרץ|תבדוק|בדוק\b|תנתח|נתח\b|תמצא|מצא\b|סרוק|תסרוק|debug|fix|edit|refactor|analyze|scan|check/i.test(q);
+    const security = /בדיקת אבטחה|בדיקות אבטחה|אבטחה|פרצה|פרצת|פגיעות|חולשה|vulnerab|exploit|\bCTF\b|דגל נסתר|\bflag\b|pentest|הזרקת|injection|\bXSS\b|\bSQLi?\b/i.test(q);
     const deploy = /(תעלה|העלה|פרוס|תפרוס|deploy|push|commit)/i.test(q) && /גיטהאב|github|לאתר|אונליין|online|לרשת/i.test(q);
     const terminal = /(תריץ|הרץ|תבצע)\s*(פקודה|בטרמינל|סקריפט|command|script)/i.test(q) || /\bטרמינל\b|\bterminal\b/i.test(q);
-    return (path && actV) || (fileRef && actV) || deploy || terminal;
+    return (path && actV) || (fileRef && actV) || (security && (path || fileRef)) || deploy || terminal;
 }
 // ניתוב פעולות דפדפן. עדיפות: (1) בדסקטופ אם התוסף מחובר דרך הגשר המקומי → הכרום האמיתי של המשתמש (chromeCmd);
 // (2) בדסקטופ עם שליטה נייטיבית → חלון-העבודה של הדסקטופ (web*); (3) בכרום עצמו → התוסף ישירות (_extSend).
