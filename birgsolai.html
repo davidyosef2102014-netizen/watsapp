@@ -6879,7 +6879,7 @@ function renderCalendarCard(cw, ev) {
 function _isWhatsAppReq(q) {
     if (!q) return false;
     const wa = /וואטסאפ|וואצאפ|וואטס|whatsapp|בוואטס/i.test(q);
-    const sendV = /\bשלח\b|תשלח|תשלחי|שלחי|הודעה ל|כתוב ל|תכתוב ל|send|message/i.test(q);
+    const sendV = /\bשלח\b|תשלח|תשלחי|שלחי|הודעה ל|הודעת|כתוב ל|תכתוב ל|send|message/i.test(q);
     if (!(wa && sendV)) return false;
     if (/מה זה|מהו|איך עובד|what is/i.test(q)) return false; // שאלה על וואטסאפ, לא בקשת שליחה
     return true;
@@ -6904,6 +6904,30 @@ async function _handleWhatsApp(q) {
             : ('רוצה לשלוח ל' + (r2.name || 'איש הקשר') + ', אבל אין לי את המספר שלו. תגיד לי: "המספר של ' + (r2.name || '…') + ' הוא 05..." ואשמור.');
         addMsg('ai', aiMsg);
         renderWhatsAppCard(cw, r2.name, r2.number, message);
+        try { saveConversation(); } catch (e) {}
+    } finally { busy = false; updateBtn(); }
+}
+// זיהוי ישיר של בקשת רישום ביומן — מילות-הפעלה ברורות (עברית+אנגלית).
+function _isCalendarReq(q) {
+    if (!q) return false;
+    return /תרשום ביומן|רשום ביומן|תוסיף ליומן|הוסף ליומן|קבע ביומן|תקבע ביומן|קבע לי|תקבע לי|אירוע ביומן|תזכיר לי|תזכורת ל|פגישה (ב|עם|ל)|add to calendar|add event|schedule (a|an|me)|remind me|calendar:/i.test(q);
+}
+async function _handleCalendar(q) {
+    addMsg('user', q);
+    const cw = document.getElementById('chat-window');
+    busy = true; updateBtn();
+    try {
+        if (q && isFirstMsg) { try { addToHistory(q); } catch (e) {} isFirstMsg = false; }
+        const today = new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const sys = 'Extract a calendar event from the user request. Today is ' + today + '. Reply ONLY compact JSON: {"title":"...","start":"YYYY-MM-DDTHH:MM","end":"","location":"","notes":""}. Compute relative dates ("מחר","יום ראשון הבא") from today. If no time is given use a sensible default like 09:00. If you truly cannot determine a date, set start to "".';
+        let ev = null;
+        try {
+            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: q }], temperature: 0, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
+            if (r.ok) { const j = await r.json(); ev = JSON.parse(j?.choices?.[0]?.message?.content || '{}'); }
+        } catch (e) {}
+        if (!ev || !ev.start) { addMsg('ai', 'לא הצלחתי להבין את התאריך/שעה. תגיד לי מתי (למשל "מחר ב-3 אחה״צ") ומה האירוע.'); try { saveConversation(); } catch (e) {} return; }
+        addMsg('ai', 'הכנתי את האירוע — לחץ "הוסף ליומן" (עובד בסמסונג/גוגל):');
+        renderCalendarCard(cw, ev);
         try { saveConversation(); } catch (e) {}
     } finally { busy = false; updateBtn(); }
 }
@@ -9007,6 +9031,12 @@ async function send() {
     if (q && !fileUrl && !fileContent && !mediaFile && _isWhatsAppReq(q)) {
         inp.value = ''; inp.style.height = 'auto';
         await _handleWhatsApp(q);
+        return;
+    }
+    // ── 📅 יומן: זיהוי ישיר — "תרשום ביומן / קבע לי / add to calendar" → כרטיס אירוע מוכן ──
+    if (q && !fileUrl && !fileContent && !mediaFile && _isCalendarReq(q)) {
+        inp.value = ''; inp.style.height = 'auto';
+        await _handleCalendar(q);
         return;
     }
     // ── סוכן הדפדפן: "סוכן: ..." / "תלחץ/תמלא/תזמין ... בדפדפן" → פועל בדף לבד (PRO/ULTRA) ──
