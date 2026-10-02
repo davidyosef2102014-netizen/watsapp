@@ -6889,19 +6889,20 @@ function renderWhatsAppCard(cw, name, number, message) {
     if (!cw) return;
     const safe = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin:8px 0;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surf2);max-width:460px';
-    const waSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="#25D366" style="vertical-align:-3px"><path d="M12 2a10 10 0 0 0-8.6 15l-1.4 5 5.1-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1-.4-.1-.9-.3-1.6-.6-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.8s.7-2 .9-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.3.5c-.1.2-.3.3-.1.6.1.2.6 1 1.3 1.6.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.7-.8c.2-.2.4-.2.6-.1l1.8.9c.2.1.4.2.5.3 0 .2 0 .8-.2 1.3z"/></svg>';
+    wrap.style.cssText = 'margin:8px 0;padding:14px 16px;border:1px solid #e4e7ef;border-radius:14px;background:#ffffff;color:#141414;max-width:460px;box-shadow:0 2px 10px rgba(0,0,0,.05)';
+    const CYAN = 'linear-gradient(135deg,#38bdf8,#4285F4)';
+    const waSvg = '<svg viewBox="0 0 24 24" width="17" height="17" fill="#25D366" style="vertical-align:-3px"><path d="M12 2a10 10 0 0 0-8.6 15l-1.4 5 5.1-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1-.4-.1-.9-.3-1.6-.6-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.8s.7-2 .9-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.3.5c-.1.2-.3.3-.1.6.1.2.6 1 1.3 1.6.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.7-.8c.2-.2.4-.2.6-.1l1.8.9c.2.1.4.2.5.3 0 .2 0 .8-.2 1.3z"/></svg>';
     if (number) {
         const b64 = btoa(unescape(encodeURIComponent(message || '')));
-        wrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:8px">' + waSvg + 'לשלוח ל' + safe(name) + '?</div>'
-            + '<div style="font-size:14px;color:var(--text);margin-bottom:12px;white-space:pre-wrap;line-height:1.5;background:var(--surf,#fff1);padding:8px 10px;border-radius:8px">' + safe(message) + '</div>'
-            + '<button data-num="' + number + '" data-msg="' + b64 + '" onclick="_waBtn(this)" style="background:#25D366;color:#fff;padding:10px 22px;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px">✓ כן, שלח</button>';
+        wrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:9px;color:#141414">' + waSvg + 'לשלוח ל' + safe(name) + '?</div>'
+            + '<div style="font-size:14px;color:#141414;margin-bottom:13px;white-space:pre-wrap;line-height:1.5;background:#f3f5f9;padding:9px 11px;border-radius:9px">' + safe(message) + '</div>'
+            + '<button data-num="' + number + '" data-msg="' + b64 + '" onclick="_waBtn(this)" style="background:' + CYAN + ';color:#fff;padding:10px 24px;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 3px 12px rgba(56,189,248,.4)">✓ כן, שלח</button>';
     } else {
         const b64n = btoa(unescape(encodeURIComponent(message || '')));
-        wrap.innerHTML = '<div style="font-weight:600;margin-bottom:8px">' + waSvg + ' הודעה ל' + safe(name) + '</div>'
-            + '<div style="font-size:14px;color:var(--text);margin-bottom:10px;white-space:pre-wrap;line-height:1.5">' + safe(message) + '</div>'
-            + '<div style="font-size:13px;color:var(--muted);margin-bottom:10px">אין לי את המספר של ' + safe(name) + '. אמור "המספר של ' + safe(name) + ' הוא 050..." ואשמור, או בחר מאנשי הקשר:</div>'
-            + '<button data-msg="' + b64n + '" onclick="_waPickBtn(this)" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:12px;font-weight:600;cursor:pointer">📇 בחר מאנשי קשר</button>';
+        wrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:9px;color:#141414">' + waSvg + ' הודעה ל' + safe(name) + '</div>'
+            + '<div style="font-size:14px;color:#141414;margin-bottom:11px;white-space:pre-wrap;line-height:1.5;background:#f3f5f9;padding:9px 11px;border-radius:9px">' + safe(message) + '</div>'
+            + '<div style="font-size:13px;color:#5a6177;margin-bottom:11px">אין לי את המספר של ' + safe(name) + '. אמור "המספר של ' + safe(name) + ' הוא 050..." ואשמור, או בחר מאנשי הקשר:</div>'
+            + '<button data-msg="' + b64n + '" onclick="_waPickBtn(this)" style="background:' + CYAN + ';border:none;color:#fff;padding:9px 18px;border-radius:12px;font-weight:700;cursor:pointer">📇 בחר מאנשי קשר</button>';
     }
     cw.appendChild(wrap);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
