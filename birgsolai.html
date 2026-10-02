@@ -10487,10 +10487,14 @@ async function _liveSpeakText(text) {
     if (!text || _liveStopped) return 'none';
     // ⚠️ ElevenLabs הוסר מהלייב: eleven_turbo_v2_5 לא תומך בעברית (32 שפות, עברית לא ביניהן) — הקריא
     // עברית בפונטיקה אנגלית ונשמע כמו משפט אנגלי מעוות. משתמשים רק במנועים שבאמת מדברים עברית.
-    // 1. קול מקומי (מיידי כשמותקן קול עברי אמיתי במכשיר)
-    const hadLocalHeb = await _speakWithBrowserTTS(text);
-    if (hadLocalHeb) { _liveLastTTS = 'native'; return 'native'; }
-    if (_liveStopped) return 'stopped';
+    // 1. קול מקומי (מיידי כשמותקן קול עברי אמיתי במכשיר).
+    //    ⚠️ ב-APK (WebView אנדרואיד) ה-speechSynthesis לרוב "מדבר" בלי קול אמיתי → מדלגים ישר ל-TTS ענן.
+    const _isApk = /BirgsolApp/i.test(navigator.userAgent || '');
+    if (!_isApk) {
+        const hadLocalHeb = await _speakWithBrowserTTS(text);
+        if (hadLocalHeb) { _liveLastTTS = 'native'; return 'native'; }
+        if (_liveStopped) return 'stopped';
+    }
     // 2. Microsoft Edge TTS דרך ה-Worker — עברית מצוינת (he-IL-AvriNeural), חינם וללא הגבלה. עובד רק אם
     // ה-Worker תומך ב-op:'edgetts' (מיקרוסופט חוסמת WebSocket ישיר מהדפדפן). אם לא זמין → נופל ל-Gemini.
     const edgeOk = await _playEdgeTTSViaWorker(text);
