@@ -32,7 +32,8 @@ public class MainActivity extends Activity {
                 Manifest.permission.CAMERA,
                 Manifest.permission.RECORD_AUDIO,
                 Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.READ_CONTACTS
+                Manifest.permission.READ_CONTACTS,
+                Manifest.permission.SEND_SMS
             }, 2001);
         } catch (Exception ignored) {}
 
@@ -76,6 +77,7 @@ public class MainActivity extends Activity {
 
         // גשר אנשי-קשר: נותן ל-BIRGSOL גישה לאנשי הקשר של הטלפון (אחרי אישור ההרשאה). נחשף כ-window.BIRGSOL_CONTACTS.
         web.addJavascriptInterface(new ContactsBridge(), "BIRGSOL_CONTACTS");
+        web.addJavascriptInterface(new SmsBridge(), "BIRGSOL_SMS");
 
         setContentView(web);
         if (savedInstanceState == null) web.loadUrl(URL + "?t=" + System.currentTimeMillis()); // cache-bust — גרסה אחרונה בכל פתיחה
@@ -110,6 +112,28 @@ public class MainActivity extends Activity {
                 }
                 return arr.toString();
             } catch (Exception e) { return "[]"; }
+        }
+        @JavascriptInterface
+        public boolean available() { return true; }
+    }
+
+    // ── גשר SMS נייטיב: send(number,text) שולח SMS בשקט, בתוך האפליקציה, בלי לצאת ──
+    public class SmsBridge {
+        @JavascriptInterface
+        public String send(String number, String text) {
+            try {
+                if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+                    try { requestPermissions(new String[]{ Manifest.permission.SEND_SMS }, 2002); } catch (Exception ignored) {}
+                    return "no-perm";
+                }
+                if (number == null || number.trim().isEmpty() || text == null) return "err:bad-args";
+                android.telephony.SmsManager sm;
+                if (android.os.Build.VERSION.SDK_INT >= 31) sm = getSystemService(android.telephony.SmsManager.class);
+                else sm = android.telephony.SmsManager.getDefault();
+                java.util.ArrayList<String> parts = sm.divideMessage(text);
+                sm.sendMultipartTextMessage(number.trim(), null, parts, null, null);
+                return "sent";
+            } catch (Exception e) { return "err:" + e.getMessage(); }
         }
         @JavascriptInterface
         public boolean available() { return true; }
