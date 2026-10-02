@@ -3616,7 +3616,7 @@ function addToHistory()           { /* לא בשימוש — saveConversation() 
 function updateGreeting() {
     const el = document.getElementById('gem-hello');
     if (!el) return;
-    const greet = localStorage.getItem('sp_greet') || 'שלום';
+    const greet = localStorage.getItem('sp_greet') || (typeof _t === 'function' ? _t('greet') : 'שלום'); // ברירת מחדל לפי שפת הממשק (אנגלית → Hello)
     el.textContent = currentUser ? `${greet}, ${_displayName()}` : greet;
 }
 
@@ -9664,9 +9664,9 @@ async function send() {
 
         // Action buttons
         const acts = document.createElement('div'); acts.className = 'ai-acts';
-        acts.innerHTML = `<button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>
-            <button class="ai-act" onclick="_readMsg(this)">${_SPK_SVG} הקרא</button>
-            <button class="ai-act" onclick="regenerate()">${IC.refresh} נסה שוב</button>`;
+        acts.innerHTML = `<button class="ai-act" onclick="copyIt(this)">${IC.copy} ${_tLang('Copy','העתק')}</button>
+            <button class="ai-act" onclick="_readMsg(this)">${_SPK_SVG} ${_tLang('Read aloud','הקרא')}</button>
+            <button class="ai-act" onclick="regenerate()">${IC.refresh} ${_tLang('Try again','נסה שוב')}</button>`;
         body.appendChild(acts);
         // ── מקורות קבועים מתחת לתשובה (שקיפות/אמון, בסגנון Perplexity) — רק אם חיפשנו והמתג דלוק ──
         try {
