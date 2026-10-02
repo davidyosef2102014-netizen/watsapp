@@ -46,6 +46,7 @@ public class MainActivity extends Activity {
         s.setGeolocationEnabled(true);
         s.setJavaScriptCanOpenWindowsAutomatically(true);
         s.setUserAgentString(s.getUserAgentString() + " BirgsolApp");
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE); // תמיד גרסה טרייה מהאתר — לא מטמון ישן
 
         web.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView v, android.webkit.WebResourceRequest r) {
@@ -77,7 +78,7 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new ContactsBridge(), "BIRGSOL_CONTACTS");
 
         setContentView(web);
-        if (savedInstanceState == null) web.loadUrl(URL);
+        if (savedInstanceState == null) web.loadUrl(URL + "?t=" + System.currentTimeMillis()); // cache-bust — גרסה אחרונה בכל פתיחה
     }
 
     // ── גשר אנשי-קשר נייטיב: getAll() מחזיר JSON [{name, number}] מכל אנשי הקשר בטלפון ──
