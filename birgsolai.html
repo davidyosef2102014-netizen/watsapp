@@ -6904,7 +6904,7 @@ function renderCalendarCard(cw, ev) {
 function _isWhatsAppReq(q) {
     if (!q) return false;
     const wa = /וואטסאפ|וואצאפ|וואטס|whatsapp|בוואטס/i.test(q);
-    const sendV = /\bשלח\b|תשלח|תשלחי|שלחי|הודעה ל|הודעת|כתוב ל|תכתוב ל|send|message/i.test(q);
+    const sendV = /שלח|תשלח|תשלחי|שלחי|הודעה|הודעת|תכתוב|כתוב|תודיע|send|message|msg/i.test(q);
     if (!(wa && sendV)) return false;
     if (/מה זה|מהו|איך עובד|what is/i.test(q)) return false; // שאלה על וואטסאפ, לא בקשת שליחה
     return true;
