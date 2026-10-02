@@ -6942,11 +6942,14 @@ function renderCalendarCard(cw, ev) {
 // זיהוי ישיר של בקשת שליחת וואטסאפ — לא תלוי בהחלטת המודל לקרוא לכלי (אמין יותר).
 function _isWhatsAppReq(q) {
     if (!q) return false;
-    const wa = /וואטסאפ|וואצאפ|וואטס|whatsapp|בוואטס/i.test(q);
-    const sendV = /שלח|תשלח|תשלחי|שלחי|הודעה|הודעת|תכתוב|כתוב|תודיע|send|message|msg/i.test(q);
-    if (!(wa && sendV)) return false;
     if (/מה זה|מהו|איך עובד|what is/i.test(q)) return false; // שאלה על וואטסאפ, לא בקשת שליחה
-    return true;
+    const wa = /וואטסאפ|וואצאפ|וואטס|whatsapp|בוואטס/i.test(q);
+    const sendV = /שלח|תשלח|תשלחי|שלחי|הודעה|הודעת|תכתוב|כתוב|תודיע|send|message|msg|text/i.test(q);
+    if (wa && sendV) return true;
+    // "תשלח למספר 0506918770: טקסט" / "send to 050...: text" — שליחה + מספר טלפון = כוונת שליחה, גם בלי המילה "וואטסאפ"
+    const hasPhone = /0\d[\d\-\s]{7,}|\+\d[\d\-\s]{7,}|\d{9,}/.test(q);
+    if (sendV && hasPhone) return true;
+    return false;
 }
 async function _handleWhatsApp(q) {
     addMsg('user', q);
