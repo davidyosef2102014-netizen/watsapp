@@ -9790,6 +9790,7 @@ function startLive() {
     // NOTE: do NOT call cancel() right after speak() — on Chrome this is a known bug
     // that jams the speech queue silently until the page is reloaded.
     try { const _u = new SpeechSynthesisUtterance(' '); _u.volume = 0; window.speechSynthesis.speak(_u); } catch(e) {}
+    try { _liveUnlockAudio(); } catch (e) {} // 🔊 פתיחת אודיו לענן-TTS (קריטי ל-APK/TWA — אחרת אין קול בלייב)
     _preloadVoices(); // warm up voices now so first speech response is instant
     document.getElementById('live-overlay').classList.add('on');
     _liveActive = true; _liveStopped = false; _liveMuted = false;
@@ -10193,7 +10194,7 @@ async function _playElevenLabsTTS(text) {
         if (!res.ok) return false;
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url); try { audio.playbackRate = _liveRate(); } catch (e) {} // מהירות דיבור לבחירת המשתמש
+        const audio = _liveMakeAudio(url); try { audio.playbackRate = _liveRate(); } catch (e) {} // מהירות דיבור לבחירת המשתמש
         _liveCurrentAudio = audio;
         const ok = await new Promise(resolve => {
             let done = false;
@@ -10289,7 +10290,7 @@ async function _playHuggingFaceTTS(text) {
         const blob = await _hfFetchAudio(chunk);
         if (!blob) return false;
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url); try { audio.playbackRate = _liveRate(); } catch (e) {} // מהירות דיבור לבחירת המשתמש
+        const audio = _liveMakeAudio(url); try { audio.playbackRate = _liveRate(); } catch (e) {} // מהירות דיבור לבחירת המשתמש
         _liveCurrentAudio = audio;
         const ok = await new Promise(resolve => {
             let done = false;
@@ -10365,7 +10366,7 @@ async function _geminiGenChunk(text) {
 // מנגן blob URL של אודיו ומחזיר הצלחה
 function _playAudioUrl(url) {
     return new Promise(resolve => {
-        const audio = new Audio(url); try { audio.playbackRate = _liveRate(); } catch (e) {} // מהירות דיבור לבחירת המשתמש
+        const audio = _liveMakeAudio(url); try { audio.playbackRate = _liveRate(); } catch (e) {} // מהירות דיבור לבחירת המשתמש
         _liveCurrentAudio = audio;
         let done = false;
         const fin = (v) => { if (done) return; done = true; try { URL.revokeObjectURL(url); } catch (e) {} if (_liveCurrentAudio === audio) _liveCurrentAudio = null; resolve(v); };
@@ -10416,7 +10417,7 @@ async function _playGoogleTTSProxy(text) {
         if (!buf || !buf.byteLength) return false;
         const blob = new Blob([buf], { type: 'audio/mpeg' });
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url); try { audio.playbackRate = _liveRate(); } catch (e) {} // מהירות דיבור לבחירת המשתמש
+        const audio = _liveMakeAudio(url); try { audio.playbackRate = _liveRate(); } catch (e) {} // מהירות דיבור לבחירת המשתמש
         _liveCurrentAudio = audio;
         const ok = await new Promise(resolve => {
             let done = false;
@@ -10453,6 +10454,24 @@ async function _playEdgeTTSViaWorker(text) {
     } catch (e) { console.warn('[Edge TTS/Worker] failed:', e.message); return false; }
 }
 
+// 🔊 פתיחת-אודיו (unlock) ל-APK/TWA: אנדרואיד חוסם ניגון שלא מיד-אחרי-מגע. פותחים אלמנט-אודיו קבוע
+// ברגע הלחיצה על "התחל לייב", ומנגנים את כל ה-TTS דרכו — כך הקול עובד גם באפליקציית ה-APK.
+let _liveAudioEl = null, _liveAC = null;
+function _liveUnlockAudio() {
+    try {
+        if (!_liveAudioEl) { _liveAudioEl = new Audio(); _liveAudioEl.preload = 'auto'; }
+        _liveAudioEl.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=';
+        const p = _liveAudioEl.play(); if (p && p.then) p.then(() => { try { _liveAudioEl.pause(); _liveAudioEl.currentTime = 0; } catch (e) {} }).catch(() => {});
+    } catch (e) {}
+    try { if (!_liveAC) _liveAC = new (window.AudioContext || window.webkitAudioContext)(); if (_liveAC.state === 'suspended') _liveAC.resume(); } catch (e) {}
+}
+function _liveMakeAudio(url) {
+    // משתמש באלמנט הקבוע שנפתח במגע (עוקף autoplay של APK); אם אין — נופל ל-new Audio
+    if (!_liveAudioEl) { try { _liveAudioEl = new Audio(); } catch (e) { return new Audio(url); } }
+    try { _liveAudioEl.onended = null; _liveAudioEl.onerror = null; _liveAudioEl.pause(); } catch (e) {}
+    try { _liveAudioEl.src = url; } catch (e) { return new Audio(url); }
+    return _liveAudioEl;
+}
 async function _liveSpeakText(text) {
     if (!text || _liveStopped) return 'none';
     // ⚠️ ElevenLabs הוסר מהלייב: eleven_turbo_v2_5 לא תומך בעברית (32 שפות, עברית לא ביניהן) — הקריא
