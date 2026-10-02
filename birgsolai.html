@@ -6907,6 +6907,70 @@ function renderWhatsAppCard(cw, name, number, message) {
     cw.appendChild(wrap);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 }
+// ── 📩 SMS: שליחה אמיתית לבד, בתוך האפליקציה, בלי לצאת (גשר נייטיב BIRGSOL_SMS ב-APK). בדפדפן — נופל לאפליקציית SMS. ──
+function _isSMSReq(q) {
+    if (!q) return false;
+    if (/מה זה|מהו|what is/i.test(q)) return false;
+    if (!/\bSMS\b|מסרון|מסרונים|אס אם אס|הודעת טקסט|text message/i.test(q)) return false;
+    return /שלח|תשלח|תשלחי|שלחי|הודעה|תכתוב|כתוב|תודיע|send|message/i.test(q);
+}
+async function _smsSend(number, message, btn) {
+    const setT = t => { if (btn) btn.textContent = t; };
+    if (window.BIRGSOL_SMS && BIRGSOL_SMS.send) {
+        setT('שולח…');
+        try { const r = BIRGSOL_SMS.send(number, message || ''); if (r === 'sent') { setT('✓ נשלח'); return true; } if (r === 'no-perm') { setT('צריך הרשאת SMS'); return false; } setT('שגיאה — נסה שוב'); return false; }
+        catch (e) { setT('שגיאה'); return false; }
+    }
+    try { window.open('sms:' + number + '?body=' + encodeURIComponent(message || ''), '_blank'); } catch (e) { try { location.href = 'sms:' + number + '?&body=' + encodeURIComponent(message || ''); } catch (e2) {} }
+    setT('✓ נפתח באפליקציית SMS'); return 'manual';
+}
+function _smsBtn(btn) { try { const n = btn.getAttribute('data-num'); const m = decodeURIComponent(escape(atob(btn.getAttribute('data-msg') || ''))); btn.disabled = true; btn.style.opacity = '.75'; _smsSend(n, m, btn); } catch (e) {} }
+function renderSMSCard(cw, name, number, message) {
+    if (!cw) return;
+    const safe = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    const CYAN = 'linear-gradient(135deg,#38bdf8,#4285F4)';
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin:8px 0;padding:14px 16px;border:1px solid #e4e7ef;border-radius:14px;background:#ffffff;color:#141414;max-width:460px;box-shadow:0 2px 10px rgba(0,0,0,.05)';
+    const smsSvg = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+    const inApp = !!(window.BIRGSOL_SMS && window.BIRGSOL_SMS.send);
+    if (number) {
+        const b64 = btoa(unescape(encodeURIComponent(message || '')));
+        wrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:9px;color:#141414">' + smsSvg + 'SMS ל' + safe(name) + (inApp ? ' — לשלוח?' : '') + '</div>'
+            + '<div style="font-size:14px;color:#141414;margin-bottom:13px;white-space:pre-wrap;line-height:1.5;background:#f3f5f9;padding:9px 11px;border-radius:9px">' + safe(message) + '</div>'
+            + '<button data-num="' + number + '" data-msg="' + b64 + '" onclick="_smsBtn(this)" style="background:' + CYAN + ';color:#fff;padding:10px 24px;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 3px 12px rgba(56,189,248,.4)">✓ שלח SMS</button>';
+    } else {
+        wrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:9px;color:#141414">' + smsSvg + ' SMS ל' + safe(name) + '</div>'
+            + '<div style="font-size:14px;color:#141414;margin-bottom:11px;white-space:pre-wrap;line-height:1.5;background:#f3f5f9;padding:9px 11px;border-radius:9px">' + safe(message) + '</div>'
+            + '<div style="font-size:13px;color:#5a6177">אין לי את המספר של ' + safe(name) + '. אמור "המספר של ' + safe(name) + ' הוא 050..." ואשמור.</div>';
+    }
+    cw.appendChild(wrap);
+    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+}
+async function _handleSMS(q) {
+    addMsg('user', q);
+    const cw = document.getElementById('chat-window');
+    busy = true; updateBtn();
+    try {
+        if (q && isFirstMsg) { try { addToHistory(q); } catch (e) {} isFirstMsg = false; }
+        let to = '', message = '', saveName = '', savePhone = '';
+        const sys = 'Extract SMS details from the user request. Recipient may be a name or a phone number. If the user pairs a name with a number, capture it to remember. Reply ONLY compact JSON: {"to":"...","message":"...","saveName":"","savePhone":""}. "message" = the text to send (empty if none).';
+        try {
+            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: q }], temperature: 0, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
+            if (r.ok) { const j = await r.json(); const o = JSON.parse(j?.choices?.[0]?.message?.content || '{}'); to = String(o.to || '').trim(); message = String(o.message || '').trim(); saveName = String(o.saveName || '').trim(); savePhone = String(o.savePhone || '').trim(); }
+        } catch (e) {}
+        if (!to) { const m = q.match(/ל([֐-׿\w'"\.\- ]{2,30}?)\s+(?:ש|שה|עם|:)/); if (m) to = m[1].trim(); }
+        if (saveName && savePhone) { _waSaveContact(saveName, savePhone); if (!to || /^[\d\s\-+]+$/.test(to)) to = saveName; }
+        const r2 = _waResolve(to);
+        if (!message) { addMsg('ai', 'מה לכתוב ל' + (r2.name || 'איש הקשר') + ' ב-SMS?'); try { saveConversation(); } catch (e) {} return; }
+        const inApp = !!(window.BIRGSOL_SMS && window.BIRGSOL_SMS.send);
+        const aiMsg = r2.number
+            ? (inApp ? ('ניסחתי SMS ל' + r2.name + '. לשלוח? (יישלח מתוך האפליקציה, בלי לצאת)') : ('הכנתי SMS ל' + r2.name + ' — לחיצה תפתח את אפליקציית ה-SMS עם ההודעה מוכנה:'))
+            : ('רוצה לשלוח SMS ל' + (r2.name || 'איש הקשר') + ', אבל אין לי את המספר. תגיד לי אותו ואשמור.');
+        addMsg('ai', aiMsg);
+        renderSMSCard(cw, r2.name, r2.number, message);
+        try { saveConversation(); } catch (e) {}
+    } finally { busy = false; updateBtn(); }
+}
 // ── 📅 יומן: BIRGSOL יוצר אירוע ונותן כפתור "הוסף ליומן" (קובץ .ics — עובד בסמסונג/גוגל/כל יומן) + קישור Google Calendar. בלי הקמה. ──
 function _icsDate(iso) {
     const d = new Date(iso); if (isNaN(d)) return '';
@@ -6944,6 +7008,7 @@ function renderCalendarCard(cw, ev) {
 function _isWhatsAppReq(q) {
     if (!q) return false;
     if (/מה זה|מהו|איך עובד|what is/i.test(q)) return false; // שאלה על וואטסאפ, לא בקשת שליחה
+    if (/\bSMS\b|מסרון|אס אם אס/i.test(q)) return false; // בקשת SMS — מסלול נפרד
     const wa = /וואטסאפ|וואצאפ|וואטס|whatsapp|בוואטס/i.test(q);
     const sendV = /שלח|תשלח|תשלחי|שלחי|הודעה|הודעת|תכתוב|כתוב|תודיע|send|message|msg|text/i.test(q);
     if (wa && sendV) return true;
@@ -9098,6 +9163,12 @@ async function send() {
     if (_guestGate()) return;
     if (!currentUser) localStorage.setItem('birgsol_guest_used', String(_guestUsed() + 1));
 
+    // ── 📩 SMS: זיהוי ישיר — "שלח SMS ל..." → שליחה נייטיב בתוך האפליקציה (או אפליקציית SMS בדפדפן). לפני וואטסאפ. ──
+    if (q && !fileUrl && !fileContent && !mediaFile && _isSMSReq(q)) {
+        inp.value = ''; inp.style.height = 'auto';
+        await _handleSMS(q);
+        return;
+    }
     // ── 📲 וואטסאפ: זיהוי ישיר (לא דרך התוסף!) — מנסח ופותח כרטיס שליחה מוכן. חייב לבוא לפני ניתוב הסוכן. ──
     if (q && !fileUrl && !fileContent && !mediaFile && _isWhatsAppReq(q)) {
         inp.value = ''; inp.style.height = 'auto';
