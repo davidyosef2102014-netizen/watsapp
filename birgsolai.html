@@ -1098,6 +1098,12 @@
         .live-orb.speaking { animation:orbSpeak .9s ease-in-out infinite; box-shadow:0 0 110px rgba(140,205,250,.65), 0 0 210px rgba(150,205,245,.4), inset 22px 26px 70px rgba(255,255,255,.7); }
         @keyframes orbSpeak { 0%,100%{ transform:scale(1.03); } 50%{ transform:scale(1.13); } }
         .live-orb.thinking { animation:orbBreathe 1.6s ease-in-out infinite; }
+        .live-orb.mini { animation:none!important; width:84px!important; height:84px!important; transform:translateY(34vh)!important; transition:width .5s ease,height .5s ease,transform .5s ease; }
+        #live-result { position:absolute; top:12%; left:50%; transform:translateX(-50%); width:min(88%,440px); max-height:54vh; overflow:auto; display:none; z-index:6; text-align:center; }
+        #live-result.on { display:block; }
+        #live-result img { width:100%; border-radius:16px; box-shadow:0 12px 44px rgba(0,0,0,.45); background:rgba(255,255,255,.06); min-height:120px; }
+        #live-result .lr-status { color:#cfe3ff; font-size:15px; padding:16px; }
+        #live-result .lr-text { color:#eaf1ff; font-size:14px; line-height:1.65; text-align:right; background:rgba(0,0,0,.28); padding:12px 15px; border-radius:14px; max-height:50vh; overflow:auto; }
         /* כשהמצלמה דולקת — הווידאו ממלא את המסך, מסתירים את הכדור כדי לא לחסום את הראיה (כמו ב-Qwen) */
         #live-cam-video.on ~ .live-orb { display:none; }
 
@@ -1519,6 +1525,7 @@
         <span class="live-header-info" style="display:inline-flex;align-items:center;gap:4px">BIRGSOL AI · <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> אינטרנט</span>
     </div>
     <div class="live-orb" id="live-orb"><b></b><b></b><b></b><b></b></div>
+    <div id="live-result"></div>
     <div class="live-dots"><i></i><i></i><i></i><i></i><i></i></div>
     <div class="live-status" id="live-status">לחץ להתחלה</div>
     <div class="live-transcript" id="live-transcript"></div>
@@ -6848,6 +6855,24 @@ async function _waAutoSend(number, message, btn) {
     setT('✓ נפתח בוואטסאפ'); return 'manual';
 }
 function _waBtn(btn) { try { const n = btn.getAttribute('data-num'); const m = decodeURIComponent(escape(atob(btn.getAttribute('data-msg') || ''))); btn.disabled = true; btn.style.opacity = '.75'; _waAutoSend(n, m, btn); } catch (e) {} }
+// ייבוא איש קשר מהטלפון (Contact Picker API — אנדרואיד/כרום בלבד; הדפדפן דורש בחירה ידנית, אין קריאה אוטומטית של כל אנשי הקשר)
+async function _waPickContact() {
+    try {
+        if (!(navigator.contacts && navigator.contacts.select)) { try { _alert('ייבוא אנשי קשר נתמך רק באנדרואיד/כרום. באייפון — תגיד לי את המספר ואשמור.'); } catch (e) {} return null; }
+        const sel = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+        if (!sel || !sel.length) return null;
+        const c = sel[0]; const name = (c.name && c.name[0]) || ''; const tel = (c.tel && c.tel[0]) || '';
+        if (name && tel) { _waSaveContact(name, tel); return { name: name, number: _waNormalize(tel) }; }
+        return null;
+    } catch (e) { return null; }
+}
+async function _waPickBtn(btn) {
+    const picked = await _waPickContact();
+    if (!picked) return;
+    let msg = ''; try { msg = decodeURIComponent(escape(atob(btn.getAttribute('data-msg') || ''))); } catch (e) {}
+    const cw = document.getElementById('chat-window');
+    renderWhatsAppCard(cw, picked.name, picked.number, msg);
+}
 function renderWhatsAppCard(cw, name, number, message) {
     if (!cw) return;
     const safe = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
@@ -6860,9 +6885,11 @@ function renderWhatsAppCard(cw, name, number, message) {
             + '<div style="font-size:14px;color:var(--text);margin-bottom:12px;white-space:pre-wrap;line-height:1.5;background:var(--surf,#fff1);padding:8px 10px;border-radius:8px">' + safe(message) + '</div>'
             + '<button data-num="' + number + '" data-msg="' + b64 + '" onclick="_waBtn(this)" style="background:#25D366;color:#fff;padding:10px 22px;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px">✓ כן, שלח</button>';
     } else {
+        const b64n = btoa(unescape(encodeURIComponent(message || '')));
         wrap.innerHTML = '<div style="font-weight:600;margin-bottom:8px">' + waSvg + ' הודעה ל' + safe(name) + '</div>'
             + '<div style="font-size:14px;color:var(--text);margin-bottom:10px;white-space:pre-wrap;line-height:1.5">' + safe(message) + '</div>'
-            + '<div style="font-size:13px;color:var(--muted)">אין לי את המספר של ' + safe(name) + '. כתוב לי למשל: "המספר של ' + safe(name) + ' הוא 050-1234567" — ואשמור אותו לפעם הבאה.</div>';
+            + '<div style="font-size:13px;color:var(--muted);margin-bottom:10px">אין לי את המספר של ' + safe(name) + '. אמור "המספר של ' + safe(name) + ' הוא 050..." ואשמור, או בחר מאנשי הקשר:</div>'
+            + '<button data-msg="' + b64n + '" onclick="_waPickBtn(this)" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:12px;font-weight:600;cursor:pointer">📇 בחר מאנשי קשר</button>';
     }
     cw.appendChild(wrap);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
@@ -6915,13 +6942,15 @@ async function _handleWhatsApp(q) {
     busy = true; updateBtn();
     try {
         if (q && isFirstMsg) { try { addToHistory(q); } catch (e) {} isFirstMsg = false; }
-        let to = '', message = '';
-        const sys = 'Extract the WhatsApp recipient and the message text from the user request. Recipient may be a name (e.g. "אמא") or a phone number. Reply ONLY compact JSON: {"to":"...","message":"..."}. "message" = the natural text to send, phrased nicely in the user\'s language. If the user did not specify message content, set message to "".';
+        let to = '', message = '', saveName = '', savePhone = '';
+        const sys = 'Extract WhatsApp details from the user request. Recipient may be a name (e.g. "אמא") or a phone number. If the user ALSO tells you a name for a number (e.g. "שלח ל-0506918770, זה אבא" or "המספר של אבא הוא 050..."), capture it so we remember the contact. Reply ONLY compact JSON: {"to":"...","message":"...","saveName":"","savePhone":""}. "message" = the natural text to send in the user\'s language (empty if none). "saveName"+"savePhone" = a name+number to remember (empty if the user did not pair a name with a number).';
         try {
             const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: q }], temperature: 0, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
-            if (r.ok) { const j = await r.json(); const o = JSON.parse(j?.choices?.[0]?.message?.content || '{}'); to = String(o.to || '').trim(); message = String(o.message || '').trim(); }
+            if (r.ok) { const j = await r.json(); const o = JSON.parse(j?.choices?.[0]?.message?.content || '{}'); to = String(o.to || '').trim(); message = String(o.message || '').trim(); saveName = String(o.saveName || '').trim(); savePhone = String(o.savePhone || '').trim(); }
         } catch (e) {}
         if (!to) { const m = q.match(/ל([֐-׿\w'"\.\- ]{2,30}?)\s+(?:ש|שה|עם|:|בוואטסאפ|וואטסאפ)/); if (m) to = m[1].trim(); }
+        // למד לבד איש קשר חדש: "זה אבא, 0506918770" → שומר אבא→מספר, ומשתמש בו כנמען
+        if (saveName && savePhone) { _waSaveContact(saveName, savePhone); if (!to || /^[\d\s\-+]+$/.test(to)) to = saveName; }
         const r2 = _waResolve(to);
         if (!message) { addMsg('ai', 'מה לכתוב ל' + (r2.name || 'איש הקשר') + '? תגיד לי את תוכן ההודעה ואכין אותה לשליחה.'); try { saveConversation(); } catch (e) {} return; }
         const aiMsg = r2.number
@@ -9788,6 +9817,7 @@ function endLive() {
     document.getElementById('live-overlay').classList.remove('on');
     _setLiveState('idle');
     _stopWave();
+    try { _liveClearResult(); } catch (e) {}
 }
 
 function toggleLiveMute() {
@@ -9939,6 +9969,51 @@ async function _callAILiveVision(frames, userText, sys) {
     } catch { return ''; }
 }
 
+// ── פיצ'רים במצב לייב: הכדור מתכווץ למטה ורואים את התוצאה (צור תמונה / מצא תמונה אמיתית / חיפוש) ──
+function _liveOrbMini(on) { const o = document.getElementById('live-orb'); if (o) o.classList.toggle('mini', !!on); }
+function _liveShowResult(html) { const r = document.getElementById('live-result'); if (r) { r.innerHTML = html; r.classList.add('on'); } }
+function _liveClearResult() { const r = document.getElementById('live-result'); if (r) { r.innerHTML = ''; r.classList.remove('on'); } _liveOrbMini(false); }
+function _liveImgSubject(t) { return String(t || '').replace(/^(תמצא|מצא|חפש|תחפש|תביא|תראה|צור|תצייר|תיצור|צייר|תעשה|find|search|create|make|draw|show)\s*(לי)?\s*(תמונה|תמונות|image|picture|photo|צילום)?\s*(של|of)?\s*/i, '').trim() || String(t || ''); }
+async function _liveMaybeFeature(transcript) {
+    const t = transcript || '';
+    const wantsImg = /תמונה|תמונות|image|picture|photo|צילום/i.test(t);
+    const findV = /תמצא|מצא|תביא|תראה לי|חפש|תחפש|find|search|show me/i.test(t);
+    const createV = /\bצור\b|תצייר|תיצור|צייר|תעשה|create|generate|draw|make/i.test(t);
+    if (wantsImg && findV && !createV) { await _liveFindImage(t); return true; }        // מצא תמונה אמיתית
+    if (isImageRequest(t) || (wantsImg && createV)) { await _liveCreateImage(t); return true; } // צור תמונה
+    if (/תחפש|חפש|מה קורה ב|מה חדש|חדשות|מזג אוויר|מחיר|כמה עולה|תמצא לי מידע|search for|google/i.test(t)) { await _liveSearch(t); return true; }
+    return false;
+}
+async function _liveCreateImage(transcript) {
+    _setLiveState('thinking'); _liveOrbMini(true); _liveShowResult('<div class="lr-status">יוצר תמונה…</div>');
+    let en = _liveImgSubject(transcript); try { const e = await _translateToEn(en); if (e) en = e; } catch (_) {}
+    let url = '';
+    try { const r = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: en }) }); if (r.ok) { const j = await r.json(); if (j.image) url = 'data:image/' + (j.type || 'jpeg') + ';base64,' + j.image; } } catch (_) {}
+    if (!url) url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(en) + '?width=768&height=768&nologo=true&model=flux&enhance=true';
+    _liveShowResult('<img src="' + url + '" alt="">');
+    try { hist.push({ role: 'user', content: transcript }); hist.push({ role: 'assistant', content: '[GENERATED_IMAGE:' + url + ']' }); saveConversation(); } catch (_) {}
+    _setLiveState('speaking'); await _liveSpeakText('הנה התמונה שיצרתי.').catch(() => {}); _setLiveState('idle');
+}
+async function _liveFindImage(transcript) {
+    _setLiveState('thinking'); _liveOrbMini(true); _liveShowResult('<div class="lr-status">מחפש תמונה…</div>');
+    let en = _liveImgSubject(transcript); try { const e = await _translateToEn(en); if (e) en = e; } catch (_) {}
+    let url = '';
+    try { const r = await _ghProxy('tavily', '/search', { api_key: '', query: en, include_images: true, max_results: 6 }, { signal: AbortSignal.timeout(9000) }); if (r.ok) { const j = await r.json(); const imgs = j.images || []; const f = imgs[0]; url = (f && (f.url || f)) || ''; } } catch (_) {}
+    if (url) { _liveShowResult('<img src="' + url + '" alt="">'); _setLiveState('speaking'); await _liveSpeakText('מצאתי תמונה.').catch(() => {}); }
+    else { _liveShowResult('<div class="lr-status">לא מצאתי תמונה מתאימה.</div>'); _setLiveState('speaking'); await _liveSpeakText('לא מצאתי תמונה מתאימה.').catch(() => {}); }
+    _setLiveState('idle');
+}
+async function _liveSearch(transcript) {
+    _setLiveState('thinking'); _liveOrbMini(true); _liveShowResult('<div class="lr-status">מחפש באינטרנט…</div>');
+    let res = ''; try { res = await webSearch(transcript); } catch (_) {}
+    let spoken = '';
+    try { spoken = await _callAILive([{ role: 'system', content: 'סכם בקצרה בעברית (2-3 משפטים טבעיים) את התשובה לשאלה לפי המידע בלבד. בלי markdown, בלי להמציא.' }, { role: 'user', content: 'שאלה: ' + transcript + '\n\nמידע:\n' + String(res || '').slice(0, 3000) }]); } catch (_) {}
+    spoken = String(spoken || 'הנה מה שמצאתי.').replace(/[*#`\[\]]/g, '').trim();
+    const esc = s => String(s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    _liveShowResult('<div class="lr-text">' + esc(spoken) + '</div>');
+    try { hist.push({ role: 'user', content: transcript }); hist.push({ role: 'assistant', content: spoken }); saveConversation(); } catch (_) {}
+    _setLiveState('speaking'); await _liveSpeakText(spoken).catch(() => {}); _setLiveState('idle');
+}
 async function _liveLoop() {
     if (!_liveActive || _liveStopped || _liveBusy) return;
     _liveBusy = true;
@@ -9957,6 +10032,16 @@ async function _liveLoop() {
     }
 
     document.getElementById('live-transcript').textContent = ''; // לא מציגים את מה שהמשתמש אמר — רק קול/סטטוס
+
+    // ── פיצ'רים בלייב: צור/מצא תמונה, חיפוש — הכדור מתכווץ למטה ורואים את התוצאה נוצרת ──
+    try { _liveClearResult(); } catch (e) {}
+    try {
+        if (await _liveMaybeFeature(transcript)) {
+            _liveBusy = false;
+            if (_liveActive && !_liveStopped && !_liveMuted) setTimeout(() => { if (_liveActive && !_liveBusy) _liveLoop(); }, 400);
+            return;
+        }
+    } catch (e) {}
 
     // ── 2. Think ──
     _setLiveState('thinking');
