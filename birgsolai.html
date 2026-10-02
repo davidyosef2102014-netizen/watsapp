@@ -2118,8 +2118,8 @@ function renderMsgOnly(role, text, histIdx) {
                     <div class="ai-name">Birgsol AI</div>
                     <div class="ai-txt"><div class="ai-img-wrap"><img class="ai-gen-img" src="${url}" loading="lazy" style="display:block;cursor:pointer" title="פתח תמונה" onclick="window.open('${url}','_blank')"></div></div>
                     <div class="ai-acts">
-                        <a class="ai-act" href="${url}" target="_blank" rel="noopener" style="text-decoration:none">${IC.extLink} פתח</a>
-                        <a class="ai-act" href="${url}" download="birgsol-image.jpg" style="text-decoration:none">${IC.download} הורד</a>
+                        <a class="ai-act" href="${url}" target="_blank" rel="noopener" style="text-decoration:none">${IC.extLink} ${_tLang('Open','פתח')}</a>
+                        <a class="ai-act" href="${url}" download="birgsol-image.jpg" style="text-decoration:none">${IC.download} ${_tLang('Download','הורד')}</a>
                     </div>
                 </div>`;
             cw.appendChild(row);
@@ -2134,7 +2134,7 @@ function renderMsgOnly(role, text, histIdx) {
                 <div class="ai-name">Birgsol AI</div>
                 <div class="ai-txt">${content}</div>
                 <div class="ai-acts">
-                    <button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>
+                    <button class="ai-act" onclick="copyIt(this)">${IC.copy} ${_tLang('Copy','העתק')}</button>
                 </div>
             </div>`;
         cw.appendChild(row);
@@ -5389,8 +5389,8 @@ function addMsg(role, text, img = null, md = false, fileLabel = '') {
                 <div class="ai-name">Birgsol AI</div>
                 <div class="ai-txt">${content}</div>
                 <div class="ai-acts">
-                    <button class="ai-act" onclick="copyIt(this)">${IC.copy} העתק</button>
-                    <button class="ai-act" onclick="_readMsg(this)">${_SPK_SVG} הקרא</button>
+                    <button class="ai-act" onclick="copyIt(this)">${IC.copy} ${_tLang('Copy','העתק')}</button>
+                    <button class="ai-act" onclick="_readMsg(this)">${_SPK_SVG} ${_tLang('Read aloud','הקרא')}</button>
                 </div>
             </div>`;
     }
@@ -5449,7 +5449,8 @@ function copyIt(btn) {
 // אייקון רמקול + כפתור הקראה
 const _SPK_SVG = '<svg class="ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
 let _readAudio = null, _readBtn = null;
-function _readBtnReset(b) { if (b) b.innerHTML = _SPK_SVG + ' הקרא'; }
+function _tLang(en, he) { try { return (typeof _resolveLang === 'function' && _resolveLang() === 'en') ? en : he; } catch (e) { return he; } }
+function _readBtnReset(b) { if (b) b.innerHTML = _SPK_SVG + ' ' + _tLang('Read aloud', 'הקרא'); }
 async function _readMsg(btn) {
     // אם כבר מקריא — עצור (טוגל)
     if (_readAudio) { try { _readAudio.pause(); } catch (e) {} _readAudio = null; _readBtnReset(_readBtn); const wasSame = (_readBtn === btn); _readBtn = null; if (wasSame) return; }
