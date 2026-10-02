@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -30,7 +31,8 @@ public class MainActivity extends Activity {
             requestPermissions(new String[]{
                 Manifest.permission.CAMERA,
                 Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.READ_CONTACTS
             }, 2001);
         } catch (Exception ignored) {}
 
@@ -71,8 +73,45 @@ public class MainActivity extends Activity {
             }
         });
 
+        // גשר אנשי-קשר: נותן ל-BIRGSOL גישה לאנשי הקשר של הטלפון (אחרי אישור ההרשאה). נחשף כ-window.BIRGSOL_CONTACTS.
+        web.addJavascriptInterface(new ContactsBridge(), "BIRGSOL_CONTACTS");
+
         setContentView(web);
         if (savedInstanceState == null) web.loadUrl(URL);
+    }
+
+    // ── גשר אנשי-קשר נייטיב: getAll() מחזיר JSON [{name, number}] מכל אנשי הקשר בטלפון ──
+    public class ContactsBridge {
+        @JavascriptInterface
+        public String getAll() {
+            try {
+                if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return "[]";
+                org.json.JSONArray arr = new org.json.JSONArray();
+                android.database.Cursor c = getContentResolver().query(
+                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                        new String[]{
+                                android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                                android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER
+                        }, null, null, null);
+                if (c != null) {
+                    int ni = c.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
+                    int pi = c.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER);
+                    while (c.moveToNext()) {
+                        String nm = ni >= 0 ? c.getString(ni) : null;
+                        String ph = pi >= 0 ? c.getString(pi) : null;
+                        if (nm != null && ph != null) {
+                            org.json.JSONObject o = new org.json.JSONObject();
+                            o.put("name", nm); o.put("number", ph);
+                            arr.put(o);
+                        }
+                    }
+                    c.close();
+                }
+                return arr.toString();
+            } catch (Exception e) { return "[]"; }
+        }
+        @JavascriptInterface
+        public boolean available() { return true; }
     }
 
     @Override
