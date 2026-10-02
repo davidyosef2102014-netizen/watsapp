@@ -6823,12 +6823,23 @@ const RE_REMEMBER = /\[REMEMBER:\s*(.+?)\]/gi;  // כלי סוכן: הסוכן �
 function _waContacts() { try { return JSON.parse(localStorage.getItem('birgsol_contacts') || '{}'); } catch (e) { return {}; } }
 function _waSaveContact(name, phone) { try { const c = _waContacts(); c[String(name || '').trim()] = String(phone || '').replace(/[^\d+]/g, ''); localStorage.setItem('birgsol_contacts', JSON.stringify(c)); return true; } catch (e) { return false; } }
 function _waNormalize(num) { let d = String(num || '').replace(/\D/g, ''); if (!d) return ''; if (d[0] === '0') d = '972' + d.slice(1); return d; } // 05X→9725X (ברירת מחדל ישראל)
+let _waNativeCache = null;
+function _waNativeContacts() { // אנשי קשר אמיתיים מהטלפון — רק באפליקציית ה-APK הנייטיב (גשר BIRGSOL_CONTACTS)
+    if (_waNativeCache) return _waNativeCache;
+    try { if (window.BIRGSOL_CONTACTS && BIRGSOL_CONTACTS.getAll) { _waNativeCache = JSON.parse(BIRGSOL_CONTACTS.getAll() || '[]') || []; return _waNativeCache; } } catch (e) {}
+    return [];
+}
 function _waResolve(to) {
     const t = String(to || '').trim();
     if (t.replace(/\D/g, '').length >= 6) return { name: t, number: _waNormalize(t) }; // כבר מספר
     const c = _waContacts();
     const key = Object.keys(c).find(k => k === t) || Object.keys(c).find(k => k.includes(t) || t.includes(k));
-    return key ? { name: key, number: _waNormalize(c[key]) } : { name: t, number: '' };
+    if (key) return { name: key, number: _waNormalize(c[key]) };
+    // אנשי הקשר של הטלפון (APK נייטיב) — "שלח לאבא" מזהה לבד מהטלפון
+    const nat = _waNativeContacts();
+    const hit = nat.find(x => (x.name || '') === t) || nat.find(x => { const n = x.name || ''; return n && (n.includes(t) || t.includes(n)); });
+    if (hit) return { name: hit.name, number: _waNormalize(hit.number) };
+    return { name: t, number: '' };
 }
 // שליחה אמיתית לבד: בדסקטופ פותח WhatsApp Web בחלון-העבודה ולוחץ "שלח" אוטומטית. בנייד/דפדפן — פותח מוכן ללחיצה.
 async function _waAutoSend(number, message, btn) {
