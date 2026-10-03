@@ -8664,16 +8664,16 @@ async function _agDecide(sys, user) {
     const steps = [
         // 🥇 GLM-5.3-Flash (חינם, OrcaRouter) — ישיר מהדפדפן אם יש מפתח, אחרת דרך ה-Worker
         async () => { let lk = ''; try { lk = localStorage.getItem('AX_ORCA_KEY') || ''; } catch (e) {}
-            if (lk) { const r = await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify({ model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }), signal: AbortSignal.timeout(90000) }); return r.ok ? _pick(await r.json()) : null; }
-            const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(90000) }); return r.ok ? _pick(await r.json()) : null; },
+            if (lk) { const r = await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify({ model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }), signal: AbortSignal.timeout(25000) }); return r.ok ? _pick(await r.json()) : null; }
+            const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(25000) }); return r.ok ? _pick(await r.json()) : null; },
         // GLM-5.3 (OpenRouter)
-        async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
-        // GLM-5.3-Flash על NVIDIA — חלון מלא (תופס חלון פנוי בתור)
-        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 4000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(92000) }); return r.ok ? _pick(await r.json()) : null; },
-        // 🟩 NVIDIA Nemotron-3-Super-120B — מודל-הקוד של NVIDIA עצמה (סוס העבודה)
-        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3-super-120b-a12b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(35000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
+        // GLM-5.3-Flash על NVIDIA — timeout קצר! המודל הזה כמעט תמיד תקוע בתור (92ש' היו האיטיות); 12ש' ואז מדלגים
+        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 4000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(12000) }); return r.ok ? _pick(await r.json()) : null; },
+        // 🟩 NVIDIA Nemotron-3-Super-120B — מודל-הקוד של NVIDIA (⚠️ מחזיר כרגע 410=הוסר; נשאר בשרשרת לכשיחזור/יוחלף)
+        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3-super-120b-a12b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(12000) }); return r.ok ? _pick(await r.json()) : null; },
         // GLM-4.7-Flash (Z.ai)
-        async () => { const r = await _ghProxy('zai', '/api/paas/v4/chat/completions', { model: 'glm-4.7-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(30000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('zai', '/api/paas/v4/chat/completions', { model: 'glm-4.7-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
         // רשת-ביטחון אחרונה — GPT-OSS-120B (Groq, מהיר, JSON mode)
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
     ];
