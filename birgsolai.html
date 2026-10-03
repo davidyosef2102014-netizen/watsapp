@@ -8491,6 +8491,15 @@ function _isCodeAgentTask(q) {
 // ניתוב פעולות דפדפן. עדיפות: (1) בדסקטופ אם התוסף מחובר דרך הגשר המקומי → הכרום האמיתי של המשתמש (chromeCmd);
 // (2) בדסקטופ עם שליטה נייטיבית → חלון-העבודה של הדסקטופ (web*); (3) בכרום עצמו → התוסף ישירות (_extSend).
 let _agUseChrome = false; // נקבע בתחילת הסוכן: האם הכרום האמיתי זמין דרך הגשר
+// 🔗 זיכרון-המשך לסוכן: אחרי שהסוכן רץ, הודעת-תיקון קצרה חוזרת אליו (ולא זולגת לצ'אט שממציא ריצות).
+let _lastAgentGoal = '', _lastAgentTs = 0, _lastAgentKind = '';
+function _looksLikeAgentFollowup(q) {
+    if (!q) return false;
+    if (!(typeof _isDesktop === 'function' && _isDesktop())) return false; // רלוונטי רק לסוכן-הדסקטופ
+    if (q.length > 240) return false; // תיקון/הערה קצרה — לא נושא חדש וארוך
+    // אזכורי קוד/טסט/קובץ/תיקון → כמעט תמיד המשך לאותה משימת-קוד
+    return /\bimport\b|eval|exec|test\.py|regex|רג.?קס|\.(py|js|html?|css|json|java|c|cpp|ts)\b|פונקצי|function|class\b|בלי\b|אל ?תשתמש|תקן|תתקן|שוב|תמשיך|המשך|לא ?עבד|לא ?עובד|נכשל|\bfail|ALL ?PASS|תריץ|הרץ|ממש|מאפס|from scratch|no import|שלד|stub/i.test(q);
+}
 async function _agDetectChromeBridge() {
     _agUseChrome = false;
     try {
@@ -8649,6 +8658,7 @@ function _agParseDecision(raw) {
 // לולאה אוטונומית עם תכנון, ביקורת-עצמית, גלאי-לולאה והגבלות בטיחות. זמין לכל משתמש דסקטופ (מנהל=חופשי, רגיל=עם אישורים).
 async function runNativeAgent(goal, opts) {
     opts = opts || {};
+    if (!opts.isFollowup) { _lastAgentGoal = goal; _lastAgentKind = 'native'; } _lastAgentTs = Date.now();
     const _admin = ADMIN_USERS.includes(currentUser);
     if (!opts.skipUser) addMsg('user', goal);
     const inp = document.getElementById('userInput'); if (inp) { inp.value = ''; inp.style.height = 'auto'; }
@@ -8738,6 +8748,7 @@ async function runNativeAgent(goal, opts) {
 
 async function _browserAgent(goal, opts) {
     opts = opts || {};
+    if (!opts.isFollowup) { _lastAgentGoal = goal; _lastAgentKind = 'browser'; } _lastAgentTs = Date.now();
     const _admin = ADMIN_USERS.includes(currentUser);
     if (currentTier !== 'pro' && currentTier !== 'ultra' && !_admin) {
         if (!opts.skipUser) addMsg('user', goal);
@@ -9223,6 +9234,15 @@ async function send() {
     }
     // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף (PRO/ULTRA) ──
     if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile) { await browserLook(q); return; }
+
+    // ── 🔗 המשך-סוכן: תוך 12 דק' מריצת-סוכן, הודעת-תיקון קצרה ("בלי import re", "תקן ותריץ שוב") חוזרת לסוכן
+    // עם ההקשר של המשימה המקורית — במקום לזלוג לצ'אט, ששם המודל עלול "להמציא" שהריץ טסטים שלא הריץ. ──
+    if (_lastAgentGoal && (Date.now() - _lastAgentTs < 12 * 60 * 1000) && !fileUrl && !fileContent && !mediaFile && _looksLikeAgentFollowup(q)) {
+        const _cont = 'המשימה המקורית: ' + _lastAgentGoal + '\n\n📌 תיקון/הנחיית-המשך מהמשתמש — אל תתחיל מחדש: קרא את הקובץ הקיים, שפר אותו לפי ההערה, והרץ את הטסט שוב עד ALL PASS:\n' + q;
+        if (_lastAgentKind === 'browser') await _browserAgent(_cont, { isFollowup: true });
+        else await runNativeAgent(_cont, { isFollowup: true });
+        return;
+    }
 
     // ── אבטחה: סריקת ניסיון פריצה/הזרקה לפני שליחה. דוד חסין. ──
     const _sec = _securityScan(q);
