@@ -9210,6 +9210,12 @@ async function send() {
         await _handleCalendar(q);
         return;
     }
+    // ── משימת-קוד טהורה (קריאה/תיקון/הרצה/פריסה) → ישר לסוכן-הקוד הנייטיבי, בלי לגעת בדפדפן/תוסף ──
+    // חשוב: לא לקרוא ל-_browserAgent על משימת-קוד — הוא מזהה את הכרום ומדליק אותו (ופותח תצוגת-דף) סתם.
+    if (_isCodeAgentTask(q) && !_isBrowserAct(q) && !fileUrl && !fileContent && !mediaFile) {
+        await runNativeAgent(q);
+        return;
+    }
     // ── סוכן הדפדפן: "סוכן: ..." / "תלחץ/תמלא/תזמין ... בדפדפן" → פועל בדף לבד (PRO/ULTRA) ──
     if ((_isBrowserAct(q) || _isCodeAgentTask(q)) && !fileUrl && !fileContent && !mediaFile) {
         await _browserAgent(q); // הסוכן מטפל גם במקרה שאין תוסף (מציג הודעת התקנה). שליטה-מרחוק הוסרה.
