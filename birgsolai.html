@@ -8700,14 +8700,28 @@ async function runNativeAgent(goal, opts) {
             let decision = null;
             try { const r = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: sys + '\n\n' + user }] }], generationConfig: { maxOutputTokens: 8000, temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json' } }), signal: AbortSignal.timeout(28000) }); if (r.ok) { const j = await r.json(); decision = _agParseDecision(j?.candidates?.[0]?.content?.parts?.[0]?.text); } } catch (e) {}
             if (!decision || !decision.op) { try { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.2, max_tokens: 8000, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) }); if (r.ok) { const j = await r.json(); decision = _agParseDecision(j?.choices?.[0]?.message?.content); } } catch (e) {} }
-            if (!decision || !decision.op) { _failStreak++; if (_failStreak >= 3) { _step('לא הצלחתי להחליט — עוצר', false); break; } _step('מנסה שוב…', true); continue; }
+            // מודל-החלטה שלישי לגיבוי (llama-3.3-70b) — כדי שעומס זמני על שני הראשונים לא יעצור את כל המשימה
+            if (!decision || !decision.op) { try { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], temperature: 0.2, max_tokens: 6000, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) }); if (r.ok) { const j = await r.json(); decision = _agParseDecision(j?.choices?.[0]?.message?.content); } } catch (e) {} }
+            if (!decision || !decision.op) {
+                _failStreak++;
+                if (_failStreak >= 7) {
+                    const _lastReal = [...stepsLog].reverse().find(l => /^\d+\.\s/.test(l));
+                    const _where = _lastReal ? ('הגעתי עד הצעד: ' + _lastReal.replace(/^\d+\.\s*/, '').slice(0, 90)) : (_plan ? 'עוד לא הספקתי לבצע את הצעד הראשון בתוכנית' : 'עוד לא הספקתי להתחיל בפועל');
+                    const _msg = 'רגע, נתקעתי כאן 😕\nהמודל שמחליט מה לעשות בצעד הבא פשוט לא ענה לי כמה פעמים ברצף — כנראה עומס זמני על השרת, לא בעיה בקוד.\n' + _where + '.\nלא סיימתי את המשימה. תן לי שנייה וננסה שוב — פשוט תכתוב לי "תמשיך" או תשלח את הבקשה שוב, ובדרך כלל זה עובד חלק בפעם הבאה. 🙏';
+                    _step('נתקעתי — המודל לא הגיב כמה פעמים ברצף', false);
+                    _finishHdr(); txt.innerHTML = ''; const ans = document.createElement('div'); ans.style.whiteSpace = 'pre-wrap'; ans.textContent = _msg; txt.appendChild(ans); hist[hist.length - 1].content = _msg; break;
+                }
+                _step('המודל לא ענה — נותן לו רגע ומנסה שוב… (ניסיון ' + _failStreak + ')', true);
+                await new Promise(res => setTimeout(res, 1200 * _failStreak));
+                continue;
+            }
             _failStreak = 0;
             if (decision.done) { _step('הושלם ✓', false); _finishHdr(); txt.innerHTML = ''; const ans = document.createElement('div'); try { ans.innerHTML = mdSafe(decision.answer || 'סיימתי.'); } catch (e) { ans.textContent = decision.answer || 'סיימתי.'; } txt.appendChild(ans); hist[hist.length - 1].content = decision.answer || 'סיימתי.'; break; }
             const _cmd = String(decision.cmd || decision.command || ''), _path = String(decision.path || decision.file || ''), _content = decision.content != null ? String(decision.content) : '', _q = String(decision.query || '');
             const _lbl = (decision.op === 'run' ? _cmd : decision.op === 'search' ? _q : _path).slice(0, 80);
             _step(({ run: '⌨️', readfile: '📄', writefile: '💾', search: '🔎' }[decision.op] || '•') + ' ' + (decision.reason || (({ run: 'מריץ בטרמינל', readfile: 'קורא קובץ', writefile: 'כותב קובץ', search: 'מחפש' }[decision.op] || decision.op) + ' ' + _lbl)), true);
             const _sig = decision.op + '|' + _lbl;
-            if (_actHist.filter(s => s === _sig).length >= 2) { _loopBreaks++; stepsLog.push('⚠️ LOOP: (' + _sig + ') tried repeatedly and not working — do something DIFFERENT.'); _actHist = _actHist.filter(s => s !== _sig); if (_loopBreaks >= 3) { _step('נתקע בלולאה — עוצר', false); break; } continue; }
+            if (_actHist.filter(s => s === _sig).length >= 2) { _loopBreaks++; stepsLog.push('⚠️ LOOP: (' + _sig + ') tried repeatedly and not working — do something DIFFERENT.'); _actHist = _actHist.filter(s => s !== _sig); if (_loopBreaks >= 3) { const _m = 'עצרתי כאן כי נכנסתי ללולאה 🌀 — ניסיתי שוב ושוב את אותה פעולה (' + _lbl.slice(0, 50) + ') והיא פשוט לא מקדמת אותי. במקום להמשיך להיתקע, עדיף שאעצור ונחשוב יחד — תגיד לי אם לנסות גישה אחרת.'; _step('נתקעתי על אותה פעולה שחוזרת — עוצר', false); _finishHdr(); txt.innerHTML = ''; const _a = document.createElement('div'); _a.textContent = _m; txt.appendChild(_a); hist[hist.length - 1].content = _m; break; } continue; }
             const _destructive = /rm\s+-rf|rmdir\s+\/s|\bdel\s+\/|\bformat\b|mkfs|drop\s+table|shutdown|reboot|>\s*\/dev\/|:\(\)\s*\{/i;
             if (decision.op === 'run' || decision.op === 'writefile') {
                 if (!_admin) {
