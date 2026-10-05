@@ -51,7 +51,36 @@ public class MainActivity extends Activity {
 
         web.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView v, android.webkit.WebResourceRequest r) {
-                return false; // הכל נטען בתוך האפליקציה
+                return handleExternal(r.getUrl().toString());
+            }
+            @Override public boolean shouldOverrideUrlLoading(WebView v, String url) { // תאימות לגרסאות ישנות
+                return handleExternal(url);
+            }
+            // כתובות של אפליקציות חיצוניות (וואטסאפ, חייגן, SMS, מייל, מפות, חנות) — פותחים את האפליקציה
+            // דרך Intent במקום לנסות לטעון בתוך ה-WebView (מה שגרם ל"האתר לא נמצא").
+            private boolean handleExternal(String url) {
+                try {
+                    String low = url.toLowerCase();
+                    boolean ext = low.startsWith("whatsapp:") || low.startsWith("tel:") || low.startsWith("sms:")
+                        || low.startsWith("smsto:") || low.startsWith("mailto:") || low.startsWith("geo:")
+                        || low.startsWith("market:") || low.startsWith("intent:")
+                        || low.contains("wa.me/") || low.contains("api.whatsapp.com") || low.contains("web.whatsapp.com");
+                    if (!ext) return false; // כתובת רגילה של האפליקציה — נטען בתוך ה-WebView
+                    Intent i = low.startsWith("intent:")
+                        ? Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                        : new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    try { startActivity(i); }
+                    catch (android.content.ActivityNotFoundException nf) {
+                        // אין אפליקציה מתאימה — ננסה את wa.me בדפדפן כגיבוי
+                        if (low.startsWith("whatsapp:")) {
+                            String q = url.contains("?") ? url.substring(url.indexOf('?')) : "";
+                            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/" + q))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        }
+                    }
+                    return true; // טופל חיצונית
+                } catch (Exception e) { return false; }
             }
         });
 
