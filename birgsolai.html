@@ -8671,6 +8671,24 @@ async function _agDecide(sys, user) {
     const msgs = [{ role: 'system', content: sys }, { role: 'user', content: user }];
     const _pick = async (j) => { const m = (j && j.choices && j.choices[0] && j.choices[0].message) || {}; return _agParseDecision((m.content || '') || (m.reasoning_content || '')); };
     const steps = [
+        // 🧠🥇 GLM-5.3 המלא (753B) דרך NVIDIA — רק בדסקטופ, ישירות דרך httpFetch (בלי Worker → בלי תקרת 100ש' → בלי 524).
+        // המוח החזק ביותר, למשימות from-scratch הכי כבדות. איטי (תור NVIDIA, עד ~3 דק') אבל מדויק.
+        // המפתח נשמר מקומית ב-localStorage('AX_NVIDIA_KEY') — לעולם לא בקוד הציבורי. בלי מפתח → מדלגים לשרשרת ה-Flash.
+        async () => {
+            let nk = ''; try { nk = localStorage.getItem('AX_NVIDIA_KEY') || ''; } catch (e) {}
+            const N = (typeof window !== 'undefined') && window.BIRGSOL_NATIVE;
+            if (!nk || !N || !N.httpFetch) return null;
+            const call = N.httpFetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + nk },
+                body: JSON.stringify({ model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 })
+            });
+            const res = await Promise.race([call, new Promise(r => setTimeout(() => r(null), 180000))]);
+            if (res && res.ok && res.status === 200 && res.body) {
+                try { return _pick(JSON.parse(res.body)); } catch (e) { return _agParseDecision(res.body); }
+            }
+            return null;
+        },
         // 🥇 GLM-5.3-Flash (חינם, OrcaRouter) — ישיר מהדפדפן אם יש מפתח, אחרת דרך ה-Worker
         async () => { let lk = ''; try { lk = localStorage.getItem('AX_ORCA_KEY') || ''; } catch (e) {}
             if (lk) { const r = await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify({ model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }), signal: AbortSignal.timeout(25000) }); return r.ok ? _pick(await r.json()) : null; }
