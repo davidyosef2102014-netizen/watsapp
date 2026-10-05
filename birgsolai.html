@@ -6863,6 +6863,10 @@ async function _waAutoSend(number, message, btn) {
             setT('פתח ידנית ›'); return false;
         } catch (e) { setT('שגיאה — נסה שוב'); return false; }
     }
+    // 📱 אפליקציית אנדרואיד שלנו: פותחים את וואטסאפ ישירות דרך deep-link (ה-WebView מיירט ופותח את האפליקציה).
+    if (typeof _inBirgsolApp === 'function' && _inBirgsolApp()) {
+        try { window.location.href = 'whatsapp://send?phone=' + number + '&text=' + enc; setT('✓ נפתח בוואטסאפ'); return 'manual'; } catch (e) {}
+    }
     try { window.open('https://wa.me/' + number + '?text=' + enc, '_blank'); } catch (e) {}
     setT('✓ נפתח בוואטסאפ'); return 'manual';
 }
