@@ -8675,14 +8675,9 @@ async function _agDecide(sys, user) {
         // המוח החזק ביותר, למשימות from-scratch הכי כבדות. איטי (תור NVIDIA, עד ~3 דק') אבל מדויק.
         // המפתח נשמר מקומית ב-localStorage('AX_NVIDIA_KEY') — לעולם לא בקוד הציבורי. בלי מפתח → מדלגים לשרשרת ה-Flash.
         async () => {
-            let nk = ''; try { nk = localStorage.getItem('AX_NVIDIA_KEY') || ''; } catch (e) {}
             const N = (typeof window !== 'undefined') && window.BIRGSOL_NATIVE;
-            if (!nk || !N || !N.httpFetch) return null;
-            const call = N.httpFetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + nk },
-                body: JSON.stringify({ model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 })
-            });
+            if (!N || !N.nvidiaChat) return null; // זמין רק בדסקטופ; המפתח נשמר מקומית בקובץ ומוזרק בתהליך הראשי
+            const call = N.nvidiaChat({ model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 });
             const res = await Promise.race([call, new Promise(r => setTimeout(() => r(null), 180000))]);
             if (res && res.ok && res.status === 200 && res.body) {
                 try { return _pick(JSON.parse(res.body)); } catch (e) { return _agParseDecision(res.body); }
