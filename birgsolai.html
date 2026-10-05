@@ -7556,7 +7556,7 @@ async function _axBrain(msgs, signal, say, level) {
     const glm53nv = async (attempts) => { attempts = attempts || 1; let lastErr; for (let i = 0; i < attempts; i++) { try { return { text: await _nv('z-ai/glm-5.3-flash', 92000, { reasoning_effort: 'low' }), who: 'GLM-5.3-Flash' }; } catch (e) { lastErr = e; } } throw (lastErr || new Error('glm53nv')); };
     // Nemotron-3-Super — סוס העבודה של Axion (NVIDIA, מהיר ויציב, ממותג BIRGSOL). רישיון NVIDIA Open.
     const nemotron = async () => ({ text: await _nv('nvidia/nemotron-3-super-120b-a12b', 35000), who: 'BIRGSOL-Core' });
-    const glm47    = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.7-flash', msgs, 3500, AbortSignal.timeout(30000)), who: 'GLM-4.7-Flash' });
+    const glm47    = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 3500, AbortSignal.timeout(30000)), who: 'GLM-4.7-Flash' });
     const oss120   = async () => ({ text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal || AbortSignal.timeout(30000)), who: 'GPT-OSS-120B' });
     // עטיפת retry — ניסיון שני על שגיאה רגעית (503/429/ריק), עם backoff קצר.
     const _retry = (fn) => async () => { try { return await fn(); } catch (e) { await new Promise(r => setTimeout(r, 1500)); return await fn(); } };
@@ -8682,7 +8682,7 @@ async function _agDecide(sys, user) {
         // 🟩 NVIDIA Nemotron-3-Super-120B — מודל-הקוד של NVIDIA (⚠️ מחזיר כרגע 410=הוסר; נשאר בשרשרת לכשיחזור/יוחלף)
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3-super-120b-a12b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(12000) }); return r.ok ? _pick(await r.json()) : null; },
         // GLM-4.7-Flash (Z.ai)
-        async () => { const r = await _ghProxy('zai', '/api/paas/v4/chat/completions', { model: 'glm-4.7-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('zai', '/api/paas/v4/chat/completions', { model: 'glm-4.5-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
         // רשת-ביטחון אחרונה — GPT-OSS-120B (Groq, מהיר, JSON mode)
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
     ];
@@ -9435,6 +9435,7 @@ async function send() {
         const _modeName = ({ normal: 'שיחה רגילה', code: 'קוד (Canvas)', image: 'יצירת תמונות' })[typeof currentMode !== 'undefined' ? currentMode : 'normal'] || 'שיחה רגילה';
         const _mObj = (typeof MODELS !== 'undefined' && typeof currentModelId === 'function') ? MODELS.find(m => m.id === currentModelId()) : null;
         const _brand = _mObj ? _mObj.brand : 'BIRGSOL AI 3.5';
+        try { const _now = new Date(); const _dd = _now.toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }); messages[0].content += `\n\n[עדכניות — חשוב] התאריך היום הוא ${_dd} (${_now.getFullYear()}). אתה מערכת מחוברת-אינטרנט ו**מעודכנת** — אל תגיד שהידע שלך מוגבל לשנה מסוימת ואל תתנצל על "נכון למועד האימון". לשאלות על אירועים/מחירים/חדשות/אנשים/עובדות שעשויות להשתנות — הנח שיש לך גישה למידע עדכני ותתייחס להווה (${_now.getFullYear()}), לא לעבר. אם צורפו תוצאות חיפוש — הסתמך עליהן כמקור האמת העדכני.`; } catch (e) {}
         messages[0].content += `\n\n[רקע-זהות — לשימוש רק אם נשאלת] שמך הוא "BIRGSOL AI" (בלי מספר גרסה), נבנית ע"י דוד יוסף זאבי. השתמש בזה אך ורק אם המשתמש שואל ישירות מי אתה / מה שמך / איזה AI אתה — ואז ענה "אני BIRGSOL AI". אם שואלים במפורש על איזה מודל אתה רץ — ציין "${_brand}". ⚠️ בכל מקרה אחר אל תזכיר את שמך או את הזהות שלך מיוזמתך — פשוט ענה לגופו של עניין על מה שהמשתמש אמר. אל תמציא שמות מודלים חיצוניים.`;
         messages[0].content += `\n\n[היכולות שלך — יש לך את כולן בפועל, לעולם אל תגיד שאין לך אותן]:\n✔️ ליצור תמונות מתיאור — כשמבקשים "צור/צייר/תעשה תמונה/איור/לוגו" פלוט שורת [IMAGE: description in English] והמערכת מייצרת אותה באמת.\n✔️ לערוך תמונות שהמשתמש מעלה — כשהוא מעלה תמונה ומבקש שינוי, המערכת עורכת אותה באמת ברמת הפיקסלים. לעולם אל תגיד "אני לא יכול לערוך תמונות" — אתה כן יכול, וזה עובד.\n✔️ לראות ולנתח תמונות שהמשתמש מעלה (ראייה ממשית).\n✔️ לחפש מידע חי ועדכני באינטרנט ([SEARCH]).\n✔️ לקרוא מסמכים מצורפים (Word/PDF/Excel/טקסט).\n✔️ לכתוב ולהריץ קוד.\nכשמבקשים ממך משהו שאחת היכולות האלה מכסה — פשוט בצע, אל תסרב ואל תמעיט בעצמך.\n⚠️ פתרון הפניות בתמונות: כשמבקשים "צור איור של זה" / "תמונה של זה" / "תצייר את זה" — המילה "זה" מתייחסת ל**נושא האחרון שדיברתם עליו בשיחה**. כלול אותו במפורש ובמלואו בתוך [IMAGE: ...]. לעולם אל תיצור נושא אקראי שלא קשור לשיחה (למשל "שלג") — אם באמת לא ברור למה הכוונה, שאל.`;
         // 🤖 סוכן דפדפן — המודל מחליט לבד מתי להפעיל (Pro/Ultra/מנהל)
