@@ -1626,6 +1626,13 @@
                 <button onclick="downloadAgentExtension()" style="background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:9px;padding:6px 15px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px" data-i18n="agent_ext_btn">הורד והתקן</button>
             </div>
             <div class="sp-row">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> <span data-i18n="ext_browser_label">דפדפן לסוכן (תוסף)</span></span>
+                <select class="sp-select" id="sp-extbrowser" onchange="applyExtBrowser(this.value)">
+                    <option value="chrome" data-i18n="ext_chrome">Chrome</option>
+                    <option value="edge" data-i18n="ext_edge">Edge</option>
+                </select>
+            </div>
+            <div class="sp-row">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="10" cy="19" r="2.5"/><path d="M12 2a10 10 0 0 0 0 20"/></svg> <span data-i18n="bg_label">רקע</span></span>
                 <select class="sp-select" id="sp-bg" onchange="applyBg(this.value)">
                     <option value="white" data-i18n="bg_white">לבן</option>
@@ -9030,6 +9037,15 @@ async function _browserAgent(goal, opts) {
                 continue;
             }
 
+            // 🛡️ מניעת לולאה אינסופית: אסור לסוכן לגלוש אל האפליקציה של עצמו (שליטה-עצמית = רקורסיה אינסופית)
+            if (decision.op === 'navigate' && /davidyosef2102014-netizen\.github\.io|\/birgsolai\.html|birgsol-gh\.davidyosef2102014/i.test(String(decision.url || ''))) {
+                const _m = 'אני לא יכול לגלוש אל האפליקציה של BIRGSOL עצמה — זה יוצר לולאה אינסופית (הסוכן שולט בעצמו). תן לי אתר אחר לפעול בו, ואבצע בשמחה. 🙏';
+                _step('ניווט לאפליקציה-עצמה נחסם — מונע לולאה', false);
+                try { _finishHdr(); } catch (e) {}
+                try { txt.innerHTML = ''; const _a = document.createElement('div'); _a.textContent = _m; txt.appendChild(_a); hist[hist.length - 1].content = _m; } catch (e) {}
+                stepsLog.push('blocked self-navigation to BIRGSOL app (loop guard)');
+                break;
+            }
             // ביצוע
             const act = { op: decision.op, ref: decision.ref, text: decision.text, key: decision.key, dir: decision.dir, url: decision.url, ms: decision.ms, code: decision.code };
             const res = await _agAct(act);
