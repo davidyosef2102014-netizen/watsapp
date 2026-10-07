@@ -1465,7 +1465,7 @@
             <li><span class="ck">✓</span> <span data-i18n="pf_basic_tok">מכסת שימוש · 300K טוקנים ביום</span></li>
             <li><span class="ck">✓</span> <span data-i18n="pf_basic_badge">תג Basic</span></li>
           </ul>
-          <div class="tier-buy" style="background:linear-gradient(135deg,#4285F4,#5fa8ff);text-align:center;cursor:default">לשדרוג פנה למנהל</div>
+          <div class="tier-buy" onclick="requestUpgrade('basic')" style="background:linear-gradient(135deg,#4285F4,#5fa8ff);text-align:center;cursor:pointer" data-i18n="request_upgrade_btn">בקש שדרוג</div>
         </div>
       </div>
 
@@ -1483,7 +1483,7 @@
             <li><span class="ck">✓</span> <span data-i18n="pf_pro_tok">מכסת שימוש · 1.2M טוקנים ביום</span></li>
             <li><span class="ck">✓</span> <span data-i18n="pf_pro_badge">תג Pro</span></li>
           </ul>
-          <div class="tier-buy" style="background:linear-gradient(135deg,#38bdf8,#38bdf8);text-align:center;cursor:default">לשדרוג פנה למנהל</div>
+          <div class="tier-buy" onclick="requestUpgrade('pro')" style="background:linear-gradient(135deg,#38bdf8,#38bdf8);text-align:center;cursor:pointer" data-i18n="request_upgrade_btn">בקש שדרוג</div>
         </div>
       </div>
 
@@ -1502,7 +1502,7 @@
             <li><span class="ck">✓</span> <span data-i18n="pf_ultra_use">שימוש ללא הגבלה</span></li>
             <li><span class="ck">✓</span> <span data-i18n="pf_ultra_badge">תג Ultra מיוחד</span></li>
           </ul>
-          <div class="tier-buy" style="background:linear-gradient(135deg,#38bdf8,#4facff,#4285F4);text-align:center;cursor:default">לשדרוג פנה למנהל</div>
+          <div class="tier-buy" onclick="requestUpgrade('ultra')" style="background:linear-gradient(135deg,#38bdf8,#4facff,#4285F4);text-align:center;cursor:pointer" data-i18n="request_upgrade_btn">בקש שדרוג</div>
         </div>
       </div>
 
@@ -3115,6 +3115,25 @@ async function doPurchaseTier(tierId) {
     _alert(_trf('{name} הופעל!', { name: tier.name }));
 }
 
+/* ── בקשת-שדרוג: אין תשלום אוטומטי → נשלחת בקשה למנהל (שם+גרסה), והמשתמש מקבל אישור + הוראות תוסף ── */
+async function requestUpgrade(tierId) {
+    const _L = (typeof _tLang === 'function') ? _tLang : function (en, he) { return he; };
+    if (!currentUser) { _alert(_L('Please sign in first to request an upgrade.', 'התחבר קודם כדי לבקש שדרוג.')); return; }
+    const tier = (typeof TIERS !== 'undefined' && TIERS[tierId]) ? TIERS[tierId] : { name: tierId };
+    try {
+        await ghUpdate('db/ai_alerts.json', function (a) {
+            a = Array.isArray(a) ? a : [];
+            a.unshift({ user: currentUser, reason: 'upgrade-request', explanation: 'בקשת שדרוג גרסה: ' + currentUser + ' ← ' + tier.name, tier: tierId, tierName: tier.name, time: Date.now(), status: 'pending' });
+            return a.slice(0, 300);
+        });
+    } catch (e) {}
+    closePricingModal();
+    const _ext = 'microsoftedge.microsoft.com/addons/detail/nlhebblopjdoapgeocoanbadiigdaock';
+    const he = 'בקשת השדרוג נשלחה למנהל המערכת ✅\n\nשם: ' + currentUser + '\nלגרסה: ' + tier.name + '\n\nהמנהל יאשר את השדרוג בהקדם.\n\n— התקנת תוסף הדפדפן (לסוכן) —\n1. התקן מחנות Edge:\n   ' + _ext + '\n2. פתח את BIRGSOL ב-Edge ורענן.\n(לחלופין: הגדרות ⚙️ → "תוסף Chrome — סוכן הדפדפן" → הורד.)';
+    const en = 'Your upgrade request was sent to the admin ✅\n\nName: ' + currentUser + '\nTo plan: ' + tier.name + '\n\nThe admin will approve your upgrade shortly.\n\n— Installing the browser extension (for the agent) —\n1. Install from the Edge store:\n   ' + _ext + '\n2. Open BIRGSOL in Edge and refresh.\n(Or: Settings ⚙️ → "Chrome extension — browser agent" → Download.)';
+    _alert(_L(en, he));
+}
+
 /* ── מנהל קובע גרסה למשתמש ── */
 async function adminSetTier(username, tierId) {
     if (!ADMIN_USERS.includes(currentUser) || !TIERS[tierId]) return;
@@ -3770,7 +3789,7 @@ Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
    מוגדר עברית + אנגלית; שאר השפות נופלות לאנגלית כדי שלא יישארו בעברית. */
 const L10N_EXTRA = {
     he: {
-        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)', desktop_app_label:'אפליקציית דסקטופ (כוח מלא)', desktop_app_btn:'הורד והתקן', agent_ext_label:'תוסף Chrome — סוכן הדפדפן', agent_ext_btn:'הורד והתקן', ext_browser_label:'דפדפן לסוכן (תוסף)',
+        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)', desktop_app_label:'אפליקציית דסקטופ (כוח מלא)', desktop_app_btn:'הורד והתקן', agent_ext_label:'תוסף Chrome — סוכן הדפדפן', agent_ext_btn:'הורד והתקן', ext_browser_label:'דפדפן לסוכן (תוסף)', request_upgrade_btn:'בקש שדרוג',
         privacy_title:'מדיניות פרטיות — BIRGSOL AI', got_it:'הבנתי',
         mem_off:'כבה זיכרון (אל תלמד עליי)', clear_all:'מחק הכל', mem_loading:'טוען…',
         mem_empty:'עדיין לא נשמרו עובדות עליך. ככל שתשוחח יותר, BIRGSOL ילמד ויזכור כאן דברים.',
@@ -3795,7 +3814,7 @@ const L10N_EXTRA = {
         vp_title:'בחר קול', vp_sub:'הקול שבו BIRGSOL ידבר איתך בלייב', vp_done:'מעולה, בואו נתחיל'
     },
     en: {
-        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install', agent_ext_label:'Chrome extension — browser agent', agent_ext_btn:'Download & install', ext_browser_label:'Browser for the agent (extension)',
+        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install', agent_ext_label:'Chrome extension — browser agent', agent_ext_btn:'Download & install', ext_browser_label:'Browser for the agent (extension)', request_upgrade_btn:'Request upgrade',
         privacy_title:'Privacy Policy — BIRGSOL AI', got_it:'Got it',
         mem_off:'Turn off memory (don\'t learn about me)', clear_all:'Delete all', mem_loading:'Loading…',
         mem_empty:'No facts saved about you yet. The more you chat, the more BIRGSOL will learn and remember here.',
