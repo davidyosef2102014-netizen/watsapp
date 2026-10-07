@@ -8410,6 +8410,13 @@ function _activeExtId() {
     return b === 'edge' ? BIRGSOL_EXT_ID_EDGE : BIRGSOL_EXT_ID;
 }
 function applyExtBrowser(val) { try { localStorage.setItem('sp_ext_browser', val); } catch (e) {} }
+// הדפדפן הנבחר לסוכן ('chrome'|'edge') — קובע לאיזה גשר נייטיב הדסקטופ ישלח, ולאיזה מזהה-תוסף בדפדפן
+function _selBrowser() {
+    let b = '';
+    try { b = localStorage.getItem('sp_ext_browser') || ''; } catch (e) {}
+    if (b !== 'edge' && b !== 'chrome') b = /Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome';
+    return b;
+}
 let _agentStop = false; // דגל עצירה לסוכן הדפדפן
 function _extSend(msg, timeoutMs = 25000) {
     return new Promise((resolve) => {
@@ -8550,7 +8557,7 @@ async function _agDetectChromeBridge() {
     _agUseChrome = false;
     try {
         if (typeof _isDesktop === 'function' && _isDesktop() && window.BIRGSOL_NATIVE && typeof window.BIRGSOL_NATIVE.chromeAlive === 'function') {
-            const a = await window.BIRGSOL_NATIVE.chromeAlive();
+            const a = await window.BIRGSOL_NATIVE.chromeAlive(_selBrowser());
             _agUseChrome = !!(a && a.alive);
         }
     } catch (e) {}
@@ -8559,7 +8566,7 @@ async function _agDetectChromeBridge() {
 function _agHasNativeWeb() { return (typeof _isDesktop === 'function' && _isDesktop()) && !!(window.BIRGSOL_NATIVE && window.BIRGSOL_NATIVE.hasWebControl && typeof window.BIRGSOL_NATIVE.webLook === 'function'); }
 async function _agLook() {
     if (_agUseChrome) { // הכרום האמיתי דרך הגשר
-        try { const r = await window.BIRGSOL_NATIVE.chromeCmd({ op: 'look' }); if (r && r.ok) return r; } catch (e) {}
+        try { const r = await window.BIRGSOL_NATIVE.chromeCmd({ op: 'look' }, _selBrowser()); if (r && r.ok) return r; } catch (e) {}
     }
     if (_agHasNativeWeb()) {
         try { const r = await window.BIRGSOL_NATIVE.webLook(); if (r && r.ok) return r; return { ok: true, title: '', url: '', text: '(עדיין לא פתוח אתר — השתמש ב-op:navigate כדי לפתוח)', fields: [] }; }
@@ -8568,7 +8575,7 @@ async function _agLook() {
     return await _extSend({ type: 'birgsol-look' }, 30000);
 }
 async function _agAct(action) {
-    if (_agUseChrome) { try { return await window.BIRGSOL_NATIVE.chromeCmd(action); } catch (e) { return { ok: false, error: String(e && e.message || e) }; } }
+    if (_agUseChrome) { try { return await window.BIRGSOL_NATIVE.chromeCmd(action, _selBrowser()); } catch (e) { return { ok: false, error: String(e && e.message || e) }; } }
     if (_agHasNativeWeb()) { try { return await window.BIRGSOL_NATIVE.webAct(action); } catch (e) { return { ok: false, error: String(e && e.message || e) }; } }
     return await _extSend({ type: 'birgsol-act', action }, 45000);
 }
