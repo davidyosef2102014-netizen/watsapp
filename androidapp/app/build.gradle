@@ -10,8 +10,8 @@ android {
         applicationId 'com.birgsol.ai'
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName '3.5'
+        versionCode 2
+        versionName '3.6'
     }
 
     buildTypes {
@@ -24,4 +24,8 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
 }
