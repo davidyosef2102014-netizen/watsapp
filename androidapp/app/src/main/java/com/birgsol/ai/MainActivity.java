@@ -18,6 +18,8 @@ import android.webkit.WebViewClient;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout _swipe; // משיכה-לרענון (תכונה נייטיב)
+    private boolean _showingWeb = true; // האם חלון-האתר מוצג (לעומת מסך-האופליין)
     private ValueCallback<Uri[]> filePathCallback;
     private static final String URL = "https://davidyosef2102014-netizen.github.io/watsapp/birgsolai.html";
     private static final int FILE_REQ = 1001;
@@ -82,6 +84,14 @@ public class MainActivity extends Activity {
                     return true; // טופל חיצונית
                 } catch (Exception e) { return false; }
             }
+            // 📴 תכונה נייטיב: מסך-אופליין עם כפתור "נסה שוב" כשאין אינטרנט בטעינת הדף הראשי
+            @Override public void onReceivedError(WebView v, android.webkit.WebResourceRequest req, android.webkit.WebResourceError err) {
+                if (req != null && req.isForMainFrame()) runOnUiThread(() -> showOfflineScreen());
+            }
+            // כשהדף נטען בהצלחה — מוודאים שחלון-האתר מוצג (ולא מסך-האופליין)
+            @Override public void onPageFinished(WebView v, String url) {
+                runOnUiThread(() -> { if (_swipe != null) _swipe.setRefreshing(false); if (!_showingWeb) { _showingWeb = true; setContentView(_swipe); } });
+            }
         });
 
         web.setWebChromeClient(new WebChromeClient() {
@@ -108,8 +118,45 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new ContactsBridge(), "BIRGSOL_CONTACTS");
         web.addJavascriptInterface(new SmsBridge(), "BIRGSOL_SMS");
 
-        setContentView(web);
+        // 🔄 משיכה-לרענון (pull-to-refresh) — עוטף את ה-WebView; תכונה נייטיב אמיתית
+        _swipe = new androidx.swiperefreshlayout.widget.SwipeRefreshLayout(this);
+        _swipe.setColorSchemeColors(0xFF38BDF8, 0xFF4285F4);
+        _swipe.addView(web);
+        _swipe.setOnRefreshListener(() -> web.reload());
+
+        setContentView(_swipe);
         if (savedInstanceState == null) web.loadUrl(URL + "?t=" + System.currentTimeMillis()); // cache-bust — גרסה אחרונה בכל פתיחה
+    }
+
+    // 📴 מסך-אופליין נייטיב עם כפתור "נסה שוב" — תכונה נייטיב אמיתית (לא webview-מעטפת)
+    private void showOfflineScreen() {
+        _showingWeb = false;
+        android.widget.LinearLayout ly = new android.widget.LinearLayout(this);
+        ly.setOrientation(android.widget.LinearLayout.VERTICAL);
+        ly.setGravity(android.view.Gravity.CENTER);
+        ly.setBackgroundColor(0xFF0B0F14);
+        ly.setPadding(70, 70, 70, 70);
+        android.widget.TextView t = new android.widget.TextView(this);
+        t.setText("אין חיבור לאינטרנט");
+        t.setTextColor(0xFFFFFFFF); t.setTextSize(21); t.setGravity(android.view.Gravity.CENTER);
+        android.widget.TextView t2 = new android.widget.TextView(this);
+        t2.setText("בדוק את החיבור שלך ונסה שוב");
+        t2.setTextColor(0xFF9AA6B2); t2.setTextSize(14); t2.setGravity(android.view.Gravity.CENTER);
+        t2.setPadding(0, 18, 0, 34);
+        android.widget.Button b = new android.widget.Button(this);
+        b.setText("נסה שוב");
+        b.setOnClickListener(view -> { _showingWeb = true; setContentView(_swipe); web.reload(); });
+        ly.addView(t); ly.addView(t2); ly.addView(b);
+        setContentView(ly);
+    }
+
+    // 🔙 כפתור-חזרה נייטיב: חוזר בהיסטוריית הדפים (במקום לסגור את האפליקציה) — תכונה נייטיב אמיתית
+    @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && _showingWeb && web != null && web.canGoBack()) {
+            web.goBack();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
     }
 
     // ── גשר אנשי-קשר נייטיב: getAll() מחזיר JSON [{name, number}] מכל אנשי הקשר בטלפון ──
