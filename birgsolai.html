@@ -2704,6 +2704,7 @@ function _buildModelMenu() {
     const mn = document.getElementById('model-menu'); if (!mn) return;
     const cur = currentModelId(); mn.innerHTML = '';
     MODELS.forEach(m => {
+        if (m.admin && !(typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser))) return; // מודל-מנהל (Axion) — מוסתר ממשתמשים שאינם מנהלים
         const allowed = _modelAllowed(m), active = m.id === cur;
         const it = document.createElement('div');
         it.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:9px;cursor:pointer;' + (active ? 'background:linear-gradient(135deg,rgba(66,133,244,.14),rgba(56,189,248,.14));' : '');
