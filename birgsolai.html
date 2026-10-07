@@ -8553,11 +8553,17 @@ function _looksLikeAgentFollowup(q) {
     // אזכורי קוד/טסט/קובץ/תיקון → כמעט תמיד המשך לאותה משימת-קוד
     return /\bimport\b|eval|exec|test\.py|regex|רג.?קס|\.(py|js|html?|css|json|java|c|cpp|ts)\b|פונקצי|function|class\b|בלי\b|אל ?תשתמש|תקן|תתקן|שוב|תמשיך|המשך|לא ?עבד|לא ?עובד|נכשל|\bfail|ALL ?PASS|תריץ|הרץ|ממש|מאפס|from scratch|no import|שלד|stub/i.test(q);
 }
+let _agOpenedBrowser = false; // האם הסוכן פתח את הדפדפן לבד (כדי לסגור אותו בסוף)
 async function _agDetectChromeBridge() {
     _agUseChrome = false;
     try {
         if (typeof _isDesktop === 'function' && _isDesktop() && window.BIRGSOL_NATIVE && typeof window.BIRGSOL_NATIVE.chromeAlive === 'function') {
-            const a = await window.BIRGSOL_NATIVE.chromeAlive(_selBrowser());
+            let a = await window.BIRGSOL_NATIVE.chromeAlive(_selBrowser());
+            // 🚀 אם הדפדפן הנבחר לא פתוח/מחובר — הסוכן פותח אותו לבד ומחכה שהתוסף יתחבר לגשר
+            if (!(a && a.alive) && typeof window.BIRGSOL_NATIVE.launchBrowser === 'function') {
+                try { await window.BIRGSOL_NATIVE.launchBrowser(_selBrowser()); _agOpenedBrowser = true; } catch (e) {}
+                for (let i = 0; i < 15 && !(a && a.alive); i++) { await new Promise(r => setTimeout(r, 1000)); try { a = await window.BIRGSOL_NATIVE.chromeAlive(_selBrowser()); } catch (e) {} }
+            }
             _agUseChrome = !!(a && a.alive);
         }
     } catch (e) {}
@@ -9121,6 +9127,8 @@ async function _browserAgent(goal, opts) {
     } finally {
         busy = false; _agentRunning = false; updateBtn();
         try { _extSend({ type: 'birgsol-stop' }); } catch (e) {}
+        // 🔚 אם הסוכן פתח את הדפדפן לבד — סוגר אותו בסוף (לא סוגר דפדפן שהמשתמש פתח)
+        try { if (_agOpenedBrowser && window.BIRGSOL_NATIVE && window.BIRGSOL_NATIVE.closeBrowser) { window.BIRGSOL_NATIVE.closeBrowser(_selBrowser()); } } catch (e) {} finally { _agOpenedBrowser = false; }
         try { saveConversation(); } catch (e) {} // שמירת שיחת הסוכן להיסטוריה
     }
     return (hist[hist.length - 1] && hist[hist.length - 1].content) || 'הסוכן סיים.'; // התוצאה — לשליטה מרחוק
