@@ -3770,7 +3770,7 @@ Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
    מוגדר עברית + אנגלית; שאר השפות נופלות לאנגלית כדי שלא יישארו בעברית. */
 const L10N_EXTRA = {
     he: {
-        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)', desktop_app_label:'אפליקציית דסקטופ (כוח מלא)', desktop_app_btn:'הורד והתקן', agent_ext_label:'תוסף Chrome — סוכן הדפדפן', agent_ext_btn:'הורד והתקן',
+        install_app:'התקן כאפליקציה', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)', desktop_app_label:'אפליקציית דסקטופ (כוח מלא)', desktop_app_btn:'הורד והתקן', agent_ext_label:'תוסף Chrome — סוכן הדפדפן', agent_ext_btn:'הורד והתקן', ext_browser_label:'דפדפן לסוכן (תוסף)',
         privacy_title:'מדיניות פרטיות — BIRGSOL AI', got_it:'הבנתי',
         mem_off:'כבה זיכרון (אל תלמד עליי)', clear_all:'מחק הכל', mem_loading:'טוען…',
         mem_empty:'עדיין לא נשמרו עובדות עליך. ככל שתשוחח יותר, BIRGSOL ילמד ויזכור כאן דברים.',
@@ -3795,7 +3795,7 @@ const L10N_EXTRA = {
         vp_title:'בחר קול', vp_sub:'הקול שבו BIRGSOL ידבר איתך בלייב', vp_done:'מעולה, בואו נתחיל'
     },
     en: {
-        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install', agent_ext_label:'Chrome extension — browser agent', agent_ext_btn:'Download & install',
+        install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install', agent_ext_label:'Chrome extension — browser agent', agent_ext_btn:'Download & install', ext_browser_label:'Browser for the agent (extension)',
         privacy_title:'Privacy Policy — BIRGSOL AI', got_it:'Got it',
         mem_off:'Turn off memory (don\'t learn about me)', clear_all:'Delete all', mem_loading:'Loading…',
         mem_empty:'No facts saved about you yet. The more you chat, the more BIRGSOL will learn and remember here.',
@@ -3924,6 +3924,7 @@ function initSettings() {
     // רקע — מחילים את הבחירה השמורה (תכלת ברירת מחדל)
     applyBg(localStorage.getItem('birgsol_bg') || 'teal');
     const _bgSel = document.getElementById('sp-bg'); if (_bgSel) _bgSel.value = localStorage.getItem('birgsol_bg') || 'teal';
+    const _exSel = document.getElementById('sp-extbrowser'); if (_exSel) _exSel.value = localStorage.getItem('sp_ext_browser') || (/Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome');
     const asOn = localStorage.getItem('birgsol_autosave_code') !== '0'; // שמירת קוד אוטומטית דולקת כברירת מחדל
     document.getElementById('sp-autosave')?.classList.toggle('on', asOn);
     document.getElementById('sp-remote')?.classList.toggle('on', localStorage.getItem('birgsol_remote_host') === '1'); // שליטה מרחוק
@@ -8380,7 +8381,16 @@ async function _bsListFiles() {
 
 /* ══ זרוע הדפדפן — BIRGSOL מסתכל בדף שאתה גולש בו דרך תוסף Chrome (רק PRO/ULTRA) ══
    האפליקציה = המוח; התוסף = הזרוע. אומרים "תסתכל בדפדפן" → פוקד על התוסף → מקבל טקסט+צילום → מנתח ועונה. */
-const BIRGSOL_EXT_ID = 'lenhfjfofokbajhodncnnlmhmblhijek';
+const BIRGSOL_EXT_ID = 'lenhfjfofokbajhodncnnlmhmblhijek';        // Chrome (פיתוח / חנות עתידית)
+const BIRGSOL_EXT_ID_EDGE = 'nlhebblopjdoapgeocoanbadiigdaock';  // Edge Add-ons (פורסם)
+// בוחר את מזהה-התוסף לפי הדפדפן שנבחר בהגדרות; אם לא נבחר — זיהוי-אוטומטי (Edge לפי ה-User-Agent).
+function _activeExtId() {
+    let b = '';
+    try { b = localStorage.getItem('sp_ext_browser') || ''; } catch (e) {}
+    if (!b) b = /Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome';
+    return b === 'edge' ? BIRGSOL_EXT_ID_EDGE : BIRGSOL_EXT_ID;
+}
+function applyExtBrowser(val) { try { localStorage.setItem('sp_ext_browser', val); } catch (e) {} }
 let _agentStop = false; // דגל עצירה לסוכן הדפדפן
 function _extSend(msg, timeoutMs = 25000) {
     return new Promise((resolve) => {
@@ -8388,7 +8398,7 @@ function _extSend(msg, timeoutMs = 25000) {
         let done = false;
         const to = setTimeout(() => { if (!done) { done = true; resolve({ ok: false, error: 'timeout' }); } }, timeoutMs);
         try {
-            chrome.runtime.sendMessage(BIRGSOL_EXT_ID, msg, (resp) => {
+            chrome.runtime.sendMessage(_activeExtId(), msg, (resp) => {
                 if (done) return; done = true; clearTimeout(to);
                 const le = chrome.runtime.lastError;
                 if (le) { resolve({ ok: false, error: /establish|Receiving end|does not exist/i.test(le.message || '') ? 'no-ext' : (le.message || 'ext-error') }); return; }
