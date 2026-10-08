@@ -17,6 +17,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          sparse-checkout: desktop
+          sparse-checkout-cone-mode: true
 
       - uses: actions/setup-node@v4
         with:
