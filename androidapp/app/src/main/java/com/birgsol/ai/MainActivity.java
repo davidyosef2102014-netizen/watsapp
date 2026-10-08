@@ -28,15 +28,27 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // בקשת הרשאות מצלמה/מיקרופון/מיקום (לפיצ'רים: לייב-מצלמה, קול, מפות)
+        // בקשת הרשאות מצלמה/מיקרופון/מיקום (לפיצ'רים: לייב-מצלמה, קול, מפות) + התראות
         try {
-            requestPermissions(new String[]{
+            java.util.List<String> perms = new java.util.ArrayList<>(java.util.Arrays.asList(
                 Manifest.permission.CAMERA,
                 Manifest.permission.RECORD_AUDIO,
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.READ_CONTACTS,
                 Manifest.permission.SEND_SMS
-            }, 2001);
+            ));
+            if (android.os.Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS");
+            requestPermissions(perms.toArray(new String[0]), 2001);
+        } catch (Exception ignored) {}
+
+        // 🔔 התראות נייטיב — יכולת-מכשיר אמיתית (NotificationManager). נחשף גם ל-JS כ-window.BIRGSOL_NOTIFY.
+        try {
+            android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (android.os.Build.VERSION.SDK_INT >= 26 && nm != null) {
+                android.app.NotificationChannel ch = new android.app.NotificationChannel("birgsol", "BIRGSOL AI", android.app.NotificationManager.IMPORTANCE_DEFAULT);
+                ch.setDescription("BIRGSOL AI notifications");
+                nm.createNotificationChannel(ch);
+            }
         } catch (Exception ignored) {}
 
         web = new WebView(this);
@@ -117,6 +129,7 @@ public class MainActivity extends Activity {
         // גשר אנשי-קשר: נותן ל-BIRGSOL גישה לאנשי הקשר של הטלפון (אחרי אישור ההרשאה). נחשף כ-window.BIRGSOL_CONTACTS.
         web.addJavascriptInterface(new ContactsBridge(), "BIRGSOL_CONTACTS");
         web.addJavascriptInterface(new SmsBridge(), "BIRGSOL_SMS");
+        web.addJavascriptInterface(new NotifyBridge(), "BIRGSOL_NOTIFY"); // התראות נייטיב מה-JS
 
         // 🔄 משיכה-לרענון (pull-to-refresh) — עוטף את ה-WebView; תכונה נייטיב אמיתית
         _swipe = new androidx.swiperefreshlayout.widget.SwipeRefreshLayout(this);
@@ -125,7 +138,33 @@ public class MainActivity extends Activity {
         _swipe.setOnRefreshListener(() -> web.reload());
 
         setContentView(_swipe);
-        if (savedInstanceState == null) web.loadUrl(URL + "?t=" + System.currentTimeMillis()); // cache-bust — גרסה אחרונה בכל פתיחה
+        if (savedInstanceState == null) {
+            web.loadUrl(URL + "?t=" + System.currentTimeMillis()); // cache-bust — גרסה אחרונה בכל פתיחה
+            _notify("BIRGSOL AI", "מוכן לעזור לך — סוכן, קוד ותמונות"); // התראת-פתיחה (יכולת נייטיב גלויה)
+        }
+    }
+
+    // 🔔 מציג התראה נייטיב (NotificationManager) — יכולת-מכשיר אמיתית, לא webview
+    private void _notify(String title, String body) {
+        try {
+            android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (nm == null) return;
+            android.app.Notification n = new android.app.Notification.Builder(this, "birgsol")
+                .setContentTitle(title == null ? "BIRGSOL AI" : title)
+                .setContentText(body == null ? "" : body)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setAutoCancel(true)
+                .build();
+            nm.notify((int) (System.currentTimeMillis() % 100000), n);
+        } catch (Exception ignored) {}
+    }
+
+    // גשר התראות ל-JS: window.BIRGSOL_NOTIFY.show(title, body)
+    public class NotifyBridge {
+        @JavascriptInterface
+        public void show(final String title, final String body) {
+            runOnUiThread(() -> _notify(title, body));
+        }
     }
 
     // 📴 מסך-אופליין נייטיב עם כפתור "נסה שוב" — תכונה נייטיב אמיתית (לא webview-מעטפת)
