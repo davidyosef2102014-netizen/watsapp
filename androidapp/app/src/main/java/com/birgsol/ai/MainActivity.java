@@ -143,15 +143,6 @@ public class MainActivity extends Activity {
         setContentView(ly);
     }
 
-    // 🔙 כפתור-חזרה נייטיב: חוזר בהיסטוריית הדפים (במקום לסגור את האפליקציה) — תכונה נייטיב אמיתית
-    @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK && _showingWeb && web != null && web.canGoBack()) {
-            web.goBack();
-            return true;
-        }
-        return super.onKeyDown(keyCode, event);
-    }
-
     // ── גשר אנשי-קשר נייטיב: getAll() מחזיר JSON [{name, number}] מכל אנשי הקשר בטלפון ──
     public class ContactsBridge {
         @JavascriptInterface
