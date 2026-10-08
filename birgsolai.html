@@ -8538,7 +8538,10 @@ function _isCodeAgentTask(q) {
     const security = /בדיקת אבטחה|בדיקות אבטחה|אבטחה|פרצה|פרצת|פגיעות|חולשה|vulnerab|exploit|\bCTF\b|דגל נסתר|\bflag\b|pentest|הזרקת|injection|\bXSS\b|\bSQLi?\b/i.test(q);
     const deploy = /(תעלה|העלה|פרוס|תפרוס|deploy|push|commit)/i.test(q) && /גיטהאב|github|לאתר|אונליין|online|לרשת/i.test(q);
     const terminal = /(תריץ|הרץ|תבצע)\s*(פקודה|בטרמינל|סקריפט|command|script)/i.test(q) || /\bטרמינל\b|\bterminal\b/i.test(q);
-    return (path && actV) || (fileRef && actV) || (security && (path || fileRef)) || deploy || terminal;
+    // 📝 Microsoft Office — Word/Excel/PowerPoint: הסוכן שולט בהם דרך PowerShell COM בדסקטופ
+    const office = (/\b(word|excel|powerpoint|ppt|docx?|xlsx?|pptx?)\b|וורד|אקסל|פאוור\s*פוינט|פאוורפוינט|מצגת|גיליון\s*אלקטרוני/i.test(q))
+        && (actV || /פתח|תפתח|צור|תיצור|תעשה|עשה|הכן|תכין|מלא|תמלא/i.test(q));
+    return (path && actV) || (fileRef && actV) || (security && (path || fileRef)) || deploy || terminal || office;
 }
 // ניתוב פעולות דפדפן. עדיפות: (1) בדסקטופ אם התוסף מחובר דרך הגשר המקומי → הכרום האמיתי של המשתמש (chromeCmd);
 // (2) בדסקטופ עם שליטה נייטיבית → חלון-העבודה של הדסקטופ (web*); (3) בכרום עצמו → התוסף ישירות (_extSend).
