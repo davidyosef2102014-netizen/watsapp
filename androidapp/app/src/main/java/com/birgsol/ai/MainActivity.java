@@ -18,6 +18,7 @@ import android.webkit.WebViewClient;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout _swipe; // משיכה-לרענון (תכונה נייטיב)
     private boolean _showingWeb = true; // האם חלון-האתר מוצג (לעומת מסך-האופליין)
     private ValueCallback<Uri[]> filePathCallback;
     private static final String URL = "https://davidyosef2102014-netizen.github.io/watsapp/birgsolai.html";
@@ -89,7 +90,7 @@ public class MainActivity extends Activity {
             }
             // כשהדף נטען בהצלחה — מוודאים שחלון-האתר מוצג (ולא מסך-האופליין)
             @Override public void onPageFinished(WebView v, String url) {
-                runOnUiThread(() -> { if (!_showingWeb) { _showingWeb = true; setContentView(web); } });
+                runOnUiThread(() -> { if (_swipe != null) _swipe.setRefreshing(false); if (!_showingWeb) { _showingWeb = true; setContentView(_swipe); } });
             }
         });
 
@@ -117,7 +118,13 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new ContactsBridge(), "BIRGSOL_CONTACTS");
         web.addJavascriptInterface(new SmsBridge(), "BIRGSOL_SMS");
 
-        setContentView(web);
+        // 🔄 משיכה-לרענון (pull-to-refresh) — עוטף את ה-WebView; תכונה נייטיב אמיתית
+        _swipe = new androidx.swiperefreshlayout.widget.SwipeRefreshLayout(this);
+        _swipe.setColorSchemeColors(0xFF38BDF8, 0xFF4285F4);
+        _swipe.addView(web);
+        _swipe.setOnRefreshListener(() -> web.reload());
+
+        setContentView(_swipe);
         if (savedInstanceState == null) web.loadUrl(URL + "?t=" + System.currentTimeMillis()); // cache-bust — גרסה אחרונה בכל פתיחה
     }
 
@@ -138,7 +145,7 @@ public class MainActivity extends Activity {
         t2.setPadding(0, 18, 0, 34);
         android.widget.Button b = new android.widget.Button(this);
         b.setText("נסה שוב");
-        b.setOnClickListener(view -> { _showingWeb = true; setContentView(web); web.reload(); });
+        b.setOnClickListener(view -> { _showingWeb = true; setContentView(_swipe); web.reload(); });
         ly.addView(t); ly.addView(t2); ly.addView(b);
         setContentView(ly);
     }
