@@ -1,0 +1,46 @@
+name: Build BIRGSOL Desktop
+
+on:
+  push:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        working-directory: desktop
+        run: npm install
+
+      - name: Build Windows installer (.exe)
+        working-directory: desktop
+        run: npx electron-builder --win nsis --publish never
+
+      - name: Rename installer
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Filter *.exe | Where-Object { $_.Name -notlike '*.blockmap' } | Select-Object -First 1
+          Copy-Item $exe.FullName "dist/BIRGSOL-AI-Setup.exe" -Force
+          Write-Host "Built: $($exe.Name)"
+
+      - name: Publish to Release (permanent download link)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-latest
+          name: BIRGSOL Desktop (latest)
+          files: desktop/dist/BIRGSOL-AI-Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
