@@ -9003,8 +9003,15 @@ async function _browserAgent(goal, opts) {
             }
             if (!decision || !decision.op) {
                 _failStreak++;
-                if (_failStreak >= 3) { _step('לא הצלחתי להחליט על צעד — עוצר', false); stepsLog.push('(failed to decide x3)'); break; }
-                _step('לא התקבלה החלטה ברורה — מרענן ומנסה שוב…', true);
+                if (_failStreak >= 7) {
+                    const _m = 'רגע, נתקעתי כאן 😕\nהמודל שמחליט מה לעשות בדף לא הגיב לי כמה פעמים ברצף — כנראה עומס זמני על השרת, לא בעיה בקוד.\nלא סיימתי את המשימה. נסה שוב בעוד רגע (תכתוב "תמשיך" או שלח שוב) — בדרך כלל זה עובד חלק בפעם הבאה. 🙏';
+                    _step('נתקעתי — המודל לא הגיב כמה פעמים ברצף', false);
+                    try { _finishHdr(); } catch (e) {}
+                    try { txt.innerHTML = ''; const _a = document.createElement('div'); _a.style.whiteSpace = 'pre-wrap'; _a.textContent = _m; txt.appendChild(_a); hist[hist.length - 1].content = _m; } catch (e) {}
+                    stepsLog.push('(failed to decide x7)'); break;
+                }
+                _step('המודל לא ענה — נותן לו רגע ומנסה שוב… (ניסיון ' + _failStreak + ')', true);
+                await new Promise(res => setTimeout(res, 1200 * _failStreak));
                 try { const _rs = await _agLook(); if (_rs && _rs.ok) state = _rs; } catch (e) {}
                 continue; // ניסיון חוזר — כשל בודד לא מפסיק את כל המשימה
             }
