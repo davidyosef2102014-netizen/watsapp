@@ -7788,7 +7788,7 @@ async function callAI(messages, onChunk, signal=null) {
     // SSE streamer: reads OpenAI-compatible server-sent events, calls onChunk with growing text
     const _stream = async (provider, body) => {
         // מצב קוד — תשובות ארוכות; חלון גדול יותר. צ'אט — קצר, כדי ש-failover על ספק תקוע יהיה מהיר (Groq מהיר; אם נתקע/429, עוברים מהר לגיבוי)
-        const _to = (typeof currentMode !== 'undefined' && currentMode === 'code') ? 30000 : 13000;
+        const _to = (typeof currentMode !== 'undefined' && currentMode === 'code') ? 30000 : 8000; // צ'אט: 8ש' — אם מנוע לא ענה עד אז (עומס), נופלים מהר לגיבוי במקום להמתין
         const _sig = signal
             ? AbortSignal.any([signal, AbortSignal.timeout(_to)])
             : AbortSignal.timeout(_to);
@@ -8056,9 +8056,11 @@ async function callAI(messages, onChunk, signal=null) {
         for (const s of stages) {
             try { return await s.fn(); }
             catch(e) {
-                if (e.name === 'AbortError') throw e; // user stopped — propagate immediately
+                // ליפול לגיבוי על *כל* שגיאה — כולל עומס/429/503/timeout (לא משנה איזה קוד/שם).
+                // מפסיקים את השרשרת רק אם המשתמש *באמת* עצר (ה-signal שלו נדלק); timeout מעומס ≠ עצירת-משתמש.
+                if (e && e.name === 'AbortError' && signal && signal.aborted) throw e;
                 _lastFail = s.name + ': ' + (e && e.message || e);
-                console.warn(`[AI] ${s.name}:`, e.message);
+                console.warn(`[AI] ${s.name}:`, e && e.message || e);
             }
         }
         if (round === 0) await new Promise(r => setTimeout(r, 400)); // המתנה קצרה לפני הסבב השני
