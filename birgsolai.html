@@ -7922,7 +7922,7 @@ async function callAI(messages, onChunk, signal=null) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: _code ? 'mistral-large-latest' : 'mistral-small-latest', messages, temperature: _code ? 0.2 : 0.7, max_tokens: _code ? 6000 : 2048 }),
-            signal: AbortSignal.timeout(15000)
+            signal: AbortSignal.timeout(_code ? 20000 : 7000) // צ'אט: 7ש' — אם נחנק, נכשל מהר במקום להיתקע
         });
         if (!res.ok) throw new Error('mistral ' + res.status);
         const j = await res.json();
@@ -8038,11 +8038,13 @@ async function callAI(messages, onChunk, signal=null) {
         // לפני שמוותרים — כך כמעט לעולם לא מגיעים ל"שגיאת חיבור" כל עוד ולו מנוע אחד עובד.
         // סולם: 3.5 PRO(120b) > 3.5 FLASH(Gemini) > 3.0 PRO(Cloudflare) > 3.0 FLASH(Mistral) > 2.0 PRO(20b) > 2.0 FLASH(בסיסי)
         // כלל: Mistral תמיד אחרון (מדליף/מזייף), ו-Cloudflare תמיד לפניו כרשת ביטחון.
-        if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים בלבד (Mistral מדולג — מזייף)
-        if (_mid === 'pro')    return [_sGpt, _sCloud, _sGem, _sGpt2, _sMis];     // 3.5 PRO — gpt-oss-20b ראשי, Cloudflare(גיבוי מהיר), Gemini(#3), 120b(כבד-אחרון), Mistral (לבחירת דוד: Gemini #3)
-        if (_mid === 'flash')  return [_sGem, _sGpt, _sCloud, _sGpt2, _sMis];     // 3.5 FLASH — Gemini ראשי (minimal ~1.7ש), gpt-oss-20b(גיבוי מהיר 0.9ש), Cloudflare, 120b(כבד), Mistral
-        if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2, _sMis];     // 3.0 PRO — Cloudflare ראשון, Mistral אחרון
-        if (_mid === '3.0')    return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 3.0 FLASH
+        // 🏁 כלל: Cloudflare = הרצפה האחרונה (מכסה נפרדת, אמין תחת עומס). Mistral נחנק → הוסר מהמודלים הראשיים לגמרי;
+        // נשאר רק בטיירים הבסיסיים כניסיון-חירום *אחרי* Cloudflare, עם timeout קצר כדי שלא ייתקע.
+        if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים בלבד (בלי Mistral — מזייף)
+        if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sCloud];            // 3.5 PRO — חזקים + Cloudflare רצפה. בלי Mistral (נחנק)
+        if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sCloud];            // 3.5 FLASH — Gemini ראשי, gpt-oss, 120b, Cloudflare רצפה. בלי Mistral (נחנק)
+        if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2];           // 3.0 PRO — Cloudflare ראשון
+        if (_mid === '3.0')    return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 3.0 FLASH — Mistral חירום אחרון (אחרי Cloudflare)
         if (_mid === '2.0pro') return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 2.0 PRO
         return [_sGpt, _sGem, _sCloud, _sMis];                                    // 2.0 FLASH — בסיסי
     })();
