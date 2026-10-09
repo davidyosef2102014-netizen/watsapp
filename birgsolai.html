@@ -8722,7 +8722,18 @@ function _agParseDecision(raw) {
 // קרדיט: המודלים ש"עושים את העבודה" הם GLM (Z.ai) ו-NVIDIA Nemotron — הם הבסיס לסוכן-הקוד.
 async function _agDecide(sys, user) {
     const msgs = [{ role: 'system', content: sys }, { role: 'user', content: user }];
-    const _pick = async (j) => { const m = (j && j.choices && j.choices[0] && j.choices[0].message) || {}; return _agParseDecision((m.content || '') || (m.reasoning_content || '')); };
+    const _pick = async (j) => {
+        const m = (j && j.choices && j.choices[0] && j.choices[0].message) || {};
+        const d = _agParseDecision((m.content || '') || (m.reasoning_content || ''));
+        if (d) { // 🧠 לוכדים את החשיבה הגולמית האמיתית של המוח (לרוב אנגלית/סינית) — להצגה בפאנל החשיבה
+            try {
+                let raw = String(m.reasoning_content || '');
+                if (!raw) { raw = String(m.content || ''); const ji = raw.search(/\{\s*"(thinking|reason|observation|op|milestone)"/); if (ji > 0) raw = raw.slice(0, ji).trim(); else if (ji === 0) raw = ''; }
+                raw = raw.trim(); if (raw) d.__thinking = raw.slice(0, 4000);
+            } catch (e) {}
+        }
+        return d;
+    };
     const steps = [
         // 🧠🥇 GLM-5.3 המלא (753B) דרך NVIDIA — רק בדסקטופ, ישירות דרך httpFetch (בלי Worker → בלי תקרת 100ש' → בלי 524).
         // המוח החזק ביותר, למשימות from-scratch הכי כבדות. איטי (תור NVIDIA, עד ~3 דק') אבל מדויק.
@@ -8834,6 +8845,8 @@ async function runNativeAgent(goal, opts) {
                 continue;
             }
             _failStreak = 0;
+            // 🧠 מציג את החשיבה הגולמית האמיתית של המוח בפאנל החשיבה (מה שהוא באמת חושב, לרוב אנגלית/סינית — לא טקסט מעובד)
+            if (decision.__thinking) { try { const _tl = document.createElement('div'); _tl.style.cssText = 'margin:6px 0;padding:6px 9px;font-size:11px;line-height:1.55;color:var(--muted,#8b909a);white-space:pre-wrap;opacity:.82;font-style:italic;border-inline-start:2px solid var(--border,#e2e4ea);border-radius:4px;direction:ltr;text-align:start'; _tl.textContent = '🧠 ' + decision.__thinking; _det.appendChild(_tl); while (_det.children.length > 40) _det.removeChild(_det.firstChild); if (_open && cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); } catch (e) {} }
             if (decision.done) {
                 _step('הושלם ✓', false); _finishHdr(); txt.innerHTML = '';
                 // 👄 הפה מנסח את התשובה הסופית בחום; המוח רק נתן סיכום עובדתי
@@ -9050,6 +9063,8 @@ async function _browserAgent(goal, opts) {
                 continue; // ניסיון חוזר — כשל בודד לא מפסיק את כל המשימה
             }
             _failStreak = 0; // הצלחה — מאפסים את מונה הכשלים
+            // 🧠 מציג את החשיבה הגולמית האמיתית של המוח בפאנל החשיבה (מה שהוא באמת חושב — לא טקסט מעובד)
+            if (decision.__thinking) { try { const _tl = document.createElement('div'); _tl.style.cssText = 'margin:6px 0;padding:6px 9px;font-size:11px;line-height:1.55;color:var(--muted,#8b909a);white-space:pre-wrap;opacity:.82;font-style:italic;border-inline-start:2px solid var(--border,#e2e4ea);border-radius:4px;direction:ltr;text-align:start'; _tl.textContent = '🧠 ' + decision.__thinking; _det.appendChild(_tl); while (_det.children.length > 40) _det.removeChild(_det.firstChild); if (_open && cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); } catch (e) {} }
             if (decision.done) {
                 _step('הושלם ✓', false); _finishHdr(); txt.innerHTML = '';
                 let _fin = await _agMouth('המשימה הושלמה. סיכום עובדתי מהמוח: ' + (decision.answer || 'בוצע') + '\n\nנסח למשתמש הודעת סיום חמה וברורה: מה נעשה ומה התוצאה.') || decision.answer || 'סיימתי.';
