@@ -1391,9 +1391,16 @@
     <div class="login-card" id="email-card" style="display:none;">
         <button class="auth-back" onclick="showLogin()">← חזרה</button>
         <div class="login-logo"><div class="l-star"></div><h1>כניסה עם מייל</h1><p>חדש? החשבון ייווצר אוטומטית · קיים? פשוט התחבר</p></div>
-        <div class="login-field"><label>אימייל</label><input type="email" id="em-mail" placeholder="name@example.com" autocomplete="email" dir="ltr" onkeydown="if(event.key==='Enter')document.getElementById('em-pass').focus()"></div>
-        <div class="login-field"><label>סיסמה</label><input type="password" id="em-pass" placeholder="לפחות 4 תווים" autocomplete="current-password" onkeydown="if(event.key==='Enter')doEmailAuth()"></div>
-        <button class="login-btn" onclick="doEmailAuth()">המשך ←</button>
+        <div id="em-step-1">
+            <div class="login-field"><label>אימייל</label><input type="email" id="em-mail" placeholder="name@example.com" autocomplete="email" dir="ltr" onkeydown="if(event.key==='Enter')document.getElementById('em-pass').focus()"></div>
+            <div class="login-field"><label>סיסמה</label><input type="password" id="em-pass" placeholder="לפחות 4 תווים" autocomplete="current-password" onkeydown="if(event.key==='Enter')doEmailAuth()"></div>
+            <button class="login-btn" id="em-send-btn" onclick="doEmailAuth()">המשך ←</button>
+        </div>
+        <div id="em-step-2" style="display:none">
+            <div class="login-field"><label>הקוד שנשלח למייל שלך</label><input type="tel" id="em-otp" placeholder="123456" maxlength="6" dir="ltr" onkeydown="if(event.key==='Enter')doEmailOtpVerify()"></div>
+            <button class="login-btn" id="em-verify-btn" onclick="doEmailOtpVerify()">אמת והתחבר ←</button>
+            <button class="auth-back" style="position:static;margin-top:8px" onclick="_emailOtpReset()">← חזרה</button>
+        </div>
         <div id="em-err" class="login-err"></div>
     </div>
 
@@ -2985,14 +2992,17 @@ async function handleGoogleLogin(response) {
     const username = p.email.trim().toLowerCase();
     try {
         // יצירה אטומית אם חדש; אם קיים — פשוט מתחברים
+        let _isNew = false;
         await ghUpdate('db/ai_users.json', users => {
             users = users || {};
             if (users[username]) return undefined;
+            _isNew = true;
             users[username] = { google: true, name: p.name || '', picture: p.picture || '', createdAt: Date.now(), lang: localStorage.getItem('birgsol_lang') || 'he' };
             return users;
         });
         currentName = p.name || null;
         await _finishLogin(username);
+        _notifyLogin(username, _isNew, p.name || null); // גוגל — התראת כניסה (ובחדש גם ברוך-הבא), בלי OTP
     } catch (e) { _alert('שגיאת חיבור — נסה שוב.'); }
 }
 let _gisInited = false;
@@ -3042,6 +3052,60 @@ async function _finishLogin(user) {
     }).catch(() => {});
     await loadConversationsCloud();
     loadUserMemory();
+}
+
+/* ── 📧 מערכת מיילים (Brevo דרך ה-Worker) — OTP, התראת-כניסה, ברוך-הבא, פרסומות ── */
+async function _mailSend(to, subject, html, addContact) {
+    try { const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'sendmail', to: to, subject: subject, html: html, addContact: addContact !== false }) }); return r.ok; } catch (e) { return false; }
+}
+async function _otpSend(to) {
+    try { const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'otp-send', to: to }) }); const j = await r.json().catch(() => ({})); return !!(j && j.ok); } catch (e) { return false; }
+}
+async function _otpVerify(to, code) {
+    try { const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'otp-verify', to: to, code: code }) }); return await r.json().catch(() => ({ ok: false })); } catch (e) { return { ok: false }; }
+}
+function _mailDevice() {
+    const ua = navigator.userAgent;
+    let os = 'מכשיר'; if (/Windows/.test(ua)) os = 'Windows'; else if (/Android/.test(ua)) os = 'Android'; else if (/iPhone|iPad|iPod/.test(ua)) os = 'iOS'; else if (/Mac/.test(ua)) os = 'Mac'; else if (/Linux/.test(ua)) os = 'Linux';
+    let br = ''; if (/Edg\//.test(ua)) br = 'Edge'; else if (/Chrome\//.test(ua)) br = 'Chrome'; else if (/Firefox\//.test(ua)) br = 'Firefox'; else if (/Safari\//.test(ua)) br = 'Safari';
+    return (br ? br + ' · ' : '') + os;
+}
+function _mailShell(inner) {
+    return '<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#eef0f2;padding:20px 10px">'
+        + '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:auto;background:#ffffff;border:1px solid #111111;border-radius:4px;direction:rtl;text-align:right">'
+        + '<div style="padding:22px 32px;border-bottom:2px solid #111111;font-size:20px;font-weight:800;letter-spacing:.04em;color:#111111">BIRGSOL<span style="color:#0ea5a4"> AI</span></div>'
+        + '<div style="padding:34px 32px">' + inner + '</div>'
+        + '<div style="padding:22px 32px;border-top:1px solid #e5e7eb;background:#fafafa;font-size:11px;color:#9ca3af;line-height:1.6">BIRGSOL AI · © 2026<br>מייל אוטומטי — אין צורך להשיב.</div></div></body></html>';
+}
+function _mailLoginAlert() {
+    const when = new Date().toLocaleString('he-IL', { dateStyle: 'long', timeStyle: 'short' });
+    const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || '';
+    const app = location.origin + location.pathname;
+    return _mailShell(
+        '<div style="font-size:22px;font-weight:800;color:#111;margin-bottom:8px">זוהתה כניסה חדשה לחשבון</div>'
+        + '<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">זיהינו כניסה חדשה לחשבון ה-BIRGSOL AI שלך. אם זה אתה — אין צורך בפעולה.</p>'
+        + '<table role="presentation" width="100%" style="border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate">'
+        + '<tr><td style="padding:13px 16px;border-bottom:1px solid #f0f0f0;font-size:14px;color:#374151"><b style="color:#111">מכשיר:</b> ' + _mailDevice() + '</td></tr>'
+        + '<tr><td style="padding:13px 16px;border-bottom:1px solid #f0f0f0;font-size:14px;color:#374151"><b style="color:#111">מתי:</b> ' + when + '</td></tr>'
+        + '<tr><td style="padding:13px 16px;font-size:14px;color:#374151"><b style="color:#111">אזור זמן:</b> ' + tz + '</td></tr></table>'
+        + '<p style="margin:22px 0 14px;font-size:15px;font-weight:700;color:#111">לא אתה? אבטח את החשבון מיד:</p>'
+        + '<a href="' + app + '?secure=1" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 30px;border-radius:4px">החלף סיסמה / אבטח חשבון</a>'
+    );
+}
+function _mailWelcome(name) {
+    const app = location.origin + location.pathname;
+    return _mailShell(
+        '<div style="font-size:26px;font-weight:800;color:#111;margin-bottom:10px">ברוך הבא ל-BIRGSOL AI' + (name ? ', ' + name : '') + '! 🎉</div>'
+        + '<p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#374151">החשבון שלך נוצר בהצלחה. עכשיו יש לך גישה ל-BIRGSOL AI — עוזר חכם בעברית עם צ\'אט, קול, תמונות וסוכן קוד.</p>'
+        + '<a href="' + app + '" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:16px;font-weight:700;padding:14px 40px;border-radius:4px">התחל עכשיו ←</a>'
+    );
+}
+// שולח התראת-כניסה (ברקע, לא חוסם); לחשבונות חדשים — גם ברוך-הבא
+function _notifyLogin(mail, isNew, name) {
+    try {
+        if (isNew) _mailSend(mail, 'ברוך הבא ל-BIRGSOL AI 🎉', _mailWelcome(name), true);
+        _mailSend(mail, 'זוהתה כניסה חדשה לחשבון BIRGSOL AI', _mailLoginAlert(), true);
+    } catch (e) {}
 }
 
 /* ── premium check — הגרסה נקבעת בענן ע"י המנהל (ניהול משתמשים) ── */
@@ -3486,24 +3550,58 @@ async function doPhoneVerify() {
         btn.disabled = false; btn.textContent = 'אמת והתחבר ←';
     }
 }
+let _pendingEmail = null; // { mail, isNew, hashed } — בין שלב הסיסמה לשלב ה-OTP
 async function doEmailAuth() {
     const mail = document.getElementById('em-mail').value.trim().toLowerCase();
     const pass = document.getElementById('em-pass').value;
     const err  = document.getElementById('em-err'); err.style.display = 'none';
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { err.textContent = '❌ כתובת מייל לא תקינה.'; err.style.display='block'; return; }
     if (pass.length < 4) { err.textContent = '❌ הסיסמה חייבת להכיל לפחות 4 תווים.'; err.style.display='block'; return; }
+    const btn = document.getElementById('em-send-btn'); if (btn) { btn.disabled = true; btn.textContent = 'שולח קוד…'; }
     try {
         const hashed = await hashPassword(pass);
         const users = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
-        if (users[mail]) { // קיים — אימות
-            if (!users[mail].password) { err.textContent = '❌ החשבון הזה נפתח עם Google — התחבר עם כפתור Google.'; err.style.display='block'; return; }
-            if (users[mail].password !== hashed) { err.textContent = '❌ סיסמה שגויה.'; err.style.display='block'; return; }
-            await _finishLogin(mail); return;
-        }
-        // חדש — יצירה אטומית
-        await ghUpdate('db/ai_users.json', u => { u = u || {}; if (u[mail]) return undefined; u[mail] = { password: hashed, email: true, createdAt: Date.now(), lang: localStorage.getItem('birgsol_lang') || 'he' }; return u; });
-        await _finishLogin(mail);
+        let isNew = false;
+        if (users[mail]) { // קיים — אימות סיסמה
+            if (!users[mail].password) { err.textContent = '❌ החשבון הזה נפתח עם Google — התחבר עם כפתור Google.'; err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='המשך ←';} return; }
+            if (users[mail].password !== hashed) { err.textContent = '❌ סיסמה שגויה.'; err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='המשך ←';} return; }
+        } else { isNew = true; }
+        // 🔐 OTP חובה בכל כניסה עם מייל — שולחים קוד למייל לפני השלמת הכניסה
+        const sent = await _otpSend(mail);
+        if (!sent) { err.textContent = '❌ לא הצלחנו לשלוח את קוד האימות. נסה שוב בעוד רגע.'; err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='המשך ←';} return; }
+        _pendingEmail = { mail: mail, isNew: isNew, hashed: hashed };
+        document.getElementById('em-step-1').style.display = 'none';
+        document.getElementById('em-step-2').style.display = 'block';
+        const oi = document.getElementById('em-otp'); if (oi) { oi.value = ''; oi.focus(); }
     } catch (e) { err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block'; }
+    finally { if (btn) { btn.disabled = false; btn.textContent = 'המשך ←'; } }
+}
+async function doEmailOtpVerify() {
+    if (!_pendingEmail) return;
+    const code = (document.getElementById('em-otp').value || '').trim();
+    const err  = document.getElementById('em-err'); err.style.display = 'none';
+    if (!/^\d{6}$/.test(code)) { err.textContent = '❌ הזן קוד בן 6 ספרות.'; err.style.display='block'; return; }
+    const btn = document.getElementById('em-verify-btn'); if (btn) { btn.disabled = true; btn.textContent = 'מאמת…'; }
+    try {
+        const vr = await _otpVerify(_pendingEmail.mail, code);
+        if (!vr || !vr.ok) {
+            const left = (vr && typeof vr.triesLeft === 'number') ? (' (' + vr.triesLeft + ' ניסיונות נותרו)') : '';
+            err.textContent = (vr && vr.error === 'expired') ? '❌ הקוד פג תוקף — חזור ושלח קוד חדש.' : ('❌ קוד שגוי.' + left);
+            err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='אמת והתחבר ←';} return;
+        }
+        const mail = _pendingEmail.mail, isNew = _pendingEmail.isNew, hashed = _pendingEmail.hashed;
+        if (isNew) { await ghUpdate('db/ai_users.json', u => { u = u || {}; if (u[mail]) return undefined; u[mail] = { password: hashed, email: true, createdAt: Date.now(), lang: localStorage.getItem('birgsol_lang') || 'he' }; return u; }); }
+        _pendingEmail = null;
+        await _finishLogin(mail);
+        _notifyLogin(mail, isNew, null); // ברוך-הבא (אם חדש) + התראת כניסה — ברקע
+    } catch (e) { err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block'; }
+    finally { if (btn) { btn.disabled = false; btn.textContent = 'אמת והתחבר ←'; } }
+}
+function _emailOtpReset() {
+    _pendingEmail = null;
+    document.getElementById('em-step-2').style.display = 'none';
+    document.getElementById('em-step-1').style.display = 'block';
+    const err = document.getElementById('em-err'); if (err) err.style.display = 'none';
 }
 
 /* ── forgot password ── */
