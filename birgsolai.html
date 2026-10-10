@@ -8643,7 +8643,10 @@ function _isCodeAgentTask(q) {
     // 📝 Microsoft Office — Word/Excel/PowerPoint: הסוכן שולט בהם דרך PowerShell COM בדסקטופ
     const office = (/\b(word|excel|powerpoint|ppt|docx?|xlsx?|pptx?)\b|וורד|אקסל|פאוור\s*פוינט|פאוורפוינט|מצגת|גיליון\s*אלקטרוני/i.test(q))
         && (actV || /פתח|תפתח|צור|תיצור|תעשה|עשה|הכן|תכין|מלא|תמלא/i.test(q));
-    return (path && actV) || (fileRef && actV) || (security && (path || fileRef)) || deploy || terminal || office;
+    // 🏗️ בנייה מאפס — "תבנה אפליקציה/UI/API/אתר/משחק/כלי/קוד": פועל-בנייה + מילת-יעד של תוכנה
+    const build = (/\b(ui|ux|api|app|web\s?app|website|webpage|frontend|front-end|backend|back-end|fullstack|dashboard|crud|spa|llm|chatbot|game|tool|landing|script|program|code)\b|אפליקצי|אפליקציי|ממשק|אתר\b|אתרים|אתר\s|משחק|דשבורד|בוט\b|דף\s*נחיתה|תוכנה|תוכנית|סקריפט|קוד\b/i.test(q))
+        && (/תבנה|בנה\b|תכין|הכן\b|צור|תיצור|תעשה|עשה\b|כתוב|תכתוב|תפתח|build|create|make|generate|develop|implement|תפַתח|פתח/i.test(q));
+    return (path && actV) || (fileRef && actV) || (security && (path || fileRef)) || deploy || terminal || office || build;
 }
 // ניתוב פעולות דפדפן. עדיפות: (1) בדסקטופ אם התוסף מחובר דרך הגשר המקומי → הכרום האמיתי של המשתמש (chromeCmd);
 // (2) בדסקטופ עם שליטה נייטיבית → חלון-העבודה של הדסקטופ (web*); (3) בכרום עצמו → התוסף ישירות (_extSend).
