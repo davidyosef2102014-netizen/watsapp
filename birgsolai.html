@@ -5236,26 +5236,36 @@ function _toggleAttachMenu(e) {
         setTimeout(() => document.addEventListener('click', close), 0);
     }
 }
+let _lastPickKind = ''; // 'gallery' | 'files' — נזכר כדי לזהות תמונות גם כש-type ריק (גוגל תמונות באנדרואיד)
 function _pickAttach(kind) {
     const fi = document.getElementById('fi');
     if (!fi) return;
+    _lastPickKind = kind;
     if (kind === 'gallery') { fi.accept = 'image/*'; fi.multiple = true; }
     else { fi.accept = '.txt,.pdf,.csv,.md,.json,.docx,.xlsx,.xls,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov'; fi.multiple = false; }
     const m = document.getElementById('attach-menu'); if (m) m.classList.remove('on');
     fi.click();
 }
+// זיהוי תמונה עמיד: לפי type, או לפי סיומת, או כש-type ריק אבל נבחר מתפריט הגלריה (אנדרואיד/גוגל-תמונות מחזירים type ריק)
+function _isImgFile(f) {
+    if (!f) return false;
+    if (f.type && f.type.startsWith('image/')) return true;
+    if (/\.(jpe?g|png|gif|webp|bmp|heic|heif|avif|jfif)$/i.test(f.name || '')) return true;
+    if (!f.type && _lastPickKind === 'gallery') return true; // גוגל תמונות: type ריק אך נבחר מהגלריה
+    return false;
+}
 function previewFile() {
     const _fl = document.getElementById('fi').files;
     if (!_fl || !_fl.length) return;
     // אם נבחרו תמונות — טען את כולן (עד MAX_IMAGES); קבצי מסמך/מדיה נשארים אחד בכל פעם
-    if (_fl[0].type.startsWith('image/')) {
+    if (_isImgFile(_fl[0])) {
         fileContent = ''; fileName = '';
-        for (const f of _fl) { if (f.type.startsWith('image/')) _loadImageBlob(f); }
+        for (const f of _fl) { if (_isImgFile(f)) _loadImageBlob(f); }
         document.getElementById('fi').value = '';
         return;
     }
     const f = _fl[0];
-    if (f.type.startsWith('image/')) {
+    if (_isImgFile(f)) {
         fileContent = ''; fileName = '';
         _loadImageBlob(f);
         return;
@@ -7950,11 +7960,27 @@ async function callAI(messages, onChunk, signal=null) {
     })();
     const _tryGemini = async () => {
         const sys = messages.find(m => m.role === 'system')?.content || '';
+        // 🖼️ ממיר תוכן-הודעה לפורמט Gemini — כולל תמונות! (image_url עם data-URL → inlineData). קודם התמונות נזרקו וה-vision לא עבד.
+        const _toParts = (content) => {
+            if (typeof content === 'string') return [{ text: content }];
+            if (Array.isArray(content)) {
+                const parts = [];
+                for (const c of content) {
+                    if (c && c.type === 'text' && c.text) parts.push({ text: c.text });
+                    else if (c && c.type === 'image_url' && c.image_url && c.image_url.url) {
+                        const mm = String(c.image_url.url).match(/^data:([^;]+);base64,(.+)$/);
+                        if (mm) parts.push({ inlineData: { mimeType: mm[1], data: mm[2] } });
+                    }
+                }
+                return parts.length ? parts : [{ text: '' }];
+            }
+            return [{ text: (content && content[0] && content[0].text) || '' }];
+        };
         const contents = messages.filter(m => m.role !== 'system').map(m => ({
             role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '') }]
+            parts: _toParts(m.content)
         }));
-        if (sys && contents.length) contents[0].parts[0].text = sys + '\n\n' + contents[0].parts[0].text;
+        if (sys && contents.length) contents[0].parts.unshift({ text: sys + '\n\n' });
         // במצב קוד Gemini הוא לרוב המנוע שבפועל עונה (Groq נחנק ב-429 על פרומפט גדול) — לכן צריך תקרת פלט גדולה כדי שלא ייחתך קוד ארוך.
         const _codeNow = (typeof currentMode !== 'undefined' && currentMode === 'code');
         // 🚀 סטרימינג (streamGenerateContent + alt=sse) — הטקסט מופיע מילה-מילה מיד, מהיר כמו גוגל עצמה.
@@ -8138,6 +8164,8 @@ async function callAI(messages, onChunk, signal=null) {
         // כלל: Mistral תמיד אחרון (מדליף/מזייף), ו-Cloudflare תמיד לפניו כרשת ביטחון.
         // 🏁 כלל: Cloudflare = הרצפה האחרונה (מכסה נפרדת, אמין תחת עומס). Mistral נחנק → הוסר מהמודלים הראשיים לגמרי;
         // נשאר רק בטיירים הבסיסיים כניסיון-חירום *אחרי* Cloudflare, עם timeout קצר כדי שלא ייתקע.
+        // 🖼️ תמונה בהודעה → רק מנועים שרואים תמונות: Gemini (ראייה) → Cloudflare llama-4-scout (מולטימודל). gpt-oss/Mistral טקסט-בלבד → ידלגו (היו "ממציאים" שלא רואים).
+        if (hasImage) return [_sGem, _sCloud];
         if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים בלבד (בלי Mistral — מזייף)
         if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sCloud];            // 3.5 PRO — חזקים + Cloudflare רצפה. בלי Mistral (נחנק)
         if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sCloud];            // 3.5 FLASH — Gemini ראשי, gpt-oss, 120b, Cloudflare רצפה. בלי Mistral (נחנק)
