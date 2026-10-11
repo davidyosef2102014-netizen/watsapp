@@ -8147,6 +8147,8 @@ async function callAI(messages, onChunk, signal=null) {
         const _sGpt  = { name: 'gpt-oss-20b',  fn: () => _groqGuard({ model: 'openai/gpt-oss-20b', messages, ..._chatCfg }) };
         // gpt-oss-120b = גיבוי איכות למקרים קשים (חזק אך איטי/כבד).
         const _sGpt2 = { name: 'gpt-oss-120b', fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) };
+        // 🖼️ ראייה מהירה: Groq llama-4-scout (מולטימודל, ~1-2ש', קורא עברית) — ראשי לתמונות; מהיר הרבה מ-Gemini.
+        const _sGroqVis = { name: 'Groq-vision', fn: () => _groqTry({ model: 'meta-llama/llama-4-scout-17b-16e-instruct', messages, temperature: 0.4, max_tokens: 1500 }) };
         const _sMis  = { name: 'Mistral',  fn: () => _stream('mistral', { model: 'mistral-small-latest', messages, temperature: _isGroundedTurn ? 0.1 : 0.7, max_tokens: 2048 }) }; // מזרים (מהיר)
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
         const _sCloud = { name: 'Cloudflare AI', fn: () => _tryCloudflare().then(_tw) }; // גיבוי אחרון — מכסה יומית נפרדת, מונע "שגיאת חיבור"
@@ -8164,8 +8166,8 @@ async function callAI(messages, onChunk, signal=null) {
         // כלל: Mistral תמיד אחרון (מדליף/מזייף), ו-Cloudflare תמיד לפניו כרשת ביטחון.
         // 🏁 כלל: Cloudflare = הרצפה האחרונה (מכסה נפרדת, אמין תחת עומס). Mistral נחנק → הוסר מהמודלים הראשיים לגמרי;
         // נשאר רק בטיירים הבסיסיים כניסיון-חירום *אחרי* Cloudflare, עם timeout קצר כדי שלא ייתקע.
-        // 🖼️ תמונה בהודעה → רק מנועים שרואים תמונות: Gemini (ראייה) → Cloudflare llama-4-scout (מולטימודל). gpt-oss/Mistral טקסט-בלבד → ידלגו (היו "ממציאים" שלא רואים).
-        if (hasImage) return [_sGem, _sCloud];
+        // 🖼️ תמונה בהודעה → רק מנועים שרואים: Groq llama-4-scout (מהיר, עברית) ראשי → Gemini → Cloudflare. gpt-oss/Mistral טקסט-בלבד → מדולגים.
+        if (hasImage) return [_sGroqVis, _sGem, _sCloud];
         if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים בלבד (בלי Mistral — מזייף)
         if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sCloud];            // 3.5 PRO — חזקים + Cloudflare רצפה. בלי Mistral (נחנק)
         if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sCloud];            // 3.5 FLASH — Gemini ראשי, gpt-oss, 120b, Cloudflare רצפה. בלי Mistral (נחנק)
@@ -9566,6 +9568,13 @@ async function send() {
     if (q && !fileUrl && !fileContent && !mediaFile && _isCalendarReq(q)) {
         inp.value = ''; inp.style.height = 'auto';
         await _handleCalendar(q);
+        return;
+    }
+    // 💻🖥️ דסקטופ + מצב קוד = סוכן אוטומטי. כל מה שנכתב במצב "קוד" בדסקטופ הולך ישר לסוכן (בלי צורך במילות-הדק).
+    // מצב "שיחה" נשאר שיחה רגילה. (בקשת דוד — פשטות: מצב קוד מדליק את הסוכן, מוכן)
+    if (q && typeof _isDesktop === 'function' && _isDesktop() && typeof currentMode !== 'undefined' && currentMode === 'code'
+        && !_isBrowserAct(q) && !fileUrl && !fileContent && !mediaFile) {
+        await runNativeAgent(q);
         return;
     }
     // ── משימת-קוד טהורה (קריאה/תיקון/הרצה/פריסה) → ישר לסוכן-הקוד הנייטיבי, בלי לגעת בדפדפן/תוסף ──
