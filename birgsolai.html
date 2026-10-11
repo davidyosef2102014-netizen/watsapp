@@ -8889,7 +8889,7 @@ function _agParseDecision(raw) {
 // 🧠 שרשרת-החלטה לסוכן-הקוד = אותה שרשרת מוח של Axion: כל מודלי GLM לפי הסדר, ואז מודלי NVIDIA עצמם
 // (Nemotron-3-Super — מודל-הקוד של NVIDIA), ובסוף רשת-ביטחון מהירה. פרסור סלחני על כל תשובה.
 // קרדיט: המודלים ש"עושים את העבודה" הם GLM (Z.ai) ו-NVIDIA Nemotron — הם הבסיס לסוכן-הקוד.
-async function _agDecide(sys, user, heavy) {
+async function _agDecide(sys, user) {
     const msgs = [{ role: 'system', content: sys }, { role: 'user', content: user }];
     const _pick = async (j) => {
         const m = (j && j.choices && j.choices[0] && j.choices[0].message) || {};
@@ -8929,10 +8929,18 @@ async function _agDecide(sys, user, heavy) {
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 4000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
     ];
-    // 🧠 שימוש-בתבונה ב-GLM המלא: heavy=true (הסוכן נתקע/בלולאה או רגע קשה) → המוח הכבד ראשון (איכות);
-    // אחרת → המהירים ראשונים (מהירות, ~3ש'), והכבד אחרון כרשת-ביטחון. ככה הוא לא נעלם — נכנס בדיוק כשצריך אותו.
-    const steps = heavy ? [_heavyBrain].concat(_fast) : _fast.concat([_heavyBrain]);
-    for (const step of steps) { try { const d = await step(); if (d && d.op) return d; } catch (e) {} }
+    // 🧠 בקשת דוד: בודקים את ה-GLM המלא **במקביל** (לא חוסם) בזמן שהשרשרת רצה. אם הוא עונה תוך כדי → מעדיפים אותו (המוח החזק);
+    // אם לא → ממשיכים כרגיל דרך GLM→NVIDIA→gpt-oss. ככה הוא נכנס בדיוק כשהוא זמין, בלי להאט שום צעד.
+    let _heavyVal = null;
+    const _heavyP = _heavyBrain().then(d => { _heavyVal = (d && d.op) ? d : null; return _heavyVal; }).catch(() => null);
+    for (const step of _fast) {
+        try {
+            const d = await step();
+            if (_heavyVal && _heavyVal.op) return _heavyVal; // ה-GLM המלא ענה בינתיים → מעדיפים אותו
+            if (d && d.op) return d;
+        } catch (e) {}
+    }
+    try { const h = await _heavyP; if (h && h.op) return h; } catch (e) {} // כל השרשרת נכשלה → המתנה אחרונה ל-GLM המלא
     return null;
 }
 
@@ -9000,8 +9008,8 @@ async function runNativeAgent(goal, opts) {
             const user = 'GOAL: ' + goal + (_plan ? '\n\nPLAN:\n' + _plan : '') + (stepsLog.length ? '\n\nACTIONS & OUTPUT SO FAR (recent):\n' + stepsLog.slice(-16).join('\n') : '') + '\n\nReturn the next action as JSON.';
             _step('חושב על הצעד הבא… (' + stepN + '/' + MAX + ')', true);
             // 🧠 ההחלטה על הצעד הבא רצה דרך שרשרת GLM→NVIDIA (כמו מוח Axion) — כל ה-GLM לפי הסדר ואז Nemotron של NVIDIA
-            // 🧠 שימוש-בתבונה במוח הכבד: ברירת-מחדל GLM-5.3-flash המהיר; מסלימים ל-GLM המלא רק כשנתקע/בלולאה (קורס לרשת-ביטחון).
-            let decision = await _agDecide(sys, user, (_failStreak > 0 || _loopBreaks > 0));
+            // 🧠 GLM-5.3-flash מהיר כברירת-מחדל; ה-GLM המלא נבדק במקביל ונכנס אם ענה (בתוך _agDecide).
+            let decision = await _agDecide(sys, user);
             if (!decision || !decision.op) {
                 _failStreak++;
                 if (_failStreak >= 7) {
