@@ -8779,7 +8779,7 @@ function _liveCard(container, opts) {
 function _liveSay(container, text) {
     if (!container || !text) return;
     const p = document.createElement('div');
-    p.style.cssText = 'margin:5px 0;font-size:13px;line-height:1.55;color:var(--muted,#8b909a)';
+    p.style.cssText = 'margin:7px 0;font-size:14px;line-height:1.68;color:var(--text)'; // שחור רגיל כמו טקסט התשובה (בקשת דוד)
     try { p.innerHTML = (typeof mdSafe === 'function' ? mdSafe(String(text)) : String(text)); } catch (e) { p.textContent = String(text); }
     container.appendChild(p);
     const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
