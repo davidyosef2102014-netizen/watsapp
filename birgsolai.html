@@ -8661,6 +8661,25 @@ function _isBrowserAct(q) {
 }
 // זיהוי משימת-קוד אוטונומית (קריאה/תיקון/כתיבת קובץ, הרצה בטרמינל, פריסה לגיטהאב) — בדסקטופ בלבד,
 // שם יש טרמינל+קבצים. כך הסוכן "מבין לבד" שצריך לפעול, בלי שהמשתמש יכתוב "סוכן:".
+// 🧭 מחליט-כוונה — המודל מבין לבד לאן לנתב הודעה (סוכן/דפדפן/צ'אט) לפי שיקול-דעת, לא מילות-מפתח.
+// מודל מהיר (groq) מחזיר JSON עם route. זה ה-prompt שנלטש "מודל מודל" עד שהוא מבין בדיוק מתי ומה.
+// מחזיר 'agent' | 'browser' | 'chat', או null אם המודל לא זמין (ואז השולח נופל לזיהוי-המילים הישן).
+async function _routeIntent(q) {
+    if (!q) return 'chat';
+    const sys = 'You are the INTENT ROUTER of an AI assistant. Read the user message and decide where it goes. Judge by the real GOAL and intent — NOT by specific words. Reply with ONLY JSON: {"route":"agent|browser|chat"}.\n'
+        + '• "agent" = the user wants something actually DONE on the computer with code/files: build or create an app, UI, website, game, script, program, API, algorithm, parser/interpreter; fix/debug/refactor/run code; create/read/edit a file; run a terminal command; build-and-deploy to GitHub; drive Word/Excel/PowerPoint. The DOER that executes — not someone who just explains.\n'
+        + '• "browser" = the user wants to ACT inside a website/browser: go to a site, click, fill or submit a form, search a specific site and open a result, order, sign up, log in.\n'
+        + '• "chat" = everything else: questions, knowledge, advice, opinions, recommendations, writing (poem/letter/text), explanations, casual talk — AND also creating an image or asking for live facts/news (those are handled inside chat, so route them to chat).\n'
+        + 'Key test: do they want it EXECUTED/BUILT (agent) or EXPLAINED/DISCUSSED (chat)? "how do I write a parser" = explain = chat. "write me a parser and run the tests" = agent. When truly unsure, choose chat.';
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: String(q).slice(0, 1500) }], temperature: 0, max_tokens: 20, reasoning_effort: 'low', response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(6000) });
+        if (!r || !r.ok) return null;
+        const j = await r.json();
+        const c = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
+        const route = String((JSON.parse(c) || {}).route || '').toLowerCase();
+        return ['agent', 'browser', 'chat'].includes(route) ? route : null;
+    } catch (e) { return null; }
+}
 function _isCodeAgentTask(q) {
     if (!q) return false;
     if (!(typeof _isDesktop === 'function' && _isDesktop())) return false; // צריך כלי דסקטופ אמיתיים
@@ -9577,27 +9596,27 @@ async function send() {
         await runNativeAgent(q);
         return;
     }
-    // ── משימת-קוד טהורה (קריאה/תיקון/הרצה/פריסה) → ישר לסוכן-הקוד הנייטיבי, בלי לגעת בדפדפן/תוסף ──
-    // חשוב: לא לקרוא ל-_browserAgent על משימת-קוד — הוא מזהה את הכרום ומדליק אותו (ופותח תצוגת-דף) סתם.
-    if (_isCodeAgentTask(q) && !_isBrowserAct(q) && !fileUrl && !fileContent && !mediaFile) {
-        await runNativeAgent(q);
-        return;
-    }
-    // ── סוכן הדפדפן: "סוכן: ..." / "תלחץ/תמלא/תזמין ... בדפדפן" → פועל בדף לבד (PRO/ULTRA) ──
-    if ((_isBrowserAct(q) || _isCodeAgentTask(q)) && !fileUrl && !fileContent && !mediaFile) {
-        await _browserAgent(q); // הסוכן מטפל גם במקרה שאין תוסף (מציג הודעת התקנה). שליטה-מרחוק הוסרה.
-        return;
-    }
-    // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף (PRO/ULTRA) ──
-    if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile) { await browserLook(q); return; }
-
-    // ── 🔗 המשך-סוכן: כל עוד אנחנו באותה שיחה שבה הסוכן עבד, הודעת-תיקון קצרה ("בלי import re", "תקן ותריץ שוב")
-    // חוזרת לסוכן עם ההקשר של המשימה המקורית — במקום לזלוג לצ'אט, ששם המודל עלול "להמציא" שהריץ טסטים שלא הריץ. ──
+    // ── 🔗 המשך-סוכן: המשך ישיר של משימת-סוכן פעילה באותה שיחה ("תקן ותריץ שוב", "תמשיך") — בלי קריאת-מודל, מיידי ──
     if (_lastAgentGoal && _lastAgentConv === currentConvId && !fileUrl && !fileContent && !mediaFile && _looksLikeAgentFollowup(q)) {
         const _cont = 'המשימה המקורית: ' + _lastAgentGoal + '\n\n📌 תיקון/הנחיית-המשך מהמשתמש — אל תתחיל מחדש: קרא את הקובץ הקיים, שפר אותו לפי ההערה, והרץ את הטסט שוב עד ALL PASS:\n' + q;
         if (_lastAgentKind === 'browser') await _browserAgent(_cont, { isFollowup: true });
         else await runNativeAgent(_cont, { isFollowup: true });
         return;
+    }
+    // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף ──
+    if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile) { await browserLook(q); return; }
+
+    // ── 🧭 מחליט-כוונה: המודל מבין לבד לאן לנתב (סוכן / דפדפן / צ'אט) — שיקול-דעת, לא מילות-מפתח. נלטש אותו "מודל מודל". ──
+    if (q && !fileUrl && !fileContent && !mediaFile) {
+        let _route = await _routeIntent(q);
+        if (_route === null) { // המחליט לא זמין (עומס/כשל) → נפילה-לאחור לזיהוי הישן, בלי רגרסיה
+            if (_isCodeAgentTask(q) && !_isBrowserAct(q)) _route = 'agent';
+            else if (_isBrowserAct(q)) _route = 'browser';
+            else _route = 'chat';
+        }
+        if (_route === 'agent' && typeof _isDesktop === 'function' && _isDesktop() && !_isBrowserAct(q)) { await runNativeAgent(q); return; }
+        if (_route === 'browser') { await _browserAgent(q); return; }
+        // 'chat' (או 'agent' ב-web בלי כלים) → ממשיך לצ'אט הרגיל, ששם המודל מחליט לבד תמונה/חיפוש/עריכה דרך תגיות
     }
 
     // ── אבטחה: סריקת ניסיון פריצה/הזרקה לפני שליחה. דוד חסין. ──
