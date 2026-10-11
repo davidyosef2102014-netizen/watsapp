@@ -8889,7 +8889,7 @@ function _agParseDecision(raw) {
 // 🧠 שרשרת-החלטה לסוכן-הקוד = אותה שרשרת מוח של Axion: כל מודלי GLM לפי הסדר, ואז מודלי NVIDIA עצמם
 // (Nemotron-3-Super — מודל-הקוד של NVIDIA), ובסוף רשת-ביטחון מהירה. פרסור סלחני על כל תשובה.
 // קרדיט: המודלים ש"עושים את העבודה" הם GLM (Z.ai) ו-NVIDIA Nemotron — הם הבסיס לסוכן-הקוד.
-async function _agDecide(sys, user) {
+async function _agDecide(sys, user, heavy) {
     const msgs = [{ role: 'system', content: sys }, { role: 'user', content: user }];
     const _pick = async (j) => {
         const m = (j && j.choices && j.choices[0] && j.choices[0].message) || {};
@@ -8903,35 +8903,28 @@ async function _agDecide(sys, user) {
         }
         return d;
     };
-    const steps = [
-        // 🧠🥇 GLM-5.3 המלא (753B) דרך NVIDIA — רק בדסקטופ, ישירות דרך httpFetch (בלי Worker → בלי תקרת 100ש' → בלי 524).
-        // המוח החזק ביותר, למשימות from-scratch הכי כבדות. איטי (תור NVIDIA, עד ~3 דק') אבל מדויק.
-        // המפתח נשמר מקומית ב-localStorage('AX_NVIDIA_KEY') — לעולם לא בקוד הציבורי. בלי מפתח → מדלגים לשרשרת ה-Flash.
-        async () => {
-            const N = (typeof window !== 'undefined') && window.BIRGSOL_NATIVE;
-            if (!N || !N.nvidiaChat) return null; // זמין רק בדסקטופ; המפתח נשמר מקומית בקובץ ומוזרק בתהליך הראשי
-            const call = N.nvidiaChat({ model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 });
-            const res = await Promise.race([call, new Promise(r => setTimeout(() => r(null), 180000))]);
-            if (res && res.ok && res.status === 200 && res.body) {
-                try { return _pick(JSON.parse(res.body)); } catch (e) { return _agParseDecision(res.body); }
-            }
-            return null;
-        },
-        // 🥇 GLM-5.3-Flash (חינם, OrcaRouter) — ישיר מהדפדפן אם יש מפתח, אחרת דרך ה-Worker
+    // 🧠 המוח הכבד — GLM-5.3 המלא (753B) דרך NVIDIA, רק דסקטופ (ישיר, בלי Worker → בלי 524). חזק אך איטי; מוגבל ל-45ש'.
+    const _heavyBrain = async () => {
+        const N = (typeof window !== 'undefined') && window.BIRGSOL_NATIVE;
+        if (!N || !N.nvidiaChat) return null; // זמין רק בדסקטופ; המפתח מקומי ומוזרק בתהליך הראשי
+        const call = N.nvidiaChat({ model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 });
+        const res = await Promise.race([call, new Promise(r => setTimeout(() => r(null), 45000))]);
+        if (res && res.ok && res.status === 200 && res.body) { try { return _pick(JSON.parse(res.body)); } catch (e) { return _agParseDecision(res.body); } }
+        return null;
+    };
+    // ⚡ מוחות מהירים — ברירת-מחדל לצעדים שגרתיים (GLM-flash חינם, NVIDIA-flash, GLM-5.3, GLM-4.5-flash, gpt-oss-120b).
+    const _fast = [
         async () => { let lk = ''; try { lk = localStorage.getItem('AX_ORCA_KEY') || ''; } catch (e) {}
-            if (lk) { const r = await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify({ model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }), signal: AbortSignal.timeout(25000) }); return r.ok ? _pick(await r.json()) : null; }
-            const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(25000) }); return r.ok ? _pick(await r.json()) : null; },
-        // GLM-5.3 (OpenRouter)
-        async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
-        // GLM-5.3-Flash על NVIDIA — timeout קצר! המודל הזה כמעט תמיד תקוע בתור (92ש' היו האיטיות); 12ש' ואז מדלגים
+            if (lk) { const r = await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify({ model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }), signal: AbortSignal.timeout(22000) }); return r.ok ? _pick(await r.json()) : null; }
+            const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(22000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 4000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(12000) }); return r.ok ? _pick(await r.json()) : null; },
-        // 🟩 NVIDIA Nemotron-3-Super-120B — מודל-הקוד של NVIDIA (⚠️ מחזיר כרגע 410=הוסר; נשאר בשרשרת לכשיחזור/יוחלף)
-        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3-super-120b-a12b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(12000) }); return r.ok ? _pick(await r.json()) : null; },
-        // GLM-4.7-Flash (Z.ai)
+        async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('zai', '/api/paas/v4/chat/completions', { model: 'glm-4.5-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
-        // רשת-ביטחון אחרונה — GPT-OSS-120B (Groq, מהיר, JSON mode)
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
     ];
+    // 🧠 שימוש-בתבונה ב-GLM המלא: heavy=true (הסוכן נתקע/בלולאה או רגע קשה) → המוח הכבד ראשון (איכות);
+    // אחרת → המהירים ראשונים (מהירות, ~3ש'), והכבד אחרון כרשת-ביטחון. ככה הוא לא נעלם — נכנס בדיוק כשצריך אותו.
+    const steps = heavy ? [_heavyBrain].concat(_fast) : _fast.concat([_heavyBrain]);
     for (const step of steps) { try { const d = await step(); if (d && d.op) return d; } catch (e) {} }
     return null;
 }
@@ -9000,7 +8993,8 @@ async function runNativeAgent(goal, opts) {
             const user = 'GOAL: ' + goal + (_plan ? '\n\nPLAN:\n' + _plan : '') + (stepsLog.length ? '\n\nACTIONS & OUTPUT SO FAR (recent):\n' + stepsLog.slice(-16).join('\n') : '') + '\n\nReturn the next action as JSON.';
             _step('חושב על הצעד הבא… (' + stepN + '/' + MAX + ')', true);
             // 🧠 ההחלטה על הצעד הבא רצה דרך שרשרת GLM→NVIDIA (כמו מוח Axion) — כל ה-GLM לפי הסדר ואז Nemotron של NVIDIA
-            let decision = await _agDecide(sys, user);
+            // 🧠 שימוש-בתבונה במוח הכבד: ברירת-מחדל GLM-5.3-flash המהיר; מסלימים ל-GLM המלא רק כשנתקע/בלולאה (קורס לרשת-ביטחון).
+            let decision = await _agDecide(sys, user, (_failStreak > 0 || _loopBreaks > 0));
             if (!decision || !decision.op) {
                 _failStreak++;
                 if (_failStreak >= 7) {
