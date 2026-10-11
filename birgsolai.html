@@ -8912,15 +8912,17 @@ async function _agDecide(sys, user, heavy) {
         if (res && res.ok && res.status === 200 && res.body) { try { return _pick(JSON.parse(res.body)); } catch (e) { return _agParseDecision(res.body); } }
         return null;
     };
-    // ⚡ מוחות מהירים — ברירת-מחדל לצעדים שגרתיים (GLM-flash חינם, NVIDIA-flash, GLM-5.3, GLM-4.5-flash, gpt-oss-120b).
+    // ⚡ מוחות מהירים — ברירת-מחדל לצעדים שגרתיים. סדר לפי מדידות אמת (2026-10-11):
+    //   1) GLM-5.3-flash חינם (OrcaRouter, ~3ש', ברירת-המחדל של דוד), timeout קצר 10ש' כדי ליפול מהר לגיבוי.
+    //   2) groq gpt-oss-120b — נמדד 0.5ש' ואמין → גיבוי מיידי (היה אחרון, הועלה לשני).
+    //   3) GLM-4.5-flash (Z.ai, ~6ש')  4) GLM-5.3 (OpenRouter).  הוסר: nvidia-flash (נמדד 28ש' — תמיד חרג מה-timeout ובזבז זמן).
     const _fast = [
         async () => { let lk = ''; try { lk = localStorage.getItem('AX_ORCA_KEY') || ''; } catch (e) {}
-            if (lk) { const r = await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify({ model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }), signal: AbortSignal.timeout(22000) }); return r.ok ? _pick(await r.json()) : null; }
-            const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(22000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 4000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(12000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('zai', '/api/paas/v4/chat/completions', { model: 'glm-4.5-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(20000) }); return r.ok ? _pick(await r.json()) : null; },
+            if (lk) { const r = await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify({ model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }), signal: AbortSignal.timeout(10000) }); return r.ok ? _pick(await r.json()) : null; }
+            const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(10000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('zai', '/api/paas/v4/chat/completions', { model: 'glm-4.5-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(12000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(14000) }); return r.ok ? _pick(await r.json()) : null; },
     ];
     // 🧠 שימוש-בתבונה ב-GLM המלא: heavy=true (הסוכן נתקע/בלולאה או רגע קשה) → המוח הכבד ראשון (איכות);
     // אחרת → המהירים ראשונים (מהירות, ~3ש'), והכבד אחרון כרשת-ביטחון. ככה הוא לא נעלם — נכנס בדיוק כשצריך אותו.
