@@ -8953,7 +8953,7 @@ async function runNativeAgent(goal, opts) {
         try {
             _step('מתכנן את המשימה…', true);
             const _pr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'You plan tasks for an autonomous CODING agent with a real terminal, file read/write, GitHub deploy, and web search. Break the GOAL into a SHORT ordered plan (2-6 concrete steps). Reply ONLY JSON: {"plan":["צעד 1", ...]} in Hebrew.' }, { role: 'user', content: 'GOAL: ' + goal }], temperature: 0.2, max_tokens: 400, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
-            if (_pr.ok) { const _pj = await _pr.json(); const _pc = JSON.parse((_pj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_pc && Array.isArray(_pc.plan) && _pc.plan.length) { _plan = _pc.plan.map((s, i) => (i + 1) + '. ' + s).join('\n'); _step('📋 תוכנית (' + _pc.plan.length + ' צעדים):', false); _pc.plan.forEach(s => _step('◦ ' + String(s).slice(0, 75), false)); } }
+            if (_pr.ok) { const _pj = await _pr.json(); const _pc = JSON.parse((_pj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_pc && Array.isArray(_pc.plan) && _pc.plan.length) { _plan = _pc.plan.map((s, i) => (i + 1) + '. ' + s).join('\n'); } /* התוכנית נשמרת למוח אך לא מוצגת כרשימה (בקשת דוד) */ }
         } catch (e) {}
         const MAX = _admin ? 80 : 8;
         let _failStreak = 0, _actHist = [], _loopBreaks = 0;
@@ -9121,7 +9121,7 @@ async function _browserAgent(goal, opts) {
             _step('מתכנן את המשימה…', true);
             const _psys = 'You plan tasks for an autonomous agent that controls a real browser' + (_natP ? ', a terminal and files' : '') + '. Break the GOAL into a SHORT ordered plan (2-6 concrete high-level steps). Reply with ONLY JSON: {"plan":["צעד 1","צעד 2", ...]} — steps in Hebrew, concise.';
             const _pr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: _psys }, { role: 'user', content: 'GOAL: ' + goal }], temperature: 0.2, max_tokens: 400, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
-            if (_pr.ok) { const _pj = await _pr.json(); const _pc = JSON.parse((_pj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_pc && Array.isArray(_pc.plan) && _pc.plan.length) { _plan = _pc.plan.map((s, i) => (i + 1) + '. ' + s).join('\n'); _step('📋 תוכנית (' + _pc.plan.length + ' צעדים):', false); _pc.plan.forEach(s => _step('◦ ' + String(s).slice(0, 75), false)); } }
+            if (_pr.ok) { const _pj = await _pr.json(); const _pc = JSON.parse((_pj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_pc && Array.isArray(_pc.plan) && _pc.plan.length) { _plan = _pc.plan.map((s, i) => (i + 1) + '. ' + s).join('\n'); } /* התוכנית נשמרת למוח אך לא מוצגת כרשימה (בקשת דוד) */ }
         } catch (e) {}
         const MAX = _admin ? 80 : 6; // מנהל — עד 40 צעדים למשימות ארוכות (הזמנות/טפסים מרובי-שלבים). משתמש רגיל — 6 (הגבלה גבוהה)
         let _failStreak = 0; // כשלים רצופים בקבלת החלטה — נותנים כמה ניסיונות לפני עצירה
