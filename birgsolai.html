@@ -8161,7 +8161,7 @@ async function callAI(messages, onChunk, signal=null) {
         // gpt-oss-120b = גיבוי איכות למקרים קשים (חזק אך איטי/כבד).
         const _sGpt2 = { name: 'gpt-oss-120b', fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._chatCfg }) };
         // 🖼️ ראייה מהירה: Groq llama-4-scout (מולטימודל, ~1-2ש', קורא עברית) — ראשי לתמונות; מהיר הרבה מ-Gemini.
-        const _sGroqVis = { name: 'Groq-vision', fn: () => _groqTry({ model: 'meta-llama/llama-4-scout-17b-16e-instruct', messages, temperature: 0.4, max_tokens: 1500 }) };
+        const _sGroqVis = { name: 'Groq-vision', fn: () => _groqTry({ model: 'qwen/qwen3.8-27b', messages, temperature: 0.4, max_tokens: 1500 }) }; // ראייה מהירה (נמדד 0.9ש', רואה תמונות, עברית). llama-4-scout הוסר מ-groq (404).
         const _sMis  = { name: 'Mistral',  fn: () => _stream('mistral', { model: 'mistral-small-latest', messages, temperature: _isGroundedTurn ? 0.1 : 0.7, max_tokens: 2048 }) }; // מזרים (מהיר)
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
         const _sCloud = { name: 'Cloudflare AI', fn: () => _tryCloudflare().then(_tw) }; // גיבוי אחרון — מכסה יומית נפרדת, מונע "שגיאת חיבור"
