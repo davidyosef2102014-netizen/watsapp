@@ -8176,9 +8176,11 @@ async function callAI(messages, onChunk, signal=null) {
         // נשאר רק בטיירים הבסיסיים כניסיון-חירום *אחרי* Cloudflare, עם timeout קצר כדי שלא ייתקע.
         // 🖼️ תמונה בהודעה → רק מנועים שרואים: Groq llama-4-scout (מהיר, עברית) ראשי → Gemini → Cloudflare. gpt-oss/Mistral טקסט-בלבד → מדולגים.
         if (hasImage) return [_sGroqVis, _sGem, _sCloud];
-        // 🔎 מודל-החיפוש (gpt-5-search-api/OrcaRouter) זמין **רק ל-Axion/4.1 (פרימיום/מנהל)** — שומר על מכסת OrcaRouter של המוח; שאר המשתמשים משתמשים ב-Gemini+Tavily הרגיל.
-        const _premiumSearch = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser)) || /axion|4\.1/i.test(String(_mid || ''));
-        if (_grounded) return _premiumSearch ? [_sSearch, _sGem, _sGpt, _sGpt2, _sCloud] : [_sGem, _sGpt, _sGpt2, _sCloud]; // עובדות/משפט/חדשות — נאמנים (Gemini). בלי Mistral (מזייף)
+        // 🔎 מודל-החיפוש (gpt-5-search-api/OrcaRouter) — נבדק 2026-10-13: **בתשלום** (402 insufficient credits, $0.001/בקשה). רדום כרגע.
+        //    להפעלה כשיתווספו קרדיטים ל-OrcaRouter: החזר את _sSearch לראש השרשרת למשתמשי פרימיום (Axion/4.1):
+        //    const _premiumSearch = ADMIN_USERS.includes(currentUser) || /axion|4\.1/i.test(String(_mid||'')); if (_grounded) return _premiumSearch ? [_sSearch, _sGem, _sGpt, _sGpt2, _sCloud] : [...];
+        void _sSearch; // שומר על ההגדרה (dormant) בלי אזהרת "לא בשימוש"
+        if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud]; // עובדות/משפט/חדשות — נאמנים (Gemini + Tavily). בלי Mistral (מזייף)
         if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sCloud];            // 3.5 PRO — חזקים + Cloudflare רצפה. בלי Mistral (נחנק)
         if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sCloud];            // 3.5 FLASH — Gemini ראשי, gpt-oss, 120b, Cloudflare רצפה. בלי Mistral (נחנק)
         if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2];           // 3.0 PRO — Cloudflare ראשון
