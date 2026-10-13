@@ -249,9 +249,17 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == FILE_REQ) {
             if (filePathCallback != null) {
-                Uri[] result = (resultCode == Activity.RESULT_OK && data != null && data.getData() != null)
-                        ? new Uri[]{ data.getData() } : null;
-                filePathCallback.onReceiveValue(result);
+                Uri[] result = null;
+                if (resultCode == Activity.RESULT_OK && data != null) {
+                    if (data.getClipData() != null) { // כמה תמונות נבחרו (גלריה) — התוצאה ב-ClipData
+                        int n = data.getClipData().getItemCount();
+                        result = new Uri[n];
+                        for (int i = 0; i < n; i++) result[i] = data.getClipData().getItemAt(i).getUri();
+                    } else if (data.getData() != null) { // תמונה בודדת
+                        result = new Uri[]{ data.getData() };
+                    }
+                }
+                filePathCallback.onReceiveValue(result); // חובה להחזיר (גם null) אחרת הבורר נתקע לנצח
                 filePathCallback = null;
             }
         } else {
