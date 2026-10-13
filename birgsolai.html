@@ -6385,12 +6385,27 @@ function _searchCacheGet(q) {
     if (e) _searchCache.delete(q);
     return null;
 }
+// 🔎 Jina Search (s.jina.ai) — חיפוש-אינטרנט מהיר (~2ש'), מכסה חינמית גדולה (10M טוקנים). רק ל-Axion/פרימיום.
+async function _jinaSearch(query) {
+    try {
+        const r = await _ghProxy('jina', '/', { q: String(query || '').slice(0, 400) }, { signal: AbortSignal.timeout(12000) });
+        if (!r || !r.ok) return null;
+        const j = await r.json();
+        const results = (j && j.data) || [];
+        if (!results.length) return null;
+        const txt = results.slice(0, 6).map((x, i) => (i + 1) + '. ' + (x.title || '') + '\n' + String(x.description || x.content || '').slice(0, 260) + (x.url ? '\n' + x.url : '')).join('\n\n');
+        return txt ? ('[תוצאות חיפוש עדכניות מהאינטרנט]\n' + txt) : null;
+    } catch (e) { return null; }
+}
 async function webSearch(query) {
     // Cache: אותה שאלת-חיפוש בתוך 5 דקות → תוצאה שמורה מיד (בלי Tavily/Serper). מוריד עומס ומזרז.
     const _ck = (query || '').trim().toLowerCase();
     const _cached = _searchCacheGet(_ck);
     if (_cached) return _cached;
     const _wrap = (v) => { if (v) { _searchCache.set(_ck, { v, t: Date.now() }); if (_searchCache.size > 60) _searchCache.delete(_searchCache.keys().next().value); } return v; };
+    // 🔎 Axion/פרימיום: Jina Search ראשון (מהיר, מכסה גדולה) — Perplexity-like. אם נכשל → נופל ל-Tavily. משתמשים חינמיים → Tavily כרגיל.
+    const _premiumSearch = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser)) || (typeof currentModelId === 'function' && /axion|4\.1/i.test(String(currentModelId() || '')));
+    if (_premiumSearch) { const _jr = await _jinaSearch(query).catch(() => null); if (_jr) return _wrap(_jr); }
     // 🇮🇱 עברית קודם! לנושאים ישראליים/מקומיים (מקומות, אנשים, עסקים) החיפוש העברי מדויק הרבה יותר,
     // והתרגום לאנגלית הורס שמות עבריים (למשל "מחצבת בנימינה" → "Benim" בטורקית = הזיה מוחלטת).
     // רק אם העברית ריקה (בד"כ נושא גלובלי) מתרגמים לאנגלית ומחפשים שם.
