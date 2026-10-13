@@ -22,6 +22,7 @@ public class MainActivity extends Activity {
     private boolean _showingWeb = true; // האם חלון-האתר מוצג (לעומת מסך-האופליין)
     private ValueCallback<Uri[]> filePathCallback;
     private static final String URL = "https://davidyosef2102014-netizen.github.io/watsapp/birgsolai.html";
+    private static final String VERSION_URL = "https://davidyosef2102014-netizen.github.io/watsapp/apk-version.json"; // בדיקת-עדכון נייטיב
     private static final int FILE_REQ = 1001;
 
     @Override
@@ -141,6 +142,69 @@ public class MainActivity extends Activity {
         if (savedInstanceState == null) {
             web.loadUrl(URL + "?t=" + System.currentTimeMillis()); // cache-bust — גרסה אחרונה בכל פתיחה
             _notify("BIRGSOL AI", "מוכן לעזור לך — סוכן, קוד ותמונות"); // התראת-פתיחה (יכולת נייטיב גלויה)
+        }
+        _checkForUpdate(); // 🔄 מעדכן-פנימי — בודק אם יש APK חדש ומציע להתקין (בלי Play Store)
+    }
+
+    // ── 🔄 מעדכן-פנימי אוטומטי: בודק apk-version.json, ואם versionCode חדש → מציע להוריד ולהתקין ──
+    private void _checkForUpdate() {
+        new Thread(() -> {
+            try {
+                java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(VERSION_URL + "?t=" + System.currentTimeMillis()).openConnection();
+                c.setConnectTimeout(8000); c.setReadTimeout(8000);
+                if (c.getResponseCode() != 200) return;
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(c.getInputStream(), "UTF-8"));
+                StringBuilder sb = new StringBuilder(); String ln;
+                while ((ln = br.readLine()) != null) sb.append(ln);
+                br.close();
+                org.json.JSONObject j = new org.json.JSONObject(sb.toString());
+                int latest = j.optInt("versionCode", 0);
+                final String dl = j.optString("url", "");
+                final String notes = j.optString("notes", "");
+                int cur = BuildConfig.VERSION_CODE;
+                if (latest > cur && dl.length() > 0) runOnUiThread(() -> _promptUpdate(dl, notes));
+            } catch (Exception ignored) {}
+        }).start();
+    }
+    private void _promptUpdate(final String url, String notes) {
+        try {
+            new android.app.AlertDialog.Builder(this)
+                .setTitle("עדכון זמין 🎉")
+                .setMessage("יש גרסה חדשה של BIRGSOL AI." + (notes.length() > 0 ? ("\n\n" + notes) : "") + "\n\nלהוריד ולהתקין עכשיו?")
+                .setPositiveButton("עדכן", (d, w) -> _downloadAndInstall(url))
+                .setNegativeButton("אחר כך", null)
+                .show();
+        } catch (Exception ignored) {}
+    }
+    private void _downloadAndInstall(String url) {
+        try {
+            final android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            android.app.DownloadManager.Request req = new android.app.DownloadManager.Request(android.net.Uri.parse(url));
+            req.setTitle("BIRGSOL AI — עדכון");
+            req.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            req.setMimeType("application/vnd.android.package-archive");
+            req.setDestinationInExternalFilesDir(this, android.os.Environment.DIRECTORY_DOWNLOADS, "BIRGSOL-AI-update.apk");
+            final long id = dm.enqueue(req);
+            android.content.BroadcastReceiver rec = new android.content.BroadcastReceiver() {
+                @Override public void onReceive(android.content.Context ctx, Intent i) {
+                    if (i.getLongExtra(android.app.DownloadManager.EXTRA_DOWNLOAD_ID, -1) != id) return;
+                    try {
+                        java.io.File f = new java.io.File(getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), "BIRGSOL-AI-update.apk");
+                        android.net.Uri apkUri = androidx.core.content.FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".fileprovider", f);
+                        Intent it = new Intent(Intent.ACTION_VIEW);
+                        it.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                        it.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        startActivity(it);
+                    } catch (Exception e) {}
+                    try { unregisterReceiver(this); } catch (Exception e) {}
+                }
+            };
+            android.content.IntentFilter fil = new android.content.IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(rec, fil, android.content.Context.RECEIVER_EXPORTED);
+            else registerReceiver(rec, fil);
+        } catch (Exception e) {
+            // גיבוי: פשוט פותח את קישור ההורדה בדפדפן
+            try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))); } catch (Exception e2) {}
         }
     }
 
