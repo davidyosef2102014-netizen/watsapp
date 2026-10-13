@@ -8152,6 +8152,14 @@ async function callAI(messages, onChunk, signal=null) {
         const _sMis  = { name: 'Mistral',  fn: () => _stream('mistral', { model: 'mistral-small-latest', messages, temperature: _isGroundedTurn ? 0.1 : 0.7, max_tokens: 2048 }) }; // מזרים (מהיר)
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
         const _sCloud = { name: 'Cloudflare AI', fn: () => _tryCloudflare().then(_tw) }; // גיבוי אחרון — מכסה יומית נפרדת, מונע "שגיאת חיבור"
+        // 🔎 מודל-חיפוש (כמו Perplexity) — gpt-5-search-api דרך OrcaRouter: חיפוש מובנה. ראשון לשאלות-מידע; אם נכשל/בתשלום → נופל לשרשרת הרגילה.
+        const _sSearch = { name: 'gpt5-search', fn: async () => {
+            const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'openai/gpt-5-search-api', messages, temperature: 0.3, max_tokens: 2048 }, { signal: AbortSignal.timeout(22000) });
+            if (!r.ok) throw new Error('search ' + r.status);
+            const j = await r.json(); const t = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
+            if (!t) throw new Error('search empty');
+            return _tw(t);
+        } };
         const _mid = (typeof currentModelId === 'function') ? currentModelId() : 'flash';
         // ⚓ נאמנות-להקשר: אם הוזרקו לתור תוצאות חיפוש חי (עובדות/משפט/חדשות) — Gemini עונה ראשון.
         // gpt-oss מוכח כמי שמתעלם מהתוצאות המוזרקות וממציא (פסקי דין/חדשות שגויים), Gemini נצמד להקשר.
@@ -8168,7 +8176,7 @@ async function callAI(messages, onChunk, signal=null) {
         // נשאר רק בטיירים הבסיסיים כניסיון-חירום *אחרי* Cloudflare, עם timeout קצר כדי שלא ייתקע.
         // 🖼️ תמונה בהודעה → רק מנועים שרואים: Groq llama-4-scout (מהיר, עברית) ראשי → Gemini → Cloudflare. gpt-oss/Mistral טקסט-בלבד → מדולגים.
         if (hasImage) return [_sGroqVis, _sGem, _sCloud];
-        if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud];                    // עובדות/משפט/חדשות — נאמנים בלבד (בלי Mistral — מזייף)
+        if (_grounded) return [_sSearch, _sGem, _sGpt, _sGpt2, _sCloud];          // עובדות/משפט/חדשות — מודל-חיפוש ראשון (Perplexity-like), ואז נאמנים (Gemini). בלי Mistral — מזייף
         if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sCloud];            // 3.5 PRO — חזקים + Cloudflare רצפה. בלי Mistral (נחנק)
         if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sCloud];            // 3.5 FLASH — Gemini ראשי, gpt-oss, 120b, Cloudflare רצפה. בלי Mistral (נחנק)
         if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2];           // 3.0 PRO — Cloudflare ראשון
