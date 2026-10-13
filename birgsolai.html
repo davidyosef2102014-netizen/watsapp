@@ -6390,11 +6390,9 @@ async function _jinaSearch(query) {
     try {
         const r = await _ghProxy('jina', '/', { q: String(query || '').slice(0, 400) }, { signal: AbortSignal.timeout(12000) });
         if (!r || !r.ok) return null;
-        const j = await r.json();
-        const results = (j && j.data) || [];
-        if (!results.length) return null;
-        const txt = results.slice(0, 6).map((x, i) => (i + 1) + '. ' + (x.title || '') + '\n' + String(x.description || x.content || '').slice(0, 260) + (x.url ? '\n' + x.url : '')).join('\n\n');
-        return txt ? ('[תוצאות חיפוש עדכניות מהאינטרנט]\n' + txt) : null;
+        const txt = String(await r.text() || '').trim(); // Jina מחזיר טקסט/markdown (no-content) — כבר בפורמט תוצאות נקי
+        if (txt.length < 20 || /^\s*\{?\s*"?(error|code)"?\s*:/i.test(txt)) return null;
+        return '[תוצאות חיפוש עדכניות מהאינטרנט]\n' + txt.slice(0, 3500);
     } catch (e) { return null; }
 }
 async function webSearch(query) {
