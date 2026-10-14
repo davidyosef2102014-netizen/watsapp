@@ -7830,7 +7830,9 @@ async function callAI(messages, onChunk, signal=null) {
         m.content.some(c => c.type === 'image_url'));
 
     // ── Axion 4.1 (מנהל בלבד) — צוות מודלים. כשל → ממשיך לשרשרת הרגילה למטה. ──
-    if (!hasImage && typeof currentModelId === 'function' && currentModelId() === 'axion' && ADMIN_USERS.includes(currentUser)) {
+    // 🔎 אחרי חיפוש (grounded — הוזרקו תוצאות): דלג על החשיבה הכבדה של Axion (מוח→מנסח→שופט) — ענה מהר ונאמן מהתוצאות דרך השרשרת הרגילה.
+    const _groundedNow = (() => { try { const lu = [...messages].reverse().find(m => m.role === 'user' && typeof m.content === 'string'); return !!lu && /\[מידע עדכני מהאינטרנט\]|\[תוצאות חיפוש|\[מבזק חדשות|\[תשובה מסונתזת/i.test(lu.content); } catch (e) { return false; } })();
+    if (!hasImage && !_groundedNow && typeof currentModelId === 'function' && currentModelId() === 'axion' && ADMIN_USERS.includes(currentUser)) {
         try { const t = await _axionPipeline(messages, onChunk, signal); if (t) return t; } catch (e) {}
     }
 
