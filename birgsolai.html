@@ -6395,6 +6395,46 @@ async function _jinaSearch(query) {
         return '[תוצאות חיפוש עדכניות מהאינטרנט]\n' + txt.slice(0, 3500);
     } catch (e) { return null; }
 }
+// 🔬 DeepSearch v2 (deepsearch.jina.ai) — מחקר עמוק רב-שלבי: קורא, חושב, מחפש שוב ומסנתז תשובה שלמה עם מקורות.
+// איטי (~60-90ש') אבל יסודי. נבחר רק כשהמשתמש באמת מבקש מחקר/ניתוח לעומק. רק ל-Axion/פרימיום.
+async function _jinaDeepSearch(query) {
+    try {
+        const r = await _ghProxy('jinadeep', '/v1/chat/completions', {
+            model: 'jina-deepsearch-v2',
+            messages: [{ role: 'user', content: String(query || '').slice(0, 1500) }],
+            stream: false, reasoning_effort: 'low'
+        }, { signal: AbortSignal.timeout(95000) });
+        if (!r || !r.ok) return null;
+        const j = await r.json();
+        const msg = j && j.choices && j.choices[0] && j.choices[0].message || {};
+        let txt = String(msg.content || '').trim();
+        // מקורות/ציטוטים אם קיימים (annotations בפורמט OpenAI)
+        try {
+            const ann = (msg.annotations || []).map(a => a && a.url_citation && a.url_citation.url).filter(Boolean);
+            const vis = (j.visitedURLs || j.readURLs || []);
+            const urls = [...new Set([...ann, ...vis])].slice(0, 8);
+            if (urls.length) txt += '\n\nמקורות:\n' + urls.map(u => '• ' + u).join('\n');
+        } catch (e) {}
+        if (txt.length < 20) return null;
+        return '[תשובה מסונתזת ממחקר עמוק באינטרנט]\n' + txt.slice(0, 6000);
+    } catch (e) { return null; }
+}
+// 🧭 מחליט-עומק: המודל עצמו מבין לפי הבקשה אם צריך חיפוש מהיר (רגיל) או מחקר עמוק (DeepSearch v2).
+// לא רשימת-מילים — שיפוט לפי המטרה האמיתית. מהיר (groq, ~1.5ש'). ברירת-מחדל בטוחה: quick.
+async function _searchDepthDecide(query) {
+    if (!query) return 'quick';
+    const sys = 'You decide how DEEP a web search should go for the user request. Judge by the real GOAL, not by specific words. Reply with ONLY JSON: {"depth":"quick|deep"}.\n'
+        + '• "quick" = a single fact, a current price/score/news headline, a definition, "what is / who is / when", a simple lookup. One search answers it. DEFAULT.\n'
+        + '• "deep" = genuine RESEARCH: compare several options, investigate a topic thoroughly, gather and synthesize from many sources, build a report/analysis, answer a multi-part or "research this for me" request where one search is clearly not enough.\n'
+        + 'Deep is slow (~90s) so choose it ONLY when the user truly wants depth. When unsure, choose quick.';
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: String(query).slice(0, 1200) }], temperature: 0, max_tokens: 20, reasoning_effort: 'low', response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(3000) });
+        if (!r || !r.ok) return 'quick';
+        const j = await r.json();
+        const c = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
+        return String((JSON.parse(c) || {}).depth || '').toLowerCase() === 'deep' ? 'deep' : 'quick';
+    } catch (e) { return 'quick'; }
+}
 async function webSearch(query) {
     // Cache: אותה שאלת-חיפוש בתוך 5 דקות → תוצאה שמורה מיד (בלי Tavily/Serper). מוריד עומס ומזרז.
     const _ck = (query || '').trim().toLowerCase();
@@ -6403,7 +6443,12 @@ async function webSearch(query) {
     const _wrap = (v) => { if (v) { _searchCache.set(_ck, { v, t: Date.now() }); if (_searchCache.size > 60) _searchCache.delete(_searchCache.keys().next().value); } return v; };
     // 🔎 Axion/פרימיום: Jina Search ראשון (מהיר, מכסה גדולה) — Perplexity-like. אם נכשל → נופל ל-Tavily. משתמשים חינמיים → Tavily כרגיל.
     const _premiumSearch = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser)) || (typeof currentModelId === 'function' && /axion|4\.1/i.test(String(currentModelId() || '')));
-    if (_premiumSearch) { const _jr = await _jinaSearch(query).catch(() => null); if (_jr) return _wrap(_jr); }
+    if (_premiumSearch) {
+        // המודל מחליט לבד: מחקר עמוק (DeepSearch v2) או חיפוש מהיר רגיל. deep איטי → רק אם באמת צריך.
+        const _depth = await _searchDepthDecide(query).catch(() => 'quick');
+        if (_depth === 'deep') { const _dr = await _jinaDeepSearch(query).catch(() => null); if (_dr) return _wrap(_dr); }
+        const _jr = await _jinaSearch(query).catch(() => null); if (_jr) return _wrap(_jr);
+    }
     // 🇮🇱 עברית קודם! לנושאים ישראליים/מקומיים (מקומות, אנשים, עסקים) החיפוש העברי מדויק הרבה יותר,
     // והתרגום לאנגלית הורס שמות עבריים (למשל "מחצבת בנימינה" → "Benim" בטורקית = הזיה מוחלטת).
     // רק אם העברית ריקה (בד"כ נושא גלובלי) מתרגמים לאנגלית ומחפשים שם.
