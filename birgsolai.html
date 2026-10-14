@@ -6435,6 +6435,24 @@ async function _searchDepthDecide(query) {
         return String((JSON.parse(c) || {}).depth || '').toLowerCase() === 'deep' ? 'deep' : 'quick';
     } catch (e) { return 'quick'; }
 }
+// 🧭 מחליט-חיפוש: המודל המהיר מבין לבד אם השאלה דורשת חיפוש-אינטרנט חי — לא רשימת מילות-מפתח.
+// מחזיר true רק כשהתשובה תלויה במידע עדכני/חיצוני שאי אפשר לדעת מהידע (חדשות/מחירים/תוצאות/אירועים
+// אחרונים/עובדות ספציפיות על עסק/מוצר/אדם אמיתי). חידה, ידע כללי, הסבר, חישוב, קוד, דעה → false.
+// מהיר (groq gpt-oss-20b, ~1ש'). ברירת-מחדל בטוחה בכישלון: false (לא לחפש — פשוט לענות).
+async function _needSearchDecide(query) {
+    if (!query) return false;
+    const sys = 'You decide whether answering the user REQUIRES a LIVE web search right now. Judge by the real goal, NOT by keywords. Reply with ONLY JSON: {"search":true} or {"search":false}.\n'
+        + '• true = the answer depends on CURRENT / real-time / external facts the assistant cannot know on its own: today’s news or events, live prices, sports scores, weather, stock/currency rates, recent releases, availability, opening hours, or specific up-to-date facts about a real business / product / person / place. Anything likely newer than training, or that must be verified against the live web.\n'
+        + '• false = the assistant can answer well from its own knowledge or reasoning: general knowledge, explanations, definitions, how-things-work, history, science, math, logic puzzles, riddles, trivia with a stable answer, coding, writing, translation, advice, opinions, brainstorming, casual chat.\n'
+        + 'Key test: would a knowledgeable person need to look it up online RIGHT NOW to answer correctly? If not, false. When unsure, choose false.';
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: String(query).slice(0, 1200) }], temperature: 0, max_tokens: 20, reasoning_effort: 'low', response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(2800) });
+        if (!r || !r.ok) return false;
+        const j = await r.json();
+        const c = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
+        return (JSON.parse(c) || {}).search === true;
+    } catch (e) { return false; }
+}
 async function webSearch(query) {
     // Cache: אותה שאלת-חיפוש בתוך 5 דקות → תוצאה שמורה מיד (בלי Tavily/Serper). מוריד עומס ומזרז.
     const _ck = (query || '').trim().toLowerCase();
@@ -9992,7 +10010,20 @@ async function send() {
             } catch (e) {}
         }
         const _searchMode = (typeof currentMode !== 'undefined' && currentMode === 'search'); // מצב חיפוש — כל שאלה מפעילה חיפוש
-        if (!_isTranslate && (_searchMode || searchTriggers.some(k => q.includes(k)) || isMilitaryOrNews || _isLegalRuling || _dealOrOp || _newsDigest) && (_searchMode || _hasSubject || _ctxSubject || _newsDigest || _isLegalRuling)) {
+        // 🧭 מי שמחליט לחפש = המודל המהיר, לא רשימת מילים. חובת-חיפוש רק למקרים קריטיים-לטריות עם
+        //    פרומפט-הארקה ייעודי (מצב-חיפוש מפורש / חדשות / מבזק / פסיקה משפטית). לכל השאר — שואלים את
+        //    _needSearchDecide: רק אם התשובה באמת תלויה במידע-חי נחפש; חידה/ידע/הסבר → המודל פשוט עונה.
+        const _mustSearch = _searchMode || isMilitaryOrNews || _isLegalRuling || _newsDigest;
+        let _doSearch = false;
+        if (!_isTranslate) {
+            if (_mustSearch) _doSearch = true;
+            else if (_hasSubject || _ctxSubject) {
+                const _qDecide = _hasSubject ? q : ((_ctxSubject + ' ' + _subjectWords.join(' ')).trim() || q);
+                _doSearch = await _needSearchDecide(_qDecide).catch(() => false);
+            }
+        }
+        void searchTriggers; void _dealOrOp; // הוחלפו במחליט-המודל — נשמרים כדי לא לשבור הגדרות/אזהרות
+        if (_doSearch) {
             // שאילתה: נושא עצמאי → מילולי; מעקב-הקשר → נושא-קודם + מילות-המעקב הנוכחיות (מחיר/צבע/וכו')
             const _followQ = _ctxSubject ? (_ctxSubject + (_subjectWords.length ? ' ' + _subjectWords.join(' ') : '')).trim() : q;
             const _qForSearch = _legalQuery || newsQuery || (_hasSubject ? q : _followQ);
@@ -10020,7 +10051,7 @@ async function send() {
                 } else if (_searchMode) {
                     lastMsg.content += `\n\n[תוצאות מחקר מעמיק מהאינטרנט — נאספו מכמה מקורות, ייתכן באנגלית]:\n${results}\n\nהמקורות עשויים להיות באנגלית — כתוב את התשובה בשפת המשתמש (עברית), מתורגמת וטבעית. תשובת מחקר מקיפה ומאורגנת, על סמך המקורות לעיל בלבד:\n1. פתח בתשובה ישירה וברורה לשאלה.\n2. פרט לעומק לפי נושאים/נקודות — נצל את המידע העשיר שנאסף.\n3. הסתמך אך ורק על המקורות — אל תמציא עובדות, מספרים, תאריכים או קישורים שלא מופיעים בהם.\n4. אם מקורות סותרים — ציין זאת. אם פרט חסר — אמור זאת, אל תשלים מהדמיון.\n5. בסוף, שורה קצרה על מה התבססת. אל תמציא פסקי דין/מחירים/כתובות שלא הופיעו.`;
                 } else {
-                    lastMsg.content += `\n\n[מידע עדכני מהאינטרנט — ייתכן שהתוצאות באנגלית]:\n${results}\n\nחוקים נוקשים (חובה):\n0. התוצאות עשויות להיות באנגלית — קרא אותן והשב את התשובה בשפת המשתמש (עברית), מתורגמת וטבעית.\n1. ענה אך ורק לפי המידע שלמעלה. אסור להשתמש בידע הפנימי שלך מהאימון כדי להשלים פרטים חסרים.\n2. אם פרט מסוים (כתובת, שם, מספר טלפון, דירוג, תאריך, מחיר) לא מופיע במפורש בתוצאות — אל תמציא אותו. כתוב "פרט זה לא מופיע בתוצאות החיפוש".\n3. אם עסק/מקום בתוצאות נמצא בעיר אחרת מזו שהמשתמש ביקש — אל תניח שהוא בעיר המבוקשת. ציין את העיר האמיתית שלו, או אמור שלא מצאת בעיר המבוקשת.\n4. אל תערבב בין מקורות שונים ליצירת "עובדה" חדשה. כל פרט חייב לבוא ממקור יחיד וברור.\n5. אם המידע לא מספיק לענות — כתוב בדיוק: "לא מצאתי מידע עדכני מספק על זה." בלי להשלים מהדמיון.`;
+                    lastMsg.content += `\n\n[מידע עדכני מהאינטרנט — ייתכן שהתוצאות באנגלית]:\n${results}\n\nהנחיות:\n0. התוצאות עשויות להיות באנגלית — קרא אותן והשב את התשובה בשפת המשתמש (עברית), מתורגמת וטבעית.\n1. העדף את המידע שלמעלה — הוא העדכני והאמין. אתה כן יכול להיעזר בידע הכללי שלך כדי להסביר, לפרש או להשלים הקשר — אבל לעולם אל תמציא פרטים ספציפיים (מחיר, כתובת, טלפון, תאריך, דירוג, שם) שלא מופיעים בתוצאות.\n2. אם פרט ספציפי כזה לא מופיע בתוצאות — אל תמציא אותו; אמור שהוא לא הופיע בחיפוש.\n3. אם עסק/מקום בתוצאות נמצא בעיר אחרת מזו שהמשתמש ביקש — ציין את העיר האמיתית שלו, או אמור שלא מצאת בעיר המבוקשת.\n4. אל תערבב מקורות ליצירת "עובדה" חדשה. כל פרט ספציפי חייב לבוא ממקור יחיד וברור.\n5. אם התוצאות לא מכסות את השאלה — אל תסרב ואל תכתוב "לא מצאתי מידע". ענה בכל זאת בצורה מועילה מהידע הכללי שלך, וציין בקצרה שלא מצאת מידע חי עדכני על זה כדי שהמשתמש יידע לאמת פרטים רגישים.`;
                 }
             }
         }
