@@ -7855,9 +7855,10 @@ async function _axionPipeline(messages, onChunk, signal) {
     const sayThink = () => { try { onChunk('Thinking…'); } catch (e) {} };
     const stopStatus = () => {};
     try {
-        // 🌐 חיפוש-אינטרנט לפני התשובה — רק אם השאלה עובדתית/עדכנית. מונע הזיות (תאריכים/מחירים/חדשות/אנשים).
+        // 🌐 חיפוש-אינטרנט לפני התשובה — המודל-המחליט (לא מילות-מפתח) קובע אם באמת צריך מידע-חי.
+        //    עקבי עם שער-החיפוש הראשי; מונע חיפוש-יתר על חידות/ידע, ומונע הזיות על עובדות עדכניות.
         let grounding = '';
-        if (_axNeedsSearch(question)) {
+        if (await _needSearchDecide(question).catch(() => false)) {
             sayThink();
             try { const sr = await webSearch(question); if (sr && !/^❌/.test(sr)) grounding = sr; } catch (e) {}
         }
