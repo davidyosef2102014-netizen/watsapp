@@ -7033,7 +7033,8 @@ async function _execNativeTool(m, kind) {
         }
         if (kind === 'readfile') {
             const p = (m[1] || '').trim(); const r = await window.BIRGSOL_NATIVE.readFile(p);
-            return r && r.ok ? ('[תוכן ' + p + ']\n' + String(r.content).slice(0, 8000)) : ('[קריאת ' + p + ' נכשלה: ' + ((r && r.error) || '?') + ']');
+            // תקרה 16K — כדי שקובץ-קוד גדול יחזור כמעט שלם (מונע את "הפלט נחתך" שגרם לסוכן להסתבך). קובץ ענק עדיין נחתך; אז עדיף לקרוא בחלקים/לחפש.
+            return r && r.ok ? ('[תוכן ' + p + ']\n' + String(r.content).slice(0, 16000) + (String(r.content).length > 16000 ? '\n…[הקובץ ארוך מ-16K תווים — נחתך כאן. אם צריך את ההמשך, חפש מחרוזת ספציפית או ערוך לפי קטע ייחודי]' : '')) : ('[קריאת ' + p + ' נכשלה: ' + ((r && r.error) || '?') + ']');
         }
         if (kind === 'writefile') {
             const raw = (m[1] || ''); const idx = raw.indexOf('|||');
@@ -9226,7 +9227,8 @@ async function runNativeAgent(goal, opts) {
                 else if (decision.op === 'search') _liveCard(body, { verb: 'Searched', name: _q, detail: nres });
             } catch (e) {}
             stepsLog.push(stepN + '. ' + decision.op + ' ' + _lbl);
-            stepsLog.push('   → ' + String(nres).slice(0, 3500));
+            // readfile → תקרה גדולה (16K) כדי שהמוח יראה קובץ גדול *במלואו* בקריאה אחת (מונע "הפלט נחתך" והסתבכות); שאר הפעולות 3500.
+            stepsLog.push('   → ' + String(nres).slice(0, decision.op === 'readfile' ? 16000 : 3500));
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
             if (decision.consultJudge === true) { try { _step('פונה לשופט לעזרה (לבקשת המוח)…', true); const jr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'You are the 👁️ JUDGE of an autonomous coding agent. ROLE BOUNDARY (strict): your ONLY job is to assess whether the agent is STUCK (going in circles / not progressing) and, if so, give ONE short high-level Hebrew hint about WHAT TO RECONSIDER. You do NOT decide or dictate the concrete next action, command, or code — that is the BRAIN job; never interfere with it. If the agent is progressing fine, say stuck:false with empty advice. Reply ONLY JSON: {"stuck":true|false,"advice":"<one Hebrew sentence or empty>"}' }, { role: 'user', content: 'GOAL: ' + goal + '\nRECENT:\n' + stepsLog.slice(-10).join('\n') }], temperature: 0.1, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); if (jr.ok) { const jj = await jr.json(); const jd = JSON.parse((jj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (jd && jd.stuck && jd.advice) { stepsLog.push('🧭 JUDGE: ' + String(jd.advice).slice(0, 200)); _step('השופט: ' + String(jd.advice).slice(0, 60), false); } } } catch (e) {} }
         }
