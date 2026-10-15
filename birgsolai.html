@@ -8998,7 +8998,7 @@ function _agParseDecision(raw) {
         let open = 0; inStr = false; esc = false;
         for (const c of frag) { if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; } else if (c === '"') inStr = true; else if (c === '{') open++; else if (c === '}') open--; }
         frag = frag.replace(/,\s*$/, '') + '}'.repeat(Math.max(0, open));
-        const d = JSON.parse(frag); if (d && typeof d === 'object') return d;
+        const d = JSON.parse(frag); if (d && typeof d === 'object') { try { d.__truncated = true; } catch (e) {} return d; } // סומן: ה-JSON היה קטוע ותוקן — ה-content עלול להיות חתוך
     } catch (e) {}
     return null;
 }
@@ -9157,6 +9157,13 @@ async function runNativeAgent(goal, opts) {
             _failStreak = 0;
             // 🧠 מציג את החשיבה הגולמית האמיתית של המוח בפאנל החשיבה (מה שהוא באמת חושב, לרוב אנגלית/סינית — לא טקסט מעובד)
             if (decision.__thinking) { try { const _tl = document.createElement('div'); _tl.style.cssText = 'margin:6px 0;padding:6px 9px;font-size:11px;line-height:1.55;color:var(--muted,#8b909a);white-space:pre-wrap;opacity:.82;font-style:italic;border-inline-start:2px solid var(--border,#e2e4ea);border-radius:4px;direction:ltr;text-align:start'; _tl.textContent = '🧠 ' + decision.__thinking; _det.appendChild(_tl); while (_det.children.length > 40) _det.removeChild(_det.firstChild); if (_open && cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); } catch (e) {} }
+            // ✂️ שומר-חיתוך: אם ההחלטה הגיעה קטועה (נגמרו הטוקנים) ומדובר בכתיבת/הוספת קובץ — ה-content חתוך.
+            //    אסור לכתוב קובץ פגום ולהעמיד פנים שהצלחנו (זה בדיוק ה-"טוקניזר נחתך"). מחזירים למוח לכתוב בחלקים.
+            if (decision.__truncated && (decision.op === 'writefile' || decision.op === 'append')) {
+                _step('⚠️ הכתיבה נחתכה (קובץ גדול מדי לצעד אחד) — מבקש מהמוח לכתוב בחלקים', false);
+                stepsLog.push('⚠️ ה-' + decision.op + ' האחרון ל-' + (decision.path || decision.file || '?') + ' נחתך באמצע (חרגת ממגבלת הטוקנים של צעד אחד). אל תכתוב אותו שוב בבת אחת — כתוב את הקובץ בחלקים קטנים: op:writefile ל-~100 שורות ראשונות, ואז op:append לכל חלק הבא (~100 שורות). אל תכריז done עד שהקובץ שלם.');
+                continue;
+            }
             if (decision.done) {
                 // 🏁 שער-אימות: לפני שמקבלים "סיימתי" — לוודא שהמטרה באמת הושלמה ואומתה (עד 2 אתגורים). מונע עצירה מוקדמת.
                 if (_doneChallenges < 2) {
@@ -9178,8 +9185,13 @@ async function runNativeAgent(goal, opts) {
             const _find = decision.find != null ? String(decision.find) : '', _replace = decision.replace != null ? String(decision.replace) : '';
             const _lbl = (decision.op === 'run' ? _cmd : decision.op === 'search' ? _q : _path).slice(0, 80);
             _step(({ run: '⌨️', readfile: '📄', writefile: '💾', append: '➕', edit: '✏️', search: '🔎' }[decision.op] || '•') + ' ' + (decision.reason || (({ run: 'מריץ בטרמינל', readfile: 'קורא קובץ', writefile: 'כותב קובץ', append: 'מוסיף לקובץ', edit: 'עורך קובץ', search: 'מחפש' }[decision.op] || decision.op) + ' ' + _lbl)), true);
-            const _sig = decision.op + '|' + _lbl;
-            if (_actHist.filter(s => s === _sig).length >= 2) { _loopBreaks++; stepsLog.push('⚠️ LOOP: (' + _sig + ') tried repeatedly and not working — do something DIFFERENT.'); _actHist = _actHist.filter(s => s !== _sig); if (_loopBreaks >= 3) { _step('נתקעתי על אותה פעולה שחוזרת — עוצר', false); _finishHdr(); txt.innerHTML = ''; let _m = await _agGenStuck(goal, stepsLog, 'the same action (' + _lbl.slice(0, 50) + ') was retried several times and kept not making progress (a loop)').catch(() => null); if (!_m) _m = 'נתקעתי — ניסיתי שוב ושוב את אותה פעולה (' + _lbl.slice(0, 50) + ') והיא לא מקדמת. עדיף שנחשוב יחד; תכתוב "תמשיך" עם כיוון אחר ואמשיך.'; const _a = document.createElement('div'); try { _a.innerHTML = mdSafe(_m); } catch (e) { _a.textContent = _m; } txt.appendChild(_a); hist[hist.length - 1].content = _m; break; } continue; }
+            // חתימת-לולאה: לכתיבה/עריכה מוסיפים טביעת-אצבע של התוכן — כך שכתיבה-בחלקים (append עם תוכן שונה
+            // בכל פעם) לא נחשבת בטעות ללולאה; ורק חזרה *זהה* אמיתית (אותו תוכן שוב ושוב = באמת תקוע) נתפסת.
+            const _fp = (decision.op === 'writefile' || decision.op === 'append') ? ('|' + _content.length + ':' + _content.slice(0, 32))
+                      : (decision.op === 'edit') ? ('|' + _find.slice(0, 24) + '»' + _replace.slice(0, 24))
+                      : '';
+            const _sig = decision.op + '|' + _lbl + _fp;
+            if (_actHist.filter(s => s === _sig).length >= 2) { _loopBreaks++; stepsLog.push('⚠️ LOOP: (' + decision.op + ' ' + _lbl + ') tried repeatedly and not working — do something DIFFERENT.'); _actHist = _actHist.filter(s => s !== _sig); if (_loopBreaks >= 3) { _step('נתקעתי על אותה פעולה שחוזרת — עוצר', false); _finishHdr(); txt.innerHTML = ''; let _m = await _agGenStuck(goal, stepsLog, 'the same action (' + _lbl.slice(0, 50) + ') was retried several times and kept not making progress (a loop)').catch(() => null); if (!_m) _m = 'נתקעתי — ניסיתי שוב ושוב את אותה פעולה (' + _lbl.slice(0, 50) + ') והיא לא מקדמת. עדיף שנחשוב יחד; תכתוב "תמשיך" עם כיוון אחר ואמשיך.'; const _a = document.createElement('div'); try { _a.innerHTML = mdSafe(_m); } catch (e) { _a.textContent = _m; } txt.appendChild(_a); hist[hist.length - 1].content = _m; break; } continue; }
             const _destructive = /rm\s+-rf|rmdir\s+\/s|\bdel\s+\/|\bformat\b|mkfs|drop\s+table|shutdown|reboot|>\s*\/dev\/|:\(\)\s*\{/i;
             if (decision.op === 'run' || decision.op === 'writefile' || decision.op === 'append' || decision.op === 'edit') {
                 if (!_admin) {
