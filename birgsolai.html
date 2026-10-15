@@ -6423,16 +6423,19 @@ async function _jinaDeepSearch(query) {
 // לא רשימת-מילים — שיפוט לפי המטרה האמיתית. מהיר (groq, ~1.5ש'). ברירת-מחדל בטוחה: quick.
 async function _searchDepthDecide(query) {
     if (!query) return 'quick';
-    const sys = 'You decide how DEEP a web search should go for the user request. Judge by the real GOAL, not by specific words. Reply with ONLY JSON: {"depth":"quick|deep"}.\n'
-        + '• "quick" = a single fact, a current price/score/news headline, a definition, "what is / who is / when", a simple lookup. One search answers it. DEFAULT.\n'
-        + '• "deep" = genuine RESEARCH: compare several options, investigate a topic thoroughly, gather and synthesize from many sources, build a report/analysis, answer a multi-part or "research this for me" request where one search is clearly not enough.\n'
-        + 'Deep is slow (~90s) so choose it ONLY when the user truly wants depth. When unsure, choose quick.';
+    // ⚠️ בלי json_object (reasoning → content ריק → 400). מילה אחת QUICK/DEEP + פרסור מ-content‖reasoning.
+    const sys = 'You decide how DEEP a web search should go for the user request. Judge by the real GOAL, not by specific words. Answer with ONLY one word: QUICK or DEEP.\n'
+        + '• QUICK = a single fact, a current price/score/news headline, a definition, "what is / who is / when", a simple lookup. One search answers it. DEFAULT.\n'
+        + '• DEEP = genuine RESEARCH: compare several options, investigate a topic thoroughly, gather and synthesize from many sources, build a report/analysis, answer a multi-part or "research this for me" request where one search is clearly not enough.\n'
+        + 'DEEP is slow (~90s) so choose it ONLY when the user truly wants depth. When unsure, QUICK.';
     try {
-        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: String(query).slice(0, 1200) }], temperature: 0, max_tokens: 20, reasoning_effort: 'low', response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(3000) });
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: String(query).slice(0, 1200) }], temperature: 0, max_tokens: 150, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(4000) });
         if (!r || !r.ok) return 'quick';
         const j = await r.json();
-        const c = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
-        return String((JSON.parse(c) || {}).depth || '').toLowerCase() === 'deep' ? 'deep' : 'quick';
+        const m = (j && j.choices && j.choices[0] && j.choices[0].message) || {};
+        const t = ((m.content || '') || (m.reasoning_content || '')).trim();
+        const mm = t.match(/\b(quick|deep)\b/gi); // המילה האחרונה = המסקנה
+        return (mm && mm.length && /deep/i.test(mm[mm.length - 1])) ? 'deep' : 'quick';
     } catch (e) { return 'quick'; }
 }
 // 🧭 מחליט-חיפוש: המודל המהיר מבין לבד אם השאלה דורשת חיפוש-אינטרנט חי — לא רשימת מילות-מפתח.
@@ -6441,16 +6444,20 @@ async function _searchDepthDecide(query) {
 // מהיר (groq gpt-oss-20b, ~1ש'). ברירת-מחדל בטוחה בכישלון: false (לא לחפש — פשוט לענות).
 async function _needSearchDecide(query) {
     if (!query) return false;
-    const sys = 'You decide whether answering the user REQUIRES a LIVE web search right now. Judge by the real goal, NOT by keywords. Reply with ONLY JSON: {"search":true} or {"search":false}.\n'
-        + '• true = the answer depends on CURRENT / real-time / external facts the assistant cannot know on its own: today’s news or events, live prices, sports scores, weather, stock/currency rates, recent releases, availability, opening hours, or specific up-to-date facts about a real business / product / person / place. Anything likely newer than training, or that must be verified against the live web.\n'
-        + '• false = the assistant can answer well from its own knowledge or reasoning: general knowledge, explanations, definitions, how-things-work, history, science, math, logic puzzles, riddles, trivia with a stable answer, coding, writing, translation, advice, opinions, brainstorming, casual chat.\n'
-        + 'Key test: would a knowledgeable person need to look it up online RIGHT NOW to answer correctly? If not, false. When unsure, choose false.';
+    // ⚠️ לא response_format:json_object — עם reasoning ה-content יוצא ריק ו-groq מחזיר 400 json_validate_failed.
+    //    במקום זה: מילה אחת YES/NO, max_tokens גבוה, ופרסור מ-content‖reasoning_content (כמו _routeLevel שעובד).
+    const sys = 'You decide whether answering the user REQUIRES a LIVE web search right now. Judge by the real goal, NOT by keywords. Answer with ONLY one word: YES or NO.\n'
+        + '• YES = the answer depends on CURRENT / real-time / external facts you cannot know on your own: today’s news or events, live prices, sports scores, weather, stock/currency rates, recent releases, availability, opening hours, or specific up-to-date facts about a real business / product / person / place. Anything likely newer than training, or that must be verified against the live web.\n'
+        + '• NO = you can answer well from your own knowledge or reasoning: general knowledge, explanations, definitions, how-things-work, history, science, math, logic puzzles, riddles, stable trivia, coding, writing, translation, advice, opinions, brainstorming, casual chat.\n'
+        + 'Key test: would a knowledgeable person need to look it up online RIGHT NOW to answer correctly? If not, NO. When unsure, NO.';
     try {
-        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: String(query).slice(0, 1200) }], temperature: 0, max_tokens: 20, reasoning_effort: 'low', response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(2800) });
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: String(query).slice(0, 1200) }], temperature: 0, max_tokens: 150, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(4000) });
         if (!r || !r.ok) return false;
         const j = await r.json();
-        const c = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
-        return (JSON.parse(c) || {}).search === true;
+        const m = (j && j.choices && j.choices[0] && j.choices[0].message) || {};
+        const t = ((m.content || '') || (m.reasoning_content || '')).trim();
+        const mm = t.match(/\b(yes|no)\b/gi); // ה-YES/NO האחרון = המסקנה
+        return !!(mm && mm.length && /yes/i.test(mm[mm.length - 1]));
     } catch (e) { return false; }
 }
 async function webSearch(query) {
@@ -8756,18 +8763,21 @@ function _isBrowserAct(q) {
 // מחזיר 'agent' | 'browser' | 'chat', או null אם המודל לא זמין (ואז השולח נופל לזיהוי-המילים הישן).
 async function _routeIntent(q) {
     if (!q) return 'chat';
-    const sys = 'You are the INTENT ROUTER of an AI assistant. Read the user message and decide where it goes. Judge by the real GOAL and intent — NOT by specific words. Reply with ONLY JSON: {"route":"agent|browser|chat"}.\n'
-        + '• "agent" = the user wants something actually DONE on the computer with code/files: build or create an app, UI, website, game, script, program, API, algorithm, parser/interpreter; fix/debug/refactor/run code; create/read/edit a file; run a terminal command; build-and-deploy to GitHub; drive Word/Excel/PowerPoint. The DOER that executes — not someone who just explains.\n'
-        + '• "browser" = the user wants to ACT inside a website/browser: go to a site, click, fill or submit a form, search a specific site and open a result, order, sign up, log in.\n'
-        + '• "chat" = everything else: questions, knowledge, advice, opinions, recommendations, writing (poem/letter/text), explanations, casual talk — AND also creating an image or asking for live facts/news (those are handled inside chat, so route them to chat).\n'
-        + 'Key test: do they want it EXECUTED/BUILT (agent) or EXPLAINED/DISCUSSED (chat)? "how do I write a parser" = explain = chat. "write me a parser and run the tests" = agent. When truly unsure, choose chat.';
+    // ⚠️ בלי json_object (reasoning → content ריק → 400 json_validate_failed → תמיד null → הניתוב מת).
+    //    מילה אחת AGENT/BROWSER/CHAT + פרסור מ-content‖reasoning_content.
+    const sys = 'You are the INTENT ROUTER of an AI assistant. Read the user message and decide where it goes. Judge by the real GOAL and intent — NOT by specific words. Answer with ONLY one word: AGENT, BROWSER, or CHAT.\n'
+        + '• AGENT = the user wants something actually DONE on the computer with code/files: build or create an app, UI, website, game, script, program, API, algorithm, parser/interpreter; fix/debug/refactor/run code; create/read/edit a file; run a terminal command; build-and-deploy to GitHub; drive Word/Excel/PowerPoint. The DOER that executes — not someone who just explains.\n'
+        + '• BROWSER = the user wants to ACT inside a website/browser: go to a site, click, fill or submit a form, search a specific site and open a result, order, sign up, log in.\n'
+        + '• CHAT = everything else: questions, knowledge, advice, opinions, recommendations, writing (poem/letter/text), explanations, casual talk — AND also creating an image or asking for live facts/news (those are handled inside chat, so route them to CHAT).\n'
+        + 'Key test: do they want it EXECUTED/BUILT (AGENT) or EXPLAINED/DISCUSSED (CHAT)? "how do I write a parser" = explain = CHAT. "write me a parser and run the tests" = AGENT. When truly unsure, choose CHAT.';
     try {
-        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: String(q).slice(0, 1500) }], temperature: 0, max_tokens: 20, reasoning_effort: 'low', response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(3500) });
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: String(q).slice(0, 1500) }], temperature: 0, max_tokens: 150, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(4000) });
         if (!r || !r.ok) return null;
         const j = await r.json();
-        const c = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
-        const route = String((JSON.parse(c) || {}).route || '').toLowerCase();
-        return ['agent', 'browser', 'chat'].includes(route) ? route : null;
+        const m = (j && j.choices && j.choices[0] && j.choices[0].message) || {};
+        const t = ((m.content || '') || (m.reasoning_content || '')).trim();
+        const mm = t.match(/\b(agent|browser|chat)\b/gi); // המילה האחרונה = המסקנה
+        return (mm && mm.length) ? mm[mm.length - 1].toLowerCase() : null;
     } catch (e) { return null; }
 }
 function _isCodeAgentTask(q) {
