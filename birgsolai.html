@@ -4173,6 +4173,13 @@ if (window.visualViewport) {
 window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(currentTheme);
     initSettings();
+    // 🖥️ בורר "קוד" (הסוכן) זמין רק בדסקטופ — בווב/נייד הסוכן לא יכול להריץ טרמינל/קבצים, אז מסתירים את הבורר.
+    try {
+        if (typeof _isDesktop === 'function' && !_isDesktop()) {
+            const _cb = document.getElementById('mode-code'); if (_cb) _cb.style.display = 'none';
+            if (currentMode === 'code') { currentMode = 'normal'; try { localStorage.setItem('birgsol_mode', 'normal'); } catch (e) {} }
+        }
+    } catch (e) {}
     // shared conversation view (?share=xxx) — read-only, no login needed
     const _shareId = new URLSearchParams(location.search).get('share');
     if (_shareId) { loadSharedView(_shareId); return; }
