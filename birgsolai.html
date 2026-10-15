@@ -9063,6 +9063,19 @@ async function _agGenStuck(goal, stepsLog, techReason) {
     const _did = (stepsLog || []).filter(l => /^\d+\.\s/.test(l)).map(l => l.replace(/^\d+\.\s*/, '').slice(0, 110)).slice(-8).join('\n') || '(עוד לא הספקתי לבצע שום צעד בפועל)';
     return await _agMouth('המטרה: ' + goal + '\nהבעיה הטכנית שגרמה לי לעצור: ' + techReason + '\nמה שהספקתי לבצע עד עכשיו:\n' + _did + '\n\nנסח למשתמש דיווח כן וחם: שלא סיימתי, מה הסיבה המדויקת, מה כן הספקתי ומה נשאר, והצע להמשיך כשהוא יכתוב "תמשיך".');
 }
+// 🏁 שער-אימות-סיום: לפני שמקבלים "done" מהמוח — מוודאים שהמטרה *באמת* הושלמה ואומתה (ולא הוכרזה מוקדם).
+// קורא את המטרה + יומן הפעולות-והפלטים האמיתי, ומחזיר אם הושלם + מה נותר. מונע עצירה מוקדמת (הסוכן ממשיך לעבוד).
+async function _agVerifyDone(goal, stepsLog) {
+    const sys = 'You are a STRICT completion verifier for an autonomous coding agent. Given the GOAL and the real ACTION LOG (each action and its actual tool OUTPUT), decide whether the goal is GENUINELY and FULLY done AND actually verified by evidence in the log — not merely claimed. Be skeptical: if the goal implies tests/build/run/deploy, the log must SHOW it was run and the output was correct (e.g. tests "ALL PASS", server ran, DEPLOY-OK, file re-read and correct). If something is still missing, unverified, or only asserted without evidence, it is NOT done. Reply ONLY JSON: {"complete":true|false,"remaining":"<if not complete: the ONE concrete next thing to do/verify, short Hebrew; else empty>"}';
+    const _log = (stepsLog || []).slice(-22).join('\n').slice(0, 6000);
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: 'GOAL: ' + goal + '\n\nACTION LOG (recent):\n' + _log }], temperature: 0.1, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
+        if (!r || !r.ok) return null;
+        const j = await r.json();
+        const c = JSON.parse((j?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+        return (c && typeof c.complete === 'boolean') ? { complete: c.complete, remaining: String(c.remaining || '').slice(0, 200) } : null;
+    } catch (e) { return null; }
+}
 
 // 🖥️ סוכן-נייטיב (אפליקציית דסקטופ, בלי תוסף) — טרמינל + קבצים + פריסה לגיטהאב + חיפוש באינטרנט.
 // לולאה אוטונומית עם תכנון, ביקורת-עצמית, גלאי-לולאה והגבלות בטיחות. זמין לכל משתמש דסקטופ (מנהל=חופשי, רגיל=עם אישורים).
@@ -9099,7 +9112,7 @@ async function runNativeAgent(goal, opts) {
             if (_pr.ok) { const _pj = await _pr.json(); const _pc = JSON.parse((_pj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_pc && Array.isArray(_pc.plan) && _pc.plan.length) { _plan = _pc.plan.map((s, i) => (i + 1) + '. ' + s).join('\n'); } /* התוכנית נשמרת למוח אך לא מוצגת כרשימה (בקשת דוד) */ }
         } catch (e) {}
         const MAX = _admin ? 80 : 8;
-        let _failStreak = 0, _actHist = [], _loopBreaks = 0;
+        let _failStreak = 0, _actHist = [], _loopBreaks = 0, _doneChallenges = 0;
         for (let stepN = 1; stepN <= MAX && !_agentStop; stepN++) {
             const sys = 'You are the 🧠 BRAIN of BIRGSOL, an autonomous CODING agent on the user\'s real computer (desktop app). ROLE BOUNDARY (strict): your ONLY job is to DECIDE the single next action toward the GOAL. You do NOT talk to the user — a separate 👄 MOUTH model does ALL the user-facing talking, and the 💪 MUSCLES (the tools) do the acting. So never write polished user prose and never try to be the voice: your "reason"/"observation" are SHORT FACTUAL INTERNAL notes (in Hebrew) that the mouth will turn into warm talk. You have NO browser control — only these tools. Reply ONLY JSON:\n' +
                 '{"reason":"<short factual Hebrew note — what you are about to do THIS step and why. Internal note for the mouth+log, NOT user prose. e.g. \'מתקן את טיפול ה-== שמתפרש כהשמה\' , \'מריץ את הטסטים לראות מה נכשל\'. ~6-12 words>","observation":"<short factual Hebrew note reacting to what the PREVIOUS action output showed — what you learned/what failed. Internal note, empty on the FIRST step. e.g. \'הקובץ ממומש חלקית, אין טיפול ב-end\' , \'הטסט נכשל: חסר pytest\'>","milestone":<true|false — true ONLY on a MEANINGFUL beat worth telling the user: found/fixed something, finished a phase, hit a real problem, or starting a major action. false for routine/trivial steps (a plain read, a tiny check). Do NOT report every little beep>","consultJudge":<true|false — true ONLY when you feel genuinely STUCK or unsure how to proceed and want a second opinion; normally false — you self-direct and do NOT judge yourself every step>","op":"run|readfile|writefile|edit|search|done","cmd":"<shell command>","path":"<file path>","content":"<full content — for writefile only>","find":"<for op:edit — the EXACT existing text to replace (copy it verbatim from the file, incl indentation, with enough surrounding lines to be UNIQUE)>","replace":"<for op:edit — the new text that replaces find>","query":"<web search query>","done":<true|false>,"answer":"<when done: short factual Hebrew summary of what you did + the result (the mouth will warm it up), not just \'סיימתי\'>"}\n' +
@@ -9128,6 +9141,17 @@ async function runNativeAgent(goal, opts) {
             // 🧠 מציג את החשיבה הגולמית האמיתית של המוח בפאנל החשיבה (מה שהוא באמת חושב, לרוב אנגלית/סינית — לא טקסט מעובד)
             if (decision.__thinking) { try { const _tl = document.createElement('div'); _tl.style.cssText = 'margin:6px 0;padding:6px 9px;font-size:11px;line-height:1.55;color:var(--muted,#8b909a);white-space:pre-wrap;opacity:.82;font-style:italic;border-inline-start:2px solid var(--border,#e2e4ea);border-radius:4px;direction:ltr;text-align:start'; _tl.textContent = '🧠 ' + decision.__thinking; _det.appendChild(_tl); while (_det.children.length > 40) _det.removeChild(_det.firstChild); if (_open && cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); } catch (e) {} }
             if (decision.done) {
+                // 🏁 שער-אימות: לפני שמקבלים "סיימתי" — לוודא שהמטרה באמת הושלמה ואומתה (עד 2 אתגורים). מונע עצירה מוקדמת.
+                if (_doneChallenges < 2) {
+                    _step('בודק אם המשימה באמת הושלמה ואומתה…', true);
+                    const _v = await _agVerifyDone(goal, stepsLog).catch(() => null);
+                    if (_v && _v.complete === false && _v.remaining) {
+                        _doneChallenges++;
+                        stepsLog.push('⚠️ עדיין לא סיימת: ' + _v.remaining + ' — אל תכריז done. בצע/אמת את זה (הרץ את הקוד/הטסטים וקרא את הפלט האמיתי), ורק כשראית שזה עובד — done.');
+                        _step('עוד לא באמת הושלם — ממשיך לעבוד: ' + String(_v.remaining).slice(0, 55), false);
+                        continue;
+                    }
+                }
                 _step('הושלם ✓', false); _finishHdr(); txt.innerHTML = '';
                 // 👄 הפה מנסח את התשובה הסופית בחום; המוח רק נתן סיכום עובדתי
                 let _fin = await _agMouth('המשימה הושלמה. סיכום עובדתי מהמוח: ' + (decision.answer || 'בוצע') + '\n\nנסח למשתמש הודעת סיום חמה וברורה: מה נעשה ומה התוצאה.') || decision.answer || 'סיימתי.';
@@ -9177,7 +9201,12 @@ async function runNativeAgent(goal, opts) {
         }
         _finishHdr();
         if (_agentStop && (!hist[hist.length - 1].content)) { const m = 'הסוכן נעצר.'; txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; }
-        if (!hist[hist.length - 1].content) { const m = 'סיימתי את הצעדים שיכולתי.'; const d = document.createElement('div'); d.textContent = m; txt.appendChild(d); hist[hist.length - 1].content = m; }
+        if (!hist[hist.length - 1].content) {
+            // הגענו לתקרת הצעדים בלי done — דיווח כן על מה שנעשה ומה נשאר, והצעה להמשיך (לא "סיימתי את הצעדים" גנרי).
+            let m = await _agGenStuck(goal, stepsLog, 'reached the step limit for this run before the goal was fully complete').catch(() => null);
+            if (!m) m = 'הגעתי לתקרת הצעדים לריצה הזו ועוד לא סיימתי את הכל. תכתוב "תמשיך" ואמשיך מהנקודה הזו.';
+            const d = document.createElement('div'); try { d.innerHTML = mdSafe(m); } catch (e) { d.textContent = m; } txt.appendChild(d); hist[hist.length - 1].content = m;
+        }
     } catch (e) { txt.textContent = 'שגיאת סוכן: ' + (e && e.message || e); }
     finally { busy = false; _agentRunning = false; updateBtn(); try { saveConversation(); } catch (e) {} } // שמירת שיחת הסוכן להיסטוריה
     return (hist[hist.length - 1] && hist[hist.length - 1].content) || 'הסוכן סיים.';
