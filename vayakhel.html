@@ -71,6 +71,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .num { font-family: var(--font-ui); font-weight: 600; font-size: 0.6em; color: var(--accent); margin-inline-end: 4px; vertical-align: 0.35em; }
 .al { display: inline-block; font-family: var(--font-ui); font-weight: 600; font-size: 0.62em; color: var(--paper); background: var(--accent); border-radius: 4px; padding: 0 7px; margin-inline-end: 6px; line-height: 1.6; vertical-align: 0.2em; scroll-margin-top: 120px; }
 .ketiv { font-size: 0.7em; color: var(--muted); margin-inline-start: 3px; }
+.sp { color: var(--accent); font-weight: 500; margin-inline-start: 1px; }
+body.no-sp .scr .sp { display: none; }
 
 /* practice mode: vocalized text hidden until tapped */
 body.practice .voc .txt { filter: blur(7px); opacity: .55; transition: filter .2s, opacity .2s; }
@@ -102,6 +104,7 @@ body.no-voc .spread, body.no-voc .colhead { grid-template-columns: 1fr; }
     <div class="aliyot" id="aliyot"></div>
     <div class="tools">
       <button id="bTeamim" aria-pressed="true">טעמים</button>
+      <button id="bSofPasuk" aria-pressed="true">סוף פסוק בספר</button>
       <button id="bPractice" aria-pressed="false">מצב תרגול</button>
       <button id="bScrollOnly" aria-pressed="false">רק כתב הספר</button>
       <button id="bSmaller" aria-label="הקטן גופן">א−</button>
@@ -112,7 +115,7 @@ body.no-voc .spread, body.no-voc .colhead { grid-template-columns: 1fr; }
   <div class="colhead"><div class="h-voc">מנוקד ומוטעם</div><div>כפי שכתוב בספר התורה</div></div>
   <main class="spread" id="spread"></main>
 
-  <p class="note">הנוסח לפי "מקרא על פי המסורה" (כתר ארם צובא), דרך ספריא. בעמודה השמאלית: הכתיב, בלי ניקוד וטעמים, עם פרשות פתוחות (שורה חדשה) וסתומות (רווח בתחילת השורה). הצבע על פסוק מסמן אותו בשתי העמודות. במצב תרגול הטקסט המנוקד מוסתר; לחיצה על פסוק חושפת אותו. הגופן בעמודת הספר הוא גופן דפוס ולא כתב סת״ם אמיתי.</p>
+  <p class="note">הנוסח לפי "מקרא על פי המסורה" (כתר ארם צובא), דרך ספריא. בעמודה השמאלית: הכתיב, בלי ניקוד וטעמים (סימני סוף הפסוק מוצגים לעזרה בלבד, ואפשר להסתיר אותם — בספר תורה אין אותם), עם פרשות פתוחות (שורה חדשה) וסתומות (רווח בתחילת השורה). הצבע על פסוק מסמן אותו בשתי העמודות. במצב תרגול הטקסט המנוקד מוסתר; לחיצה על פסוק חושפת אותו. הגופן בעמודת הספר הוא גופן דפוס ולא כתב סת״ם אמיתי.</p>
 </div>
 
 <script>
@@ -136,7 +139,7 @@ function render() {
       const al = v.al ? `<span class="al" id="al-${v.c}-${v.v}">${v.al}</span>` : '';
       const num = (v.v === 1 ? v.cn + ' ' : '') + v.vn;
       voc += `${al}<span class="v" data-k="${k}"><span class="num">${num}</span><span class="txt">${vocHTML(v, withT)}</span></span> `;
-      scr += `<span class="v" data-k="${k}">${v.sc}</span> `;
+      scr += `<span class="v" data-k="${k}">${v.sc}<span class="sp">׃</span></span> `;
     });
     const cls = ['scr', seg.open === 's' ? 'setuma' : 'petucha', i === 0 ? 'first' : '', i === SEGS.length - 1 ? 'last' : ''].join(' ');
     parts.push(`<div class="voc">${voc}</div><div class="${cls}">${scr}</div>`);
@@ -178,6 +181,7 @@ function toggle(id, fn) {
 toggle('bTeamim', () => render());
 toggle('bPractice', on => { document.body.classList.toggle('practice', on); spread.querySelectorAll('.reveal').forEach(x => x.classList.remove('reveal')); });
 toggle('bScrollOnly', on => document.body.classList.toggle('no-voc', on));
+toggle('bSofPasuk', on => document.body.classList.toggle('no-sp', !on));
 
 let size = 1.45;
 function setSize(s) { size = Math.min(2.6, Math.max(1, s)); document.documentElement.style.setProperty('--size', size + 'rem'); save(); }
@@ -189,7 +193,8 @@ function save() {
     localStorage.setItem('tikkun-prefs', JSON.stringify({
       size, t: document.getElementById('bTeamim').getAttribute('aria-pressed'),
       p: document.getElementById('bPractice').getAttribute('aria-pressed'),
-      s: document.getElementById('bScrollOnly').getAttribute('aria-pressed') }));
+      s: document.getElementById('bScrollOnly').getAttribute('aria-pressed'),
+      sp: document.getElementById('bSofPasuk').getAttribute('aria-pressed') }));
   } catch (e) {}
 }
 try {
@@ -200,6 +205,7 @@ try {
     document.getElementById('bScrollOnly').setAttribute('aria-pressed', p.s);
     document.body.classList.toggle('practice', p.p === 'true');
     document.body.classList.toggle('no-voc', p.s === 'true');
+    if (p.sp) { document.getElementById('bSofPasuk').setAttribute('aria-pressed', p.sp); document.body.classList.toggle('no-sp', p.sp === 'false'); }
     if (p.size && window.matchMedia('(min-width: 761px)').matches) { size = p.size; document.documentElement.style.setProperty('--size', size + 'rem'); }
   }
 } catch (e) {}
