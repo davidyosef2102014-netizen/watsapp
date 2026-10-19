@@ -8828,7 +8828,10 @@ function _isCodeAgentTask(q) {
 let _agUseChrome = false; // נקבע בתחילת הסוכן: האם הכרום האמיתי זמין דרך הגשר
 // 🔗 זיכרון-המשך לסוכן: כל עוד אנחנו באותה שיחה שבה הסוכן עבד, הודעת-תיקון קצרה חוזרת אליו
 // (ולא זולגת לצ'אט שממציא ריצות). כבול לשיחה — לא לטיימר.
+// מצב הסוכן האחרון — נשמר ב-localStorage כדי לשרוד רענון/עדכון-SW של העמוד (אחרת "תמשיך" אחרי רענון מאבד את ההקשר ונופל לצ'אט).
 let _lastAgentGoal = '', _lastAgentConv = null, _lastAgentKind = '';
+try { const _as = JSON.parse(localStorage.getItem('birgsol_lastAgent') || '{}'); if (_as && _as.goal) { _lastAgentGoal = _as.goal; _lastAgentConv = _as.conv; _lastAgentKind = _as.kind || ''; } } catch (e) {}
+function _saveAgentState() { try { localStorage.setItem('birgsol_lastAgent', JSON.stringify({ goal: _lastAgentGoal, conv: _lastAgentConv, kind: _lastAgentKind })); } catch (e) {} }
 let _agentRunning = false; // true בזמן שלולאת-הסוכן פעילה — מאפשר שאלות-צד ל-LLAMA תוך כדי
 function _looksLikeAgentFollowup(q) {
     if (!q) return false;
@@ -9137,7 +9140,7 @@ async function _agVerifyDone(goal, stepsLog) {
 // לולאה אוטונומית עם תכנון, ביקורת-עצמית, גלאי-לולאה והגבלות בטיחות. זמין לכל משתמש דסקטופ (מנהל=חופשי, רגיל=עם אישורים).
 async function runNativeAgent(goal, opts) {
     opts = opts || {};
-    if (!opts.isFollowup) { _lastAgentGoal = goal; _lastAgentKind = 'native'; _lastAgentConv = currentConvId; }
+    if (!opts.isFollowup) { _lastAgentGoal = goal; _lastAgentKind = 'native'; _lastAgentConv = currentConvId; _saveAgentState(); }
     const _admin = ADMIN_USERS.includes(currentUser);
     if (!opts.skipUser) addMsg('user', goal);
     const inp = document.getElementById('userInput'); if (inp) { inp.value = ''; inp.style.height = 'auto'; }
@@ -9288,7 +9291,7 @@ async function runNativeAgent(goal, opts) {
 
 async function _browserAgent(goal, opts) {
     opts = opts || {};
-    if (!opts.isFollowup) { _lastAgentGoal = goal; _lastAgentKind = 'browser'; _lastAgentConv = currentConvId; }
+    if (!opts.isFollowup) { _lastAgentGoal = goal; _lastAgentKind = 'browser'; _lastAgentConv = currentConvId; _saveAgentState(); }
     const _admin = ADMIN_USERS.includes(currentUser);
     if (currentTier !== 'pro' && currentTier !== 'ultra' && !_admin) {
         if (!opts.skipUser) addMsg('user', goal);
@@ -9833,6 +9836,8 @@ async function send() {
     if (_lastAgentGoal && _lastAgentConv === currentConvId && !fileUrl && !fileContent && !mediaFile && q) {
         let _cont_yes = await _decideAgentContinue(q, _lastAgentGoal);
         if (_cont_yes === null) _cont_yes = _looksLikeAgentFollowup(q); // המחליט לא זמין → נפילה-לאחור לזיהוי הישן
+        // רשת-ביטחון: "תמשיך"/"המשך" מפורש = תמיד המשך-סוכן, גם אם המודל טעה וסיווג כ"חדש".
+        if (!_cont_yes && /^\s*(תמשיך|תמשיכי|המשך|המשיכי|נו\s*תמשיך|continue|resume|keep going|go on|קדימה)\b/i.test(q)) _cont_yes = true;
         if (_cont_yes) {
             const _cont = 'המשימה המקורית: ' + _lastAgentGoal + '\n\n📌 תיקון/הנחיית-המשך מהמשתמש — אל תתחיל מחדש: המשך מהנקודה שבה עצרת, קרא את המצב הקיים, ושפר/תקן לפי ההערה עד שהמשימה באמת הושלמה:\n' + q;
             if (_lastAgentKind === 'browser') await _browserAgent(_cont, { isFollowup: true });
