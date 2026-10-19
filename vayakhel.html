@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>תיקון קוראים ויקהל</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,7 +39,8 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body { background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: 16px; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: 16px; }
+[hidden] { display: none !important; }
 .wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 64px; }
 
 header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
@@ -83,6 +89,8 @@ body.no-voc .spread, body.no-voc .colhead { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .v, body.practice .voc .txt { transition: none; } }
 </style>
+</head>
+<body>
 
 <div class="wrap" dir="rtl" lang="he">
   <header class="top">
@@ -197,3 +205,5 @@ try {
 } catch (e) {}
 render();
 </script>
+</body>
+</html>
