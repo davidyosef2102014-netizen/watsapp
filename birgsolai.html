@@ -9052,57 +9052,52 @@ async function _agDecide(sys, user) {
         }
         return d;
     };
-    // 🧠 המוח הכבד — GLM-5.3 המלא (753B) דרך NVIDIA, רק דסקטופ (ישיר). בדיקה דינמית (בקשת דוד): אם עונה תוך 14ש' → נכנס;
-    // אם לא (כרגע הוא לרוב מת/תקוע בתור) → מדלגים וממשיכים כרגיל, בלי לבזבז. ככה הוא נכנס בדיוק כשהוא זמין.
+    // 🧠 המוח הכבד — GLM-5.3 המלא (753B) דרך NVIDIA, רק דסקטופ (ישיר). חלון ~45ש' — חלק מקבוצת-ה-GLM המועדפת.
     const _heavyBrain = async () => {
         const N = (typeof window !== 'undefined') && window.BIRGSOL_NATIVE;
         if (!N || !N.nvidiaChat) return null; // זמין רק בדסקטופ; המפתח מקומי ומוזרק בתהליך הראשי
         const call = N.nvidiaChat({ model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 });
-        const res = await Promise.race([call, new Promise(r => setTimeout(() => r(null), 14000))]);
+        const res = await Promise.race([call, new Promise(r => setTimeout(() => r(null), 45000))]);
         if (res && res.ok && res.status === 200 && res.body) { try { return _pick(JSON.parse(res.body)); } catch (e) { return _agParseDecision(res.body); } }
         return null;
     };
-    // ⚡ שרשרת לפי הסדר של דוד + מדידות אמת (2026-10-11): כל ה-GLM קודם → מודלי NVIDIA לקוד → nvidia-flash → gpt-oss אחרון.
-    //   GLM: 1) GLM-5.3-flash חינם (OrcaRouter ~3ש')  2) GLM-4.5-flash (Z.ai ~6ש')  3) GLM-5.3 (OpenRouter).
-    //   NVIDIA-קוד (נמדדו מהירים ועובדים!): 4) nemotron-3-super-120b (0.8ש', 120B חזק)  5) nemotron-3.5-lightning-30b (0.6ש').
-    //   6) nvidia GLM-5.3-flash — GLM אחרון לפני gpt-oss, timeout קצר 8ש' (נמדד 28ש' → נכשל מהר במקום לבזבז).
-    //   7) groq gpt-oss-120b — רשת-ביטחון אחרונה (0.5ש', אמין).
-    const _fast = [
+    // 🥇 קבוצת GLM (מועדפת — דוד: "GLM יעבוד רוב הזמן"). רצים *כולם מיד*, חלון ~45ש' כדי לתת ל-GLM זמן לענות.
+    //   GLM-5.3-flash חינם (OrcaRouter) · GLM-4.5-flash (Z.ai) · GLM-5.3 (OpenRouter) · GLM-5.3-flash (NVIDIA) · GLM-5.3 מלא.
+    const _glm = [
         async () => { let lk = ''; try { lk = localStorage.getItem('AX_ORCA_KEY') || ''; } catch (e) {}
-            if (lk) { const r = await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify({ model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }), signal: AbortSignal.timeout(10000) }); return r.ok ? _pick(await r.json()) : null; }
-            const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(10000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('zai', '/api/paas/v4/chat/completions', { model: 'glm-4.5-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(10000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(14000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3-super-120b-a12b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(14000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-lightning-30b-a3b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(14000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 4000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) }); return r.ok ? _pick(await r.json()) : null; },
+            const body = { model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 };
+            const r = lk ? await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify(body), signal: AbortSignal.timeout(45000) })
+                         : await _ghProxy('orcarouter', '/v1/chat/completions', body, { signal: AbortSignal.timeout(45000) });
+            return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('zai', '/api/paas/v4/chat/completions', { model: 'glm-4.5-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(45000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'z-ai/glm-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(45000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 4000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(45000) }); return r.ok ? _pick(await r.json()) : null; },
+        _heavyBrain,
+    ];
+    // 🥈 קבוצת גיבוי (מהירה ואמינה) — מצטרפת רק אם GLM לא ענה אחרי 40ש', *או* אם כל ה-GLM נפלו לפני כן.
+    const _backup = [
+        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3-super-120b-a12b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-lightning-30b-a3b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
     ];
-    // ⏱️ מרוץ מדורג *לפי הסדר* עם עדיפות של 5ש' לכל מודל (בקשת דוד): מתחילים מהראשון (GLM); אם לא ענה תוך
-    //    5 שניות — הבא בסדר מצטרף (בלי לעצור את הקודם), וההחלטה התקינה *הראשונה* שחוזרת מנצחת. מודל שנכשל
-    //    מהר → הבא מיד. כך הסדר/העדיפות נשמרים (GLM מקבל ראש-יתרון של 5ש'), אבל מודל איטי/נפול לא חוסם.
-    //    (היה סדרתי עם timeout 10-14ש' לכל אחד = ~34ש'/צעד → הסוכן "איטי למות".)
-    const _cands = _fast.concat([_heavyBrain]); // המוח-הכבד (GLM-5.3 מלא) אחרון בסדר-העדיפות
+    // ⏱️ עדיפות-GLM (בקשת דוד): כל ה-GLM רצים מיד; ה-GLM התקין הראשון מנצח (רוב הזמן, ומהר אם הוא מהיר).
+    //    אם אף GLM לא ענה תוך 40ש' — *או* אם כל ה-GLM נפלו לפני כן — מריצים לידם את הגיבוי (nemotron/groq),
+    //    וההחלטה התקינה הראשונה מנצחת (המעבר לגיבוי קורה תוך ~+10ש' שלוקח לו לענות). נכשל רק אם כולם נפלו.
     return await new Promise((resolve) => {
-        let settled = false, launched = 0, pending = 0, _tmr = null, _cap = null;
-        const done = (d) => { if (!settled) { settled = true; if (_tmr) clearInterval(_tmr); if (_cap) clearTimeout(_cap); resolve(d || null); } };
-        const launchNext = () => {
-            if (settled || launched >= _cands.length) return;
-            const step = _cands[launched++]; pending++;
-            Promise.resolve().then(step).then(d => {
-                pending--;
-                if (d && d.op) return done(d);
-                if (!settled && launched < _cands.length) launchNext();        // נכשל מהר → הבא מיד
-                else if (launched >= _cands.length && pending === 0) done(null); // כולם נוסו ונכשלו
-            }).catch(() => {
-                pending--;
-                if (!settled && launched < _cands.length) launchNext();
-                else if (launched >= _cands.length && pending === 0) done(null);
-            });
+        let settled = false, glmPending = 0, backupOn = false, backupPending = 0, t40 = null, cap = null;
+        const finish = (d) => { if (!settled) { settled = true; if (t40) clearTimeout(t40); if (cap) clearTimeout(cap); resolve(d || null); } };
+        const allDead = () => { if (!settled && glmPending === 0 && backupOn && backupPending === 0) finish(null); };
+        const startBackup = () => {
+            if (settled || backupOn) return; backupOn = true;
+            _backup.forEach(step => { backupPending++;
+                Promise.resolve().then(step).then(d => { backupPending--; if (d && d.op) return finish(d); allDead(); })
+                                 .catch(() => { backupPending--; allDead(); }); });
         };
-        launchNext();                                                           // הראשון (GLM) — מיד
-        _tmr = setInterval(() => { if (settled || launched >= _cands.length) { clearInterval(_tmr); return; } launchNext(); }, 5000); // הבא בסדר כל 5ש'
-        _cap = setTimeout(() => done(null), 60000);                             // רשת-ביטחון
+        _glm.forEach(step => { glmPending++;
+            Promise.resolve().then(step).then(d => { glmPending--; if (d && d.op) return finish(d); if (glmPending === 0 && !backupOn) startBackup(); allDead(); })
+                             .catch(() => { glmPending--; if (glmPending === 0 && !backupOn) startBackup(); allDead(); }); });
+        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 40000); // GLM איטי 40ש' → גיבוי מצטרף
+        cap = setTimeout(() => finish(null), 65000);                                  // רשת-ביטחון
     });
 }
 
