@@ -9056,19 +9056,13 @@ async function _agDecide(sys, user) {
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 4000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
     ];
-    // 🧠 בקשת דוד: בודקים את ה-GLM המלא **במקביל** (לא חוסם) בזמן שהשרשרת רצה. אם הוא עונה תוך כדי → מעדיפים אותו (המוח החזק);
-    // אם לא → ממשיכים כרגיל דרך GLM→NVIDIA→gpt-oss. ככה הוא נכנס בדיוק כשהוא זמין, בלי להאט שום צעד.
-    let _heavyVal = null;
-    const _heavyP = _heavyBrain().then(d => { _heavyVal = (d && d.op) ? d : null; return _heavyVal; }).catch(() => null);
-    for (const step of _fast) {
-        try {
-            const d = await step();
-            if (_heavyVal && _heavyVal.op) return _heavyVal; // ה-GLM המלא ענה בינתיים → מעדיפים אותו
-            if (d && d.op) return d;
-        } catch (e) {}
-    }
-    try { const h = await _heavyP; if (h && h.op) return h; } catch (e) {} // כל השרשרת נכשלה → המתנה אחרונה ל-GLM המלא
-    return null;
+    // ⚡⚡ מרוץ מקביל — כל מועמדי-המוח יוצאים *בבת אחת*, ומחזירים את ההחלטה *התקינה הראשונה* שחוזרת.
+    //    (היה סדרתי: כל endpoint איטי/נפול בזבז 10-14ש' לפני הבא → 34ש'+ לכל צעד → הסוכן "איטי למות".
+    //     עכשיו כל צעד = מהירות המודל *הכי מהיר* שעונה, בד"כ ~0.5-1ש'.) GLM עדיין מתחרה — אם מהיר, מנצח;
+    //    אם נפול, nemotron/groq עונים מיד. גם המוח-הכבד (GLM-5.3 מלא) רץ במרוץ. נכשל רק אם *כולם* נכשלו.
+    const _race = _fast.map(step => step().then(d => (d && d.op) ? d : Promise.reject(0)).catch(() => Promise.reject(0)));
+    _race.push(_heavyBrain().then(d => (d && d.op) ? d : Promise.reject(0)).catch(() => Promise.reject(0)));
+    try { return await Promise.any(_race); } catch (e) { return null; }
 }
 
 // 👄 "הפה" של הסוכן — מודל מהיר ולבבי (groq) שמדבר למשתמש. נפרד מ-🧠המוח (שמחליט) ומ-💪השרירים (שפועלים).
