@@ -8832,11 +8832,33 @@ let _lastAgentGoal = '', _lastAgentConv = null, _lastAgentKind = '';
 let _agentRunning = false; // true בזמן שלולאת-הסוכן פעילה — מאפשר שאלות-צד ל-LLAMA תוך כדי
 function _looksLikeAgentFollowup(q) {
     if (!q) return false;
-    if (!(typeof _isDesktop === 'function' && _isDesktop())) return false; // רלוונטי רק לסוכן-הדסקטופ
     if (q.length > 240) return false; // תיקון/הערה קצרה — לא נושא חדש וארוך
+    // ▶️ מילות-המשך מפורשות — תמיד המשך-סוכן, בלי תלות בשער-דסקטופ (ה-_lastAgentGoal כבר מבטיח שסוכן רץ בשיחה הזו).
+    //    פותר את "אחרי loop-stuck אני כותב 'תמשיך' ומקבל צ'אט במקום שהסוכן ימשיך".
+    if (/^\s*(תמשיך|תמשיכי|המשך|המשיכי|נו\s*תמשיך|continue|resume|keep going|go on|קדימה|עוד|נו\b)/i.test(q)) return true;
+    if (!(typeof _isDesktop === 'function' && _isDesktop())) return false; // שאר הזיהוי (מילות-קוד/טסט) — רלוונטי רק לסוכן-הדסקטופ
     // אזכורי קוד/טסט/קובץ/תיקון → כמעט תמיד המשך לאותה משימת-קוד.
     // כולל תלונות/הנחיות-תיקון בזמן ריצה: לולאה/תקוע/אינסופי/עצור/לא נגמר/אותו דבר/עדיין — אלה חייבים לחזור למוח, לא לצ'אט.
     return /\bimport\b|eval|exec|test\.py|regex|רג.?קס|\.(py|js|html?|css|json|java|c|cpp|ts)\b|פונקצי|function|class\b|בלי\b|אל ?תשתמש|תקן|תתקן|שוב|תמשיך|המשך|לא ?עבד|לא ?עובד|נכשל|\bfail|ALL ?PASS|תריץ|הרץ|ממש|מאפס|from scratch|no import|שלד|stub|לולא|אינסופ|נתקע|תקוע|עצור|תעצור|נגמר|מסתיים|אותו ?דבר|עדיין|שוב ?ושוב|חוזר על|loop|infinite|stuck|repeat/i.test(q);
+}
+// 🧭 מחליט-המשך-סוכן (מבוסס-מודל, לא מילות-מפתח — בקשת דוד): אחרי שסוכן רץ בשיחה ועצר/נתקע, המודל מחליט
+//    אם ההודעה הבאה היא המשך/תיקון/דחיפה של אותה משימה (להחזיר לסוכן) או בקשה חדשה/שיחה (לא להחזיר). שיפוט-כוונה.
+//    מהיר (groq gpt-oss-20b, מילה אחת CONTINUE/NEW, פרסור מ-content‖reasoning). מחזיר true/false, או null אם לא זמין.
+async function _decideAgentContinue(q, goal) {
+    if (!q) return false;
+    const sys = 'An autonomous coding AGENT was just working on a task for the user, and it stopped, paused, or got stuck. The user now sent a new message. Decide: is this new message a CONTINUATION, correction, nudge, or follow-up about that SAME agent task (the agent should RESUME) — or a NEW separate request / general chat (it should NOT resume the agent)? Judge by the real intent, NOT by keywords. Answer with ONLY one word: CONTINUE or NEW.\n'
+        + '• CONTINUE = "keep going", "it is stuck in a loop", "try again", "fix X and rerun it", "why did you stop", "finish it", any nudge/correction tied to the running task, or a short message that only makes sense as part of that ongoing task.\n'
+        + '• NEW = a clearly different request, a general knowledge question, a new topic, or anything unrelated to the agent task.\n'
+        + 'When unsure: if the message is short and task-like, CONTINUE; otherwise NEW.';
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: [{ role: 'system', content: sys }, { role: 'user', content: 'THE AGENT TASK WAS: ' + String(goal || '').slice(0, 300) + '\n\nUSER NEW MESSAGE: ' + String(q).slice(0, 500) }], temperature: 0, max_tokens: 150, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(3500) });
+        if (!r || !r.ok) return null;
+        const j = await r.json();
+        const m = (j && j.choices && j.choices[0] && j.choices[0].message) || {};
+        const t = ((m.content || '') || (m.reasoning_content || '')).trim();
+        const mm = t.match(/\b(continue|new)\b/gi);
+        return (mm && mm.length) ? /continue/i.test(mm[mm.length - 1]) : null;
+    } catch (e) { return null; }
 }
 let _agOpenedBrowser = false; // האם הסוכן פתח את הדפדפן לבד (כדי לסגור אותו בסוף)
 async function _agDetectChromeBridge() {
@@ -9056,13 +9078,32 @@ async function _agDecide(sys, user) {
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'z-ai/glm-5.3-flash', messages: msgs, max_tokens: 4000, temperature: 0.2, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(8000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
     ];
-    // ⚡⚡ מרוץ מקביל — כל מועמדי-המוח יוצאים *בבת אחת*, ומחזירים את ההחלטה *התקינה הראשונה* שחוזרת.
-    //    (היה סדרתי: כל endpoint איטי/נפול בזבז 10-14ש' לפני הבא → 34ש'+ לכל צעד → הסוכן "איטי למות".
-    //     עכשיו כל צעד = מהירות המודל *הכי מהיר* שעונה, בד"כ ~0.5-1ש'.) GLM עדיין מתחרה — אם מהיר, מנצח;
-    //    אם נפול, nemotron/groq עונים מיד. גם המוח-הכבד (GLM-5.3 מלא) רץ במרוץ. נכשל רק אם *כולם* נכשלו.
-    const _race = _fast.map(step => step().then(d => (d && d.op) ? d : Promise.reject(0)).catch(() => Promise.reject(0)));
-    _race.push(_heavyBrain().then(d => (d && d.op) ? d : Promise.reject(0)).catch(() => Promise.reject(0)));
-    try { return await Promise.any(_race); } catch (e) { return null; }
+    // ⏱️ מרוץ מדורג *לפי הסדר* עם עדיפות של 5ש' לכל מודל (בקשת דוד): מתחילים מהראשון (GLM); אם לא ענה תוך
+    //    5 שניות — הבא בסדר מצטרף (בלי לעצור את הקודם), וההחלטה התקינה *הראשונה* שחוזרת מנצחת. מודל שנכשל
+    //    מהר → הבא מיד. כך הסדר/העדיפות נשמרים (GLM מקבל ראש-יתרון של 5ש'), אבל מודל איטי/נפול לא חוסם.
+    //    (היה סדרתי עם timeout 10-14ש' לכל אחד = ~34ש'/צעד → הסוכן "איטי למות".)
+    const _cands = _fast.concat([_heavyBrain]); // המוח-הכבד (GLM-5.3 מלא) אחרון בסדר-העדיפות
+    return await new Promise((resolve) => {
+        let settled = false, launched = 0, pending = 0, _tmr = null, _cap = null;
+        const done = (d) => { if (!settled) { settled = true; if (_tmr) clearInterval(_tmr); if (_cap) clearTimeout(_cap); resolve(d || null); } };
+        const launchNext = () => {
+            if (settled || launched >= _cands.length) return;
+            const step = _cands[launched++]; pending++;
+            Promise.resolve().then(step).then(d => {
+                pending--;
+                if (d && d.op) return done(d);
+                if (!settled && launched < _cands.length) launchNext();        // נכשל מהר → הבא מיד
+                else if (launched >= _cands.length && pending === 0) done(null); // כולם נוסו ונכשלו
+            }).catch(() => {
+                pending--;
+                if (!settled && launched < _cands.length) launchNext();
+                else if (launched >= _cands.length && pending === 0) done(null);
+            });
+        };
+        launchNext();                                                           // הראשון (GLM) — מיד
+        _tmr = setInterval(() => { if (settled || launched >= _cands.length) { clearInterval(_tmr); return; } launchNext(); }, 5000); // הבא בסדר כל 5ש'
+        _cap = setTimeout(() => done(null), 60000);                             // רשת-ביטחון
+    });
 }
 
 // 👄 "הפה" של הסוכן — מודל מהיר ולבבי (groq) שמדבר למשתמש. נפרד מ-🧠המוח (שמחליט) ומ-💪השרירים (שפועלים).
@@ -9792,12 +9833,17 @@ async function send() {
         await runNativeAgent(q);
         return;
     }
-    // ── 🔗 המשך-סוכן: המשך ישיר של משימת-סוכן פעילה באותה שיחה ("תקן ותריץ שוב", "תמשיך") — בלי קריאת-מודל, מיידי ──
-    if (_lastAgentGoal && _lastAgentConv === currentConvId && !fileUrl && !fileContent && !mediaFile && _looksLikeAgentFollowup(q)) {
-        const _cont = 'המשימה המקורית: ' + _lastAgentGoal + '\n\n📌 תיקון/הנחיית-המשך מהמשתמש — אל תתחיל מחדש: קרא את הקובץ הקיים, שפר אותו לפי ההערה, והרץ את הטסט שוב עד ALL PASS:\n' + q;
-        if (_lastAgentKind === 'browser') await _browserAgent(_cont, { isFollowup: true });
-        else await runNativeAgent(_cont, { isFollowup: true });
-        return;
+    // ── 🔗 המשך-סוכן: אם סוכן רץ בשיחה הזו (ולו לפני כמה הודעות), המודל מחליט אם ההודעה הזו היא המשך/תיקון
+    //    של אותה משימה (להחזיר לסוכן) — שיפוט-כוונה, לא מילות-מפתח (בקשת דוד). רגקס רק כגיבוי אם המודל לא זמין. ──
+    if (_lastAgentGoal && _lastAgentConv === currentConvId && !fileUrl && !fileContent && !mediaFile && q) {
+        let _cont_yes = await _decideAgentContinue(q, _lastAgentGoal);
+        if (_cont_yes === null) _cont_yes = _looksLikeAgentFollowup(q); // המחליט לא זמין → נפילה-לאחור לזיהוי הישן
+        if (_cont_yes) {
+            const _cont = 'המשימה המקורית: ' + _lastAgentGoal + '\n\n📌 תיקון/הנחיית-המשך מהמשתמש — אל תתחיל מחדש: המשך מהנקודה שבה עצרת, קרא את המצב הקיים, ושפר/תקן לפי ההערה עד שהמשימה באמת הושלמה:\n' + q;
+            if (_lastAgentKind === 'browser') await _browserAgent(_cont, { isFollowup: true });
+            else await runNativeAgent(_cont, { isFollowup: true });
+            return;
+        }
     }
     // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף ──
     if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile) { await browserLook(q); return; }
