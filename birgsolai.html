@@ -2675,6 +2675,7 @@ const MODELS = [
     { id:'3.0pro', brand:'BIRGSOL AI 3.0 PRO',   kind:'cloudflare', minTier:'free', desc:'גיבוי יציב' },
     { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini',     minTier:'free', desc:'חכם ומהיר' },
     { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss',     minTier:'pro',  desc:'הכי חזק, מעולה לקוד' },
+    { id:'4.1pro', brand:'BIRGSOL AI 4.1 PRO',   kind:'agentpro',   minTier:'free', desc:'סוכן-קוד מומחה — מוח Qwen3-Coder', admin:true },
     { id:'axion',  brand:'BIRGSOL Axion 4.1',    kind:'axion',      minTier:'free', desc:'דגל — צוות מודלים (מוח+שופט+קול)', admin:true },
 ];
 // admin:true → גלוי רק למנהל (בדיקות לפני השקה). שאר המשתמשים לא רואים/בוחרים אותו.
@@ -9083,23 +9084,28 @@ async function _agDecide(sys, user) {
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-lightning-30b-a3b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
     ];
-    // ⏱️ עדיפות-GLM (בקשת דוד): כל ה-GLM רצים מיד; ה-GLM התקין הראשון מנצח (רוב הזמן, ומהר אם הוא מהיר).
-    //    אם אף GLM לא ענה תוך 40ש' — *או* אם כל ה-GLM נפלו לפני כן — מריצים לידם את הגיבוי (nemotron/groq),
-    //    וההחלטה התקינה הראשונה מנצחת (המעבר לגיבוי קורה תוך ~+10ש' שלוקח לו לענות). נכשל רק אם כולם נפלו.
+    // 🥈 4.1 PRO — מוח **Qwen3-Coder** (מומחה-קוד) במקום GLM. אותו שלד-סוכן בדיוק, רק מוח שונה (בקשת דוד).
+    const _qwenCoder = async () => { const r = await _ghProxy('qwen', '/compatible-mode/v1/chat/completions', { model: 'qwen3-coder-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(30000) }); return r.ok ? _pick(await r.json()) : null; };
+    const _isPro = (typeof currentModelId === 'function') && currentModelId() === '4.1pro';
+    const _primary   = _isPro ? [_qwenCoder] : _glm;            // 4.1 PRO → מוח Qwen3-Coder · Axion → קבוצת GLM
+    const _secondary = _isPro ? _backup.concat(_glm) : _backup; // ל-PRO: אם Qwen נפל → nemotron/groq ואז GLM
+    // ⏱️ עדיפות-מוח (בקשת דוד): המוח המועדף רץ מיד; ההחלטה התקינה הראשונה שלו מנצחת (רוב הזמן, ומהר).
+    //    אם המועדף לא ענה תוך 40ש' — *או* אם כל המועדפים נפלו לפני כן — מריצים לידם את הגיבוי (nemotron/groq),
+    //    וההחלטה התקינה הראשונה מנצחת (המעבר לגיבוי תוך ~+10ש'). נכשל רק אם כולם נפלו.
     return await new Promise((resolve) => {
         let settled = false, glmPending = 0, backupOn = false, backupPending = 0, t40 = null, cap = null;
         const finish = (d) => { if (!settled) { settled = true; if (t40) clearTimeout(t40); if (cap) clearTimeout(cap); resolve(d || null); } };
         const allDead = () => { if (!settled && glmPending === 0 && backupOn && backupPending === 0) finish(null); };
         const startBackup = () => {
             if (settled || backupOn) return; backupOn = true;
-            _backup.forEach(step => { backupPending++;
+            _secondary.forEach(step => { backupPending++;
                 Promise.resolve().then(step).then(d => { backupPending--; if (d && d.op) return finish(d); allDead(); })
                                  .catch(() => { backupPending--; allDead(); }); });
         };
-        _glm.forEach(step => { glmPending++;
+        _primary.forEach(step => { glmPending++;
             Promise.resolve().then(step).then(d => { glmPending--; if (d && d.op) return finish(d); if (glmPending === 0 && !backupOn) startBackup(); allDead(); })
                              .catch(() => { glmPending--; if (glmPending === 0 && !backupOn) startBackup(); allDead(); }); });
-        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 40000); // GLM איטי 40ש' → גיבוי מצטרף
+        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 40000); // מוח איטי 40ש' → גיבוי מצטרף
         cap = setTimeout(() => finish(null), 65000);                                  // רשת-ביטחון
     });
 }
