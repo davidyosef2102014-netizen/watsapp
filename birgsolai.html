@@ -9164,6 +9164,8 @@ async function runNativeAgent(goal, opts) {
     const cw = document.getElementById('chat-window');
     let stepsLog = []; const _fc = {}; // _fc = קבצים ששונו לכרטיס הסיכום
     try {
+        // 👄 פתיח מיידי — הפה אומר משפט *לפני* שמתחילים לעבוד (שהמשתמש לא יבהה בספינר שקט). רץ במקביל לתכנון, לא חוסם.
+        if (!opts.isFollowup) { _agMouth('המשתמש ביקש: ' + goal + '\n\nאמור משפט פתיחה אחד, קצר וחם — שאתה מתחיל לעבוד על זה עכשיו. בלי לפרט תוכנית, בלי רשימות.').then(_o => { if (_o) _liveSay(body, _o); }).catch(() => {}); }
         let _plan = '';
         try {
             _step('מתכנן את המשימה…', true);
