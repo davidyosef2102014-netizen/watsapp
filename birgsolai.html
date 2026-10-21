@@ -5819,53 +5819,49 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     }
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 
-    // ── 2. Simple literal English translation (no Flux prompt engineering) ──
+    // ── 2. הרחבת-פרומפט בסגנון ChatGPT (לא רק תרגום!) — זה הלב של "ההוראות הנכונות" שביקש דוד.
+    //    מודל חזק לוקח בקשה קצרה ("כלב") והופך אותה לתיאור-סצנה עשיר, חי ונאמן באנגלית → FLUX.2 מוציא תמונה
+    //    מרשימה ומקצועית כמו ChatGPT. מותאם לסגנון (צילום/ציור/לוגו). נאמן לבקשה — בלי לשנות נושא ובלי טקסט.
     let engPrompt = prompt;
     const allLetters  = (prompt.match(/\p{L}/gu) || []).length;
     const asciiLetter = (prompt.match(/[a-zA-Z]/g) || []).length;
     const alreadyEng  = allLetters === 0 || asciiLetter / allLetters > 0.6;
-
     const _looksLikeError = (s) => !s || s.startsWith('{') || s.startsWith('[') || /turnstile|"error"/i.test(s);
 
-    if (!alreadyEng) {
-        const transMessages = [
-            { role: 'system', content: 'Translate the following image description to simple, literal English. Output ONLY the translation, max 20 words, no explanation, no quotes.' },
-            { role: 'user', content: prompt }
-        ];
-        // 1️⃣ Gemini (thinkingLevel:minimal) — אמין, מחזיר תוכן נקי ומהיר. המנוע העדיף לתרגום פרומפט תמונה.
-        //    (gpt-oss-120b עם reasoning_effort:low החזיר content ריק — כל התקציב הלך ל-reasoning → פרומפט ריק → תמונה אקראית/איש-זקן.)
+    const _expSys = 'You are an expert image-prompt engineer, like the one inside ChatGPT image generation. Rewrite the user request into ONE vivid, detailed English prompt for a diffusion model, so the result looks beautiful, appealing and professional. Expand short requests with concrete visual detail: the main subject and how it looks, the setting and background, the lighting, the mood, the camera angle and composition, and the colors. Stay FAITHFUL to the request: never change the subject, never add any text, letters, captions or watermarks. Adapt to the STYLE given: for a realistic or photo style make it a crisp vivid photograph with soft natural light, shallow depth of field and lifelike color; for a logo, icon or flat vector keep it clean and minimal with NO photographic scene; for a painting, drawing or illustration make it artistic in that exact medium; for 3D or cartoon match that look. Between 40 and 70 words, one flowing description, no lists, no quotes. Output ONLY the English prompt.';
+    const _styleHint = (imgStyle && imgStyle.name) || 'realistic photo';
+    const _expUser = 'STYLE: ' + _styleHint + '\nUSER REQUEST: ' + prompt;
+    const _okExp = (t) => { t = (t || '').trim().replace(/^["']+|["']+$/g, '').trim(); return (t && !_looksLikeError(t) && t.length > 8 && t.length < 700) ? t : null; };
+
+    // 1️⃣ Gemini (thinkingLevel:minimal) — מהיר ונקי, המנוע העדיף להרחבה.
+    try {
+        const gr = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
+            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: _expSys + '\n\n' + _expUser }] }], generationConfig: { maxOutputTokens: 400, temperature: 0.75, thinkingConfig: { thinkingLevel: 'minimal' } } }),
+            signal: AbortSignal.timeout(9000)
+        });
+        if (gr.ok) { const gj = await gr.json(); const t = _okExp(gj?.candidates?.[0]?.content?.parts?.[0]?.text); if (t) engPrompt = t; }
+    } catch { /* fall through */ }
+
+    // 2️⃣ גיבוי: Groq gpt-oss-120b (חזק, מרחיב טוב).
+    if (engPrompt === prompt) {
         try {
-            const gr = await _ghFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_KEY },
-                body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Translate this image description to simple literal English. Output ONLY the translation, max 20 words, no quotes:\n\n' + prompt }] }], generationConfig: { maxOutputTokens: 120, temperature: 0.2, thinkingConfig: { thinkingLevel: 'minimal' } } }),
-                signal: AbortSignal.timeout(9000)
-            });
-            if (gr.ok) { const gj = await gr.json(); const gt = gj?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().replace(/^["']+|["']+$/g, ''); if (gt && !_looksLikeError(gt) && gt.length > 2 && gt.length < 400) engPrompt = gt; }
+            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: _expSys }, { role: 'user', content: _expUser }], temperature: 0.75, max_tokens: 320 }, { signal: AbortSignal.timeout(12000) });
+            if (r.ok) { const j = await r.json(); const t = _okExp(j?.choices?.[0]?.message?.content); if (t) engPrompt = t; }
         } catch { /* fall through */ }
+    }
 
-        // 2️⃣ גיבוי: Groq gpt-oss-20b. max_tokens גבוה (512) כדי שה-content לא יֵצא ריק, + חילוץ מ-reasoning אם content ריק.
-        if (engPrompt === prompt) {
-            try {
-                const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-20b', messages: transMessages, temperature: 0.2, max_tokens: 512, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(12000) });
-                if (r.ok) { const j = await r.json(); const m = j?.choices?.[0]?.message; let t = (m?.content || '').trim().replace(/^["']+|["']+$/g, '');
-                    if ((!t || t.length < 3) && m?.reasoning) { const rm = m.reasoning.match(/["“]([^"”]{3,200})["”]/); if (rm) t = rm[1].trim(); } // חילוץ התרגום מתוך ה-reasoning אם content ריק
-                    if (t && !_looksLikeError(t) && t.length > 2 && t.length < 400) engPrompt = t; }
-            } catch { /* fall through */ }
-        }
-
-        // 3️⃣ גיבוי אחרון: Pollinations text
-        if (engPrompt === prompt) {
-            try {
-                const r = await fetch('https://text.pollinations.ai/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages: transMessages, model: 'openai', private: true }),
-                    signal: AbortSignal.timeout(10000)
-                });
-                const t = (await r.text()).trim().replace(/^["']+|["']+$/g, '');
-                if (t && !_looksLikeError(t) && t.length > 2 && t.length < 400) engPrompt = t;
-            } catch { /* fall through */ }
-        }
+    // 3️⃣ גיבוי אחרון — Pollinations: לפחות תרגום מילולי, שעברית לא תגיע ל-FLUX (מונעת ג'יבריש/תמונה אקראית).
+    if (engPrompt === prompt && !alreadyEng) {
+        try {
+            const r = await fetch('https://text.pollinations.ai/', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [{ role: 'system', content: 'Translate to simple literal English. Output ONLY the translation, no quotes.' }, { role: 'user', content: prompt }], model: 'openai', private: true }),
+                signal: AbortSignal.timeout(10000)
+            });
+            const t = _okExp(await r.text());
+            if (t) engPrompt = t;
+        } catch { /* fall through */ }
     }
     // האם המשתמש רוצה טקסט/כיתוב בתמונה, ובאיזו שפה (אנגלית/עברית)
     const _wantsText = /כיתוב|טקסט|כתוב|כתובת|שלט|מילים|לוגו|כותרת|באנר|שם\b|\btext\b|\bsign\b|written|caption|title|logo|banner|label|name/i.test(prompt);
@@ -5880,7 +5876,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
     if (engPrompt.length < 3) engPrompt = 'a highly detailed, high quality illustration';
 
     // ── 3. Cloudflare FLUX → HuggingFace → Pollinations ──
-    const safePrompt = engPrompt.slice(0, 400);
+    const safePrompt = engPrompt.slice(0, 600); // תקרה גבוהה יותר — הפרומפט המורחב (סגנון ChatGPT) עשיר ולא נחתך
     const seed = Math.floor(Math.random() * 999999);
     const _anat = ', anatomically correct, no duplicate, extra, or malformed heads, faces, or limbs';
     let styledPrompt;
