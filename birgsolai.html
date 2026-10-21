@@ -10467,6 +10467,13 @@ async function send() {
             }
         } catch (e) {}
 
+        // 🃏 כרטיסי-ישות — רק אם חיפשנו הפעם (יש מקורות) והתשובה היא רשימת-ישויות (המודל מחליט). fire-and-forget.
+        try {
+            if (_lastTurnSources && _lastTurnSources.length && (cleanText || fullText) && (typeof currentMode === 'undefined' || currentMode !== 'code')) {
+                _maybeEntityCards(q, cleanText || fullText, body, cw);
+            }
+        } catch (e) {}
+
         hist.push({ role: 'assistant', content: cleanText || fullText });
         if (isFirstMsg) { isFirstMsg = false; }
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
@@ -10479,6 +10486,64 @@ async function send() {
     } finally {
         busy = false; updateBtn(); // תמיד משחרר את הנעילה — גם אם רינדור התשובה נכשל
     }
+}
+
+// 🃏 כרטיסי-ישות (בסגנון knowledge-panel של ChatGPT) — מופיעים "מדי פעם": רק כשהתשובה היא רשימת ישויות
+//    אמיתיות (חברות/אנשים/מקומות/מוצרים). **המודל מחליט** אם מתאים ומחלץ את הישויות (בלי מילות-מפתח). תמונות
+//    מ-Wikipedia (חינם, בלי מפתח, CORS פתוח). fire-and-forget — לא חוסם את התשובה; הכרטיסים נכנסים אחרי שנייה-שתיים.
+const _ENTITY_SYS = 'You decide whether a chat answer should be enriched with visual ENTITY CARDS (like a search-engine knowledge panel). Cards fit ONLY when the answer presents a list of 3 or more DISTINCT, REAL, NAMED entities of the same kind: companies, organizations, people, places, products, movies, teams, apps. Cards do NOT fit for a single fact, an explanation, steps, instructions, opinions, code, or a short answer. Given the user QUESTION and the ANSWER, reply with ONLY JSON: {"cards": true|false, "entities": [{"name_en": "<the entity canonical name in English for a Wikipedia lookup>", "label": "<the entity name shown, in the answer language>", "desc": "<one very short line describing it, in the answer language>"}]}. At most 6 entities, only ones actually named in the answer. When cards do not fit, return {"cards": false, "entities": []}.';
+async function _wikiThumb(name) {
+    const nm = String(name || '').trim(); if (!nm) return null;
+    for (const host of ['en.wikipedia.org', 'he.wikipedia.org']) {
+        try {
+            const r = await fetch('https://' + host + '/api/rest_v1/page/summary/' + encodeURIComponent(nm), { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) });
+            if (!r.ok) continue;
+            const j = await r.json();
+            if (j && j.type === 'disambiguation') continue;
+            const img = (j.thumbnail && j.thumbnail.source) || (j.originalimage && j.originalimage.source) || '';
+            const url = (j.content_urls && j.content_urls.desktop && j.content_urls.desktop.page) || '';
+            if (img || url) return { img, url, extract: j.extract || '' };
+        } catch (e) {}
+    }
+    return null;
+}
+async function _maybeEntityCards(q, answer, container, cw) {
+    let decision = null;
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: _ENTITY_SYS }, { role: 'user', content: 'QUESTION: ' + String(q || '').slice(0, 500) + '\n\nANSWER:\n' + String(answer || '').slice(0, 3000) }], temperature: 0.1, max_tokens: 700, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(13000) });
+        if (!r || !r.ok) return;
+        const j = await r.json();
+        try { if (j.usage && j.usage.completion_tokens) quotaUse('token', j.usage.completion_tokens); } catch (e) {}
+        const c = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+        decision = JSON.parse(String(c || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+    } catch (e) { return; }
+    if (!decision || !decision.cards || !Array.isArray(decision.entities)) return;
+    const ents = decision.entities.filter(e => e && (e.label || e.name_en)).slice(0, 6);
+    if (ents.length < 3) return; // "מדי פעם" — רק רשימת-ישויות ברורה (3+)
+    const metas = await Promise.all(ents.map(e => _wikiThumb(e.name_en || e.label).catch(() => null)));
+    const en = (typeof _resolveLang === 'function' && _resolveLang() === 'en');
+    const wrap = document.createElement('div'); wrap.style.cssText = 'margin-top:10px';
+    const head = document.createElement('div'); head.style.cssText = 'font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px'; head.textContent = en ? 'Related' : 'קשור לנושא'; wrap.appendChild(head);
+    const grid = document.createElement('div'); grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px';
+    ents.forEach((e, i) => {
+        const m = metas[i] || {};
+        const card = document.createElement(m.url ? 'a' : 'div');
+        if (m.url) { card.href = m.url; card.target = '_blank'; card.rel = 'noopener'; }
+        card.style.cssText = 'display:block;text-decoration:none;color:inherit;background:var(--surf,#fff);border:1px solid var(--border,#e2e4ea);border-radius:12px;overflow:hidden;transition:border-color .15s';
+        const label = e.label || e.name_en;
+        const thumb = document.createElement('div'); thumb.style.cssText = 'width:100%;height:90px;background:linear-gradient(135deg,#4285F4,#7b61ff);display:flex;align-items:center;justify-content:center;color:#fff;font-size:30px;font-weight:800';
+        // רקע אפור-בהיר + contain: לוגואים שקופים נראים ממורכזים ונקיים (לא "נעלמים" על לבן), ותמונות-אמת נראות שלמות.
+        if (m.img) { thumb.style.background = '#eef1f5 url("' + String(m.img).replace(/["\\]/g, '') + '") center/contain no-repeat'; thumb.textContent = ''; }
+        else { thumb.textContent = (label || '?').trim().charAt(0).toUpperCase(); }
+        card.appendChild(thumb);
+        const bd = document.createElement('div'); bd.style.cssText = 'padding:7px 9px';
+        const nm = document.createElement('div'); nm.style.cssText = 'font-weight:700;font-size:13px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'; nm.textContent = label; bd.appendChild(nm);
+        if (e.desc) { const ds = document.createElement('div'); ds.style.cssText = 'font-size:11px;color:var(--muted);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden'; ds.textContent = e.desc; bd.appendChild(ds); }
+        card.appendChild(bd);
+        grid.appendChild(card);
+    });
+    wrap.appendChild(grid); container.appendChild(wrap);
+    try { if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); } catch (e) {}
 }
 
 function sendSug(t) {
