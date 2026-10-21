@@ -5662,7 +5662,7 @@ function _askImageStyle() {
     const cw = document.getElementById('chat-window');
     return new Promise(resolve => {
         const styles = [
-            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'flux',          suffix: 'professional DSLR photograph, ultra realistic, highly detailed, natural lighting, sharp focus, 8k, high quality. Single clear subject, clean composition, no extra objects or people unless requested' },
+            { label: IC.camera   + ' ריאליסטי', name: 'ריאליסטי', model: 'flux',          suffix: 'raw photo, professional DSLR, shot on 35mm lens, f/1.8 aperture, natural lighting, candid photography, realistic skin texture and fine detail, sharp focus, high quality. Single clear subject, clean composition, no extra objects or people unless requested' },
             { label: IC.palette  + ' ציור',     name: 'ציור',     model: 'flux',         suffix: 'oil painting, painterly style, vivid colors, brush strokes. Single clear subject, simple clean composition, no extra objects unless requested' },
             { label: IC.pencil   + ' קריקטורה', name: 'קריקטורה', model: 'flux',         suffix: 'cartoon illustration, colorful flat design, bold outlines. Single clear subject, simple clean background, no extra objects unless requested' },
             { label: IC.sparkles + ' אנימה',    name: 'אנימה',    model: 'flux-anime',   suffix: 'anime style, manga art, vibrant illustration. Single clear subject, clean composition, no extra objects unless requested' },
@@ -5775,7 +5775,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
             imgStyle = { name: 'לוגו', model: 'flux', suffix: 'professional flat vector logo, clean minimal modern brand design, ONE simple relevant icon/symbol only, centered, plain solid background, crisp geometric shapes, balanced, high-end graphic design — NOT a photo, no unrelated symbols, no Star of David unless asked' };
         } else if (localStorage.getItem('birgsol_style_picker_off') === '1') {
             // בורר הסגנון כבוי בהגדרות — ישר ריאליסטי, בלי לשאול
-            imgStyle = { name: 'ריאליסטי', model: 'flux', suffix: 'professional DSLR photograph, ultra realistic, highly detailed, natural lighting, sharp focus, 8k, high quality. Single clear subject, clean composition, no extra objects or people unless requested' };
+            imgStyle = { name: 'ריאליסטי', model: 'flux', suffix: 'raw photo, professional DSLR, shot on 35mm lens, f/1.8 aperture, natural lighting, candid photography, realistic skin texture and fine detail, sharp focus, high quality. Single clear subject, clean composition, no extra objects or people unless requested' };
         } else {
             imgStyle = await _askImageStyle();
         }
@@ -5936,13 +5936,14 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
         }
     } catch { /* ניפול ל-Cloudflare schnell */ }
 
-    // 2nd: FLUX.1-schnell via Cloudflare — מהיר (~2ש', ~ללא הגבלה). 3 ניסיונות (הסינון NSFW של FLUX אקראי בכל קריאה).
+    // 2nd: Cloudflare — איכות קודם: 2 ניסיונות ראשונים ב-**FLUX.2** (hq:true, ~15ש', חד ואיכותי יותר, חינם בחשבון של דוד),
+    //    ואם נפל/עמוס — 2 ניסיונות ב-FLUX.1-schnell המהיר. (הסינון NSFW של FLUX אקראי בכל קריאה, לכן כמה ניסיונות.)
     for (let cfTry = 0; cfTry < 4 && !imgSrc; cfTry++) {
         try {
             const cfRes = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: styledPrompt }),
+                body: JSON.stringify(cfTry < 2 ? { prompt: styledPrompt, hq: true } : { prompt: styledPrompt }),
                 signal: AbortSignal.timeout(50000)
             });
             if (cfRes.ok) {
@@ -9918,7 +9919,7 @@ async function send() {
             inp.value = ''; inp.style.height = 'auto';
             busy = true; updateBtn();
             const _newPrompt = _pm[1].trim() + '. ' + q; // הנושא הקודם + השינוי שהמשתמש ביקש
-            const _real = { name: 'ריאליסטי', model: 'flux', suffix: 'professional DSLR photograph, ultra realistic, highly detailed, natural lighting, sharp focus, 8k, high quality. Single clear subject, clean composition' };
+            const _real = { name: 'ריאליסטי', model: 'flux', suffix: 'raw photo, professional DSLR, shot on 35mm lens, f/1.8 aperture, natural lighting, candid photography, realistic skin texture and fine detail, sharp focus, high quality. Single clear subject, clean composition' };
             const _forceReal = /ריאליסט|realistic|אמיתי|כמו אמיתי|כמו תמונה/i.test(q);
             try { await generateImage(_newPrompt, null, _forceReal ? _real : undefined); }
             finally { busy = false; updateBtn(); }
