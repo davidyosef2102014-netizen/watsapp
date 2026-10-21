@@ -5936,6 +5936,14 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
         }
     } catch { /* ניפול ל-Cloudflare schnell */ }
 
+    // 📐 יחס-גובה-רוחב חכם (ריאליזם — יחס לא-ריבועי נראה טבעי יותר לעין): דיוקן לאדם/פנים, רחב לנוף, ריבוע ללוגו/ברירת-מחדל.
+    //    נבדק מול הבקשה המקורית + שם הסגנון. ה-FLUX.2 מקבל width/height (256-1920). schnell (גיבוי) מתעלם — ריבוע.
+    const _aspSrc = ((prompt || '') + ' ' + ((imgStyle && imgStyle.name) || '')).toLowerCase();
+    const _isLogo = /לוגו|אייקון|icon|logo|סמל|emblem/.test(_aspSrc);
+    const _isPortrait = !_isLogo && /דיוקן|פורטרט|סלפי|פנים\b|פרצוף|portrait|selfie|face|headshot|person|אדם|ילד|ילדה|אישה|גבר|בחור|בחורה|דמות|character/.test(_aspSrc);
+    const _isLandscape = !_isLogo && !_isPortrait && /נוף|נופ|שקיעה|זריחה|הרים|הר\b|ים\b|חוף|עיר|שדה|מדבר|יער|panorama|landscape|scenery|mountains?|ocean|sea|beach|city|skyline|sunset|sunrise|forest|field|wide/.test(_aspSrc);
+    const _flux2Dim = _isPortrait ? { width: 832, height: 1216 } : (_isLandscape ? { width: 1216, height: 832 } : { width: 1024, height: 1024 });
+
     // 2nd: Cloudflare — איכות קודם: 2 ניסיונות ראשונים ב-**FLUX.2** (hq:true, ~15ש', חד ואיכותי יותר, חינם בחשבון של דוד),
     //    ואם נפל/עמוס — 2 ניסיונות ב-FLUX.1-schnell המהיר. (הסינון NSFW של FLUX אקראי בכל קריאה, לכן כמה ניסיונות.)
     for (let cfTry = 0; cfTry < 4 && !imgSrc; cfTry++) {
@@ -5943,7 +5951,7 @@ async function generateImage(promptRaw, reuseRow, imgStyle, editSrcUrl, editInst
             const cfRes = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cfTry < 2 ? { prompt: styledPrompt, hq: true } : { prompt: styledPrompt }),
+                body: JSON.stringify(cfTry < 2 ? { prompt: styledPrompt, hq: true, width: _flux2Dim.width, height: _flux2Dim.height } : { prompt: styledPrompt }),
                 signal: AbortSignal.timeout(50000)
             });
             if (cfRes.ok) {
