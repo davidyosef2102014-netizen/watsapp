@@ -9305,7 +9305,11 @@ async function runNativeAgent(goal, opts) {
             } catch (e) {}
             stepsLog.push(stepN + '. ' + decision.op + ' ' + _lbl);
             // readfile → תקרה גדולה (16K) כדי שהמוח יראה קובץ גדול *במלואו* בקריאה אחת (מונע "הפלט נחתך" והסתבכות); שאר הפעולות 3500.
-            stepsLog.push('   → ' + String(nres).slice(0, decision.op === 'readfile' ? 16000 : 3500));
+            const _nresS = String(nres);
+            let _stored = _nresS.slice(0, decision.op === 'readfile' ? 16000 : 3500);
+            // 🏭 אם קובץ ארוך נקרא — נדנוד ברמת-הכלי: אל תעביר נתונים דרך הצעדים ואל תקרא שוב; בנה פלט בסקריפט.
+            if (decision.op === 'readfile' && _nresS.length > 8000) _stored += '\n…[⚠️ הקובץ ארוך (' + _nresS.length + ' תווים). אל תקרא אותו שוב ואל תעביר את תוכנו דרך הצעדים — אם צריך לבנות פלט מהנתונים האלה, כתוב סקריפט (python) שקורא את הקובץ ומייצר את כל הפלט בבת אחת.]';
+            stepsLog.push('   → ' + _stored);
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
             if (decision.consultJudge === true) { try { _step('פונה לשופט לעזרה (לבקשת המוח)…', true); const jr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'You are the 👁️ JUDGE of an autonomous coding agent. ROLE BOUNDARY (strict): your ONLY job is to assess whether the agent is STUCK (going in circles / not progressing) and, if so, give ONE short high-level Hebrew hint about WHAT TO RECONSIDER. You do NOT decide or dictate the concrete next action, command, or code — that is the BRAIN job; never interfere with it. If the agent is progressing fine, say stuck:false with empty advice. Reply ONLY JSON: {"stuck":true|false,"advice":"<one Hebrew sentence or empty>"}' }, { role: 'user', content: 'GOAL: ' + goal + '\nRECENT:\n' + stepsLog.slice(-10).join('\n') }], temperature: 0.1, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); if (jr.ok) { const jj = await jr.json(); const jd = JSON.parse((jj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (jd && jd.stuck && jd.advice) { stepsLog.push('🧭 JUDGE: ' + String(jd.advice).slice(0, 200)); _step('השופט: ' + String(jd.advice).slice(0, 60), false); } } } catch (e) {} }
         }
