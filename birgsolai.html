@@ -9267,7 +9267,24 @@ async function runNativeAgent(goal, opts) {
                 _actHist.push(_sig); if (_actHist.length > 8) _actHist.shift();
                 continue;
             }
-            if (_actHist.filter(s => s === _sig).length >= 2) { _loopBreaks++; stepsLog.push('⚠️ LOOP: (' + decision.op + ' ' + _lbl + ') tried repeatedly and not working — do something DIFFERENT.'); _actHist = _actHist.filter(s => s !== _sig); if (_loopBreaks >= 3) { _step('נתקעתי על אותה פעולה שחוזרת — עוצר', false); _finishHdr(); txt.innerHTML = ''; let _m = await _agGenStuck(goal, stepsLog, 'the same action (' + _lbl.slice(0, 50) + ') was retried several times and kept not making progress (a loop)').catch(() => null); if (!_m) _m = 'נתקעתי — ניסיתי שוב ושוב את אותה פעולה (' + _lbl.slice(0, 50) + ') והיא לא מקדמת. עדיף שנחשוב יחד; תכתוב "תמשיך" עם כיוון אחר ואמשיך.'; const _a = document.createElement('div'); try { _a.innerHTML = mdSafe(_m); } catch (e) { _a.textContent = _m; } txt.appendChild(_a); hist[hist.length - 1].content = _m; break; } continue; }
+            if (_actHist.filter(s => s === _sig).length >= 2) {
+                _loopBreaks++;
+                stepsLog.push('⚠️ LOOP: (' + decision.op + ' ' + _lbl + ') tried repeatedly and not working — do something DIFFERENT.');
+                _actHist = _actHist.filter(s => s !== _sig);
+                if (_loopBreaks >= 3) {
+                    _step('נתקעתי על אותה פעולה שחוזרת — עוצר', false); _finishHdr(); txt.innerHTML = '';
+                    let _m = await _agGenStuck(goal, stepsLog, 'the same action (' + _lbl.slice(0, 50) + ') was retried several times and kept not making progress (a loop)').catch(() => null);
+                    if (!_m) _m = 'נתקעתי — ניסיתי שוב ושוב את אותה פעולה (' + _lbl.slice(0, 50) + ') והיא לא מקדמת. עדיף שנחשוב יחד; תכתוב "תמשיך" עם כיוון אחר ואמשיך.';
+                    const _a = document.createElement('div'); try { _a.innerHTML = mdSafe(_m); } catch (e) { _a.textContent = _m; } txt.appendChild(_a); hist[hist.length - 1].content = _m; break;
+                }
+                // 🧭 לולאה זוהתה (ועוד לא עוצרים) — מתייעצים עם השופט לכיוון חדש קונקרטי ומזריקים אותו למוח כדי להישבר מהתבנית (self-correct במקום להיתקע).
+                try {
+                    _step('זוהתה לולאה — מתייעץ עם השופט לכיוון אחר…', true);
+                    const _jr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'You are the JUDGE of an autonomous coding agent that is STUCK in a loop (repeating the same action without making progress). Give ONE short, CONCRETE Hebrew hint for a DIFFERENT approach that breaks the loop and reaches the goal — for example: write a generator script instead of editing by hand, run the thing to see the REAL error, explore with ls, split a big file, or read the actual output before acting. Do NOT dictate exact code. Reply with ONLY JSON: {"advice":"<one concrete Hebrew sentence>"}' }, { role: 'user', content: 'GOAL: ' + goal + '\nThe agent keeps repeating: ' + decision.op + ' ' + _lbl + '\nRECENT ACTIONS:\n' + stepsLog.slice(-10).join('\n').slice(0, 3000) }], temperature: 0.2, max_tokens: 200, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(12000) });
+                    if (_jr && _jr.ok) { const _jj = await _jr.json(); const _jd = JSON.parse((_jj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_jd && _jd.advice) { stepsLog.push('🧭 JUDGE (שבירת-לולאה): ' + String(_jd.advice).slice(0, 200) + ' — נסה את הכיוון הזה עכשיו, לא את מה שחזרת עליו.'); _step('השופט: ' + String(_jd.advice).slice(0, 55), false); } }
+                } catch (e) {}
+                continue;
+            }
             const _destructive = /rm\s+-rf|rmdir\s+\/s|\bdel\s+\/|\bformat\b|mkfs|drop\s+table|shutdown|reboot|>\s*\/dev\/|:\(\)\s*\{/i;
             if (decision.op === 'run' || decision.op === 'writefile' || decision.op === 'append' || decision.op === 'edit') {
                 if (!_admin) {
