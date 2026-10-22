@@ -9112,8 +9112,21 @@ async function _agDecide(sys, user) {
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-lightning-30b-a3b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         // 🛟 מוח-גיבוי אחרון — Cloudflare Workers AI (חשבון דוד, תשתית אחרת ואמינה): אם *כל* השאר נכשלו/נחנקו, זה עונה.
-        //    cfai מחזיר פורמט OpenAI (choices[0].message.content) — לעיתים כבר כאובייקט-החלטה, לעיתים כמחרוזת JSON.
-        async () => { try { const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'cfai', model: '@cf/meta/llama-4-scout-17b-16e-instruct', messages: msgs, max_tokens: 2048, temperature: 0.2 }), signal: AbortSignal.timeout(20000) }); if (!r || !r.ok) return null; const j = await r.json(); let c = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content; if (c == null) c = j.text; if (c && typeof c === 'object' && c.op) return c; return _agParseDecision(typeof c === 'string' ? c : JSON.stringify(c || {})); } catch (e) { return null; } },
+        //    שרשרת חזקה: Qwen2.5-Coder-32B (מומחה-קוד) → Llama-3.3-70B → Llama-4-Scout-17B. cfai מחזיר פורמט OpenAI
+        //    (choices[0].message.content) — לעיתים כבר כאובייקט-החלטה, לעיתים כמחרוזת JSON; מטפלים בשניהם.
+        async () => {
+            for (const _cfm of ['@cf/qwen/qwen2.5-coder-32b-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-4-scout-17b-16e-instruct']) {
+                try {
+                    const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'cfai', model: _cfm, messages: msgs, max_tokens: 2048, temperature: 0.2 }), signal: AbortSignal.timeout(20000) });
+                    if (!r || !r.ok) continue;
+                    const j = await r.json();
+                    let c = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content; if (c == null) c = j.text;
+                    const d = (c && typeof c === 'object' && c.op) ? c : _agParseDecision(typeof c === 'string' ? c : JSON.stringify(c || {}));
+                    if (d && d.op) return d;
+                } catch (e) {}
+            }
+            return null;
+        },
     ];
     // 🥈 4.1 PRO — מוח **Qwen3-Coder** (מומחה-קוד) במקום GLM. אותו שלד-סוכן בדיוק, רק מוח שונה (בקשת דוד).
     const _qwenCoder = async () => { const r = await _ghProxy('qwen', '/compatible-mode/v1/chat/completions', { model: 'qwen3-coder-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(30000) }); return r.ok ? _pick(await r.json()) : null; };
