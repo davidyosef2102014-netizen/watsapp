@@ -7042,7 +7042,7 @@ async function _execNativeTool(m, kind) {
             if (!(r && r.ok)) return '[קריאת ' + p + ' נכשלה: ' + ((r && r.error) || '?') + ']';
             const content = String(r.content);
             // ⚠️ קובץ ריק/כמעט-ריק: סימן מובהק שהתוכן לא נכתב (למשל הגנרטור הדפיס ל-stdout במקום לכתוב לקובץ). נדנוד תקיף לכתוב עכשיו — לא לקרוא שוב.
-            if (content.length < 30) return '[תוכן ' + p + ']\n(⚠️ הקובץ ריק/כמעט-ריק — ' + content.length + ' תווים. אם ציפית לתוכן, הוא לא נכתב! אל תקרא שוב — כתוב אותו עכשיו: הרץ את הגנרטור כך שיכתוב ישירות אל ' + p + ' עם open(path,"w",encoding="utf-8").write(...). אם התוכן כבר קיים בקובץ אחר, העתק אותו אל ' + p + '.)';
+            if (content.trim().length === 0) return '[תוכן ' + p + ']\n(⚠️ הקובץ ריק (' + content.length + ' תווים) — התוכן לא נכתב! אל תקרא שוב — כתוב אותו עכשיו: הרץ את הגנרטור כך שיכתוב ישירות אל ' + p + ' עם open(path,"w",encoding="utf-8").write(...). אם התוכן כבר קיים בקובץ אחר, העתק אותו אל ' + p + '.)';
             if (start > 0) {
                 const allLines = content.split('\n');
                 const s = Math.max(1, start), cnt = nlines > 0 ? nlines : 200, e = Math.min(allLines.length, s + cnt - 1);
