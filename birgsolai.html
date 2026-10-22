@@ -9285,6 +9285,7 @@ async function runNativeAgent(goal, opts) {
             // בכל פעם) לא נחשבת בטעות ללולאה; ורק חזרה *זהה* אמיתית (אותו תוכן שוב ושוב = באמת תקוע) נתפסת.
             const _fp = (decision.op === 'writefile' || decision.op === 'append') ? ('|' + _content.length + ':' + _content.slice(0, 32))
                       : (decision.op === 'edit') ? ('|' + _find.slice(0, 24) + '»' + _replace.slice(0, 24))
+                      : (decision.op === 'readfile' && decision.start) ? ('|L' + decision.start) // טווח-שורות שונה = לא קריאה-חוזרת
                       : '';
             const _sig = decision.op + '|' + _lbl + _fp;
             // 📄 קריאה-חוזרת: קראת כבר את הקובץ הזה פעם — התוכן כבר בלוג. אל תקרא שוב; מדלגים ומאיצים אותך לפעול.
