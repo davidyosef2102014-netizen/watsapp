@@ -9159,8 +9159,9 @@ async function _agDecide(sys, user) {
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         // (מוח-גיבוי Cloudflare הוסר — הוא חלק את מכסת ה-10K neurons עם התמונות ושרף אותה. Cloudflare = רק תמונות עכשיו.)
     ];
-    // 🥈 4.1 PRO — מוח **Qwen3-Coder** (מומחה-קוד) במקום GLM. אותו שלד-סוכן בדיוק, רק מוח שונה (בקשת דוד).
-    const _qwenCoder = async () => { const r = await _ghProxy('qwen', '/compatible-mode/v1/chat/completions', { model: 'qwen3-coder-flash', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(30000) }); return r.ok ? _pick(await r.json()) : null; };
+    // 🥈 4.1 PRO — מוח **Qwen** (בקשת דוד). עבר מ-DashScope qwen3-coder-flash (המכסה החינמית נגמרה מהבדיקות) ל-**Groq qwen3.8-27b**:
+    //    מהיר, חינם, אמין, ובלי לשרוף את מכסת אליבאבא. אותו שלד-סוכן, רק מוח Qwen דרך Groq.
+    const _qwenCoder = async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'qwen/qwen3.8-27b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; };
     const _isPro = (typeof currentModelId === 'function') && currentModelId() === '4.1pro';
     const _primary   = _isPro ? [_qwenCoder] : _glm;            // 4.1 PRO → מוח Qwen3-Coder · Axion → קבוצת GLM
     // ל-PRO: אם Qwen נפל → nemotron/groq ואז GLM. ל-Axion: GLM ראשי, ו-Qwen3-Coder הוא הגיבוי ה*ראשון* (בקשת דוד:
