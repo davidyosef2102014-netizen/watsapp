@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://davidyosef2102014-netizen.github.io/watsapp/sitemap.xml
