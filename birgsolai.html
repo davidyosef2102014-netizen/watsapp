@@ -7316,6 +7316,11 @@ function _isWhatsAppReq(q) {
     // "תשלח למספר 0506918770: טקסט" / "send to 050...: text" — שליחה + מספר טלפון = כוונת שליחה, גם בלי המילה "וואטסאפ"
     const hasPhone = /0\d[\d\-\s]{7,}|\+\d[\d\-\s]{7,}|\d{9,}/.test(q);
     if (sendV && hasPhone) return true;
+    // "שלח ליאיר הודעה ש..." — שליחת הודעה לאדם בשם (בלי המילה "וואטסאפ" ובלי מספר) = ברירת-מחדל וואטסאפ (הכלי שלנו), לא סוכן-דפדפן.
+    const msgWord = /הודעה|הודעת|תכתוב ל|כתוב ל|תגיד ל|message|msg/i.test(q);
+    const toName = /(?:^|\s)(?:ל|אל|to)\s*[א-תA-Za-z][א-תA-Za-z'"\-]{1,18}/.test(q) && !/\bלי\b|\bלנו\b|לעצמ|\bme\b|\bus\b/i.test(q);
+    const notOther = !/מייל|אימייל|e-?mail|קובץ|\bfile\b|גיטהאב|github|מסמך|\bdeploy\b|פרוס|קוד/i.test(q);
+    if (sendV && msgWord && toName && notOther) return true;
     return false;
 }
 async function _handleWhatsApp(q) {
