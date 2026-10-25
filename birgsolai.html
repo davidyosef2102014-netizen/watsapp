@@ -6127,22 +6127,31 @@ async function _siliconflowEdit(imgDataUrl, engInstruction) {
 // 🎨 Qwen-Image-Edit דרך HuggingFace (ספק fal-ai) — עריכת תמונה אמיתית ואיכותית, חינם עם טוקן HF (בלי כרטיס אשראי!).
 //    מנסה 2509 (חדש) → base → FLUX.1-Kontext-dev כגיבוי. שולחים את התמונה כ-base64 ישירות (fal מקבל data URI) —
 //    בלי אירוח תמונה, שהיה נקודת-הכשל של העריכה הישנה. מחזיר URL ציבורי (fal.media) או null.
+// ⭐ עורך נאמן אמיתי — Qwen-Image-Edit דרך HuggingFace ZeroGPU Spaces (פרוטוקול gradio) דרך ה-Worker.
+//    שומר את התמונה המקורית *בדיוק* ומשנה רק את מה שביקשו (בניגוד ל-FLUX.2 ש"מדמיין מחדש").
+//    הטוקנים של HF יושבים ב-Worker (HF_KEYS) — לא ב-HTML (אבטחה) — עם סבב-חשבונות למכסה חופשית גדולה.
+//    מקבל data-URL, מחזיר data-URL (או null בכשל → נופל לעורך הבא בשרשרת).
 async function _qwenImageEditHF(imgDataUrl, engInstruction) {
     if (!imgDataUrl || !engInstruction) return null;
-    const _models = ['fal-ai/qwen-image-edit-2509', 'fal-ai/qwen-image-edit', 'fal-ai/flux-kontext/dev'];
-    for (const pid of _models) {
-        try {
-            const r = await _ghFetch('https://router.huggingface.co/fal-ai/' + pid, {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + HF_TOKEN, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image_url: imgDataUrl, prompt: engInstruction }),
-                signal: AbortSignal.timeout(35000)
-            });
-            if (!r.ok) continue;
-            const j = await r.json();
-            const url = j?.images?.[0]?.url || j?.image?.url || (Array.isArray(j?.images) && typeof j.images[0] === 'string' ? j.images[0] : null);
-            if (url) return url;
-        } catch (e) { if (e && e.name === 'AbortError') throw e; }
+    try {
+        // Qwen-Image-Edit נאמן גם בלי הנחיית "שמור על השאר" — הוא עורך מקומית מעצם תכנונו.
+        // לכן מעבירים הוראה נקייה וקצרה (לא פסקת ה"פיקסל-פרפקט" של FLUX). מקטינים כדי לזרז את ה-GPU.
+        const _src = await _downscaleForEdit(imgDataUrl, 1024, 0.92);
+        const b64 = _src.includes(',') ? _src.split(',')[1] : _src;
+        const r = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: engInstruction, image_b64: b64, qwen: true }),
+            signal: AbortSignal.timeout(115000)   // ZeroGPU: העלאה + תור + אינפרנס — יכול לקחת זמן
+        });
+        let j = null; try { j = await r.json(); } catch (e) {}
+        if (r.ok && j && j.edited === true && j.image) return 'data:image/' + (j.type === 'png' ? 'png' : 'jpeg') + ';base64,' + j.image;
+        window._qwenEditDiag = 'http ' + r.status + (j && j.error ? (' · ' + String(j.error).slice(0, 140)) : '');
+        try { console.warn('[BIRGSOL edit] Qwen-Space fail:', window._qwenEditDiag); } catch (e) {}
+    } catch (e) {
+        window._qwenEditDiag = (e && e.name === 'AbortError' ? 'timeout' : (e && e.message || 'fetch error'));
+        try { console.warn('[BIRGSOL edit] Qwen-Space err:', window._qwenEditDiag); } catch (e2) {}
+        if (e && e.name === 'AbortError') return null;
     }
     return null;
 }
@@ -6275,14 +6284,15 @@ async function editImage(imgDataUrl, instruction) {
                 if (tr.ok) { const tj = await tr.json(); const m = tj?.choices?.[0]?.message; let tt = (m?.content || '').trim(); if ((!tt || tt.length < 2) && m?.reasoning) { const rm = m.reasoning.match(/["“]([^"”]{2,200})["”]/); if (rm) tt = rm[1].trim(); } if (tt) eng = tt; }
             } catch (e) {}
         }
-        // 1. ⭐ Qwen-Image-Edit דרך DashScope (המפתחות שלך, מאובטח) — עורך נאמן: שומר את התמונה, משנה רק מה שביקשו.
-        skelTxt.textContent = 'עורך את התמונה…';
-        const qDS = await _qwenImageEditDS(imgDataUrl, eng);
-        if (qDS) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, qDS); return; }
-        // 2. Qwen-Image-Edit דרך HuggingFace (אם יש קרדיט HF) — גם נאמן.
+        // 1. ⭐ Qwen-Image-Edit דרך HuggingFace ZeroGPU (העורך הנאמן — דרך ה-Worker, סבב-חשבונות, חינם).
+        //    שומר את התמונה ומשנה רק מה שביקשו. זה העורך הראשי.
         skelTxt.textContent = 'עורך את התמונה…';
         const qHF = await _qwenImageEditHF(imgDataUrl, eng);
         if (qHF) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, qHF); return; }
+        // 2. Qwen-Image-Edit דרך DashScope (המפתחות שלך — אם פעיל) — גם נאמן.
+        skelTxt.textContent = 'עורך את התמונה…';
+        const qDS = await _qwenImageEditDS(imgDataUrl, eng);
+        if (qDS) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, qDS); return; }
         // 3. FLUX.1 Kontext (SiliconFlow, אם יש balance) — עורך נאמן.
         const edited = await _siliconflowEdit(imgDataUrl, eng);
         if (edited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, edited); return; }
