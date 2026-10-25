@@ -2858,7 +2858,7 @@ async function doLogin() {
             err.style.display = 'block'; return;
         }
         _clearLoginLock(user);
-        if (cloudUsers[user].suspended && !ADMIN_USERS.includes(user)) { err.textContent = '⛔ החשבון הושהה עקב פעילות חשודה. פנה למנהל המערכת.'; err.style.display='block'; return; }
+        if (cloudUsers[user].suspended && !ADMIN_USERS.includes(user)) { err.textContent = '⛔ החשבון הושהה עקב פעילות חשודה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com'; err.style.display='block'; return; }
         await _finishLogin(user);
     } catch(e) {
         err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block';
@@ -2926,8 +2926,8 @@ const PRIVACY_HTML = {
 <p><b>2. למה משתמשים במידע</b><br>כדי לספק את השירות, לזכור אותך בין שיחות ולשפר את איכות התשובות. <b>לא מוכרים ולא משתפים</b> את המידע שלך לצורכי פרסום.</p>
 <p><b>3. אחסון ואבטחה</b><br>הנתונים נשמרים בענן דרך שרת מאובטח; כל המפתחות והסודות מוחזקים בצד השרת בלבד. המערכת מזהה פעילות חשודה (ניסיונות פריצה) ועלולה להשהות חשבון כדי להגן על המשתמשים.</p>
 <p><b>4. צד שלישי</b><br>לצורך עיבוד ההודעות נעשה שימוש בספקי בינה מלאכותית, ולצורך התחברות — בשירות של Google. אלה כפופים למדיניות הפרטיות שלהם.<br><b>* המודל BIRGSOL AI 3.5 FLASH מבוסס על Google Gemini.</b></p>
-<p><b>5. הזכויות שלך</b><br>• לראות ולמחוק כל עובדה שנשמרה עליך.<br>• לכבות את הזיכרון.<br>• לבקש מחיקת חשבון — פנייה למנהל המערכת.</p>
-<p><b>6. יצירת קשר</b><br>לשאלות בנושא פרטיות ניתן לפנות למנהל המערכת (דוד).</p>
+<p><b>5. הזכויות שלך</b><br>• לראות ולמחוק כל עובדה שנשמרה עליך.<br>• לכבות את הזיכרון.<br>• לבקש מחיקת חשבון — אנא פנו לשירות הלקוחות: birgsolai@gmail.com</p>
+<p><b>6. יצירת קשר</b><br>לשאלות בנושא פרטיות אנא פנו לשירות הלקוחות: birgsolai@gmail.com</p>
 <p style="color:var(--muted);font-size:12px">השימוש ב-BIRGSOL AI מהווה הסכמה למדיניות זו.</p>`,
     en:
 `<p><b>BIRGSOL AI</b> respects your privacy. This document briefly explains what information is collected, why, and what your rights are.</p>
@@ -2935,8 +2935,8 @@ const PRIVACY_HTML = {
 <p><b>2. How the information is used</b><br>To provide the service, remember you between chats, and improve answer quality. Your information is <b>never sold or shared</b> for advertising.</p>
 <p><b>3. Storage and security</b><br>Data is stored in the cloud via a secure server; all keys and secrets are kept server-side only. The system detects suspicious activity (hacking attempts) and may suspend an account to protect users.</p>
 <p><b>4. Third parties</b><br>AI providers are used to process messages, and Google is used for sign-in. These are subject to their own privacy policies.<br><b>* The BIRGSOL AI 3.5 FLASH model is powered by Google Gemini.</b></p>
-<p><b>5. Your rights</b><br>• View and delete any fact saved about you.<br>• Turn memory off.<br>• Request account deletion — contact the administrator.</p>
-<p><b>6. Contact</b><br>For privacy questions, contact the administrator (David).</p>
+<p><b>5. Your rights</b><br>• View and delete any fact saved about you.<br>• Turn memory off.<br>• Request account deletion — please contact customer service: birgsolai@gmail.com</p>
+<p><b>6. Contact</b><br>For privacy questions, please contact customer service: birgsolai@gmail.com</p>
 <p style="color:var(--muted);font-size:12px">Using BIRGSOL AI constitutes agreement to this policy.</p>`
 };
 function openPrivacyPolicy() {
@@ -3059,7 +3059,7 @@ async function _finishLogin(user) {
     ghReadFresh('db/ai_users.json').then(u => {
         if (u && u[user]) {
             // חשבון מושהה (אבטחה) — דוד חסין; כל השאר מנותקים מיד
-            if (u[user].suspended && !ADMIN_USERS.includes(user)) { _alert('⛔ החשבון הושהה עקב פעילות חשודה. פנה למנהל המערכת.'); doLogout(true); return; }
+            if (u[user].suspended && !ADMIN_USERS.includes(user)) { _alert('⛔ החשבון הושהה עקב פעילות חשודה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com'); doLogout(true); return; }
             localStorage.setItem('birgsol_instr_' + user, u[user].instructions || '');
             syncTierFromCloud(user, u[user]);
             if (u[user].name) { currentName = u[user].name; updateUserChip(); updateGreeting(); }
@@ -3337,8 +3337,8 @@ const _MSGS = {
     '❌ שגיאה במחיקה — נסה שוב.': { en:'❌ Error deleting — try again.' },
     'שגיאת התחברות עם Google. נסה שוב.': { en:'Google sign-in error. Try again.' },
     'שגיאת חיבור — נסה שוב.': { en:'Connection error — try again.' },
-    '⛔ החשבון הושהה עקב פעילות חשודה. פנה למנהל המערכת.': { en:'⛔ The account was suspended due to suspicious activity. Contact the administrator.' },
-    '⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. פנה למנהל המערכת.': { en:'⛔ The account was suspended due to detected suspicious activity. Contact the administrator.' },
+    '⛔ החשבון הושהה עקב פעילות חשודה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com': { en:'⛔ The account was suspended due to suspicious activity. Please contact customer service: birgsolai@gmail.com' },
+    '⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com': { en:'⛔ The account was suspended due to detected suspicious activity. Please contact customer service: birgsolai@gmail.com' },
     'קוד שגוי.': { en:'Wrong code.' },
     'שגיאה בשמירה — נסה שוב.': { en:'Error saving — try again.' },
     'להתנתק מ-Birgsol AI?': { en:'Log out of Birgsol AI?' },
@@ -10055,7 +10055,7 @@ async function send() {
     if (_sec) {
         const suspended = await _suspendAndAlert(_sec, q);
         inp.value = '';
-        if (suspended) { _alert('⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. פנה למנהל המערכת.'); doLogout(true); return; }
+        if (suspended) { _alert('⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com'); doLogout(true); return; }
     }
 
     // הגבלת-קצב בצד-הלקוח — הגנה מפני הצפה (25 הודעות/דקה). דוד פטור.
