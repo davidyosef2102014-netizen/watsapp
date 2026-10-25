@@ -6183,7 +6183,13 @@ async function _cfFluxEdit(imgDataUrl, engInstruction) {
     const b64 = _src.includes(',') ? _src.split(',')[1] : _src;
     // ⚠️ קריטי: בלי "שמור על השאר" FLUX.2 מחיל את השינוי על כל התמונה (למשל "הפוך לירוק" → כל התמונה ירוקה).
     //    ההנחיה הזו כופה עריכה מקומית — משנה רק את מה שביקשו, שאר התמונה נשמר זהה.
-    const _editPrompt = 'Edit the provided image. Apply ONLY this change: ' + engInstruction + '. Keep everything else EXACTLY the same — identical composition, layout, background, subjects, objects, colors, lighting and art style. Do NOT recolor or regenerate the whole image; change only the specific element requested.';
+    // 🧠 הרחבת-הוראת-עריכה (כמו הרחבת-פרומפט ביצירה, בקשת דוד): מודל הופך הוראה חופשית לפקודה מדויקת של "מה בדיוק לשנות".
+    let _change = engInstruction;
+    try {
+        const _xr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'Rewrite the user image-edit request into ONE short, precise English phrase naming EXACTLY the single change to make to the image (the element and the new state). No preamble, no "keep everything" text — just the concrete change. Example: "change the shirt color to red", "add sunglasses on the person", "remove the car in the background". Output ONLY that phrase.' }, { role: 'user', content: engInstruction }], temperature: 0.2, max_tokens: 60 }, { signal: AbortSignal.timeout(8000) });
+        if (_xr && _xr.ok) { const _xj = await _xr.json(); const _xt = (_xj?.choices?.[0]?.message?.content || '').trim().replace(/^["']+|["']+$/g, ''); if (_xt && _xt.length > 3 && _xt.length < 200) _change = _xt; }
+    } catch (e) {}
+    const _editPrompt = 'This is a precise LOCAL image edit. Keep the original image EXACTLY as it is — identical subject, pose, face, composition, framing, background, objects, colors, lighting and art style. The ONLY change to make, nothing else: ' + _change + '. Edit just that one element surgically and leave everything else pixel-for-pixel the same. Do NOT recolor the whole image, do NOT change the background, do NOT move anything, and do NOT re-imagine or regenerate the scene.';
     window._cfEditDiag = '';
     for (let _try = 0; _try < 3; _try++) {   // ניסיון חוזר — הכשל של Cloudflare בד"כ רגעי; בד"כ מצליח בניסיון 2
         try {
@@ -6280,6 +6286,10 @@ async function editImage(imgDataUrl, instruction) {
         // 3. FLUX.1 Kontext (SiliconFlow, אם יש balance) — עורך נאמן.
         const edited = await _siliconflowEdit(imgDataUrl, eng);
         if (edited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, edited); return; }
+        // 4. 🆓 FLUX.2 klein (Cloudflare — העורך החינמי שלנו): אין עורך-נאמן אחר זמין, אז זה העורך (בקשת דוד). עם הוראות מחוזקות.
+        skelTxt.textContent = 'עורך את התמונה…';
+        const cfEdited = await _cfFluxEdit(imgDataUrl, eng);
+        if (cfEdited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, cfEdited); return; }
     } catch (e) { if (e.name === 'AbortError') return; }
 
     // ── כל העורכים הנאמנים נכשלו → שגיאה כנה. בלי Pollinations, בלי "לדמיין מחדש" תמונה חדשה (לבקשת דוד). ──
