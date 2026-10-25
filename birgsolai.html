@@ -10083,9 +10083,14 @@ async function send() {
 
     // בקשת קריאה/תרגום/ניתוח של תמונה (קיימת/מועלית) — זו ראייה, לא יצירה! (חשוב גם במצב תמונה)
     const _wantsAnalyze = q && /תרגם|תתרגם|תרגמי|מה\s*כתוב|מה\s*רשום|מה\s*זה\s*אומר|מה\s*אומר|קרא\b|תקרא|תקריא|מה\s*יש\s*ב|מה\s*רוא|לרא|נתח\b|תנתח|תסביר|תסתכל|תראה\s*(לי\s*)?מה|translate|\bread\b|what\s*does\s*it\s*say|what'?s\s*(in|written)|analyz|describe/i.test(q);
+    // 🙂 תגובה/מחמאה אחרי תמונה ("וואו חמוד", "יפה!", "אהבתי") — זו שיחה, לא בקשת תמונה חדשה! אל תצייר שוב, תענה בצ'אט.
+    //    (רק אם זו *אך ורק* תגובה קצרה ובלי מילות-בקשה כמו "עוד"/"תעשה"/"שנה".)
+    const _isReaction = q && q.length < 50
+        && /(^|\s)(וואו|וואי|יופי|חמוד|מהמם|מדהים|יפה|יפייפ|מגניב|אחלה|נהדר|מקסים|תודה|חחח|סבבה|מעולה|נחמד|אהבתי|אוהב|גאוני|כיף|😍|😂|❤|👍|🔥|😁|🤩|wow|nice|cute|beautiful|gorgeous|lol|haha|thanks|cool|amazing|lovely|sweet|pretty|love\s*it)/i.test(q)
+        && !/(צור|תעשה|תצייר|תצלם|עוד|שנה|תשנה|תוסיף|הוסף|תמונ|תמונה|make|create|draw|generate|add|change|another|more|image|picture)/i.test(q);
     // Image generation — free, unlimited, no quota used
-    // מצב תמונה — כל הודעה היא בקשת תמונה (המצב מתמחה ביצירת תמונות) — אלא אם זו בקשת קריאה/תרגום/ניתוח
-    if (!_wantsAnalyze && ((currentMode === 'image' && q && !fileUrl && !fileContent) || (isImageRequest(q) && !fileUrl && !fileContent))) {
+    // מצב תמונה — כל הודעה היא בקשת תמונה (המצב מתמחה ביצירת תמונות) — אלא אם זו בקשת קריאה/תרגום/ניתוח או תגובה/מחמאה
+    if (!_wantsAnalyze && !_isReaction && ((currentMode === 'image' && q && !fileUrl && !fileContent) || (isImageRequest(q) && !fileUrl && !fileContent))) {
         addMsg('user', q);
         inp.value = ''; inp.style.height = 'auto';
         busy = true; updateBtn(); // נעילה — מונע התנגשות עם ההודעה הבאה בזמן יצירה איטית
