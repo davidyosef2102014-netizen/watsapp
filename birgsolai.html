@@ -7418,22 +7418,26 @@ async function _handleEmail(q) {
         } catch (e) {}
         if (!to) { const m = q.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/); if (m) to = m[0]; }
         if (!body && !subject) { addMsg('ai', _tr('על מה לכתוב את המייל? תגיד לי למי ומה התוכן ואכין טיוטה.')); try { saveConversation(); } catch (e) {} return; }
-        addMsg('ai', _tr('הכנתי טיוטת מייל — בדוק, ערוך אם צריך, ולחץ שליחה:'));
-        renderEmailCard(cw, { to: to, subject: subject, body: body });
+        const _explicitSend = /שלח|תשלח|תשלחי|שלחי|שגר|\bsend\b/i.test(q);
+        const _autoSend = _explicitSend && /[^@\s]+@[^@\s]+\.[^@\s]+/.test(to) && !!body;
+        addMsg('ai', _autoSend ? _trf('שולח מייל אל {to} ✉️', { to: to }) : _tr('הכנתי טיוטת מייל — בדוק, ערוך אם צריך, ולחץ שליחה:'));
+        renderEmailCard(cw, { to: to, subject: subject, body: body }, _autoSend);
         try { saveConversation(); } catch (e) {}
     } finally { busy = false; updateBtn(); }
 }
-function renderEmailCard(cw, mail) {
-    if (!cw) return false;
+function renderEmailCard(cw, mail, autoSend) {
     mail = mail || {};
+    // מודאל ממורכז (באמצע המסך) + רספונסיבי לטלפון — לא בצד הצ'אט.
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);padding:16px';
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin:8px 0;border:1px solid var(--border);border-radius:16px;background:var(--surf2);max-width:520px;overflow:hidden';
+    wrap.style.cssText = 'width:100%;max-width:520px;max-height:90vh;overflow:auto;border:1px solid var(--border);border-radius:16px;background:var(--surf2);box-shadow:0 20px 60px rgba(0,0,0,.45)';
     const gmailLogo = '<svg viewBox="0 0 24 24" width="20" height="20" style="vertical-align:-4px"><path fill="#EA4335" d="M1.636 21.002h3.819V11.73L0 7.64v11.726c0 .905.731 1.636 1.636 1.636z"/><path fill="#4285F4" d="M18.545 21.002h3.819c.905 0 1.636-.731 1.636-1.636V7.64l-5.455 4.09z"/><path fill="#FBBC04" d="M18.545 4.638v7.092L24 7.64V5.457c0-2.023-2.31-3.178-3.927-1.964z"/><path fill="#34A853" d="M5.455 11.73V4.638L12 9.548l6.545-4.91v7.092L12 16.64z"/><path fill="#C5221F" d="M0 5.457V7.64l5.455 4.09V4.638L3.927 3.493C2.309 2.28 0 3.434 0 5.457z"/></svg>';
     const esc = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
     const uid = 'em' + Date.now();
     const fieldRow = (label, id, val) => '<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-top:1px solid var(--border)"><span style="color:var(--muted);font-size:13px;min-width:46px">' + label + '</span><input id="' + id + '" value="' + esc(val).replace(/&amp;/g,'&').replace(/"/g,'&quot;') + '" style="flex:1;border:none;background:transparent;color:var(--text);font:inherit;outline:none"></div>';
     wrap.innerHTML =
-        '<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;font-weight:600;background:var(--surf)">' + gmailLogo + '<span>Gmail</span><span style="margin-inline-start:auto;font-size:12px;color:var(--muted)">' + _tr('טיוטת מייל') + '</span></div>'
+        '<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;font-weight:600;background:var(--surf)">' + gmailLogo + '<span>Gmail</span><span style="margin-inline-start:auto;font-size:12px;color:var(--muted)">' + _tr('טיוטת מייל') + '</span><button id="' + uid + '_x" style="margin-inline-start:10px;background:none;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px">×</button></div>'
         + fieldRow(_tr('אל'), uid + '_to', mail.to)
         + fieldRow(_tr('נושא'), uid + '_su', mail.subject)
         + '<div style="padding:10px 14px;border-top:1px solid var(--border)"><textarea id="' + uid + '_body" rows="6" style="width:100%;border:none;background:transparent;color:var(--text);font:inherit;resize:vertical;outline:none">' + esc(mail.body) + '</textarea></div>'
@@ -7442,23 +7446,29 @@ function renderEmailCard(cw, mail) {
         + '<button id="' + uid + '_send" style="background:#1a73e8;color:#fff;border:none;padding:9px 22px;border-radius:20px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>' + _tr('שליחה') + '</button>'
         + '<button id="' + uid + '_gm" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:9px 16px;border-radius:20px;cursor:pointer">' + _tr('ערוך ב-Gmail') + '</button>'
         + '</div>';
-    cw.appendChild(wrap);
-    cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    ov.appendChild(wrap);
+    document.body.appendChild(ov);
     const g = id => document.getElementById(id);
+    const _close = () => { try { ov.remove(); } catch (e) {} };
+    ov.onclick = (e) => { if (e.target === ov) _close(); };
+    g(uid + '_x').onclick = _close;
     g(uid + '_gm').onclick = () => {
         const url = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(g(uid + '_to').value) + '&su=' + encodeURIComponent(g(uid + '_su').value) + '&body=' + encodeURIComponent(g(uid + '_body').value);
         window.open(url, '_blank', 'noopener');
     };
-    g(uid + '_send').onclick = async () => {
+    const _doSend = async () => {
         const to = g(uid + '_to').value.trim(), su = g(uid + '_su').value.trim(), bo = g(uid + '_body').value;
         const st = g(uid + '_st');
         if (!to || !/[^@\s]+@[^@\s]+\.[^@\s]+/.test(to)) { st.style.display = 'block'; st.style.color = '#ea4335'; st.textContent = _tr('חסרה כתובת מייל תקינה של הנמען'); return; }
-        const btn = g(uid + '_send'); btn.disabled = true; const old = btn.innerHTML; btn.textContent = _tr('שולח…');
+        const btn = g(uid + '_send'); if (btn.disabled) return; btn.disabled = true; const old = btn.innerHTML; btn.textContent = _tr('שולח…');
         const html = '<div style="font-family:sans-serif;white-space:pre-wrap">' + esc(bo) + '</div>';
         const ok = await _mailSend(to, su || _tr('(ללא נושא)'), html, false);
-        if (ok) { st.style.display = 'block'; st.style.color = '#34a853'; st.textContent = '✓ ' + _trf('נשלח אל {to}', { to: to }); btn.innerHTML = '✓ ' + _tr('נשלח'); }
+        if (ok) { st.style.display = 'block'; st.style.color = '#34a853'; st.textContent = '✓ ' + _trf('נשלח אל {to}', { to: to }); btn.innerHTML = '✓ ' + _tr('נשלח'); setTimeout(_close, 2200); }
         else { st.style.display = 'block'; st.style.color = '#ea4335'; st.textContent = _tr('השליחה נכשלה — נסה כפתור ערוך ב-Gmail'); btn.disabled = false; btn.innerHTML = old; }
     };
+    g(uid + '_send').onclick = _doSend;
+    // ✉️ שליחה אוטומטית — כשהמשתמש אמר במפורש "שלח" ויש כתובת תקינה (בקשת דוד): שולח לבד, בלי לחיצה.
+    if (autoSend && /[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(mail.to || ''))) { _doSend(); }
     return true;
 }
 async function executeTool(match, type, statusEl, cw) {
