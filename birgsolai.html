@@ -7392,7 +7392,7 @@ async function _handleCalendar(q) {
     } finally { busy = false; updateBtn(); }
 }
 // ── 📧 מייל: זיהוי ישיר — "שלח מייל ל-X" → כרטיס compose מוטמע (בתוך האפליקציה, סגנון Gmail). ──
-//    נשלח מתוך האפליקציה דרך Brevo (_mailSend) + כפתור "ערוך ב-Gmail" (compose URL, שליחה מהכתובת של המשתמש).
+//    ⚠️ ללא Brevo! שליחת מייל של משתמש לנמען שרירותי אסורה ב-Brevo (חוסמת את החשבון). השליחה עוברת רק דרך ה-Gmail של המשתמש (compose URL).
 function _isEmailReq(q) {
     if (!q) return false;
     if (/מה זה|מהו|איך עובד|what is/i.test(q)) return false; // שאלה על מייל, לא בקשת שליחה
@@ -7420,7 +7420,7 @@ async function _handleEmail(q) {
         if (!body && !subject) { addMsg('ai', _tr('על מה לכתוב את המייל? תגיד לי למי ומה התוכן ואכין טיוטה.')); try { saveConversation(); } catch (e) {} return; }
         const _explicitSend = /שלח|תשלח|תשלחי|שלחי|שגר|\bsend\b/i.test(q);
         const _autoSend = _explicitSend && /[^@\s]+@[^@\s]+\.[^@\s]+/.test(to) && !!body;
-        addMsg('ai', _autoSend ? _trf('שולח מייל אל {to} ✉️', { to: to }) : _tr('הכנתי טיוטת מייל — בדוק, ערוך אם צריך, ולחץ שליחה:'));
+        addMsg('ai', _autoSend ? _trf('פתחתי ב-Gmail טיוטה אל {to} — רק ללחוץ שליחה ✉️', { to: to }) : _tr('הכנתי טיוטת מייל — בדוק, ערוך, ולחץ שלח ב-Gmail:'));
         renderEmailCard(cw, { to: to, subject: subject, body: body }, _autoSend);
         try { saveConversation(); } catch (e) {}
     } finally { busy = false; updateBtn(); }
@@ -7442,29 +7442,19 @@ function renderEmailCard(cw, mail, autoSend) {
         + '<div style="padding:10px 14px;border-top:1px solid var(--border)"><textarea id="' + uid + '_body" rows="6" style="width:100%;border:none;background:transparent;color:var(--text);font:inherit;resize:vertical;outline:none">' + esc(mail.body) + '</textarea></div>'
         + '<div id="' + uid + '_st" style="display:none;padding:8px 14px;font-size:13px;border-top:1px solid var(--border)"></div>'
         + '<div style="display:flex;gap:8px;padding:11px 14px;background:var(--surf)">'
-        + '<button id="' + uid + '_send" style="background:#1a73e8;color:#fff;border:none;padding:9px 22px;border-radius:20px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>' + _tr('שליחה') + '</button>'
-        + '<button id="' + uid + '_gm" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:9px 16px;border-radius:20px;cursor:pointer">' + _tr('ערוך ב-Gmail') + '</button>'
+        + '<button id="' + uid + '_gm" style="background:#1a73e8;color:#fff;border:none;padding:9px 22px;border-radius:20px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>' + _tr('שלח ב-Gmail') + '</button>'
         + '</div>';
     cw.appendChild(wrap);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
     const g = id => document.getElementById(id);
-    g(uid + '_gm').onclick = () => {
+    // 🚫 ללא Brevo — שליחת מיילים של משתמשים דרך Brevo אסורה (חוסמת את החשבון). הכל עובר דרך ה-Gmail של המשתמש.
+    const _openGmail = () => {
         const url = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(g(uid + '_to').value) + '&su=' + encodeURIComponent(g(uid + '_su').value) + '&body=' + encodeURIComponent(g(uid + '_body').value);
         window.open(url, '_blank', 'noopener');
     };
-    const _doSend = async () => {
-        const to = g(uid + '_to').value.trim(), su = g(uid + '_su').value.trim(), bo = g(uid + '_body').value;
-        const st = g(uid + '_st');
-        if (!to || !/[^@\s]+@[^@\s]+\.[^@\s]+/.test(to)) { st.style.display = 'block'; st.style.color = '#ea4335'; st.textContent = _tr('חסרה כתובת מייל תקינה של הנמען'); return; }
-        const btn = g(uid + '_send'); if (btn.disabled) return; btn.disabled = true; const old = btn.innerHTML; btn.textContent = _tr('שולח…');
-        const html = '<div style="font-family:sans-serif;white-space:pre-wrap">' + esc(bo) + '</div>';
-        const ok = await _mailSend(to, su || _tr('(ללא נושא)'), html, false);
-        if (ok) { st.style.display = 'block'; st.style.color = '#34a853'; st.textContent = '✓ ' + _trf('נשלח אל {to}', { to: to }); btn.innerHTML = '✓ ' + _tr('נשלח'); }
-        else { st.style.display = 'block'; st.style.color = '#ea4335'; st.textContent = _tr('השליחה נכשלה — נסה כפתור ערוך ב-Gmail'); btn.disabled = false; btn.innerHTML = old; }
-    };
-    g(uid + '_send').onclick = _doSend;
-    // ✉️ שליחה אוטומטית — כשהמשתמש אמר במפורש "שלח" ויש כתובת תקינה (בקשת דוד): שולח לבד, בלי לחיצה.
-    if (autoSend && /[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(mail.to || ''))) { _doSend(); }
+    g(uid + '_gm').onclick = _openGmail;
+    // "שלח" מפורש → פותח ישר את חלון הכתיבה ב-Gmail עם הטיוטה מוכנה (שליחה בלחיצה אחת, מהכתובת של המשתמש).
+    if (autoSend) { _openGmail(); }
     return true;
 }
 async function executeTool(match, type, statusEl, cw) {
