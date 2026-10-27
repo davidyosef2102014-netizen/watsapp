@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BIRGSOL AI for Word</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --surf:#f4f7fb; --surf2:#eef2f7; --border:#d7dee8;
+    --text:#13223a; --muted:#6b7a90; --brand:#0ea5a4; --brand2:#2563eb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ --bg:#0f1621; --surf:#17202e; --surf2:#1d2838; --border:#2a3850; --text:#e7edf5; --muted:#8fa0b8; }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;height:100vh;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surf)}
+  header img{width:28px;height:28px;border-radius:7px}
+  header .t{font-weight:700;font-size:15px}
+  header .s{font-size:11px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border)}
+  .chip{background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:16px;padding:6px 12px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+  .chip:hover{border-color:var(--brand)}
+  .body{flex:1;overflow:auto;padding:12px}
+  .hint{color:var(--muted);font-size:12.5px;line-height:1.6;text-align:center;margin-top:18px}
+  .result{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:12px;white-space:pre-wrap;line-height:1.6;margin-bottom:10px}
+  .acts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .acts button{border:1px solid var(--border);background:var(--surf2);color:var(--text);border-radius:9px;padding:7px 12px;font-size:12.5px;cursor:pointer}
+  .acts .prim{background:var(--brand2);color:#fff;border:none}
+  .status{color:var(--muted);font-size:12.5px;padding:6px 0;display:flex;align-items:center;gap:7px}
+  .spin{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:sp 0.8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  footer{border-top:1px solid var(--border);padding:10px 12px;background:var(--surf);display:flex;gap:8px;align-items:flex-end}
+  textarea{flex:1;resize:none;border:1px solid var(--border);border-radius:10px;padding:9px 11px;font:inherit;background:var(--bg);color:var(--text);max-height:120px;outline:none}
+  textarea:focus{border-color:var(--brand)}
+  .send{background:var(--brand);border:none;color:#fff;width:40px;height:40px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .send:disabled{opacity:.5;cursor:default}
+</style>
+</head>
+<body>
+  <header>
+    <img src="https://davidyosef2102014-netizen.github.io/watsapp/birgsol-icon-192.png" alt="BIRGSOL AI">
+    <div><div class="t">BIRGSOL AI</div><div class="s">העוזר החכם שלך ל-Word</div></div>
+  </header>
+
+  <div class="chips" id="chips">
+    <div class="chip" data-act="summarize">📝 סכם בחירה</div>
+    <div class="chip" data-act="rewrite">✨ שכתב</div>
+    <div class="chip" data-act="improve">🪄 שפר ניסוח</div>
+    <div class="chip" data-act="translate_en">🌐 תרגם לאנגלית</div>
+    <div class="chip" data-act="translate_he">🌐 תרגם לעברית</div>
+    <div class="chip" data-act="continue">➡️ המשך כתיבה</div>
+    <div class="chip" data-act="fix">✔️ תקן שגיאות</div>
+  </div>
+
+  <div class="body" id="body">
+    <div class="hint" id="hint">
+      שלום! אני BIRGSOL AI בתוך Word.<br><br>
+      בחר טקסט במסמך ולחץ על אחת הפעולות למעלה,<br>
+      או כתוב לי בקשה למטה (למשל "כתוב פסקת פתיחה על החורף").<br><br>
+      כל תשובה אפשר להכניס ישירות למסמך.
+    </div>
+  </div>
+
+  <footer>
+    <textarea id="inp" rows="1" placeholder="בקש מ-BIRGSOL AI…" oninput="autoGrow(this)"></textarea>
+    <button class="send" id="sendBtn" onclick="onSend()" title="שלח">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </footer>
+
+<script>
+const GH_WORKER = 'https://birgsol-gh.davidyosef2102014.workers.dev';
+let officeReady = false;
+Office.onReady(() => { officeReady = true; });
+
+function autoGrow(el){ el.style.height='auto'; el.style.height=Math.min(120, el.scrollHeight)+'px'; }
+
+// ── קריאת AI דרך ה-Worker (אותה תשתית של BIRGSOL): Nemotron-3.5-Super → gpt-oss גיבוי ──
+async function ghChat(messages, opts){
+  opts = opts || {};
+  const max_tokens = opts.max_tokens || 1400, temperature = opts.temperature != null ? opts.temperature : 0.5;
+  const attempts = [
+    { provider:'nvidia', path:'/v1/chat/completions', body:{ model:'nvidia/nemotron-3.5-super-vl-120b-a12b', messages:[{role:'system',content:'detailed thinking off'}].concat(messages), temperature, max_tokens } },
+    { provider:'groq',   path:'/openai/v1/chat/completions', body:{ model:'openai/gpt-oss-120b', messages, temperature, max_tokens } },
+    { provider:'groq',   path:'/openai/v1/chat/completions', body:{ model:'openai/gpt-oss-20b',  messages, temperature, max_tokens } }
+  ];
+  let lastErr = 'לא הצלחתי להתחבר ל-AI';
+  for (const a of attempts){
+    try{
+      const r = await fetch(GH_WORKER, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ op:'proxy', provider:a.provider, path:a.path, payload:a.body }),
+        signal: AbortSignal.timeout(35000) });
+      if (!r.ok){ lastErr = 'שגיאת שרת ' + r.status; continue; }
+      const j = await r.json();
+      const m = j && j.choices && j.choices[0] && j.choices[0].message;
+      let t = (m && m.content || '').trim();
+      if (!t && m && m.reasoning_content) t = String(m.reasoning_content).trim();
+      if (t) return t;
+    }catch(e){ lastErr = (e && e.name==='AbortError') ? 'הבקשה ארכה מדי' : (e && e.message || 'שגיאה'); }
+  }
+  throw new Error(lastErr);
+}
+
+// ── Office.js: קריאת בחירה + הכנסת טקסט ──
+async function getSelection(){
+  if (!officeReady || typeof Word === 'undefined') return '';
+  try{ return await Word.run(async ctx => { const s = ctx.document.getSelection(); s.load('text'); await ctx.sync(); return s.text || ''; }); }
+  catch(e){ return ''; }
+}
+async function insertText(text, where){
+  if (!officeReady || typeof Word === 'undefined') { alert('Word לא זמין'); return; }
+  try{
+    await Word.run(async ctx => {
+      const sel = ctx.document.getSelection();
+      const loc = where==='replace' ? Word.InsertLocation.replace : (where==='end' ? Word.InsertLocation.end : Word.InsertLocation.after);
+      sel.insertText(text, loc);
+      await ctx.sync();
+    });
+  }catch(e){ alert('לא הצלחתי להכניס: ' + (e && e.message || e)); }
+}
+
+// ── UI ──
+const body = document.getElementById('body');
+function setStatus(txt){
+  clearResult();
+  const d = document.createElement('div'); d.className='status'; d.id='statusRow';
+  d.innerHTML = '<span class="spin"></span>' + txt;
+  body.appendChild(d); body.scrollTop = body.scrollHeight;
+}
+function clearResult(){ document.getElementById('hint') && document.getElementById('hint').remove(); const s=document.getElementById('statusRow'); if(s) s.remove(); }
+function showError(msg){ clearResult(); const d=document.createElement('div'); d.className='result'; d.style.color='#e5484d'; d.textContent='⚠️ '+msg; body.appendChild(d); }
+
+function showResult(text){
+  clearResult();
+  const wrap = document.createElement('div');
+  const r = document.createElement('div'); r.className='result'; r.textContent = text;
+  const acts = document.createElement('div'); acts.className='acts';
+  const bIns = document.createElement('button'); bIns.className='prim'; bIns.textContent='↩️ הכנס למסמך'; bIns.onclick=()=>insertText('\n'+text, 'after');
+  const bRep = document.createElement('button'); bRep.textContent='🔁 החלף בחירה'; bRep.onclick=()=>insertText(text, 'replace');
+  const bCopy = document.createElement('button'); bCopy.textContent='📋 העתק'; bCopy.onclick=()=>{ navigator.clipboard && navigator.clipboard.writeText(text); bCopy.textContent='✓ הועתק'; };
+  acts.appendChild(bIns); acts.appendChild(bRep); acts.appendChild(bCopy);
+  wrap.appendChild(r); wrap.appendChild(acts);
+  body.appendChild(wrap); body.scrollTop = body.scrollHeight;
+}
+
+const ACTIONS = {
+  summarize:    { need:true,  status:'מסכם…',    sys:'You summarize text clearly and briefly in the same language as the text. Output only the summary.', user:t=>'סכם את הטקסט הבא:\n\n'+t },
+  rewrite:      { need:true,  status:'משכתב…',   sys:'You rewrite text to be clearer and better, keeping the original language and meaning. Output only the rewritten text.', user:t=>'שכתב בצורה טובה יותר:\n\n'+t },
+  improve:      { need:true,  status:'משפר…',    sys:'You improve wording, flow and style while keeping the original language and meaning. Output only the improved text.', user:t=>'שפר את הניסוח:\n\n'+t },
+  translate_en: { need:true,  status:'מתרגם…',   sys:'You are a professional translator. Translate to natural English. Output only the translation.', user:t=>t },
+  translate_he: { need:true,  status:'מתרגם…',   sys:'You are a professional translator. Translate to natural Hebrew. Output only the translation.', user:t=>t },
+  fix:          { need:true,  status:'מתקן…',    sys:'You fix spelling, grammar and punctuation, keeping the original language and meaning. Output only the corrected text.', user:t=>'תקן שגיאות:\n\n'+t },
+  continue:     { need:false, status:'ממשיך…',  sys:'You continue writing naturally from where the text stops, in the same language, tone and style. Output only the continuation.', user:t=>'המשך לכתוב מהמקום שבו הטקסט נעצר:\n\n'+(t||'(אין טקסט — התחל כתיבה מתאימה)') }
+};
+
+document.getElementById('chips').addEventListener('click', async (e)=>{
+  const chip = e.target.closest('.chip'); if(!chip) return;
+  const act = ACTIONS[chip.dataset.act]; if(!act) return;
+  const sel = await getSelection();
+  if (act.need && !sel.trim()){ showError('בחר קודם טקסט במסמך, ואז לחץ על הפעולה.'); return; }
+  setStatus(act.status);
+  try{ const out = await ghChat([{role:'system',content:act.sys},{role:'user',content:act.user(sel)}]); showResult(out); }
+  catch(err){ showError(err.message || 'השליחה נכשלה'); }
+});
+
+async function onSend(){
+  const inp = document.getElementById('inp'); const q = inp.value.trim(); if(!q) return;
+  inp.value=''; autoGrow(inp);
+  const sel = await getSelection();
+  const sys = 'You are BIRGSOL AI, a smart helpful writing assistant inside Microsoft Word. Answer in the user language. Be useful and concise. When the user asks to write/draft something, output only the text to insert into the document.';
+  const msgs = [{role:'system',content:sys}];
+  if (sel.trim()) msgs.push({role:'user',content:'הטקסט שנבחר במסמך:\n"""\n'+sel+'\n"""'});
+  msgs.push({role:'user',content:q});
+  setStatus('חושב…');
+  try{ const out = await ghChat(msgs); showResult(out); }
+  catch(err){ showError(err.message || 'השליחה נכשלה'); }
+}
+document.getElementById('inp').addEventListener('keydown',(e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); onSend(); }});
+</script>
+</body>
+</html>
