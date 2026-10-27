@@ -7942,7 +7942,7 @@ async function _axBrain(msgs, signal, say, level) {
     // GLM-5.3-flash ב-NVIDIA — נותנים לו כל ניסיון: עד N ניסיונות מלאים (כל אחד ~92ש, כל ניסיון = צ'אנס חדש לתפוס חלון פנוי בתור).
     const glm53nv = async (attempts) => { attempts = attempts || 1; let lastErr; for (let i = 0; i < attempts; i++) { try { return { text: await _nv('z-ai/glm-5.3-flash', 92000, { reasoning_effort: 'low' }), who: 'GLM-5.3-Flash' }; } catch (e) { lastErr = e; } } throw (lastErr || new Error('glm53nv')); };
     // Nemotron-3-Super — סוס העבודה של Axion (NVIDIA, מהיר ויציב, ממותג BIRGSOL). רישיון NVIDIA Open.
-    const nemotron = async () => ({ text: await _nv('nvidia/nemotron-3-super-120b-a12b', 35000), who: 'BIRGSOL-Core' });
+    const nemotron = async () => ({ text: await _nv('nvidia/nemotron-3.5-super-vl-120b-a12b', 35000), who: 'BIRGSOL-Core' });
     const glm47    = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 3500, AbortSignal.timeout(30000)), who: 'GLM-4.7-Flash' });
     const oss120   = async () => ({ text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal || AbortSignal.timeout(30000)), who: 'GPT-OSS-120B' });
     // עטיפת retry — ניסיון שני על שגיאה רגעית (503/429/ריק), עם backoff קצר.
@@ -9259,7 +9259,7 @@ async function _agDecide(sys, user) {
     ];
     // 🥈 קבוצת גיבוי (מהירה ואמינה) — מצטרפת רק אם GLM לא ענה אחרי 40ש', *או* אם כל ה-GLM נפלו לפני כן.
     const _backup = [
-        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3-super-120b-a12b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-super-vl-120b-a12b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-lightning-30b-a3b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         // (מוח-גיבוי Cloudflare הוסר — הוא חלק את מכסת ה-10K neurons עם התמונות ושרף אותה. Cloudflare = רק תמונות עכשיו.)
