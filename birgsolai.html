@@ -2690,6 +2690,7 @@ const MODELS = [
     { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini',     minTier:'free', desc:'חכם ומהיר' },
     { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss',     minTier:'pro',  desc:'הכי חזק, מעולה לקוד' },
     { id:'4.1pro', brand:'BIRGSOL AI 4.1 PRO',   kind:'agentpro',   minTier:'free', desc:'סוכן-קוד מומחה — מוח Qwen3-Coder', admin:true },
+    { id:'4.1flash', brand:'BIRGSOL AI 4.1 FLASH', kind:'nemotron',  minTier:'free', desc:'מהיר וחזק — מוח Nemotron 3.5 (NVIDIA)', admin:true },
     { id:'axion',  brand:'BIRGSOL Axion 4.1',    kind:'axion',      minTier:'free', desc:'דגל — צוות מודלים (מוח+שופט+קול)', admin:true },
 ];
 // admin:true → גלוי רק למנהל (בדיקות לפני השקה). שאר המשתמשים לא רואים/בוחרים אותו.
@@ -8406,6 +8407,16 @@ async function callAI(messages, onChunk, signal=null) {
         const _sMis  = { name: 'Mistral',  fn: () => _stream('mistral', { model: 'mistral-small-latest', messages, temperature: _isGroundedTurn ? 0.1 : 0.7, max_tokens: 2048 }) }; // מזרים (מהיר)
         const _sCoh  = { name: 'Cohere',   fn: () => _tryCohere().then(_tw) };
         const _sCloud = { name: 'Cloudflare AI', fn: () => _tryCloudflare().then(_tw) }; // גיבוי אחרון — מכסה יומית נפרדת, מונע "שגיאת חיבור"
+        // ⚡ 4.1 FLASH — מוח Nemotron-3.5-Super (NVIDIA): חזק, אגנטי, מהיר (~1ש'). "detailed thinking off" = תשובה נקייה בלי דליפת-חשיבה. קורא content.
+        const _sNemo = { name: 'Nemotron-3.5', fn: async () => {
+            const _nemoMsgs = [{ role: 'system', content: 'detailed thinking off' }].concat(messages);
+            const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-super-vl-120b-a12b', messages: _nemoMsgs, temperature: _isGroundedTurn ? 0.2 : 0.6, max_tokens: 2048 }, { signal: AbortSignal.timeout(30000) });
+            if (!r.ok) throw new Error('nemotron ' + r.status);
+            const j = await r.json(); const m = j && j.choices && j.choices[0] && j.choices[0].message;
+            let t = (m && m.content || '').trim();
+            if (!t) throw new Error('nemotron empty');
+            return _tw(t);
+        } };
         // 🔎 מודל-חיפוש (כמו Perplexity) — gpt-5-search-api דרך OrcaRouter: חיפוש מובנה. ראשון לשאלות-מידע; אם נכשל/בתשלום → נופל לשרשרת הרגילה.
         const _sSearch = { name: 'gpt5-search', fn: async () => {
             const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'openai/gpt-5-search-api', messages, temperature: 0.3, max_tokens: 2048 }, { signal: AbortSignal.timeout(22000) });
@@ -8437,6 +8448,7 @@ async function callAI(messages, onChunk, signal=null) {
         if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud]; // עובדות/משפט/חדשות — נאמנים (Gemini + Tavily). בלי Mistral (מזייף)
         if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sCloud];            // 3.5 PRO — חזקים + Cloudflare רצפה. בלי Mistral (נחנק)
         if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sCloud];            // 3.5 FLASH — Gemini ראשי, gpt-oss, 120b, Cloudflare רצפה. בלי Mistral (נחנק)
+        if (_mid === '4.1flash') return [_sNemo, _sGem, _sGpt2, _sCloud];         // ⚡ 4.1 FLASH — Nemotron-3.5-Super ראשי (חזק+אגנטי+מהיר), ואז Gemini/120b/Cloudflare גיבוי
         if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2];           // 3.0 PRO — Cloudflare ראשון
         if (_mid === '3.0')    return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 3.0 FLASH — Mistral חירום אחרון (אחרי Cloudflare)
         if (_mid === '2.0pro') return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 2.0 PRO
