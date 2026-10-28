@@ -7631,6 +7631,49 @@ function renderEmailCard(cw, mail, autoSend) {
     if (autoSend) { _openGmail(); }
     return true;
 }
+// 🧰 כלי-עוזר בשיחה רגילה (לא רק בסוכן/מצב-קוד): מזג אוויר, מטבע, קריפטו, חדשות, תרגום, פתק, תזכורת, איש-קשר, ניווט, ויקי.
+//    גלאי מהיר (regex) → מסווג+מחלץ (LLM) → מריץ את הכלי → תשובה בצ'אט. אם לא מתאים → מחזיר false והצ'אט הרגיל ממשיך.
+function _isAssistantReq(q) {
+    if (!q || q.length > 220) return false;
+    if (_isWhatsAppReq(q) || _isCalendarReq(q) || _isEmailReq(q)) return false;
+    return /מזג.{0,4}או[וי]|מה.{0,4}מזג|כמה מעלות|\bweather\b|המר(ה|י)?\s|כמה (זה |שווה )?(דולר|יורו|אירו|שקל)|שער ה?(דולר|יורו|אירו|שקל)|ביטקוין|\bbitcoin\b|את.?ריום|\bethereum\b|קריפטו|חדשות|כותרות|תתרגם|תרגם לי|איך אומרים|\btranslate\b|תוסיף (לי )?פתק|רשום (לי )?פתק|פתק חדש|תזכיר לי|תזכורת|שמור (לי )?(איש קשר|מספר של|טלפון של)|מרחק בין|כמה זמן נסיעה|איך מגיעים מ/i.test(q);
+}
+async function _handleAssistant(q) {
+    // סיווג קודם — בלי לגעת ב-UI; רק אם זוהה כלי, משתלטים.
+    let o = { tool: "none" };
+    try {
+        const sys = 'Classify the user request into ONE assistant tool and extract its parameters. Reply ONLY JSON: {"tool":"weather|currency|crypto|news|translate|note|remind|contact|wiki|directions|geo|none","city":"","from":"","to":"","amount":"","coins":"","query":"","text":"","when":"","name":"","detail":""}. weather->city; currency->from,to(ISO codes),amount(default 1); crypto->coins(ids like bitcoin,ethereum); news->query(topic); translate->text(the content to translate),to(target language name); note->text; remind->text,when(HH:MM); contact->name,detail(phone/email); wiki->query; directions->from,to(places); geo->query(place). If nothing clearly fits, set tool to "none".';
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: q }], temperature: 0, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(12000) });
+        if (r.ok) { const j = await r.json(); o = JSON.parse(j?.choices?.[0]?.message?.content || '{}'); }
+    } catch (e) {}
+    const t = o && o.tool;
+    if (!t || t === 'none') return false; // לא זוהה כלי — הצ'אט הרגיל ימשיך
+    addMsg('user', q);
+    busy = true; updateBtn();
+    try {
+        if (q && isFirstMsg) { try { addToHistory(q); } catch (e) {} isFirstMsg = false; }
+        // תרגום עובד בכל מקום (LLM, בלי גשר)
+        if (t === 'translate') {
+            const to = o.to || 'English', txt = o.text || q; let out = '';
+            try { const tr = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts: [{ text: 'Translate to ' + to + '. Output ONLY the translation, nothing else:\n\n' + txt }] }], generationConfig: { temperature: 0, maxOutputTokens: 1000 } }, { signal: AbortSignal.timeout(12000) }); const tj = tr.ok ? await tr.json() : null; out = (tj?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); } catch (e) {}
+            addMsg('ai', out || 'לא הצלחתי לתרגם כרגע'); try { saveConversation(); } catch (e) {} return true;
+        }
+        if (!(typeof _isDesktop === 'function' && _isDesktop())) { addMsg('ai', 'הכלי הזה זמין כרגע רק באפליקציית הדסקטופ של BIRGSOL.'); try { saveConversation(); } catch (e) {} return true; }
+        let res = '';
+        if (t === 'weather') res = await _execNativeTool([null, String(o.city || o.query || '')], 'weather');
+        else if (t === 'currency') res = await _execNativeTool([null, String(o.from || 'USD') + '|||' + String(o.to || 'ILS') + '|||' + String(o.amount || '1')], 'currency');
+        else if (t === 'crypto') res = await _execNativeTool([null, String(o.coins || o.query || 'bitcoin')], 'crypto');
+        else if (t === 'news') res = await _execNativeTool([null, String(o.query || '')], 'news');
+        else if (t === 'wiki') res = await _execNativeTool([null, String(o.query || '')], 'wiki');
+        else if (t === 'geo') res = await _execNativeTool([null, String(o.query || '')], 'geo');
+        else if (t === 'directions') res = await _execNativeTool([null, String(o.from || '') + '|||' + String(o.to || '')], 'directions');
+        else if (t === 'note') res = await _execNativeTool([null, 'add|||' + String(o.text || q)], 'note');
+        else if (t === 'remind') res = await _execNativeTool([null, 'add|||' + String(o.text || q) + '|||' + String(o.when || '')], 'remind');
+        else if (t === 'contact') res = await _execNativeTool([null, 'add|||' + String(o.name || '') + '|||' + String(o.detail || '')], 'contact');
+        else { addMsg('ai', 'לא הצלחתי להבין איזה כלי צריך.'); try { saveConversation(); } catch (e) {} return true; }
+        addMsg('ai', String(res || 'בוצע ✓')); try { saveConversation(); } catch (e) {} return true;
+    } finally { busy = false; updateBtn(); }
+}
 async function executeTool(match, type, statusEl, cw) {
     if (type === 'calendar') {
         let a = {}; try { a = JSON.parse(match[1]); } catch (e) {}
@@ -9559,7 +9602,7 @@ async function _agMouth(facts) {
     } catch (e) {}
     for (const model of ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b']) {
         try {
-            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model, messages: [{ role: 'system', content: sys }, { role: 'user', content: _ctx + String(facts || '').slice(0, 2500) }], temperature: 0.6, max_tokens: 220 }, { signal: AbortSignal.timeout(12000) });
+            const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model, messages: [{ role: 'system', content: sys }, { role: 'user', content: _ctx + String(facts || '').slice(0, 2500) }], temperature: 0.6, max_tokens: 500 }, { signal: AbortSignal.timeout(12000) });
             if (r && r.ok) { const j = await r.json(); const t = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t.length > 6) { try { quotaUse('token', (j.usage && j.usage.completion_tokens) || _estTokens(t)); } catch (e) {} return t; } }
         } catch (e) {}
     }
@@ -9683,7 +9726,8 @@ async function runNativeAgent(goal, opts) {
                 }
                 _step('הושלם ✓', false); _finishHdr(); txt.innerHTML = '';
                 // 👄 הפה מנסח את התשובה הסופית בחום; המוח רק נתן סיכום עובדתי
-                let _fin = await _agMouth('המשימה הושלמה. סיכום עובדתי מהמוח: ' + (decision.answer || 'בוצע') + '\n\nנסח למשתמש הודעת סיום חמה וברורה: מה נעשה ומה התוצאה.') || decision.answer || 'סיימתי.';
+                const _recap = (typeof stepsLog !== 'undefined' && Array.isArray(stepsLog)) ? stepsLog.slice(-10).join('\n').slice(0, 1800) : '';
+                let _fin = await _agMouth('המשימה הושלמה.' + (_recap ? ' הצעדים והתוצאות בפועל:\n' + _recap : '') + '\n\nסיכום המוח: ' + (decision.answer || 'בוצע') + '\n\nנסח למשתמש הודעת סיום חמה ואנושית בגוף ראשון שמסכמת את כל מה שעשיתי ואת התוצאות — אם ביצעתי כמה דברים, ציין את כולם ואת הערך של כל אחד (אל תשמיט אף חלק). טבעי וחם כמו חבר, לא רובוטי, 2-4 משפטים.') || decision.answer || 'סיימתי בהצלחה.';
                 const ans = document.createElement('div'); try { ans.innerHTML = mdSafe(_fin); } catch (e) { ans.textContent = _fin; } txt.appendChild(ans); hist[hist.length - 1].content = _fin; break;
             }
             const _cmd = String(decision.cmd || decision.command || ''), _path = String(decision.path || decision.file || ''), _content = decision.content != null ? String(decision.content) : '', _q = String(decision.query || '');
@@ -10060,7 +10104,8 @@ async function _browserAgent(goal, opts) {
             if (decision.__thinking) { try { const _tl = document.createElement('div'); _tl.style.cssText = 'margin:6px 0;padding:6px 9px;font-size:11px;line-height:1.55;color:var(--muted,#8b909a);white-space:pre-wrap;opacity:.82;font-style:italic;border-inline-start:2px solid var(--border,#e2e4ea);border-radius:4px;direction:ltr;text-align:start'; _tl.textContent = '🧠 ' + decision.__thinking; _det.appendChild(_tl); while (_det.children.length > 40) _det.removeChild(_det.firstChild); if (_open && cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); } catch (e) {} }
             if (decision.done) {
                 _step('הושלם ✓', false); _finishHdr(); txt.innerHTML = '';
-                let _fin = await _agMouth('המשימה הושלמה. סיכום עובדתי מהמוח: ' + (decision.answer || 'בוצע') + '\n\nנסח למשתמש הודעת סיום חמה וברורה: מה נעשה ומה התוצאה.') || decision.answer || 'סיימתי.';
+                const _recap = (typeof stepsLog !== 'undefined' && Array.isArray(stepsLog)) ? stepsLog.slice(-10).join('\n').slice(0, 1800) : '';
+                let _fin = await _agMouth('המשימה הושלמה.' + (_recap ? ' הצעדים והתוצאות בפועל:\n' + _recap : '') + '\n\nסיכום המוח: ' + (decision.answer || 'בוצע') + '\n\nנסח למשתמש הודעת סיום חמה ואנושית בגוף ראשון שמסכמת את כל מה שעשיתי ואת התוצאות — אם ביצעתי כמה דברים, ציין את כולם ואת הערך של כל אחד (אל תשמיט אף חלק). טבעי וחם כמו חבר, לא רובוטי, 2-4 משפטים.') || decision.answer || 'סיימתי בהצלחה.';
                 const ans = document.createElement('div'); try { ans.innerHTML = mdSafe(_fin); } catch (e) { ans.textContent = _fin; } txt.appendChild(ans); hist[hist.length - 1].content = _fin; break;
             }
             // 👄 הפה מדבר רק על רגע משמעותי (milestone) או כשיש בעיה — לא על כל פיפס. רץ במקביל לשרירים.
@@ -10433,6 +10478,11 @@ async function send() {
         inp.value = ''; inp.style.height = 'auto';
         await _handleEmail(q);
         return;
+    }
+    // ── 🧰 כלי-עוזר בשיחה רגילה (לא במצב-קוד, שם הסוכן מטפל): ה-מודל מחליט אם צריך כלי (מזג/מטבע/קריפטו/חדשות/תרגום/פתק/תזכורת/איש-קשר/ניווט/ויקי) — לא מילות-מפתח. אם לא → נופל לצ'אט רגיל. ──
+    if (q && !fileUrl && !fileContent && !mediaFile && (typeof currentMode === 'undefined' || currentMode !== 'code')) {
+        const _ah = await _handleAssistant(q);
+        if (_ah) { inp.value = ''; inp.style.height = 'auto'; return; }
     }
     // 💻🖥️ דסקטופ + מצב קוד = סוכן אוטומטי. כל מה שנכתב במצב "קוד" בדסקטופ הולך ישר לסוכן (בלי צורך במילות-הדק).
     // מצב "שיחה" נשאר שיחה רגילה. (בקשת דוד — פשטות: מצב קוד מדליק את הסוכן, מוכן)
