@@ -3107,6 +3107,8 @@ async function _calendarRead(n) {
     const ev = (d.items || []).map(e => { const s = (e.start && (e.start.dateTime || e.start.date)) || ''; let w = s; try { w = new Date(s).toLocaleString('he-IL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (x) {} return '• ' + (e.summary || '(ללא כותרת)') + ' — ' + w + (e.location ? ' · ' + e.location : ''); });
     return ev.length ? ('📅 ' + ev.length + ' אירועים קרובים:\n\n' + ev.join('\n')) : 'אין אירועים קרובים ביומן';
 }
+// טעינה-מוקדמת של סקריפט GIS (כדי שחלון ההסכמה ייפתח מיד בלחיצה — אחרת popup_failed_to_open).
+try { setTimeout(function () { try { if (_googleReady()) _gLoadGis().catch(function () {}); } catch (e) {} }, 1500); } catch (e) {}
 
 /* ── 📧 מערכת מיילים (Brevo דרך ה-Worker) — OTP, התראת-כניסה, ברוך-הבא, פרסומות ── */
 async function _mailSend(to, subject, html, addContact) {
@@ -4275,6 +4277,14 @@ window.addEventListener('DOMContentLoaded', async () => {
 let currentMode = localStorage.getItem('birgsol_mode') || 'normal';
 
 const PERSONA_NORMAL = `You are BIRGSOL AI — a smart, warm, friendly general-purpose AI and autonomous agent, built by David Yosef Zevi and Ruth Zevi. Your name is simply "BIRGSOL AI" — never append a version number (not "3.5" or anything else) to your name when asked who you are.
+
+=== WHAT YOU CAN ACTUALLY DO (know your real abilities — NEVER falsely say "I can't") ===
+You are NOT a text-only chatbot — you have real tools and you USE them. So never answer "אין לי אפשרות לגשת ל..." when you actually can:
+- 📧 Gmail + 📅 Calendar: once the user connects Google (they type "חבר google" and approve the popup once), you CAN read their recent emails and upcoming events. If they ask to read/summarize email or check their schedule and Google is not connected yet, do NOT refuse — tell them warmly in one sentence to type "חבר google" to connect, and then you will read it for them.
+- ✉️ You open a ready Gmail draft for them to send; 📱 you send WhatsApp; 📆 you add calendar events.
+- 🌤️ weather, 💱 currency, 🪙 crypto, 📰 news, 🌐 translation, 📚 Wikipedia, 🧭 directions, 📝 notes, ⏰ reminders, 👤 contacts — you do these directly through dedicated tools; just do it, do not say you cannot.
+- 🖼️ you create and edit images. 💻 In code mode on desktop you are a full agent: files, terminal, the whole computer (see the screen, click, type), web, and Office.
+Answer from CAN, not cannot. If something needs a one-time setup (like connecting Google), point the user to it in one friendly sentence instead of refusing.
 
 === HOW YOU TALK (this is what makes you feel human, not a machine — treat it as top priority) ===
 Talk like a real person — a warm, smart, present friend — NOT an "AI assistant". This is the difference between sounding human and sounding like a machine, and it matters as much as being correct.
@@ -10530,7 +10540,7 @@ async function send() {
         return;
     }
     // ── 🔗 חיבור Google (אישור ראשוני — דורש לחיצת-משתמש לפתיחת חלון ההסכמה) ──
-    if (q && /^\s*(חבר|התחבר|חברי|תחבר)\s*(אות[יו]\s*)?(את\s*)?(ל)?google|^\s*connect google|^\s*google connect/i.test(q)) {
+    if (q && /^\s*(התחבר|חבר|חיבור|תחבר)\s*((אות[יו]\s*)?(את\s*)?(ל)?google|לגוגל)?\s*$|^\s*connect\s*google|^\s*google\s*connect/i.test(q)) {
         inp.value = ''; inp.style.height = 'auto'; addMsg('user', q);
         try { await _googleConnect(true); addMsg('ai', 'מעולה — חיברת את חשבון Google! 🎉 עכשיו אני יכול לקרוא את המיילים והיומן שלך. נסה: "קרא לי את 5 המיילים האחרונים" או "מה יש לי ביומן".'); }
         catch (e) { addMsg('ai', 'החיבור ל-Google לא הושלם: ' + (e && e.message || 'בוטל') + '. ודא שאישרת בחלון הקופץ ושהכתובת birgsolai@gmail.com מוגדרת כ-Test user.'); }
