@@ -6380,7 +6380,12 @@ async function editImage(imgDataUrl, instruction) {
         // 4. 🆓 FLUX.2 klein (Cloudflare — העורך החינמי שלנו): אין עורך-נאמן אחר זמין, אז זה העורך (בקשת דוד). עם הוראות מחוזקות.
         skelTxt.textContent = 'עורך את התמונה…';
         const cfEdited = await _cfFluxEdit(imgDataUrl, eng);
-        if (cfEdited) { await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, cfEdited); return; }
+        if (cfEdited) {
+            await generateImage(instruction, row, { model: 'flux', suffix: '' }, null, null, cfEdited);
+            // 🫡 כנות: זה FLUX.2 (מדמיין מחדש), לא העורך הנאמן — כנראה המכסה החינמית של Qwen נגמרה להיום.
+            try { const _n = document.createElement('div'); _n.style.cssText = 'font-size:12px;color:var(--muted);margin-top:5px;line-height:1.55'; _n.textContent = '⚠️ העורך הנאמן (Qwen) הגיע למכסה החינמית להיום — זו גרסה מדומיינת-מחדש (פחות מדויקת). לעריכה נאמנה נסה שוב מאוחר יותר, או כשיתווספו עוד חשבונות/כרטיס.'; const _b = row.querySelector('.ai-body') || row; _b.appendChild(_n); } catch (e) {}
+            return;
+        }
     } catch (e) { if (e.name === 'AbortError') return; }
 
     // ── כל העורכים הנאמנים נכשלו → שגיאה כנה. בלי Pollinations, בלי "לדמיין מחדש" תמונה חדשה (לבקשת דוד). ──
