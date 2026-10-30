@@ -1863,6 +1863,7 @@
                     <div class="attach-wrap" style="position:relative;display:flex">
                         <button type="button" class="p-btn" title="צרף" onclick="_toggleAttachMenu(event)">＋</button>
                         <div id="attach-menu" class="attach-menu">
+                            <button type="button" onclick="_pickAttach('camera')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> <span data-i18n="attach_camera">מצלמה</span></button>
                             <button type="button" onclick="_pickAttach('gallery')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> <span data-i18n="attach_gallery">גלריה</span></button>
                             <button type="button" onclick="_pickAttach('files')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> <span data-i18n="attach_files">קבצים</span></button>
                         </div>
@@ -3894,12 +3895,12 @@ function _extractDomains(text) {
 /* ── UI translations per language ── */
 const L10N = {
     he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את Birgsol AI...', foot:'Birgsol AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
-          mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
+          mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_camera:'מצלמה', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
           your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה',
           settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות', del_confirm:'למחוק את השיחה הזו?',
           srv_busy:'השרת עמוס כרגע — מנסה שוב, נא להמתין…', srv_fail:'השרת עמוס מאוד כרגע. נסה שוב עוד רגע.', retry_btn:'נסה שוב' },
     en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask Birgsol AI...', foot:'Birgsol AI can make mistakes. Check important info.', newChat:'New chat',
-          mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
+          mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_camera:'Camera', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
           your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language',
           settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out', del_confirm:'Delete this chat?',
           srv_busy:'The server is busy — retrying, please wait…', srv_fail:'The server is very busy right now. Please try again in a moment.', retry_btn:'Try again' },
@@ -5306,10 +5307,41 @@ function _pickAttach(kind) {
     const fi = document.getElementById('fi');
     if (!fi) return;
     _lastPickKind = kind;
+    const m = document.getElementById('attach-menu'); if (m) m.classList.remove('on');
+    if (kind === 'camera') {
+        // נייד: מצלמת המכשיר דרך capture; דסקטופ: חלון webcam.
+        const isMobile = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+        if (isMobile) { fi.accept = 'image/*'; fi.multiple = false; try { fi.setAttribute('capture', 'environment'); } catch (e) {} fi.click(); setTimeout(function () { try { fi.removeAttribute('capture'); } catch (e) {} }, 1500); }
+        else { _openWebcamCapture(); }
+        return;
+    }
+    try { fi.removeAttribute('capture'); } catch (e) {}
     if (kind === 'gallery') { fi.accept = 'image/*'; fi.multiple = true; }
     else { fi.accept = '.txt,.pdf,.csv,.md,.json,.docx,.xlsx,.xls,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov'; fi.multiple = false; }
-    const m = document.getElementById('attach-menu'); if (m) m.classList.remove('on');
     fi.click();
+}
+// 📷 צילום ממצלמת המחשב (דסקטופ) — חלון תצוגה חי + כפתור צילום → מצרף את התמונה כמו כל קובץ.
+async function _openWebcamCapture() {
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } }); }
+    catch (e) { try { _alert('אין גישה למצלמה: ' + (e && e.message || 'הרשאה נדחתה')); } catch (x) {} return; }
+    const ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px';
+    const v = document.createElement('video'); v.autoplay = true; v.playsInline = true; v.muted = true; v.srcObject = stream; v.style.cssText = 'max-width:92vw;max-height:68vh;border-radius:16px;background:#000';
+    const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:12px';
+    const cap = document.createElement('button'); cap.textContent = '📸 צלם'; cap.style.cssText = 'background:#0ea5a4;color:#fff;border:none;padding:13px 30px;border-radius:30px;font-weight:700;font-size:16px;cursor:pointer';
+    const cancel = document.createElement('button'); cancel.textContent = 'ביטול'; cancel.style.cssText = 'background:#fff;color:#111;border:none;padding:13px 24px;border-radius:30px;cursor:pointer;font-size:15px';
+    btns.appendChild(cap); btns.appendChild(cancel); ov.appendChild(v); ov.appendChild(btns); document.body.appendChild(ov);
+    v.play().catch(function () {});
+    const close = () => { try { stream.getTracks().forEach(t => t.stop()); } catch (e) {} try { ov.remove(); } catch (e) {} };
+    cancel.onclick = close;
+    ov.onclick = (e) => { if (e.target === ov) close(); };
+    cap.onclick = () => {
+        try {
+            const c = document.createElement('canvas'); c.width = v.videoWidth || 1280; c.height = v.videoHeight || 720;
+            c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+            c.toBlob(function (b) { if (b) { try { const f = new File([b], 'camera_' + Date.now() + '.jpg', { type: 'image/jpeg' }); fileContent = ''; fileName = ''; _loadImageBlob(f); } catch (e) {} } close(); }, 'image/jpeg', 0.9);
+        } catch (e) { close(); }
+    };
 }
 // זיהוי תמונה עמיד: לפי type, או לפי סיומת, או כש-type ריק אבל נבחר מתפריט הגלריה (אנדרואיד/גוגל-תמונות מחזירים type ריק)
 function _isImgFile(f) {
