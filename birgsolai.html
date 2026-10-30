@@ -3070,20 +3070,21 @@ async function _finishLogin(user) {
     loadUserMemory();
 }
 
-/* ── 🔗 Google OAuth (GIS, client-side) — קריאת Gmail + Calendar. משתמש ב-GOOGLE_CLIENT_ID הקיים (אותו שמשמש לכניסה עם Google). ── */
+/* ── 🔗 Google OAuth (GIS, client-side) — קריאת Gmail + Calendar. Client ID נפרד מפרויקט BIRGSOL (עם Gmail+Calendar APIs + scopes); ה-GOOGLE_CLIENT_ID של הכניסה הוא פרויקט אחר. ── */
+const GOOGLE_API_CLIENT_ID = '557814343152-t4g504cp5arm1domjb47c3mhpiluv8ur.apps.googleusercontent.com';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly';
 let _gTokenClient = null, _gToken = null, _gTokenExp = 0;
-function _googleReady() { return !!GOOGLE_CLIENT_ID; }
+function _googleReady() { return !!GOOGLE_API_CLIENT_ID; }
 function _gLoadGis() { return new Promise((res, rej) => { if (window.google && google.accounts && google.accounts.oauth2) return res(); const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true; s.onload = res; s.onerror = () => rej(new Error('gsi load failed')); document.head.appendChild(s); }); }
 async function _googleConnect(interactive) {
-    if (!GOOGLE_CLIENT_ID) throw new Error('Google עדיין לא מוגדר (חסר Client ID)');
+    if (!GOOGLE_API_CLIENT_ID) throw new Error('Google עדיין לא מוגדר (חסר Client ID)');
     try { const st = JSON.parse(localStorage.getItem('birgsol_gtoken') || '{}'); if (st.token && st.exp > Date.now() + 60000) { _gToken = st.token; _gTokenExp = st.exp; } } catch (e) {}
     if (_gToken && _gTokenExp > Date.now() + 60000) return _gToken;
     await _gLoadGis();
     return await new Promise((res, rej) => {
         try {
             _gTokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID, scope: GOOGLE_SCOPES,
+                client_id: GOOGLE_API_CLIENT_ID, scope: GOOGLE_SCOPES,
                 callback: (resp) => { if (resp && resp.access_token) { _gToken = resp.access_token; _gTokenExp = Date.now() + (resp.expires_in ? resp.expires_in * 1000 : 3300000); try { localStorage.setItem('birgsol_gtoken', JSON.stringify({ token: _gToken, exp: _gTokenExp })); } catch (e) {} res(_gToken); } else rej(new Error('לא התקבל אישור מ-Google')); },
                 error_callback: (err) => rej(new Error((err && err.type) || 'חיבור Google נכשל'))
             });
@@ -7679,7 +7680,7 @@ async function _handleAssistant(q) {
     // סיווג קודם — בלי לגעת ב-UI; רק אם זוהה כלי, משתלטים.
     let o = { tool: "none" };
     try {
-        const sys = 'Classify the user request into ONE assistant tool and extract its parameters. Reply ONLY JSON: {"tool":"weather|currency|crypto|news|translate|note|remind|contact|wiki|directions|geo|none","city":"","from":"","to":"","amount":"","coins":"","query":"","text":"","when":"","name":"","detail":""}. weather->city; currency->from,to(ISO codes),amount(default 1); crypto->coins(ids like bitcoin,ethereum); news->query(topic); translate->text(the content to translate),to(target language name); note->text; remind->text,when(HH:MM); contact->name,detail(phone/email); wiki->query; directions->from,to(places); geo->query(place). If nothing clearly fits, set tool to "none".';
+        const sys = 'Classify the user request into ONE assistant tool and extract its parameters. Reply ONLY JSON: {"tool":"weather|currency|crypto|news|translate|note|remind|contact|wiki|directions|geo|readmail|readcalendar|none","city":"","from":"","to":"","amount":"","coins":"","query":"","text":"","when":"","name":"","detail":""}. readmail=read/summarize the user Gmail; readcalendar=check the user calendar/schedule. weather->city; currency->from,to(ISO codes),amount(default 1); crypto->coins(ids like bitcoin,ethereum); news->query(topic); translate->text(the content to translate),to(target language name); note->text; remind->text,when(HH:MM); contact->name,detail(phone/email); wiki->query; directions->from,to(places); geo->query(place). If nothing clearly fits, set tool to "none".';
         const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: q }], temperature: 0, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(12000) });
         if (r.ok) { const j = await r.json(); o = JSON.parse(j?.choices?.[0]?.message?.content || '{}'); }
     } catch (e) {}
@@ -7694,6 +7695,13 @@ async function _handleAssistant(q) {
             const to = o.to || 'English', txt = o.text || q; let out = '';
             try { const tr = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts: [{ text: 'Translate to ' + to + '. Output ONLY the translation, nothing else:\n\n' + txt }] }], generationConfig: { temperature: 0, maxOutputTokens: 1000 } }, { signal: AbortSignal.timeout(12000) }); const tj = tr.ok ? await tr.json() : null; out = (tj?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim(); } catch (e) {}
             addMsg('ai', out || 'לא הצלחתי לתרגם כרגע'); try { saveConversation(); } catch (e) {} return true;
+        }
+        // Gmail/Calendar — client-side (בלי גשר), עובד גם בוויב
+        if (t === 'readmail' || t === 'readcalendar') {
+            let out = '';
+            try { out = !_googleReady() ? 'Google עדיין לא מוגדר.' : (t === 'readmail' ? await _gmailRead(8) : await _calendarRead(8)); }
+            catch (e) { out = 'צריך להתחבר ל-Google קודם — כתוב "חבר google". (' + (e && e.message || '') + ')'; }
+            addMsg('ai', out); try { saveConversation(); } catch (e) {} return true;
         }
         if (!(typeof _isDesktop === 'function' && _isDesktop())) { addMsg('ai', 'הכלי הזה זמין כרגע רק באפליקציית הדסקטופ של BIRGSOL.'); try { saveConversation(); } catch (e) {} return true; }
         let res = '';
@@ -10520,6 +10528,13 @@ async function send() {
         inp.value = ''; inp.style.height = 'auto';
         await _handleEmail(q);
         return;
+    }
+    // ── 🔗 חיבור Google (אישור ראשוני — דורש לחיצת-משתמש לפתיחת חלון ההסכמה) ──
+    if (q && /^\s*(חבר|התחבר|חברי|תחבר)\s*(אות[יו]\s*)?(את\s*)?(ל)?google|^\s*connect google|^\s*google connect/i.test(q)) {
+        inp.value = ''; inp.style.height = 'auto'; addMsg('user', q);
+        try { await _googleConnect(true); addMsg('ai', 'מעולה — חיברת את חשבון Google! 🎉 עכשיו אני יכול לקרוא את המיילים והיומן שלך. נסה: "קרא לי את 5 המיילים האחרונים" או "מה יש לי ביומן".'); }
+        catch (e) { addMsg('ai', 'החיבור ל-Google לא הושלם: ' + (e && e.message || 'בוטל') + '. ודא שאישרת בחלון הקופץ ושהכתובת birgsolai@gmail.com מוגדרת כ-Test user.'); }
+        try { saveConversation(); } catch (e) {} return;
     }
     // ── 🧰 כלי-עוזר בשיחה רגילה (לא במצב-קוד, שם הסוכן מטפל): ה-מודל מחליט אם צריך כלי (מזג/מטבע/קריפטו/חדשות/תרגום/פתק/תזכורת/איש-קשר/ניווט/ויקי) — לא מילות-מפתח. אם לא → נופל לצ'אט רגיל. ──
     if (q && !fileUrl && !fileContent && !mediaFile && (typeof currentMode === 'undefined' || currentMode !== 'code')) {
