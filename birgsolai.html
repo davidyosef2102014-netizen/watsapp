@@ -7689,7 +7689,7 @@ function renderEmailCard(cw, mail, autoSend) {
     mail = mail || {};
     // כרטיס מוטמע בתוך הצ'אט (לא מעל) — ממורכז ורחב, נגלל עם השיחה. רספונסיבי לטלפון.
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin:10px auto;width:100%;max-width:520px;align-self:center;flex-shrink:0;border:1px solid var(--border);border-radius:16px;background:var(--surf2);overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.12)';
+    wrap.style.cssText = 'margin:10px auto;width:calc(100% - 28px);max-width:520px;align-self:center;flex-shrink:0;border:1px solid var(--border);border-radius:16px;background:var(--surf2);overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.12)';
     const gmailLogo = '<svg viewBox="0 0 24 24" width="20" height="20" style="vertical-align:-4px"><path fill="#EA4335" d="M1.636 21.002h3.819V11.73L0 7.64v11.726c0 .905.731 1.636 1.636 1.636z"/><path fill="#4285F4" d="M18.545 21.002h3.819c.905 0 1.636-.731 1.636-1.636V7.64l-5.455 4.09z"/><path fill="#FBBC04" d="M18.545 4.638v7.092L24 7.64V5.457c0-2.023-2.31-3.178-3.927-1.964z"/><path fill="#34A853" d="M5.455 11.73V4.638L12 9.548l6.545-4.91v7.092L12 16.64z"/><path fill="#C5221F" d="M0 5.457V7.64l5.455 4.09V4.638L3.927 3.493C2.309 2.28 0 3.434 0 5.457z"/></svg>';
     const esc = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
     const uid = 'em' + Date.now();
