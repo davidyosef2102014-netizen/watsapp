@@ -7468,7 +7468,7 @@ function renderWhatsAppCard(cw, name, number, message) {
     if (!cw) return;
     const safe = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin:8px 0;padding:14px 16px;border:1px solid #e4e7ef;border-radius:14px;background:#ffffff;color:#141414;max-width:460px;box-shadow:0 2px 10px rgba(0,0,0,.05)';
+    wrap.style.cssText = 'margin:8px 0;padding:14px 16px;border:1px solid #e4e7ef;border-radius:14px;background:#ffffff;color:#141414;max-width:460px;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.05)';
     const CYAN = 'linear-gradient(135deg,#38bdf8,#4285F4)';
     const waSvg = '<svg viewBox="0 0 24 24" width="17" height="17" fill="#25D366" style="vertical-align:-3px"><path d="M12 2a10 10 0 0 0-8.6 15l-1.4 5 5.1-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1-.4-.1-.9-.3-1.6-.6-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.8s.7-2 .9-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.3.5c-.1.2-.3.3-.1.6.1.2.6 1 1.3 1.6.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.7-.8c.2-.2.4-.2.6-.1l1.8.9c.2.1.4.2.5.3 0 .2 0 .8-.2 1.3z"/></svg>';
     if (number) {
@@ -7509,7 +7509,7 @@ function renderSMSCard(cw, name, number, message) {
     const safe = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
     const CYAN = 'linear-gradient(135deg,#38bdf8,#4285F4)';
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin:8px 0;padding:14px 16px;border:1px solid #e4e7ef;border-radius:14px;background:#ffffff;color:#141414;max-width:460px;box-shadow:0 2px 10px rgba(0,0,0,.05)';
+    wrap.style.cssText = 'margin:8px 0;padding:14px 16px;border:1px solid #e4e7ef;border-radius:14px;background:#ffffff;color:#141414;max-width:460px;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.05)';
     const smsSvg = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
     const inApp = !!(window.BIRGSOL_SMS && window.BIRGSOL_SMS.send);
     if (number) {
@@ -7571,7 +7571,7 @@ function renderCalendarCard(cw, ev) {
     const gUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(ev.title || '') + '&dates=' + start + '/' + end + (ev.location ? '&location=' + encodeURIComponent(ev.location) : '') + (ev.notes ? '&details=' + encodeURIComponent(ev.notes) : '');
     const whenTxt = (() => { try { return new Date(ev.start).toLocaleString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ev.start; } })();
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin:8px 0;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surf2);max-width:460px';
+    wrap.style.cssText = 'margin:8px 0;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surf2);max-width:460px;flex-shrink:0';
     const calSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
     wrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:4px">' + calSvg + safe(ev.title) + '</div>'
         + '<div style="font-size:13px;color:var(--muted);margin-bottom:10px">🕐 ' + safe(whenTxt) + (ev.location ? ' · 📍 ' + safe(ev.location) : '') + '</div>'
@@ -7629,7 +7629,7 @@ async function _handleWhatsApp(q) {
 // זיהוי ישיר של בקשת רישום ביומן — מילות-הפעלה ברורות (עברית+אנגלית).
 function _isCalendarReq(q) {
     if (!q) return false;
-    return /תרשום ביומן|רשום ביומן|תוסיף ליומן|הוסף ליומן|קבע ביומן|תקבע ביומן|קבע לי|תקבע לי|אירוע ביומן|תזכיר לי|תזכורת ל|פגישה (ב|עם|ל)|add to calendar|add event|schedule (a|an|me)|remind me|calendar:/i.test(q);
+    return /(תרשום|רשום|תוסיף|תוסיפי|הוסף|הוסיפי|קבע|תקבע|תקבעי)\s*(לי\s*)?(ל|ב)?יומן|קבע לי|תקבע לי|אירוע ביומן|תזכיר לי|תזכורת ל|פגישה (ב|עם|ל)|add to calendar|add event|schedule (a|an|me)|remind me|calendar:/i.test(q);
 }
 async function _handleCalendar(q) {
     addMsg('user', q);
@@ -7689,7 +7689,7 @@ function renderEmailCard(cw, mail, autoSend) {
     mail = mail || {};
     // כרטיס מוטמע בתוך הצ'אט (לא מעל) — ממורכז ורחב, נגלל עם השיחה. רספונסיבי לטלפון.
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin:10px auto;width:100%;max-width:520px;align-self:center;border:1px solid var(--border);border-radius:16px;background:var(--surf2);overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.12)';
+    wrap.style.cssText = 'margin:10px auto;width:100%;max-width:520px;align-self:center;flex-shrink:0;border:1px solid var(--border);border-radius:16px;background:var(--surf2);overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.12)';
     const gmailLogo = '<svg viewBox="0 0 24 24" width="20" height="20" style="vertical-align:-4px"><path fill="#EA4335" d="M1.636 21.002h3.819V11.73L0 7.64v11.726c0 .905.731 1.636 1.636 1.636z"/><path fill="#4285F4" d="M18.545 21.002h3.819c.905 0 1.636-.731 1.636-1.636V7.64l-5.455 4.09z"/><path fill="#FBBC04" d="M18.545 4.638v7.092L24 7.64V5.457c0-2.023-2.31-3.178-3.927-1.964z"/><path fill="#34A853" d="M5.455 11.73V4.638L12 9.548l6.545-4.91v7.092L12 16.64z"/><path fill="#C5221F" d="M0 5.457V7.64l5.455 4.09V4.638L3.927 3.493C2.309 2.28 0 3.434 0 5.457z"/></svg>';
     const esc = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
     const uid = 'em' + Date.now();
@@ -7750,7 +7750,12 @@ async function _handleAssistant(q) {
             catch (e) { out = 'צריך להתחבר ל-Google קודם — כתוב "חבר google". (' + (e && e.message || '') + ')'; }
             addMsg('ai', out); try { saveConversation(); } catch (e) {} return true;
         }
-        if (!(typeof _isDesktop === 'function' && _isDesktop())) { addMsg('ai', 'הכלי הזה זמין כרגע רק באפליקציית הדסקטופ של BIRGSOL.'); try { saveConversation(); } catch (e) {} return true; }
+        // נייד/ווב: אין גשר Python → מריצים את הכלי בצד-הלקוח (fetch ישיר ל-APIים חינמיים / localStorage)
+        if (!(typeof _isDesktop === 'function' && _isDesktop())) {
+            let cres = '';
+            try { cres = await _worldClient(t, o, q); } catch (e) { cres = ''; }
+            addMsg('ai', String(cres || 'לא הצלחתי כרגע, נסה שוב בעוד רגע.')); try { saveConversation(); } catch (e) {} return true;
+        }
         let res = '';
         if (t === 'weather') res = await _execNativeTool([null, String(o.city || o.query || '')], 'weather');
         else if (t === 'currency') res = await _execNativeTool([null, String(o.from || 'USD') + '|||' + String(o.to || 'ILS') + '|||' + String(o.amount || '1')], 'currency');
@@ -7765,6 +7770,73 @@ async function _handleAssistant(q) {
         else { addMsg('ai', 'לא הצלחתי להבין איזה כלי צריך.'); try { saveConversation(); } catch (e) {} return true; }
         addMsg('ai', String(res || 'בוצע ✓')); try { saveConversation(); } catch (e) {} return true;
     } finally { busy = false; updateBtn(); }
+}
+// 🌍 כלי-עולם בצד-הלקוח (נייד/ווב, בלי גשר Python) — fetch ישיר ל-APIים חינמיים עם CORS. news דרך webSearch; פתק/תזכורת/איש-קשר ב-localStorage.
+async function _worldClient(t, o, q) {
+    const _jf = async (url) => { const r = await fetch(url, { headers: { 'Accept': 'application/json' } }); if (!r.ok) throw new Error('http ' + r.status); return r.json(); };
+    const WC = { 0: 'בהיר', 1: 'בהיר בעיקר', 2: 'מעונן חלקית', 3: 'מעונן', 45: 'ערפל', 48: 'ערפל', 51: 'טפטוף קל', 53: 'טפטוף', 55: 'טפטוף חזק', 61: 'גשם קל', 63: 'גשם', 65: 'גשם חזק', 71: 'שלג קל', 73: 'שלג', 75: 'שלג כבד', 80: 'ממטרים', 81: 'ממטרים', 82: 'ממטרים עזים', 95: 'סופת רעמים', 96: 'סופת ברד' };
+    if (t === 'weather') {
+        const city = String(o.city || o.query || '').trim(); if (!city) return 'על איזו עיר לבדוק מזג אוויר?';
+        const g = await _jf('https://geocoding-api.open-meteo.com/v1/search?count=1&language=he&name=' + encodeURIComponent(city));
+        if (!g.results || !g.results.length) return 'לא נמצאה העיר: ' + city;
+        const loc = g.results[0];
+        const w = await _jf('https://api.open-meteo.com/v1/forecast?current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&latitude=' + loc.latitude + '&longitude=' + loc.longitude);
+        const c = w.current, d = w.daily; let out = 'מזג אוויר ב-' + (loc.name || city) + (loc.country ? ', ' + loc.country : '') + ':\n';
+        out += 'עכשיו: ' + c.temperature_2m + '°C, ' + (WC[c.weather_code] || '') + ', לחות ' + c.relative_humidity_2m + '%, רוח ' + c.wind_speed_10m + ' קמ"ש\n';
+        for (let i = 0; i < Math.min(4, d.time.length); i++) { out += d.time[i] + ': ' + d.temperature_2m_min[i] + '°—' + d.temperature_2m_max[i] + '°, ' + (WC[d.weather_code[i]] || '') + '\n'; }
+        return out.trim();
+    }
+    if (t === 'currency') {
+        const frm = String(o.from || 'USD').toUpperCase(), to = String(o.to || 'ILS').toUpperCase(), amt = parseFloat(o.amount || '1') || 1;
+        const d = await _jf('https://open.er-api.com/v6/latest/' + encodeURIComponent(frm));
+        const rate = d.rates && d.rates[to]; if (rate == null) return 'לא נמצא שער ל-' + frm + '→' + to;
+        return amt + ' ' + frm + ' = ' + (amt * rate).toFixed(4) + ' ' + to + ' (שער ' + rate.toFixed(4) + ')';
+    }
+    if (t === 'crypto') {
+        const ids = String(o.coins || o.query || 'bitcoin').split(',').map(s => s.trim().toLowerCase()).filter(Boolean).join(',');
+        const d = await _jf('https://api.coingecko.com/api/v3/simple/price?ids=' + encodeURIComponent(ids) + '&vs_currencies=usd,ils&include_24hr_change=true');
+        const keys = Object.keys(d); if (!keys.length) return 'לא נמצא מטבע: ' + ids;
+        return keys.map(k => { const v = d[k]; const ch = v.usd_24h_change || 0; return k + ': $' + v.usd + ' | ₪' + v.ils + ' (' + (ch >= 0 ? '+' : '') + ch.toFixed(2) + '% ב-24ש)'; }).join('\n');
+    }
+    if (t === 'wiki') {
+        const query = String(o.query || q || '').trim();
+        const s = await _jf('https://he.wikipedia.org/w/api.php?action=query&list=search&format=json&origin=*&srlimit=1&srsearch=' + encodeURIComponent(query));
+        const hits = s.query && s.query.search; if (!hits || !hits.length) return 'לא נמצא בוויקיפדיה: ' + query;
+        const title = hits[0].title;
+        const su = await _jf('https://he.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title.replace(/ /g, '_')));
+        return (su.title || title) + '\n' + ((su.extract || '').slice(0, 2000)) + (su.content_urls && su.content_urls.desktop ? '\n' + su.content_urls.desktop.page : '');
+    }
+    if (t === 'geo') {
+        const place = String(o.query || q || '').trim();
+        const d = await _jf('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(place));
+        if (!d.length) return 'לא נמצא מקום: ' + place;
+        return d[0].display_name + '\nlat=' + d[0].lat + ' lon=' + d[0].lon;
+    }
+    if (t === 'directions') {
+        const _gc = async (p) => { const d = await _jf('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(p)); return d.length ? d[0] : null; };
+        const ga = await _gc(String(o.from || '').trim()), gb = await _gc(String(o.to || '').trim());
+        if (!ga || !gb) return 'לא הצלחתי לאתר אחד מהמקומות';
+        const r = await _jf('https://router.project-osrm.org/route/v1/driving/' + ga.lon + ',' + ga.lat + ';' + gb.lon + ',' + gb.lat + '?overview=false');
+        if (r.code !== 'Ok' || !r.routes || !r.routes.length) return 'לא נמצא מסלול';
+        const rt = r.routes[0], km = rt.distance / 1000, mins = rt.duration / 60;
+        return 'מ-' + ga.display_name.slice(0, 60) + '\nל-' + gb.display_name.slice(0, 60) + '\nמרחק: ' + km.toFixed(1) + ' ק"מ | זמן נסיעה: ' + Math.round(mins) + ' דקות (' + (mins / 60).toFixed(1) + ' שעות)';
+    }
+    if (t === 'news') {
+        try { if (typeof webSearch === 'function') { const res = await webSearch('חדשות ' + String(o.query || q || '')); return res || 'לא נמצאו חדשות כרגע.'; } } catch (e) {}
+        return 'לא הצלחתי להביא חדשות כרגע.';
+    }
+    if (t === 'note' || t === 'remind' || t === 'contact') return _personalClient(t, o, q);
+    return '';
+}
+// 👤 אחסון אישי בצד-הלקוח (נייד) — פתקים/תזכורות/אנשי-קשר ב-localStorage.
+function _personalClient(kind, o, q) {
+    let db = { notes: [], reminders: [], contacts: [] };
+    try { const raw = JSON.parse(localStorage.getItem('birgsol_personal') || '{}'); db.notes = raw.notes || []; db.reminders = raw.reminders || []; db.contacts = raw.contacts || []; } catch (e) {}
+    const _sv = () => { try { localStorage.setItem('birgsol_personal', JSON.stringify(db)); } catch (e) {} };
+    if (kind === 'note') { const txt = String(o.text || q || '').trim(); db.notes.push({ text: txt, ts: Date.now() }); _sv(); return '📝 נשמר פתק: ' + txt; }
+    if (kind === 'remind') { const txt = String(o.text || q || '').trim(), when = String(o.when || '').trim(); db.reminders.push({ text: txt, when: when, ts: Date.now() }); _sv(); return '⏰ שמרתי תזכורת' + (when ? ' לשעה ' + when : '') + ': ' + txt; }
+    if (kind === 'contact') { const name = String(o.name || '').trim(), detail = String(o.detail || '').trim(); db.contacts = db.contacts.filter(c => c.name !== name); db.contacts.push({ name: name, detail: detail, ts: Date.now() }); _sv(); return '👤 נשמר איש קשר: ' + name + (detail ? ' — ' + detail : ''); }
+    return '';
 }
 async function executeTool(match, type, statusEl, cw) {
     if (type === 'calendar') {
