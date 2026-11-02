@@ -10139,7 +10139,13 @@ async function runNativeAgent(goal, opts) {
         break;
         } // סוף עטיפת ההמשך-האוטומטי (while)
         _finishHdr();
-        if (_agentStop && (!hist[hist.length - 1].content)) { const m = 'הסוכן נעצר.'; txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; }
+        if (_agentStop && (!hist[hist.length - 1].content)) {
+            txt.innerHTML = _esc('⏹ הסוכן נעצר. אני זוכר מה הספקתי לעשות — אפשר לשאול על זה או לכתוב "תמשיך".');
+            // 🧠 שומר לשיחה את ההקשר של מה שהסוכן הספיק לעשות עד העצירה (כדי שההמשך בצ'אט יידע מה קרה)
+            let _sctx = 'הסוכן נעצר על ידי המשתמש באמצע המשימה. המטרה הייתה: ' + goal + '.';
+            try { const _st = stepsLog.filter(Boolean).slice(-12).map(s => String(s).replace(/\s+/g, ' ').slice(0, 220)); if (_st.length) _sctx += '\nמה שהספקתי לעשות עד העצירה:\n' + _st.join('\n'); } catch (e) {}
+            hist[hist.length - 1].content = _sctx;
+        }
         if (!hist[hist.length - 1].content) {
             // הגענו לתקרת הצעדים בלי done — דיווח כן על מה שנעשה ומה נשאר, והצעה להמשיך (לא "סיימתי את הצעדים" גנרי).
             let m = await _agGenStuck(goal, stepsLog, 'reached the step limit for this run before the goal was fully complete').catch(() => null);
@@ -10433,7 +10439,12 @@ async function _browserAgent(goal, opts) {
             }
         }
         _finishHdr();
-        if (_agentStop && (!hist[hist.length - 1].content)) { const m = 'הסוכן נעצר.'; txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; }
+        if (_agentStop && (!hist[hist.length - 1].content)) {
+            txt.innerHTML = _esc('⏹ הסוכן נעצר. אני זוכר מה הספקתי לעשות — אפשר לשאול על זה או לכתוב "תמשיך".');
+            let _sctx = 'הסוכן נעצר על ידי המשתמש באמצע המשימה. המטרה הייתה: ' + goal + '.';
+            try { const _st = stepsLog.filter(Boolean).slice(-12).map(s => String(s).replace(/\s+/g, ' ').slice(0, 220)); if (_st.length) _sctx += '\nמה שהספקתי לעשות עד העצירה:\n' + _st.join('\n'); } catch (e) {}
+            hist[hist.length - 1].content = _sctx;
+        }
         if (!hist[hist.length - 1].content) { const m = 'סיימתי את הצעדים שיכולתי. בדוק את הדף בדפדפן.'; const d = document.createElement('div'); d.textContent = m; txt.appendChild(d); hist[hist.length - 1].content = m; }
         // צילום מסך אחרון
         if (state && state.screenshot) { const im = document.createElement('img'); im.src = state.screenshot; im.style.cssText = 'max-width:100%;border-radius:12px;margin-top:9px;display:block;border:1px solid var(--border);cursor:pointer'; im.onclick = () => window.open(state.screenshot, '_blank'); txt.appendChild(im); }
