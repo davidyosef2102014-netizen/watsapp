@@ -3073,7 +3073,7 @@ async function _finishLogin(user) {
 
 /* ── 🔗 Google OAuth (GIS, client-side) — קריאת Gmail + Calendar. Client ID נפרד מפרויקט BIRGSOL (עם Gmail+Calendar APIs + scopes); ה-GOOGLE_CLIENT_ID של הכניסה הוא פרויקט אחר. ── */
 const GOOGLE_API_CLIENT_ID = '557814343152-t4g504cp5arm1domjb47c3mhpiluv8ur.apps.googleusercontent.com';
-const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly';
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar.readonly';
 let _gTokenClient = null, _gToken = null, _gTokenExp = 0;
 function _googleReady() { return !!GOOGLE_API_CLIENT_ID; }
 function _gLoadGis() { return new Promise((res, rej) => { if (window.google && google.accounts && google.accounts.oauth2) return res(); const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true; s.onload = res; s.onerror = () => rej(new Error('gsi load failed')); document.head.appendChild(s); }); }
@@ -3107,6 +3107,29 @@ async function _calendarRead(n) {
     const d = await _gFetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=' + n + '&orderBy=startTime&singleEvents=true&timeMin=' + encodeURIComponent(now));
     const ev = (d.items || []).map(e => { const s = (e.start && (e.start.dateTime || e.start.date)) || ''; let w = s; try { w = new Date(s).toLocaleString('he-IL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (x) {} return '• ' + (e.summary || '(ללא כותרת)') + ' — ' + w + (e.location ? ' · ' + e.location : ''); });
     return ev.length ? ('📅 ' + ev.length + ' אירועים קרובים:\n\n' + ev.join('\n')) : 'אין אירועים קרובים ביומן';
+}
+// ✉️ שליחת מייל דרך ה-Gmail של המשתמש (Gmail API, הרשאת gmail.send) — RFC822 מקודד base64url, תומך עברית/UTF-8.
+async function _gmailSend(to, subject, body) {
+    const t = await _googleConnect(false);
+    const _b64 = (s) => btoa(unescape(encodeURIComponent(String(s == null ? '' : s))));
+    const msg = [
+        'To: ' + to,
+        'Subject: =?UTF-8?B?' + _b64(subject) + '?=',
+        'MIME-Version: 1.0',
+        'Content-Type: text/plain; charset="UTF-8"',
+        'Content-Transfer-Encoding: base64',
+        '',
+        _b64(body)
+    ].join('\r\n');
+    const raw = _b64(msg).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw: raw })
+    });
+    if (r.status === 401) { _gToken = null; try { localStorage.removeItem('birgsol_gtoken'); } catch (e) {} throw new Error('פג תוקף — התחבר מחדש ל-Google'); }
+    if (!r.ok) { let em = ''; try { em = (await r.json()).error.message; } catch (x) {} throw new Error('Gmail ' + r.status + (em ? ': ' + em : '')); }
+    return true;
 }
 // טעינה-מוקדמת של סקריפט GIS (כדי שחלון ההסכמה ייפתח מיד בלחיצה — אחרת popup_failed_to_open).
 try { setTimeout(function () { try { if (_googleReady()) _gLoadGis().catch(function () {}); } catch (e) {} }, 1500); } catch (e) {}
@@ -7706,14 +7729,36 @@ function renderEmailCard(cw, mail, autoSend) {
     cw.appendChild(wrap);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
     const g = id => document.getElementById(id);
-    // 🚫 ללא Brevo — שליחת מיילים של משתמשים דרך Brevo אסורה (חוסמת את החשבון). הכל עובר דרך ה-Gmail של המשתמש.
+    // ✉️ שליחה דרך החשבון המחובר: קודם חיבור Google (אם צריך), ואז שליחה דרך Gmail API — בלי לפתוח אתר.
+    //    נפילה-לאחור לפתיחת חלון כתיבה ב-Gmail רק אם ה-API נכשל (או שגוגל לא מוגדר).
     const _openGmail = () => {
         const url = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(g(uid + '_to').value) + '&su=' + encodeURIComponent(g(uid + '_su').value) + '&body=' + encodeURIComponent(g(uid + '_body').value);
         window.open(url, '_blank', 'noopener');
     };
-    g(uid + '_gm').onclick = _openGmail;
-    // "שלח" מפורש → פותח ישר את חלון הכתיבה ב-Gmail עם הטיוטה מוכנה (שליחה בלחיצה אחת, מהכתובת של המשתמש).
-    if (autoSend) { _openGmail(); }
+    const _showSt = (m, c) => { const s = g(uid + '_st'); if (s) { s.style.display = 'block'; s.style.color = c || 'var(--muted)'; s.textContent = m; } };
+    let _sending = false;
+    const _doSend = async () => {
+        if (_sending) return;
+        const _to = g(uid + '_to').value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+/.test(_to)) { _showSt(_tr('הכנס כתובת מייל תקינה של הנמען'), '#e5484d'); return; }
+        if (!(typeof _googleReady === 'function' && _googleReady())) { _openGmail(); return; }
+        _sending = true; const _btn = g(uid + '_gm'); if (_btn) { _btn.disabled = true; _btn.style.opacity = '.6'; }
+        try {
+            if (!(_gToken && _gTokenExp > Date.now() + 60000)) _showSt(_tr('מתחבר ל-Google…'));
+            await _googleConnect(true);               // קודם חיבור גוגל (פופ-אפ רק אם עוד לא מחובר)
+            _showSt(_tr('שולח…'));
+            await _gmailSend(_to, g(uid + '_su').value, g(uid + '_body').value);
+            _showSt('✅ ' + _tr('נשלח מה-Gmail שלך!'), '#16a34a');
+            if (_btn) _btn.textContent = '✓ ' + _tr('נשלח');
+        } catch (e) {
+            _sending = false; if (_btn) { _btn.disabled = false; _btn.style.opacity = '1'; }
+            _showSt(_tr('השליחה הישירה לא עבדה — פותח חלון כתיבה ב-Gmail') + ' (' + ((e && e.message) || '') + ')', '#e5484d');
+            _openGmail();
+        }
+    };
+    g(uid + '_gm').onclick = _doSend;
+    // "שלח" מפורש → מנסה לחבר-ולשלוח אוטומטית (אם הפופ-אפ נחסם → נופל לפתיחת חלון כתיבה)
+    if (autoSend) { _doSend(); }
     return true;
 }
 // 🧰 כלי-עוזר בשיחה רגילה (לא רק בסוכן/מצב-קוד): מזג אוויר, מטבע, קריפטו, חדשות, תרגום, פתק, תזכורת, איש-קשר, ניווט, ויקי.
