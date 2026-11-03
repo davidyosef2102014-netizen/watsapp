@@ -226,7 +226,7 @@
 
         /* BIRGSOL original spirograph logo — transparent, bold lines */
         .gem-star {
-            width: 84px; height: 84px; margin-bottom: 24px;
+            width: 96px; height: 96px; margin-bottom: 22px;
             background: url('birgsol-logo-transparent.png?v=8') center/contain no-repeat;
             animation: sparkle 4s ease-in-out infinite;
         }
@@ -251,7 +251,12 @@
             backdrop-filter: blur(8px);
         }
         .sug-card:hover { border-color: rgba(56,189,248,.4); background: #fff; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(30,50,90,.08); }
-        .sug-icon { font-size: 20px; margin-bottom: 8px; }
+        .sug-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 11px; }
+        .sug-icon svg { width: 21px; height: 21px; }
+        .sug-ic-code   { background: rgba(66,133,244,.12);  color: #4285F4; }
+        .sug-ic-img    { background: rgba(156,106,222,.14); color: #9C6ADE; }
+        .sug-ic-search { background: rgba(13,148,136,.13);  color: #0d9488; }
+        .sug-ic-learn  { background: rgba(234,67,53,.11);   color: #EA4335; }
         .sug-title { font-size: 14px; font-weight: 700; }
         .sug-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
 
@@ -1805,26 +1810,26 @@
         <div class="gem-star"></div>
         <div class="gem-hello" id="gem-hello">שלום</div>
         <div class="gem-sub" id="gem-sub">איך אוכל לעזור לך היום?</div>
-        <div class="sug-grid" id="sug-grid" style="display:none">
-            <div class="sug-card" onclick="sendSug('כתוב לי אפלקציית todo list ב-HTML/CSS/JS מלאה ועם עיצוב יפה')">
-                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
-                <div class="sug-title">קוד מלא</div>
-                <div class="sug-desc">HTML, Python, JS, React ועוד</div>
+        <div class="sug-grid" id="sug-grid">
+            <div class="sug-card" onclick="sendSugKey('sug_code_q')">
+                <div class="sug-icon sug-ic-code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                <div class="sug-title" data-i18n="sug_code_t">כתיבת קוד</div>
+                <div class="sug-desc" data-i18n="sug_code_d">אתרים, אפליקציות, סקריפטים</div>
             </div>
-            <div class="sug-card" onclick="sendSug('צור תמונה של עיר עתידנית מרהיבה בשקיעה')">
-                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></div>
-                <div class="sug-title">יצירת תמונה</div>
-                <div class="sug-desc">AI image generation בחינם</div>
+            <div class="sug-card" onclick="sendSugKey('sug_img_q')">
+                <div class="sug-icon sug-ic-img"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="m21 15-4.5-4.5a2 2 0 0 0-2.8 0L4 20"/></svg></div>
+                <div class="sug-title" data-i18n="sug_img_t">יצירת תמונה</div>
+                <div class="sug-desc" data-i18n="sug_img_d">תאר — ואני אצייר</div>
             </div>
-            <div class="sug-card" onclick="sendSug('הסבר לי צעד אחר צעד איך עובד Neural Network')">
-                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg></div>
-                <div class="sug-title">הסברים ולמידה</div>
-                <div class="sug-desc">מדע, היסטוריה, מתמטיקה</div>
+            <div class="sug-card" onclick="sendSugKey('sug_search_q')">
+                <div class="sug-icon sug-ic-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
+                <div class="sug-title" data-i18n="sug_search_t">חיפוש באינטרנט</div>
+                <div class="sug-desc" data-i18n="sug_search_d">חדשות ומידע עדכני</div>
             </div>
-            <div class="sug-card" onclick="sendSug('עזור לי לנפות שגיאה בקוד שלי — אסביר את הבעיה')">
-                <div class="sug-icon"><svg class="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></div>
-                <div class="sug-title">Debug סוכן</div>
-                <div class="sug-desc">ניפוי שגיאות, אופטימיזציה</div>
+            <div class="sug-card" onclick="sendSugKey('sug_learn_q')">
+                <div class="sug-icon sug-ic-learn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+                <div class="sug-title" data-i18n="sug_learn_t">הסבר ולמידה</div>
+                <div class="sug-desc" data-i18n="sug_learn_d">מדע, היסטוריה, מתמטיקה</div>
             </div>
         </div>
     </div>
@@ -3830,7 +3835,13 @@ function addToHistory()           { /* לא בשימוש — saveConversation() 
 function updateGreeting() {
     const el = document.getElementById('gem-hello');
     if (!el) return;
-    const greet = localStorage.getItem('sp_greet') || (typeof _t === 'function' ? _t('greet') : 'שלום'); // ברירת מחדל לפי שפת הממשק (אנגלית → Hello)
+    // ברכה לפי שעת היום; ברכה מותאמת-אישית של המשתמש (לא גנרית) גוברת.
+    const h = new Date().getHours();
+    const tKey = h < 12 ? 'greet_morning' : (h < 18 ? 'greet_noon' : 'greet_evening');
+    const timeGreet = (typeof _t === 'function') ? _t(tKey) : 'שלום';
+    const saved = localStorage.getItem('sp_greet');
+    const generic = ['שלום', 'Hello', 'مرحبا', 'Привет', 'Salut'];
+    const greet = (saved && generic.indexOf(saved) === -1) ? saved : timeGreet;
     el.textContent = currentUser ? `${greet}, ${_displayName()}` : greet;
 }
 
@@ -3999,7 +4010,12 @@ const L10N_EXTRA = {
         live_voice:'קול בלייב', live_speed:'מהירות דיבור', speed_slow:'איטי', speed_normal:'רגיל', speed_fast:'מהיר', speed_vfast:'מהיר מאוד',
         voice_maya:'Emma · נשי רך', voice_noa:'Olivia · נשי בהיר', voice_tal:'Aria · נשי צעיר', voice_daniel:'Liam · גברי חם', voice_eitan:'Noah · גברי אנרגטי', voice_ran:'Ethan · גברי עמוק',
         bg_label:'רקע', bg_white:'לבן', bg_teal:'תכלת',
-        vp_title:'בחר קול', vp_sub:'הקול שבו BIRGSOL ידבר איתך בלייב', vp_done:'מעולה, בואו נתחיל'
+        vp_title:'בחר קול', vp_sub:'הקול שבו BIRGSOL ידבר איתך בלייב', vp_done:'מעולה, בואו נתחיל',
+        greet_morning:'בוקר טוב', greet_noon:'צהריים טובים', greet_evening:'ערב טוב',
+        sug_img_t:'יצירת תמונה', sug_img_d:'תאר — ואני אצייר', sug_img_q:'צור תמונה של עיר עתידנית מרהיבה בשקיעה',
+        sug_code_t:'כתיבת קוד', sug_code_d:'אתרים, אפליקציות, סקריפטים', sug_code_q:'בנה לי אפליקציית משימות יפה ב-HTML, CSS ו-JS',
+        sug_search_t:'חיפוש באינטרנט', sug_search_d:'חדשות ומידע עדכני', sug_search_q:'מה החדשות החשובות היום?',
+        sug_learn_t:'הסבר ולמידה', sug_learn_d:'מדע, היסטוריה, מתמטיקה', sug_learn_q:'הסבר לי בפשטות איך עובדת בינה מלאכותית'
     },
     en: {
         install_app:'Install as app', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install', agent_ext_label:'Chrome extension — browser agent', agent_ext_btn:'Download & install', ext_browser_label:'Browser for the agent (extension)', request_upgrade_btn:'Request upgrade',
@@ -4024,7 +4040,12 @@ const L10N_EXTRA = {
         live_voice:'Live voice', live_speed:'Speech speed', speed_slow:'Slow', speed_normal:'Normal', speed_fast:'Fast', speed_vfast:'Very fast',
         voice_maya:'Emma · soft female', voice_noa:'Olivia · bright female', voice_tal:'Aria · young female', voice_daniel:'Liam · warm male', voice_eitan:'Noah · energetic male', voice_ran:'Ethan · deep male',
         bg_label:'Background', bg_white:'White', bg_teal:'Sky blue',
-        vp_title:'Choose a voice', vp_sub:'The voice BIRGSOL speaks in during live', vp_done:"Great, let's go"
+        vp_title:'Choose a voice', vp_sub:'The voice BIRGSOL speaks in during live', vp_done:"Great, let's go",
+        greet_morning:'Good morning', greet_noon:'Good afternoon', greet_evening:'Good evening',
+        sug_img_t:'Create an image', sug_img_d:'Describe it and I will draw it', sug_img_q:'Create an image of a stunning futuristic city at sunset',
+        sug_code_t:'Write code', sug_code_d:'Sites, apps, scripts', sug_code_q:'Build me a beautiful to-do app in HTML, CSS and JS',
+        sug_search_t:'Search the web', sug_search_d:'News and fresh info', sug_search_q:'What are the top news stories today?',
+        sug_learn_t:'Explain and learn', sug_learn_d:'Science, history, math', sug_learn_q:'Explain simply how artificial intelligence works'
     }
 };
 Object.keys(L10N).forEach(l => Object.assign(L10N[l], L10N_EXTRA[l] || L10N_EXTRA.en));
@@ -4098,7 +4119,7 @@ function initSettings() {
         if (typeof _updateModeChip === 'function') _updateModeChip();
     } catch {}
     const greet = localStorage.getItem('sp_greet')     || 'שלום';
-    const cards = localStorage.getItem('sp_cards') === '1';
+    const cards = localStorage.getItem('sp_cards') !== '0'; // כרטיסי-הצעות דלוקים כברירת מחדל (ממלאים את מסך הבית)
     const lang  = _resolveLang();
 
     const selGreet = document.getElementById('sp-greet');
@@ -11433,6 +11454,8 @@ function sendSug(t) {
     document.getElementById('userInput').value = t;
     updateBtn(); send();
 }
+// כרטיס-הצעה: שולח את השאלה המתורגמת לפי מפתח i18n (עברית/אנגלית/וכו')
+function sendSugKey(key) { sendSug((typeof _t === 'function') ? _t(key) : key); }
 
 function startNew() {
     const cw = document.getElementById('chat-window');
