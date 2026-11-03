@@ -514,6 +514,15 @@
         .src-chip { font-size:10px; color:var(--muted); background:var(--border); border-radius:9px; padding:2px 8px; white-space:nowrap; }
         .agent-step { font-size:11px; color:var(--muted); display:inline-flex; align-items:center; gap:4px; opacity:.8; animation:fadeUp .15s ease; }
         .agent-step-dot { width:5px; height:5px; border-radius:50%; background:var(--blue); animation:blink .8s infinite; flex-shrink:0; }
+        /* 🔵 BIRGSOL "חושב" — 3 נקודות תכלת כהה מרחפות (סגנון Claude), בלי זוהר */
+        .bthink { position:relative; display:inline-block; width:22px; height:16px; vertical-align:middle; flex-shrink:0; }
+        .bthink .d { position:absolute; top:50%; left:50%; width:6px; height:6px; margin:-3px 0 0 -3px; border-radius:50%; will-change:transform,opacity; }
+        .bthink .d1 { background:#0284c7; animation:bdrift1 2s ease-in-out infinite; }
+        .bthink .d2 { background:#0891b2; animation:bdrift2 2.35s ease-in-out infinite; }
+        .bthink .d3 { background:#0d9488; animation:bdrift3 2.7s ease-in-out infinite; }
+        @keyframes bdrift1 {0%{transform:translate(-8px,1px) scale(1);opacity:.95}25%{transform:translate(-4px,-4px) scale(.7);opacity:.6}50%{transform:translate(2px,3px) scale(1.15);opacity:1}75%{transform:translate(-5px,4px) scale(.85);opacity:.75}100%{transform:translate(-8px,1px) scale(1);opacity:.95}}
+        @keyframes bdrift2 {0%{transform:translate(0,0) scale(.8);opacity:.6}30%{transform:translate(5px,4px) scale(1.1);opacity:1}55%{transform:translate(-2px,-3px) scale(.65);opacity:.5}80%{transform:translate(3px,-2px) scale(1);opacity:.9}100%{transform:translate(0,0) scale(.8);opacity:.6}}
+        @keyframes bdrift3 {0%{transform:translate(8px,2px) scale(1);opacity:.9}28%{transform:translate(2px,5px) scale(.75);opacity:.6}52%{transform:translate(-3px,-2px) scale(1.1);opacity:1}78%{transform:translate(6px,-4px) scale(.8);opacity:.7}100%{transform:translate(8px,2px) scale(1);opacity:.9}}
         .agent-ic-pulse { animation:blink .9s infinite; flex-shrink:0; }
         .agent-step b { color:var(--muted); font-weight:500; }
         /* image generation */
@@ -9601,17 +9610,13 @@ function _base(f) { return String(f).split(/[\\/]/).pop(); }
 // לוגו BIRGSOL מסתובב — אינדיקציית "עובד" בזמן ריצת הסוכן (כמו ה-✳ של Claude Code). בלי טיימר, בלי טקסט.
 function _agSpinner(container) {
     if (!container) return { stop: () => {} };
-    if (!document.getElementById('_bspin_css')) {
-        const st = document.createElement('style'); st.id = '_bspin_css';
-        st.textContent = '@keyframes _bspinrot{to{transform:rotate(360deg)}}._bspin svg{animation:_bspinrot 1.15s linear infinite;transform-origin:50% 50%}';
-        document.head.appendChild(st);
-    }
+    // 3 נקודות תכלת מרחפות (סגנון Claude) בתחילת הכותרת — בלי זוהר. בסיום → ✓/✗.
     const wrap = document.createElement('span');
-    wrap.style.cssText = 'display:inline-flex;align-items:center;margin-inline-start:6px';
-    wrap.innerHTML = '<span class="_bspin" style="display:inline-flex"><svg viewBox="0 0 40 40" width="15" height="15" fill="none" stroke="url(#_bsg)" stroke-width="2.6"><defs><linearGradient id="_bsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#6366f1"/></linearGradient></defs><ellipse cx="20" cy="20" rx="14" ry="6"/><ellipse cx="20" cy="20" rx="14" ry="6" transform="rotate(60 20 20)"/><ellipse cx="20" cy="20" rx="14" ry="6" transform="rotate(120 20 20)"/></svg></span>';
-    container.appendChild(wrap);
-    // בלי טיימר — רק סימון הצלחה/כישלון בסוף (סמל בלבד, בלי טקסט עברי)
-    return { stop: (ok) => { try { const sp = wrap.querySelector('._bspin'); if (sp) sp.innerHTML = ok === false ? '<span style="color:#dc2626">✗</span>' : '<span style="color:#22c55e">✓</span>'; } catch (e) {} } };
+    wrap.className = 'bthink';
+    wrap.style.marginInlineEnd = '4px';
+    wrap.innerHTML = '<span class="d d1"></span><span class="d d2"></span><span class="d d3"></span>';
+    container.insertBefore(wrap, container.firstChild);
+    return { stop: (ok) => { try { wrap.className = ''; wrap.style.cssText = 'margin-inline-end:4px'; wrap.innerHTML = ok === false ? '<span style="color:#dc2626">✗</span>' : '<span style="color:#22c55e">✓</span>'; } catch (e) {} } };
 }
 // זיהוי הצלחת פריסה בפלט ghdeploy → כרטיס פריסה עם commit + קישור
 function _deployCardFrom(container, cmd, out) {
@@ -9853,7 +9858,7 @@ async function runNativeAgent(goal, opts) {
     const _esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const _hdr = document.createElement('div');
     _hdr.style.cssText = 'display:inline-flex;align-items:center;gap:7px;cursor:pointer;border-radius:14px;padding:3px 10px;font-size:12px;font-weight:500;user-select:none;color:var(--muted,#8b909a);opacity:.9';
-    _hdr.innerHTML = '<span class="agent-step-dot" id="_nic_dot"></span><span>BIRGSOL — סוכן קוד</span><span id="_nic_chev" style="opacity:.55;font-size:11px">▾</span>';
+    _hdr.innerHTML = '<span>BIRGSOL</span><span id="_nic_chev" style="opacity:.55;font-size:11px">▾</span>';
     const _det = document.createElement('div'); _det.style.cssText = 'display:none;margin-top:8px;padding-inline-start:10px;border-inline-start:2px solid var(--border,#e2e4ea)';
     status.appendChild(_hdr); status.appendChild(_det);
     let _open = false; _hdr.onclick = () => { _open = !_open; _det.style.display = _open ? 'block' : 'none'; const ch = _hdr.querySelector('#_nic_chev'); if (ch) ch.textContent = _open ? '▴' : '▾'; };
@@ -10188,7 +10193,7 @@ async function _browserAgent(goal, opts) {
     // תצוגה מקופלת בסגנון "BIRGSOL in Chrome" — כל הצעדים מאחורי הקלעים; לחיצה פותחת ומראה מה הוא עושה
     const _hdr = document.createElement('div');
     _hdr.style.cssText = 'display:inline-flex;align-items:center;gap:7px;cursor:pointer;border-radius:14px;padding:3px 10px;font-size:12px;font-weight:500;user-select:none;color:var(--muted,#8b909a);opacity:.9';
-    _hdr.innerHTML = '<span class="agent-step-dot" id="_bic_dot"></span><span>BIRGSOL — סוכן</span><span id="_bic_chev" style="opacity:.55;font-size:11px">▾</span>';
+    _hdr.innerHTML = '<span>BIRGSOL</span><span id="_bic_chev" style="opacity:.55;font-size:11px">▾</span>';
     const _det = document.createElement('div');
     _det.style.cssText = 'display:none;margin-top:8px;padding-inline-start:10px;border-inline-start:2px solid var(--border,#e2e4ea)';
     status.appendChild(_hdr); status.appendChild(_det);
