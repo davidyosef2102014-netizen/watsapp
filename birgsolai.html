@@ -228,7 +228,6 @@
         .gem-star {
             width: 96px; height: 96px; margin-bottom: 22px;
             background: url('birgsol-logo-transparent.png?v=8') center/contain no-repeat;
-            animation: sparkle 4s ease-in-out infinite;
         }
         @keyframes sparkle { 0%,100%{transform:scale(1)}50%{transform:scale(1.05)} }
 
@@ -259,6 +258,13 @@
         .sug-ic-learn  { background: rgba(234,67,53,.11);   color: #EA4335; }
         .sug-title { font-size: 14px; font-weight: 700; }
         .sug-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+        /* כניסה מדורגת ואלגנטית — backwards בלבד כדי שה-hover ימשיך לעבוד אחרי האנימציה */
+        .sug-card { animation: sugIn .45s cubic-bezier(.2,.85,.3,1) backwards; }
+        .sug-card:nth-child(1){ animation-delay:.05s } .sug-card:nth-child(2){ animation-delay:.12s }
+        .sug-card:nth-child(3){ animation-delay:.19s } .sug-card:nth-child(4){ animation-delay:.26s }
+        @keyframes sugIn { from{opacity:0;transform:translateY(12px) scale(.985)} to{opacity:1;transform:translateY(0) scale(1)} }
+        .gem-hello, .gem-sub { animation: fadeUp .5s ease backwards; }
+        .gem-sub { animation-delay:.08s }
 
         /* ══════════════ CHAT (Gemini exact style) ══════════════ */
         #chat-window {
@@ -1810,7 +1816,7 @@
         <div class="gem-star"></div>
         <div class="gem-hello" id="gem-hello">שלום</div>
         <div class="gem-sub" id="gem-sub">איך אוכל לעזור לך היום?</div>
-        <div class="sug-grid" id="sug-grid">
+        <div class="sug-grid" id="sug-grid" style="display:none">
             <div class="sug-card" onclick="sendSugKey('sug_code_q')">
                 <div class="sug-icon sug-ic-code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
                 <div class="sug-title" data-i18n="sug_code_t">כתיבת קוד</div>
@@ -4119,7 +4125,7 @@ function initSettings() {
         if (typeof _updateModeChip === 'function') _updateModeChip();
     } catch {}
     const greet = localStorage.getItem('sp_greet')     || 'שלום';
-    const cards = localStorage.getItem('sp_cards') !== '0'; // כרטיסי-הצעות דלוקים כברירת מחדל (ממלאים את מסך הבית)
+    const cards = localStorage.getItem('sp_cards') === '1'; // כרטיסי-הצעות כבויים כברירת מחדל (בקשת דוד) — אפשר להדליק בהגדרות
     const lang  = _resolveLang();
 
     const selGreet = document.getElementById('sp-greet');
