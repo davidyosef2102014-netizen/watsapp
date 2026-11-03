@@ -1297,7 +1297,7 @@
         <div class="login-logo">
             <div class="l-star"></div>
             <h1>BIRGSOL AI 3.5</h1>
-            <p data-i18n="login_sub">התחבר עם חשבון Birgsol AI שלך</p>
+            <p data-i18n="login_sub">התחבר עם חשבון BIRGSOL AI שלך</p>
         </div>
         <div class="login-field">
             <label data-i18n="username">שם משתמש</label>
@@ -1375,7 +1375,7 @@
         <div class="login-logo">
             <div class="l-star"></div>
             <h1 data-i18n="reg_title">חשבון חדש</h1>
-            <p data-i18n="reg_sub">צור חשבון Birgsol AI אישי — עובד מכל מכשיר</p>
+            <p data-i18n="reg_sub">צור חשבון BIRGSOL AI אישי — עובד מכל מכשיר</p>
         </div>
         <div class="login-field">
             <label data-i18n="username">שם משתמש</label>
@@ -1889,7 +1889,7 @@
                         </div>
                     </div>
                     <input type="file" id="fi" multiple style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json,.docx,.xlsx,.xls,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov" onchange="previewFile()">
-                    <textarea id="userInput" dir="auto" placeholder="שאל את Birgsol AI..." rows="1"
+                    <textarea id="userInput" dir="auto" placeholder="שאל את BIRGSOL AI..." rows="1"
                         oninput="autoResize(this);updateBtn();"
                         onkeydown="handleKey(event)"></textarea>
                     <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="הקלדה קולית"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
@@ -1913,7 +1913,7 @@
                 <span id="token-ring-slot" style="display:inline-flex;align-items:center"></span>
                 <div id="model-menu" style="display:none;position:absolute;bottom:100%;right:0;left:auto;margin-bottom:8px;background:var(--surf);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:6px;z-index:60;min-width:250px;text-align:right"></div>
             </div>
-            <div class="foot-note" id="foot-note">Birgsol AI עשוי לטעות. בדוק מידע חשוב.</div>
+            <div class="foot-note" id="foot-note">BIRGSOL AI עשוי לטעות. בדוק מידע חשוב.</div>
         </div>
     </div>
 
@@ -2132,7 +2132,7 @@ function renderMsgOnly(role, text, histIdx) {
                 const data = JSON.parse(decodeURIComponent(escape(atob(mapMatch[1]))));
                 row.className = 'msg-row ai';
                 const bodyEl = document.createElement('div'); bodyEl.className = 'ai-body';
-                bodyEl.innerHTML = `<div class="ai-name">Birgsol AI</div><div class="ai-txt"></div>`;
+                bodyEl.innerHTML = `<div class="ai-name">BIRGSOL AI</div><div class="ai-txt"></div>`;
                 const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '';
                 row.appendChild(ava); row.appendChild(bodyEl);
                 cw.appendChild(row);
@@ -2147,7 +2147,7 @@ function renderMsgOnly(role, text, histIdx) {
                 const data = JSON.parse(decodeURIComponent(escape(atob(addrMapMatch[1]))));
                 row.className = 'msg-row ai';
                 const bodyEl = document.createElement('div'); bodyEl.className = 'ai-body';
-                bodyEl.innerHTML = `<div class="ai-name">Birgsol AI</div><div class="ai-txt"></div>`;
+                bodyEl.innerHTML = `<div class="ai-name">BIRGSOL AI</div><div class="ai-txt"></div>`;
                 const ava = document.createElement('div'); ava.className = 'ai-ava'; ava.textContent = '';
                 row.appendChild(ava); row.appendChild(bodyEl);
                 cw.appendChild(row);
@@ -2164,7 +2164,7 @@ function renderMsgOnly(role, text, histIdx) {
             row.innerHTML = `
                 <div class="ai-ava"></div>
                 <div class="ai-body">
-                    <div class="ai-name">Birgsol AI</div>
+                    <div class="ai-name">BIRGSOL AI</div>
                     <div class="ai-txt"><div class="ai-img-wrap"><img class="ai-gen-img" src="${url}" loading="lazy" style="display:block;cursor:pointer" title="פתח תמונה" onclick="window.open('${url}','_blank')"></div></div>
                     <div class="ai-acts">
                         <a class="ai-act" href="${url}" target="_blank" rel="noopener" style="text-decoration:none">${IC.extLink} ${_tLang('Open','פתח')}</a>
@@ -2180,7 +2180,7 @@ function renderMsgOnly(role, text, histIdx) {
         row.innerHTML = `
             <div class="ai-ava"></div>
             <div class="ai-body">
-                <div class="ai-name">Birgsol AI</div>
+                <div class="ai-name">BIRGSOL AI</div>
                 <div class="ai-txt">${content}</div>
                 <div class="ai-acts">
                     <button class="ai-act" onclick="copyIt(this)">${IC.copy} ${_tLang('Copy','העתק')}</button>
@@ -3426,7 +3426,7 @@ const _MSGS = {
     '⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com': { en:'⛔ The account was suspended due to detected suspicious activity. Please contact customer service: birgsolai@gmail.com' },
     'קוד שגוי.': { en:'Wrong code.' },
     'שגיאה בשמירה — נסה שוב.': { en:'Error saving — try again.' },
-    'להתנתק מ-Birgsol AI?': { en:'Log out of Birgsol AI?' },
+    'להתנתק מ-BIRGSOL AI?': { en:'Log out of BIRGSOL AI?' },
     'אין שיחה לשיתוף עדיין': { en:'No chat to share yet' },
     'שגיאה בשיתוף — נסה שוב': { en:'Error sharing — try again' },
     'קישור השיתוף הועתק!\nכל מי שיש לו את הקישור יוכל לצפות בשיחה.': { en:'Share link copied!\nAnyone with the link can view the chat.' },
@@ -3454,7 +3454,7 @@ const _MSGS = {
     '✓ שודרגת ל-{name}! בתוקף עד {date}': { en:'✓ Upgraded to {name}! Valid until {date}' },
     'התוכנית שלך הוחלפה ל-{name}{until}': { en:'Your plan was changed to {name}{until}' },
     '✅ הסיסמה של "{u}" עודכנה!': { en:'✅ The password for "{u}" was updated!' },
-    '✅ חשבון "{u}" נוצר! ברוך הבא ל-Birgsol AI 🎉': { en:'✅ Account "{u}" created! Welcome to Birgsol AI 🎉' },
+    '✅ חשבון "{u}" נוצר! ברוך הבא ל-BIRGSOL AI 🎉': { en:'✅ Account "{u}" created! Welcome to BIRGSOL AI 🎉' },
     ' עד ': { en:' until ' }
 };
 function _tr(s) {
@@ -3806,7 +3806,7 @@ async function doRegister() {
         document.getElementById('register-card').style.display = 'none';
         document.getElementById('login-card-main').style.display = 'block';
         await _finishLogin(user);
-        _alert(_trf('✅ חשבון "{u}" נוצר! ברוך הבא ל-Birgsol AI 🎉', { u: user }));
+        _alert(_trf('✅ חשבון "{u}" נוצר! ברוך הבא ל-BIRGSOL AI 🎉', { u: user }));
     } finally {
         btn.textContent = 'צור חשבון'; btn.disabled = false;
     }
@@ -3814,7 +3814,7 @@ async function doRegister() {
 
 /* ── logout ── */
 async function doLogout(force) {
-    if (!force && !await _confirm('להתנתק מ-Birgsol AI?')) return;
+    if (!force && !await _confirm('להתנתק מ-BIRGSOL AI?')) return;
     // סגירת כל חלון צף כדי שכלום לא יחסום קליקים (תיקון "הכפתורים נתקעים")
     ['admin-overlay','privacy-overlay','memory-overlay','pricing-modal','live-overlay'].forEach(id => { const el = document.getElementById(id); if (el) { el.classList.remove('on'); el.style.display = 'none'; } });
     try { busy = false; if (typeof updateBtn === 'function') updateBtn(); } catch {}
@@ -3943,27 +3943,27 @@ function _extractDomains(text) {
 
 /* ── UI translations per language ── */
 const L10N = {
-    he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את Birgsol AI...', foot:'Birgsol AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
+    he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את BIRGSOL AI...', foot:'BIRGSOL AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
           mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_camera:'מצלמה', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
           your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה',
           settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות', del_confirm:'למחוק את השיחה הזו?',
           srv_busy:'השרת עמוס כרגע — מנסה שוב, נא להמתין…', srv_fail:'השרת עמוס מאוד כרגע. נסה שוב עוד רגע.', retry_btn:'נסה שוב' },
-    en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask Birgsol AI...', foot:'Birgsol AI can make mistakes. Check important info.', newChat:'New chat',
+    en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask BIRGSOL AI...', foot:'BIRGSOL AI can make mistakes. Check important info.', newChat:'New chat',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_camera:'Camera', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
           your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language',
           settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out', del_confirm:'Delete this chat?',
           srv_busy:'The server is busy — retrying, please wait…', srv_fail:'The server is very busy right now. Please try again in a moment.', retry_btn:'Try again' },
-    ar: { greet:'مرحبا', sub:'كيف يمكنني مساعدتك اليوم؟', ph:'اسأل Birgsol AI...', foot:'قد يخطئ Birgsol AI. تحقق من المعلومات المهمة.', newChat:'محادثة جديدة',
+    ar: { greet:'مرحبا', sub:'كيف يمكنني مساعدتك اليوم؟', ph:'اسأل BIRGSOL AI...', foot:'قد يخطئ BIRGSOL AI. تحقق من المعلومات المهمة.', newChat:'محادثة جديدة',
           mode_chat:'محادثة', mode_code:'كود', mode_image:'صورة', convs:'المحادثات', search_ph:'ابحث في المحادثات...', settings_title:'إعدادات العرض',
           your_plan:'خطتك', dark_mode:'الوضع الداكن', greeting:'تحية', suggestion_cards:'بطاقات الاقتراحات', ai_lang:'اللغة',
           settings:'الإعدادات', user_mgmt:'إدارة المستخدمين', created_by:'من إنشاء ديفيد يوسف زيفي', logout:'تسجيل الخروج', del_confirm:'هل تريد حذف هذه المحادثة؟',
           srv_busy:'الخادم مشغول — جارٍ إعادة المحاولة، يرجى الانتظار…', srv_fail:'الخادم مشغول جدًا حاليًا. حاول مرة أخرى بعد لحظة.', retry_btn:'حاول مرة أخرى' },
-    ru: { greet:'Привет', sub:'Чем я могу помочь вам сегодня?', ph:'Спросите Birgsol AI...', foot:'Birgsol AI может ошибаться. Проверяйте важную информацию.', newChat:'Новый чат',
+    ru: { greet:'Привет', sub:'Чем я могу помочь вам сегодня?', ph:'Спросите BIRGSOL AI...', foot:'BIRGSOL AI может ошибаться. Проверяйте важную информацию.', newChat:'Новый чат',
           mode_chat:'Чат', mode_code:'Код', mode_image:'Изображение', convs:'Чаты', search_ph:'Поиск чатов...', settings_title:'Настройки отображения',
           your_plan:'Ваш план', dark_mode:'Тёмная тема', greeting:'Приветствие', suggestion_cards:'Карточки подсказок', ai_lang:'Язык',
           settings:'Настройки', user_mgmt:'Управление пользователями', created_by:'Создано Давидом Йосефом Зеви', logout:'Выйти', del_confirm:'Удалить этот чат?',
           srv_busy:'Сервер занят — повторяем, подождите…', srv_fail:'Сервер сейчас очень загружен. Попробуйте ещё раз через мгновение.', retry_btn:'Повторить' },
-    fr: { greet:'Salut', sub:"Comment puis-je vous aider aujourd'hui ?", ph:'Demandez à Birgsol AI...', foot:'Birgsol AI peut se tromper. Vérifiez les informations importantes.', newChat:'Nouvelle discussion',
+    fr: { greet:'Salut', sub:"Comment puis-je vous aider aujourd'hui ?", ph:'Demandez à BIRGSOL AI...', foot:'BIRGSOL AI peut se tromper. Vérifiez les informations importantes.', newChat:'Nouvelle discussion',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', convs:'Discussions', search_ph:'Rechercher...', settings_title:'Paramètres d\'affichage',
           your_plan:'Votre forfait', dark_mode:'Mode sombre', greeting:'Salutation', suggestion_cards:'Cartes de suggestions', ai_lang:'Langue de l\'IA',
           settings:'Paramètres', user_mgmt:'Gestion des utilisateurs', created_by:'Créé par David Yosef Zevi', logout:'Se déconnecter', del_confirm:'Supprimer cette discussion ?',
@@ -3972,21 +3972,21 @@ const L10N = {
 
 /* מחרוזות דף ההתחברות — ממוזגות לתוך L10N */
 const L10N_LOGIN = {
-    he: { login_sub:'התחבר עם חשבון Birgsol AI שלך', username:'שם משתמש', password:'סיסמה', username_ph:'לדוגמה: דוד, רות...', password_ph:'הסיסמה שלך', login_btn:'כניסה לאזור האישי', no_account:'אין לך חשבון עדיין?', create_account:'צור חשבון חדש', forgot_pw:'שכחתי סיסמה', login_note:'שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם' },
-    en: { login_sub:'Sign in with your Birgsol AI account', username:'Username', password:'Password', username_ph:'e.g. David, Ruth...', password_ph:'Your password', login_btn:'Sign in', no_account:"Don't have an account?", create_account:'Create account', forgot_pw:'Forgot password', login_note:'Chats are saved automatically in the cloud · from any device' },
-    ar: { login_sub:'سجّل الدخول بحساب Birgsol AI', username:'اسم المستخدم', password:'كلمة المرور', username_ph:'مثال: ديفيد، روث...', password_ph:'كلمة المرور', login_btn:'تسجيل الدخول', no_account:'ليس لديك حساب؟', create_account:'إنشاء حساب', forgot_pw:'نسيت كلمة المرور', login_note:'يتم حفظ المحادثات تلقائيًا في السحابة · من أي جهاز' },
-    ru: { login_sub:'Войдите в аккаунт Birgsol AI', username:'Имя пользователя', password:'Пароль', username_ph:'напр. Давид, Рут...', password_ph:'Ваш пароль', login_btn:'Войти', no_account:'Нет аккаунта?', create_account:'Создать аккаунт', forgot_pw:'Забыли пароль', login_note:'Чаты автоматически сохраняются в облаке · с любого устройства' },
-    fr: { login_sub:'Connectez-vous avec votre compte Birgsol AI', username:'Nom d\'utilisateur', password:'Mot de passe', username_ph:'ex. David, Ruth...', password_ph:'Votre mot de passe', login_btn:'Se connecter', no_account:'Pas encore de compte ?', create_account:'Créer un compte', forgot_pw:'Mot de passe oublié', login_note:'Les discussions sont enregistrées automatiquement dans le cloud · depuis tout appareil' }
+    he: { login_sub:'התחבר עם חשבון BIRGSOL AI שלך', username:'שם משתמש', password:'סיסמה', username_ph:'לדוגמה: דוד, רות...', password_ph:'הסיסמה שלך', login_btn:'כניסה לאזור האישי', no_account:'אין לך חשבון עדיין?', create_account:'צור חשבון חדש', forgot_pw:'שכחתי סיסמה', login_note:'שיחות נשמרות אוטומטית בענן · מכל מכשיר בעולם' },
+    en: { login_sub:'Sign in with your BIRGSOL AI account', username:'Username', password:'Password', username_ph:'e.g. David, Ruth...', password_ph:'Your password', login_btn:'Sign in', no_account:"Don't have an account?", create_account:'Create account', forgot_pw:'Forgot password', login_note:'Chats are saved automatically in the cloud · from any device' },
+    ar: { login_sub:'سجّل الدخول بحساب BIRGSOL AI', username:'اسم المستخدم', password:'كلمة المرور', username_ph:'مثال: ديفيد، روث...', password_ph:'كلمة المرور', login_btn:'تسجيل الدخول', no_account:'ليس لديك حساب؟', create_account:'إنشاء حساب', forgot_pw:'نسيت كلمة المرور', login_note:'يتم حفظ المحادثات تلقائيًا في السحابة · من أي جهاز' },
+    ru: { login_sub:'Войдите в аккаунт BIRGSOL AI', username:'Имя пользователя', password:'Пароль', username_ph:'напр. Давид, Рут...', password_ph:'Ваш пароль', login_btn:'Войти', no_account:'Нет аккаунта?', create_account:'Создать аккаунт', forgot_pw:'Забыли пароль', login_note:'Чаты автоматически сохраняются в облаке · с любого устройства' },
+    fr: { login_sub:'Connectez-vous avec votre compte BIRGSOL AI', username:'Nom d\'utilisateur', password:'Mot de passe', username_ph:'ex. David, Ruth...', password_ph:'Votre mot de passe', login_btn:'Se connecter', no_account:'Pas encore de compte ?', create_account:'Créer un compte', forgot_pw:'Mot de passe oublié', login_note:'Les discussions sont enregistrées automatiquement dans le cloud · depuis tout appareil' }
 };
 Object.keys(L10N_LOGIN).forEach(l => Object.assign(L10N[l], L10N_LOGIN[l]));
 
 /* מחרוזות טופס ההרשמה */
 const L10N_REG = {
-    he: { reg_title:'חשבון חדש', reg_sub:'צור חשבון Birgsol AI אישי — עובד מכל מכשיר', reg_user_ph:'בחר שם משתמש בעברית או אנגלית', reg_pass_ph:'לפחות 4 תווים', reg_pass2:'אימות סיסמה', reg_pass2_ph:'הזן שוב את הסיסמה', reg_instr_label:'איך שה-AI יתנהג? (אופציונלי)', reg_instr_ph:'לדוגמה: תענה קצר ולעניין, תסביר בפשטות...', reg_btn:'צור חשבון', have_account:'כבר יש לך חשבון?', sign_in_link:'התחבר' },
-    en: { reg_title:'New account', reg_sub:'Create a personal Birgsol AI account — works on any device', reg_user_ph:'Choose a username', reg_pass_ph:'At least 4 characters', reg_pass2:'Confirm password', reg_pass2_ph:'Re-enter your password', reg_instr_label:'How should the AI behave? (optional)', reg_instr_ph:'e.g. answer briefly, explain simply, use humor...', reg_btn:'Create account', have_account:'Already have an account?', sign_in_link:'Sign in' },
-    ar: { reg_title:'حساب جديد', reg_sub:'أنشئ حساب Birgsol AI شخصي — يعمل من أي جهاز', reg_user_ph:'اختر اسم مستخدم', reg_pass_ph:'4 أحرف على الأقل', reg_pass2:'تأكيد كلمة المرور', reg_pass2_ph:'أعد إدخال كلمة المرور', reg_instr_label:'كيف يتصرف الذكاء الاصطناعي؟ (اختياري)', reg_instr_ph:'مثال: أجب باختصار، اشرح ببساطة...', reg_btn:'إنشاء حساب', have_account:'لديك حساب بالفعل؟', sign_in_link:'تسجيل الدخول' },
-    ru: { reg_title:'Новый аккаунт', reg_sub:'Создайте личный аккаунт Birgsol AI — работает на любом устройстве', reg_user_ph:'Выберите имя пользователя', reg_pass_ph:'Минимум 4 символа', reg_pass2:'Подтвердите пароль', reg_pass2_ph:'Повторите пароль', reg_instr_label:'Как должен вести себя ИИ? (необязательно)', reg_instr_ph:'напр. отвечай кратко, объясняй просто...', reg_btn:'Создать аккаунт', have_account:'Уже есть аккаунт?', sign_in_link:'Войти' },
-    fr: { reg_title:'Nouveau compte', reg_sub:'Créez un compte Birgsol AI personnel — sur tout appareil', reg_user_ph:'Choisissez un nom d\'utilisateur', reg_pass_ph:'Au moins 4 caractères', reg_pass2:'Confirmer le mot de passe', reg_pass2_ph:'Ressaisissez le mot de passe', reg_instr_label:'Comment l\'IA doit-elle se comporter ? (facultatif)', reg_instr_ph:'ex. réponds brièvement, explique simplement...', reg_btn:'Créer un compte', have_account:'Vous avez déjà un compte ?', sign_in_link:'Se connecter' }
+    he: { reg_title:'חשבון חדש', reg_sub:'צור חשבון BIRGSOL AI אישי — עובד מכל מכשיר', reg_user_ph:'בחר שם משתמש בעברית או אנגלית', reg_pass_ph:'לפחות 4 תווים', reg_pass2:'אימות סיסמה', reg_pass2_ph:'הזן שוב את הסיסמה', reg_instr_label:'איך שה-AI יתנהג? (אופציונלי)', reg_instr_ph:'לדוגמה: תענה קצר ולעניין, תסביר בפשטות...', reg_btn:'צור חשבון', have_account:'כבר יש לך חשבון?', sign_in_link:'התחבר' },
+    en: { reg_title:'New account', reg_sub:'Create a personal BIRGSOL AI account — works on any device', reg_user_ph:'Choose a username', reg_pass_ph:'At least 4 characters', reg_pass2:'Confirm password', reg_pass2_ph:'Re-enter your password', reg_instr_label:'How should the AI behave? (optional)', reg_instr_ph:'e.g. answer briefly, explain simply, use humor...', reg_btn:'Create account', have_account:'Already have an account?', sign_in_link:'Sign in' },
+    ar: { reg_title:'حساب جديد', reg_sub:'أنشئ حساب BIRGSOL AI شخصي — يعمل من أي جهاز', reg_user_ph:'اختر اسم مستخدم', reg_pass_ph:'4 أحرف على الأقل', reg_pass2:'تأكيد كلمة المرور', reg_pass2_ph:'أعد إدخال كلمة المرور', reg_instr_label:'كيف يتصرف الذكاء الاصطناعي؟ (اختياري)', reg_instr_ph:'مثال: أجب باختصار، اشرح ببساطة...', reg_btn:'إنشاء حساب', have_account:'لديك حساب بالفعل؟', sign_in_link:'تسجيل الدخول' },
+    ru: { reg_title:'Новый аккаунт', reg_sub:'Создайте личный аккаунт BIRGSOL AI — работает на любом устройстве', reg_user_ph:'Выберите имя пользователя', reg_pass_ph:'Минимум 4 символа', reg_pass2:'Подтвердите пароль', reg_pass2_ph:'Повторите пароль', reg_instr_label:'Как должен вести себя ИИ? (необязательно)', reg_instr_ph:'напр. отвечай кратко, объясняй просто...', reg_btn:'Создать аккаунт', have_account:'Уже есть аккаунт?', sign_in_link:'Войти' },
+    fr: { reg_title:'Nouveau compte', reg_sub:'Créez un compte BIRGSOL AI personnel — sur tout appareil', reg_user_ph:'Choisissez un nom d\'utilisateur', reg_pass_ph:'Au moins 4 caractères', reg_pass2:'Confirmer le mot de passe', reg_pass2_ph:'Ressaisissez le mot de passe', reg_instr_label:'Comment l\'IA doit-elle se comporter ? (facultatif)', reg_instr_ph:'ex. réponds brièvement, explique simplement...', reg_btn:'Créer un compte', have_account:'Vous avez déjà un compte ?', sign_in_link:'Se connecter' }
 };
 Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
 
@@ -5678,7 +5678,7 @@ function addMsg(role, text, img = null, md = false, fileLabel = '') {
         row.innerHTML = `
             <div class="ai-ava"></div>
             <div class="ai-body">
-                <div class="ai-name">Birgsol AI</div>
+                <div class="ai-name">BIRGSOL AI</div>
                 <div class="ai-txt">${content}</div>
                 <div class="ai-acts">
                     <button class="ai-act" onclick="copyIt(this)">${IC.copy} ${_tLang('Copy','העתק')}</button>
@@ -5700,7 +5700,7 @@ function showTyping() {
     const cw = document.getElementById('chat-window');
     const row = document.createElement('div');
     row.id = 'typing'; row.className = 'typing-row';
-    row.innerHTML = `<div class="ai-ava"></div><div class="ai-body"><div class="ai-name">Birgsol AI</div><div class="t-dots"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`;
+    row.innerHTML = `<div class="ai-ava"></div><div class="ai-body"><div class="ai-name">BIRGSOL AI</div><div class="t-dots"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`;
     cw.appendChild(row);
     cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
 }
