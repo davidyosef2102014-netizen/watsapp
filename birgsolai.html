@@ -6511,6 +6511,23 @@ function _cleanYahooResults(md) {
 function _isNewsQuery(q) {
     return /חדשות|מבזק|היום|אתמול|הבוקר|עכשיו|קרה|אירע|תקיפ|פיגוע|מלחמ|צה"?ל|חטופ|בחירות|ממשל|שר\b|ראש הממשלה|נתניהו|טראמפ|מזג ?אוויר|תאונ|שריפ|רעידת אדמה|breaking|news|today|yesterday|latest|נהרג|נפצע|הרוג|פצוע/i.test(q);
 }
+// 🌐 מתרגם תשובה-מסונתזת מהחיפוש לשפת המשתמש (אם היא אנגלית והממשק עברית) — שחדשות/תוצאות לא יוצגו באנגלית.
+async function _answerToUserLang(text) {
+    try {
+        if (!text) return text;
+        const lang = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
+        if (lang === 'en') return text;
+        const s = String(text);
+        const heChars = (s.match(/[֐-׿]/g) || []).length;
+        if (lang === 'he' && heChars > s.length * 0.2) return text; // כבר בעברית ברובה
+        const target = (typeof LANG_NAMES !== 'undefined' && LANG_NAMES[lang]) || 'Hebrew';
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts: [{ text: 'Translate the following to ' + target + ' — natural, complete, keep any URLs unchanged. Output ONLY the translation:\n\n' + s }] }], generationConfig: { temperature: 0, maxOutputTokens: 1800 } }, { signal: AbortSignal.timeout(12000) });
+        if (!r || !r.ok) return text;
+        const j = await r.json();
+        const out = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+        return out || text;
+    } catch (e) { return text; }
+}
 async function _tryTavilyKey(apiKey, query) {
     const isNews = _isNewsQuery(query);
     const payload = { api_key: apiKey, query, search_depth: 'basic', include_answer: 'advanced', max_results: 6 };
@@ -6526,7 +6543,7 @@ async function _tryTavilyKey(apiKey, query) {
     if (!res.ok) throw new Error('tavily ' + res.status);
     const j = await res.json();
     let out = '';
-    if (j.answer) out += `[תשובה מסונתזת ע"י מנוע החיפוש — מבוססת על מקורות אמיתיים] ${j.answer}\n\n`;
+    if (j.answer) { const _a = await _answerToUserLang(j.answer); out += `[סיכום ממקורות אמיתיים באינטרנט] ${_a}\n\n`; }
     if (j.results?.length) {
         // סינון תוצאות באיכות/רלוונטיות נמוכה (score של Tavily 0-1) כדי שרעש/פייק לא יגיע למודל.
         // אם הסינון מרוקן הכול — שומרים את 3 המובילות כדי לא להישאר ריקים.
@@ -6595,7 +6612,7 @@ async function _jinaDeepSearch(query) {
         if (!r || !r.ok) return null;
         const j = await r.json();
         const msg = j && j.choices && j.choices[0] && j.choices[0].message || {};
-        let txt = String(msg.content || '').trim();
+        let txt = await _answerToUserLang(String(msg.content || '').trim());
         // מקורות/ציטוטים אם קיימים (annotations בפורמט OpenAI)
         try {
             const ann = (msg.annotations || []).map(a => a && a.url_citation && a.url_citation.url).filter(Boolean);
@@ -6651,9 +6668,10 @@ async function _needSearchDecide(query) {
 async function webSearch(query) {
     // Cache: אותה שאלת-חיפוש בתוך 5 דקות → תוצאה שמורה מיד (בלי Tavily/Serper). מוריד עומס ומזרז.
     const _ck = (query || '').trim().toLowerCase();
+    const _langInstr = '\n\n[IMPORTANT — write your reply to the user in the SAME language the user asked in (if the user wrote in Hebrew, answer in Hebrew). Summarize these sources in your OWN words; do NOT copy text verbatim and do NOT include the bracketed [...] tags in your reply.]';
     const _cached = _searchCacheGet(_ck);
-    if (_cached) return _cached;
-    const _wrap = (v) => { if (v) { _searchCache.set(_ck, { v, t: Date.now() }); if (_searchCache.size > 60) _searchCache.delete(_searchCache.keys().next().value); } return v; };
+    if (_cached) return _cached + _langInstr;
+    const _wrap = (v) => { if (v) { _searchCache.set(_ck, { v, t: Date.now() }); if (_searchCache.size > 60) _searchCache.delete(_searchCache.keys().next().value); } return v ? (v + _langInstr) : v; };
     // 🔎 Axion/פרימיום: Jina Search ראשון (מהיר, מכסה גדולה) — Perplexity-like. אם נכשל → נופל ל-Tavily. משתמשים חינמיים → Tavily כרגיל.
     const _premiumSearch = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser)) || (typeof currentModelId === 'function' && /axion|4\.1/i.test(String(currentModelId() || '')));
     if (_premiumSearch) {
