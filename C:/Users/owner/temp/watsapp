@@ -1,30 +1,589 @@
-<!DOCTYPE html>
-<html lang="he">
-<head>
-<meta charset="UTF-8">
-<title>מחיר ביטקוין</title>
-<style>
-  #error { color: red; }
-</style>
-</head>
-<body>
-<h1>מחיר ביטקוין (USD)</h1>
-<div id="price">טוען...</div>
-<div id="error"></div>
-<script>
-async function loadPrice() {
-  const url = "https://api.coindesk.com/v1/bpi/currentprice/USD.json";
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("Network response was not ok");
-    const data = await response.json();
-    const price = data.bpi.USD.rate;
-    document.getElementById("price").textContent = price + " $");
-  } catch (e) {
-    document.getElementById("error").textContent = "שגיאה בטעינת הנתונים";
+// BIRGSOL GH Worker — v2 (מיילים: sendmail + OTP, ניצול כל המפתחות) — 2026-10-09
+// BIRGSOL GH Worker — מסתיר את טוקן ה-GitHub מהקוד של הדפדפן.
+// כל פעולה שדרשה טוקן (קריאה/כתיבה/אירוח תמונות/AI של GitHub Models) עוברת דרך כאן.
+// הטוקן חי כ-SECRET בצד השרת בלבד — View Source באתר לא יראה אותו לעולם.
+
+export default {
+  async fetch(request, env) {
+    // 🔌 BIRGSOL Public API (OpenAI-compatible) — handled FIRST, before the app-only CORS gate.
+    try { const _u = new URL(request.url); if (_u.pathname.startsWith('/v1/')) {
+      // הוספת ה-URL החדש עם המודל
+      const newUrl = 'https://birgsol-gh.davidyosef2102014.workers.dev/v1/chat/completions';
+      const newRequest = new Request(newUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.BIRGSOL_API_KEY}`,
+          'Content-Type': 'application/json',
+          'model': 'birgsol-3.5-pro'
+        },
+        'model': 'birgsol-3.5-pro'
+        },
+        body: request.body
+      });
+      return await fetch(newRequest);
+    } }
+    catch (e) { try { if (new URL(request.url).pathname.startsWith('/v1/')) return new Response(JSON.stringify({ error: { message: 'Internal server error: ' + String((e && e.message) || e), type: 'server_error', code: 'server_error' } }), { status: 500, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json', 'Vary': 'Origin' } }); } catch (_) {} }
+    const ALLOWED = 'https://davidyosef2102014-netizen.github.io';
+    const origin  = request.headers.get('Origin') || '';
+    const cors = {
+      'Access-Control-Allow-Origin': ALLOWED,
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Vary': 'Origin',
+    };
+    if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
+    if (request.method !== 'POST')    return new Response('POST only', { status: 405, headers: cors });
+    const jsonHead = { ...cors, 'Content-Type': 'application/json' };
+    if (origin && origin !== ALLOWED) {
+      return new Response(JSON.stringify({ error: 'forbidden origin' }), { status: 403, headers: jsonHead });
+    }
+
+    try {
+      const RL = (globalThis.__RL = globalThis.__RL || new Map());
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const nowMs = Date.now();
+      const arr = (RL.get(ip) || []).filter(t => nowMs - t < 60000);
+      if (arr.length >= 60) {
+        return new Response(JSON.stringify({ error: 'rate limited — too many requests' }), { status: 429, headers: jsonHead });
+      }
+      arr.push(nowMs);
+      RL.set(ip, arr);
+      if (RL.size > 5000) RL.clear();
+    } catch (_) {}
+
+    const OWNER = env.GH_OWNER || 'davidyosef2102014-netizen';
+    const REPO  = env.GH_REPO  || 'watsapp';
+    const TOKEN = env.GH_TOKEN;
+    if (!TOKEN) return new Response(JSON.stringify({ error: 'server missing GH_TOKEN secret' }), { status: 500, headers: jsonHead });
+
+    const API = `https://api.github.com/repos/${OWNER}/${REPO}/contents/`;
+    const ghHead = { 'Authorization': 'token ' + TOKEN, 'User-Agent': 'birgsol-gh-worker', 'Accept': 'application/vnd.github+json' };
+
+    const BAD = '\\:*?"<>|';
+    const safePath = (p) =>
+      typeof p === 'string' && p.length > 3 && p.length < 300 &&
+      p.startsWith('db/') && !p.includes('..') &&
+      ![...p].some(ch => ch.charCodeAt(0) < 32 || BAD.includes(ch));
+
+    const b64ToText = (b64) => {
+      const bin = atob(String(b64).replace(/\s/g, ''));
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      return new TextDecoder('utf-8').decode(bytes);
+    };
+
+    let body;
+    try { body = await request.json(); }
+    catch { return new Response(JSON.stringify({ error: 'bad json' }), { status: 400, headers: jsonHead }); }
+    const op = body.op;
+
+    try {
+      if (op === 'read') {
+        if (!safePath(body.path)) return new Response(JSON.stringify({ error: 'bad path' }), { status: 400, headers: jsonHead });
+        const r = await fetch(API + body.path, { headers: ghHead });
+        if (r.status === 404) return new Response(JSON.stringify({ text: null, sha: null }), { headers: jsonHead });
+        if (!r.ok) return new Response(JSON.stringify({ error: 'read failed', status: r.status }), { status: 502, headers: jsonHead });
+        const meta = await r.json();
+        let text = null;
+        if (meta.content) {
+          text = b64ToText(meta.content);
+        } else if (meta.download_url) {
+          const raw = await fetch(meta.download_url, { headers: ghHead });
+          text = raw.ok ? await raw.text() : null;
+        }
+        return new Response(JSON.stringify({ text, sha: meta.sha || null }), { headers: jsonHead });
+      }
+
+      if (op === 'write') {
+        if (!safePath(body.path)) return new Response(JSON.stringify({ error: 'bad path' }), { status: 400, headers: jsonHead });
+        if (typeof body.contentB64 !== 'string' || !body.contentB64) {
+          return new Response(JSON.stringify({ error: 'no content' }), { status: 400, headers: jsonHead });
+        }
+        let sha;
+        const meta = await fetch(API + body.path, { headers: ghHead });
+        if (meta.ok) { try { sha = (await meta.json()).sha; } catch {} }
+        const put = await fetch(API + body.path, {
+          method: 'PUT',
+          headers: { ...ghHead, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: String(body.message || ('update ' + body.path)).slice(0, 200),
+            content: body.contentB64,
+            ...(sha ? { sha } : {})
+          })
+        });
+        if (!put.ok) {
+          const t = await put.text().catch(() => '');
+          return new Response(JSON.stringify({ error: 'write failed', status: put.status, detail: t.slice(0, 200) }), { status: 502, headers: jsonHead });
+        }
+        const j = await put.json().catch(() => ({}));
+        const rawUrl = `https://raw.githubusercontent.com/${OWNER}/${REPO}/master/${body.path}`;
+        return new Response(JSON.stringify({ ok: true, rawUrl, sha: j.content && j.content.sha }), { headers: jsonHead });
+      }
+
+      if (op === 'ai') {
+        const up = await fetch('https://models.github.ai/inference/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body.payload || {})
+        });
+        const h = { ...cors };
+        const ct = up.headers.get('Content-Type');
+        if (ct) h['Content-Type'] = ct;
+        return new Response(up.body, { status: up.status, headers: h });
+      }
+
+      if (op === 'cfai') {
+        if (!env.AI) return new Response(JSON.stringify({ error: 'no AI binding — add Workers AI binding named AI' }), { status: 500, headers: jsonHead });
+        const model = body.model || '@cf/zai-org/glm-5.2';
+        try {
+          const inp = { messages: body.messages || [], max_tokens: body.max_tokens || 2048 };
+          if (body.temperature != null) inp.temperature = body.temperature;
+          const out = await env.AI.run(model, inp);
+          const text = (out && (out.response
+            || (out.choices && out.choices[0] && out.choices[0].message && out.choices[0].message.content)
+            || (out.result && out.result.response))) || '';
+          return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: text } }] }), { headers: jsonHead });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: 'cfai: ' + String((e && e.message) || e) }), { status: 502, headers: jsonHead });
+        }
+      }
+
+      if (op === 'proxy') {
+        const keysOf = (csv) => String(csv || '').split(',').map(s => s.trim()).filter(Boolean);
+        const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
+        const authB = (k, h) => { if (k) h['Authorization'] = 'Bearer ' + k; };
+        const PROV = {
+          groq:       { host: 'https://api.groq.com',                      keys: keysOf(env.GROQ_KEYS),        apply: authB },
+          qwen:       { host: 'https://dashscope-intl.aliyuncs.com',       keys: keysOf(env.QWEN_KEYS),        apply: authB },
+          openrouter: { host: 'https://openrouter.ai',                     keys: keysOf(env.OPENROUTER_KEYS),  apply: authB },
+          zai:        { host: 'https://api.z.ai',                          keys: keysOf(env.ZAI_KEYS),         apply: authB },
+          nvidia:     { host: 'https://integrate.api.nvidia.com',          keys: keysOf(env.NVIDIA_KEYS),      apply: authB },
+          nvidiaimg:  { host: 'https://ai.api.nvidia.com',                 keys: keysOf(env.NVIDIA_KEYS),      apply: authB },
+          tokenrouter:{ host: 'https://api.tokenrouter.com',               keys: keysOf(env.TOKENROUTER_KEYS), apply: authB },
+          orcarouter: { host: 'https://api.orcarouter.ai',                 keys: keysOf(env.ORCAROUTER_KEYS),  apply: authB },
+          hf:         { host: 'https://router.huggingface.co',             keys: keysOf(env.HF_TOKEN),         apply: authB },
+          gemini:     { host: 'https://generativelanguage.googleapis.com', keys: (keysOf(env.GEMINI_KEYS).length ? keysOf(env.GEMINI_KEYS) : keysOf(env.GEMINI_KEY)), apply: (k, h) => { if (k) h['X-goog-api-key'] = k; } },
+          eleven:     { host: 'https://api.elevenlabs.io',                 keys: keysOf(env.ELEVEN_KEY),       apply: (k, h) => { if (k) h['xi-api-key'] = k; } },
+          tavily:     { host: 'https://api.tavily.com',                    keys: keysOf(env.TAVILY_KEYS),      bodyKey: 'api_key' },
+          serper:     { host: 'https://google.serper.dev',                 keys: keysOf(env.SERPER_KEYS),      apply: (k, h) => { if (k) h['X-API-KEY'] = k; } },
+          mistral:    { host: 'https://api.mistral.ai',                    keys: keysOf(env.MISTRAL_KEYS),     apply: authB },
+          cohere:     { host: 'https://api.cohere.ai',                     keys: (keysOf(env.COHERE_KEYS).length ? keysOf(env.COHERE_KEYS) : keysOf(env.COHERE_KEY)), apply: authB },
+          jina:       { host: 'https://s.jina.ai',                         keys: (keysOf(env.JINA_KEYS).length ? keysOf(env.JINA_KEYS) : keysOf(env.JINA_KEY)), apply: (k, h) => { if (k) h['Authorization'] = 'Bearer ' + k; h['X-Respond-With'] = 'no-content'; } },
+          jinadeep:   { host: 'https://deepsearch.jina.ai',                keys: (keysOf(env.JINA_KEYS).length ? keysOf(env.JINA_KEYS) : keysOf(env.JINA_KEY)), apply: authB },
+        };
+        const prov = PROV[body.provider];
+        if (!prov) return new Response(JSON.stringify({ error: 'unknown provider' }), { status: 400, headers: jsonHead });
+        let path = String(body.path || '');
+        if (!path.startsWith('/')) path = '/' + path;
+        if (path.includes('://') || path.startsWith('//')) return new Response(JSON.stringify({ error: 'bad path' }), { status: 400, headers: jsonHead });
+        const method = body.method || 'POST';
+        const keyList = (prov.keys && prov.keys.length) ? shuffle(prov.keys) : [''];
+        let up = null;
+        for (let i = 0; i < keyList.length; i++) {
+          const k = keyList[i];
+          const uHead = { 'Content-Type': 'application/json' };
+          if (prov.apply && k) prov.apply(k, uHead);
+          let payload = body.payload;
+          if (prov.bodyKey && payload && typeof payload === 'object') payload = { ...payload, [prov.bodyKey]: k };
+          up = await fetch(prov.host + path, { method, headers: uHead, body: method === 'GET' ? undefined : JSON.stringify(payload || {}) });
+          if ((up.status === 429 || up.status === 503 || up.status === 529) && i < keyList.length - 1) continue;
+          break;
+        }
+        const h = { ...cors };
+        const ct = up.headers.get('Content-Type');
+        if (ct) h['Content-Type'] = ct;
+        return new Response(up.body, { status: up.status, headers: h });
+      }
+
+      // ── 🎨 NVIDIA image (FLUX.1-dev יצירה / FLUX.1-Kontext עריכה נאמנה). אסינכרוני: 202 + NVCF-REQID → polling. ──
+      if (op === 'nvimg') {
+        const pickNv = (csv) => { const a = String(csv || '').split(',').map(s => s.trim()).filter(Boolean); return a.length ? a[Math.floor(Math.random() * a.length)] : ''; };
+        const nk = pickNv(env.NVIDIA_KEYS);
+        if (!nk) return new Response(JSON.stringify({ error: 'no nvidia key' }), { status: 500, headers: jsonHead });
+        const model = String(body.model || 'black-forest-labs/flux.1-dev');
+        const nvH = { 'Authorization': 'Bearer ' + nk, 'Content-Type': 'application/json', 'Accept': 'application/json' };
+        let r = await fetch('https://ai.api.nvidia.com/v1/genai/' + model, { method: 'POST', headers: nvH, body: JSON.stringify(body.payload || {}) });
+        let tries = 0;
+        while (r.status === 202 && tries < 30) {
+          const reqId = r.headers.get('NVCF-REQID') || r.headers.get('nvcf-reqid');
+          if (!reqId) break;
+          await new Promise(res => setTimeout(res, 2000));
+          r = await fetch('https://api.nvcf.nvidia.com/v2/nvcf/pexec/status/' + reqId, { headers: { 'Authorization': 'Bearer ' + nk, 'Accept': 'application/json' } });
+          tries++;
+        }
+        const t = await r.text();
+        return new Response(t, { status: r.status, headers: jsonHead });
+      }
+
+      if (op === 'sendmail' || op === 'otp-send' || op === 'otp-verify') {
+        const emailOk = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e || ''));
+        const FROM = { name: env.MAIL_FROM_NAME || 'BIRGSOL AI', email: env.MAIL_FROM || '' };
+        const sendMail = (to, toName, subject, html) => fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: { 'api-key': env.BREVO_KEY || '', 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ sender: FROM, to: [{ email: to, name: toName || to }], subject, htmlContent: html })
+        });
+        if (op !== 'otp-verify' && (!env.BREVO_KEY || !env.MAIL_FROM)) return new Response(JSON.stringify({ error: 'missing BREVO_KEY / MAIL_FROM secret' }), { status: 500, headers: jsonHead });
+
+        if (op === 'sendmail') {
+          const to = String(body.to || ''); if (!emailOk(to)) return new Response(JSON.stringify({ error: 'bad email' }), { status: 400, headers: jsonHead });
+          const subject = String(body.subject || 'BIRGSOL AI').slice(0, 300);
+          const html = String(body.html || body.text || '').slice(0, 120000);
+          if (!html) return new Response(JSON.stringify({ error: 'empty body' }), { status: 400, headers: jsonHead });
+          const r = await sendMail(to, String(body.toName || ''), subject, html);
+          if (body.addContact) { try { await fetch('https://api.brevo.com/v3/contacts', { method: 'POST', headers: { 'api-key': env.BREVO_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: to, updateEnabled: true, ...(Array.isArray(body.listIds) ? { listIds: body.listIds } : {}) }) }); } catch (e) {} }
+          return new Response(JSON.stringify({ ok: r.ok, status: r.status }), { status: r.ok ? 200 : 502, headers: jsonHead });
+        }
+
+        if (!env.OTP_KV) return new Response(JSON.stringify({ error: 'no OTP_KV namespace — add a KV binding named OTP_KV' }), { status: 500, headers: jsonHead });
+
+        if (op === 'otp-send') {
+          const to = String(body.to || '').toLowerCase(); if (!emailOk(to)) return new Response(JSON.stringify({ error: 'bad email' }), { status: 400, headers: jsonHead });
+          const rlKey = 'otprl:' + to; const cnt = parseInt((await env.OTP_KV.get(rlKey)) || '0', 10);
+          if (cnt >= 4) return new Response(JSON.stringify({ error: 'too many requests, try later' }), { status: 429, headers: jsonHead });
+          const code = String(Math.floor(100000 + Math.random() * 900000));
+          await env.OTP_KV.put('otp:' + to, JSON.stringify({ code, tries: 0 }), { expirationTtl: 300 });
+          await env.OTP_KV.put(rlKey, String(cnt + 1), { expirationTtl: 600 });
+          const html = '<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head><body style="margin:0;background:#eef0f2;padding:20px">'
+            + '<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:auto;padding:24px;background:#fff;direction:rtl;text-align:center;border:1px solid #111;border-radius:10px">'
+            + '<img src="https://davidyosef2102014-netizen.github.io/watsapp/birgsol-icon-192.png" width="48" height="48" alt="BIRGSOL AI" style="border-radius:50%;margin:0 auto 6px;display:block">'
+            + '<h2 style="color:#0ea5a4;margin:0 0 8px">BIRGSOL AI</h2>'
+            + '<p style="font-size:15px;color:#333;margin:0 0 6px">קוד האימות שלך:</p>'
+            + '<div style="font-size:34px;font-weight:bold;letter-spacing:8px;color:#111;margin:14px 0">' + code + '</div>'
+            + '<p style="font-size:13px;color:#888;margin:8px 0 0">הקוד תקף ל-5 דקות. אם לא ביקשת — התעלם מהמייל.</p></div></body></html>';
+          const r = await sendMail(to, String(body.toName || ''), 'קוד האימות שלך ל-BIRGSOL AI', html);
+          return new Response(JSON.stringify({ ok: r.ok, sent: r.ok }), { status: r.ok ? 200 : 502, headers: jsonHead });
+        }
+
+        if (op === 'otp-verify') {
+          const to = String(body.to || '').toLowerCase(); const code = String(body.code || '');
+          if (!env.OTP_KV) return new Response(JSON.stringify({ ok: false, error: 'no store' }), { status: 500, headers: jsonHead });
+          const raw = await env.OTP_KV.get('otp:' + to);
+          if (!raw) return new Response(JSON.stringify({ ok: false, error: 'expired' }), { status: 200, headers: jsonHead });
+          let rec = null; try { rec = JSON.parse(raw); } catch (e) {}
+          if (!rec) return new Response(JSON.stringify({ ok: false, error: 'expired' }), { status: 200, headers: jsonHead });
+          if ((rec.tries || 0) >= 5) { await env.OTP_KV.delete('otp:' + to); return new Response(JSON.stringify({ ok: false, error: 'too many tries' }), { status: 200, headers: jsonHead }); }
+          if (rec.code === code) { await env.OTP_KV.delete('otp:' + to); return new Response(JSON.stringify({ ok: true }), { status: 200, headers: jsonHead }); }
+          rec.tries = (rec.tries || 0) + 1; await env.OTP_KV.put('otp:' + to, JSON.stringify(rec), { expirationTtl: 300 });
+          return new Response(JSON.stringify({ ok: false, error: 'wrong', triesLeft: 5 - rec.tries }), { status: 200, headers: jsonHead });
+        }
+      }
+
+      if (op === 'qwen-image') {
+        const pick = (csv) => { const a = String(csv || '').split(',').map(s => s.trim()).filter(Boolean); return a.length ? a[Math.floor(Math.random() * a.length)] : ''; };
+        const key = pick(env.QWEN_KEYS);
+        if (!key) return new Response(JSON.stringify({ error: 'no qwen key' }), { status: 500, headers: jsonHead });
+        const H = { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' };
+        const BASE = 'https://dashscope-intl.aliyuncs.com';
+        const sub = await fetch(BASE + '/api/v1/services/aigc/text2image/image-synthesis', {
+          method: 'POST',
+          headers: { ...H, 'X-DashScope-Async': 'enable' },
+          body: JSON.stringify({ model: 'qwen-image', input: { prompt: String(body.prompt || '').slice(0, 800) }, parameters: { n: 1, size: body.size || '1024*1024' } })
+        });
+        const sj = await sub.json().catch(() => ({}));
+        const taskId = sj && sj.output && sj.output.task_id;
+        if (!taskId) return new Response(JSON.stringify({ error: 'submit failed' }), { status: 502, headers: jsonHead });
+        let url = null;
+        for (let i = 0; i < 12; i++) {
+          await new Promise(r => setTimeout(r, 2500));
+          const pr = await fetch(BASE + '/api/v1/tasks/' + taskId, { headers: H });
+          const pj = await pr.json().catch(() => ({}));
+          const st = pj && pj.output && pj.output.task_status;
+          if (st === 'SUCCEEDED') { url = pj.output.results && pj.output.results[0] && pj.output.results[0].url; break; }
+          if (st === 'FAILED') break;
+        }
+        if (!url) return new Response(JSON.stringify({ error: 'no image (timeout/failed)' }), { status: 502, headers: jsonHead });
+        const img = await fetch(url);
+        if (!img.ok) return new Response(JSON.stringify({ error: 'fetch image failed' }), { status: 502, headers: jsonHead });
+        const bytes = new Uint8Array(await img.arrayBuffer());
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+        return new Response(JSON.stringify({ image: btoa(bin), type: 'png' }), { headers: jsonHead });
+      }
+
+      if (op === 'transcribe') {
+        const pick = (csv) => { const a = String(csv || '').split(',').map(s => s.trim()).filter(Boolean); return a.length ? a[Math.floor(Math.random() * a.length)] : ''; };
+        const key = pick(env.GROQ_KEYS);
+        if (!key) return new Response(JSON.stringify({ error: 'no groq key' }), { status: 500, headers: jsonHead });
+        if (typeof body.audioB64 !== 'string' || !body.audioB64) return new Response(JSON.stringify({ error: 'no audio' }), { status: 400, headers: jsonHead });
+        const bin = atob(body.audioB64.replace(/\s/g, ''));
+        const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+        const fd = new FormData();
+        fd.append('file', new Blob([bytes], { type: body.mime || 'audio/mpeg' }), body.filename || 'audio.mp3');
+        fd.append('model', body.model || 'whisper-large-v3');
+        if (body.language) fd.append('language', body.language);
+        fd.append('response_format', 'json');
+        const up = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + key },
+          body: fd
+        });
+        const t = await up.text();
+        return new Response(t, { status: up.status, headers: jsonHead });
+      }
+
+      return new Response(JSON.stringify({ error: 'unknown op' }), { status: 400, headers: jsonHead });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String((e && e.message) || e) }), { status: 500, headers: jsonHead });
+    }
   }
+};
+
+// ══════════════ 🔌 BIRGSOL Public API — OpenAI-compatible ══════════════
+//   POST /v1/chat/completions    — chat (all BIRGSOL models) + model "birgsol-search" (live web search)
+//   POST /v1/images/generations  — birgsol-image-2
+//   POST /v1/audio/speech        — birgsol-voice-1 (returns WAV)
+//   GET  /v1/models              — list
+//   auth: Authorization: Bearer <a user key, or one of BIRGSOL_API_KEYS>
+async function birgsolApi(request, env, url) {
+  const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, GET, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Vary': 'Origin' };
+  const head = { ...cors, 'Content-Type': 'application/json' };
+  const err = (code, msg, type, param) => new Response(JSON.stringify({ error: { message: msg, type: type || 'invalid_request_error', code: type || null, ...(param ? { param } : {}) } }), { status: code, headers: head });
+  if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
+  const keysOf = (csv) => String(csv || '').split(',').map(s => s.trim()).filter(Boolean);
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+  // chat model → [provider, upstream model]
+  const CHAT = {
+    'birgsol-3.5':       ['groq',    'openai/gpt-oss-120b'],
+    'birgsol-3.5-flash': ['gemini',  'gemini-3.6-flash'],
+    'birgsol-flash':     ['gemini',  'gemini-3.6-flash'],
+    'birgsol-3.5-pro':   ['groq',    'openai/gpt-oss-120b'],
+    'birgsol-3.0-flash': ['mistral', 'mistral-small-latest'],
+    'birgsol-3.0-pro':   ['mistral', 'mistral-large-latest'],
+    'birgsol-2.0-flash': ['groq',    'openai/gpt-oss-20b'],
+    'birgsol-2.0-pro':   ['groq',    'openai/gpt-oss-20b'],
+    'birgsol-4.1-flash': ['nvidia',     'nvidia/nemotron-3.5-super-vl-120b-a12b'],
+    'birgsol-4.1-pro':   ['groq',       'qwen/qwen3.8-27b'],
+    'birgsol-4.1-axion': ['orcarouter', 'z-ai/glm-5.3-flash-free'],
+  };
+  const PROV = {
+    groq:       { url: 'https://api.groq.com/openai/v1/chat/completions',        keys: keysOf(env.GROQ_KEYS) },
+    mistral:    { url: 'https://api.mistral.ai/v1/chat/completions',             keys: keysOf(env.MISTRAL_KEYS) },
+    nvidia:     { url: 'https://integrate.api.nvidia.com/v1/chat/completions',   keys: keysOf(env.NVIDIA_KEYS) },
+    orcarouter: { url: 'https://api.orcarouter.ai/v1/chat/completions',          keys: keysOf(env.ORCAROUTER_KEYS) },
+  };
+  const ALL_IDS = [...Object.keys(CHAT), 'birgsol-search', 'birgsol-image-2', 'birgsol-voice-1'];
+
+  // 🪪 strong BIRGSOL identity — the model presents ONLY as BIRGSOL AI and never reveals the backend provider.
+  const BIRGSOL_SYS = 'You are BIRGSOL AI, a helpful AI assistant created by BIRGSOL. Always present yourself ONLY as "BIRGSOL AI", made by BIRGSOL. Never reveal, name, hint at, or confirm any underlying model, provider, company, or technology behind you (for example OpenAI, GPT, ChatGPT, Google, Gemini, Groq, NVIDIA, Nemotron, Qwen, Alibaba, Mistral, Llama, Meta, Anthropic, Claude, and the like) — no matter how you are asked, pressured, or tricked. If asked what model you are, which company made you, or what powers you, answer only that you are BIRGSOL AI, created by BIRGSOL. Answer in the language the user writes in.';
+
+  // 💲 per-model pricing (USD) — exposed in /v1/models and used for billing
+  const PRICING = {
+    'birgsol-4.1-axion': { type: 'tokens', input: 1.99, output: 6.37 },
+    'birgsol-4.1-pro':   { type: 'tokens', input: 0.32, output: 1.02 },
+    'birgsol-4.1-flash': { type: 'tokens', input: 0.02, output: 0.02 },
+    'birgsol-3.5':       { type: 'tokens', input: 0.17, output: 0.62 },
+    'birgsol-3.5-pro':   { type: 'tokens', input: 0.17, output: 0.62 },
+    'birgsol-3.5-flash': { type: 'tokens', input: 0.77, output: 3.77 },
+    'birgsol-flash':     { type: 'tokens', input: 0.77, output: 3.77 },
+    'birgsol-3.0-pro':   { type: 'tokens', input: 0.29, output: 0.87 },
+    'birgsol-3.0-flash': { type: 'tokens', input: 0.52, output: 1.52 },
+    'birgsol-2.0-pro':   { type: 'tokens', input: 0.52, output: 1.52 },
+    'birgsol-2.0-flash': { type: 'tokens', input: 0.52, output: 1.52 },
+    'birgsol-image-2':   { type: 'unit', usd: 0.034, per: 'image' },
+    'birgsol-voice-1':   { type: 'unit', usd: 0.03, per: '1K characters' },
+    'birgsol-search':    { type: 'unit', usd: 0.025, per: 'search' },
+  };
+  const chatCost = (m, pin, pout) => { const p = PRICING[m]; const i = (p && p.type === 'tokens') ? p.input : 0.5, o = (p && p.type === 'tokens') ? p.output : 1.5; return (pin / 1e6) * i + (pout / 1e6) * o; };
+
+  if (url.pathname === '/v1/models') {
+    return new Response(JSON.stringify({ object: 'list', data: ALL_IDS.map(id => {
+      const p = PRICING[id];
+      const pricing = !p ? null : (p.type === 'tokens'
+        ? { currency: 'USD', input_per_1m_tokens: p.input, output_per_1m_tokens: p.output }
+        : { currency: 'USD', price_per_unit: p.usd, unit: p.per });
+      return { id, object: 'model', owned_by: 'birgsol', pricing };
+    }) }), { headers: head });
+  }
+  if (request.method !== 'POST') return err(405, 'POST only');
+
+  // 🔑 auth + credit — static test keys bypass billing; user keys are validated + metered via the api_charge RPC (anon key).
+  const key = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!key) return err(401, 'Missing API key. Pass it in the header "Authorization: Bearer <your BIRGSOL key>".', 'invalid_api_key');
+  const _static = String(env.BIRGSOL_API_KEYS || '').split(',').map(s => s.trim()).filter(Boolean).includes(key);
+  let _hash = null; // set for billable user keys
+  if (!_static) {
+    _hash = await _sha256hex(key);
+    const _bal = await _keyBalance(_hash, env); // validates the key AND returns the balance in one call
+    if (_bal == null) return err(401, 'Invalid API key. Generate one in the BIRGSOL console, or check it was copied in full.', 'invalid_api_key');
+    if (_bal <= 0) return err(402, 'Insufficient credit — your BIRGSOL balance is $' + Number(_bal).toFixed(4) + '. Add credit in your account to keep using the API.', 'insufficient_quota');
+  }
+  // 🚦 per-key rate limit — 60 requests / minute (protects shared upstream quota; 429 with Retry-After)
+  try {
+    const RL = (globalThis.__V1RL = globalThis.__V1RL || new Map());
+    const rlKey = _hash || key, nowMs = Date.now();
+    const hits = (RL.get(rlKey) || []).filter(t => nowMs - t < 60000);
+    if (hits.length >= 60) return new Response(JSON.stringify({ error: { message: 'Rate limit reached — max 60 requests per minute for this key. Slow down and retry shortly.', type: 'rate_limit_exceeded', code: 'rate_limit_exceeded' } }), { status: 429, headers: { ...head, 'Retry-After': '30' } });
+    hits.push(nowMs); RL.set(rlKey, hits);
+    if (RL.size > 5000) RL.clear();
+  } catch (_) {}
+  const bill = (cost) => _hash ? _charge(_hash, cost, env) : Promise.resolve(); // static keys are not billed
+  let b;
+  try { b = await request.json(); } catch { return err(400, 'bad json'); }
+
+  // ── 🖼️ IMAGE — birgsol-image-2 ──  {prompt, size?}
+  if (url.pathname === '/v1/images/generations') {
+    const prompt = String(b.prompt || '').slice(0, 1500);
+    if (!prompt) return err(400, 'The "prompt" field is required for image generation.', 'invalid_request_error', 'prompt');
+    let w = 1024, h = 1024; const sz = String(b.size || '1024x1024').match(/(\d+)x(\d+)/); if (sz) { w = Math.min(+sz[1] || 1024, 1536); h = Math.min(+sz[2] || 1024, 1536); }
+    const ir = await fetch('https://birgsol-image.davidyosef2102014.workers.dev/', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Origin': 'https://davidyosef2102014-netizen.github.io' }, body: JSON.stringify({ prompt, hq: true, width: w, height: h }) });
+    const ij = await ir.json().catch(() => null);
+    if (!ir.ok || !ij || !ij.image) return err(502, (ij && ij.error) || 'image generation failed', 'server_error');
+    await bill(0.034);
+    return new Response(JSON.stringify({ created: Math.floor(Date.now() / 1000), data: [{ b64_json: ij.image }] }), { headers: head });
+  }
+
+  // ── 🔊 VOICE — birgsol-voice-1 ──  {input, voice?}  → WAV audio
+  if (url.pathname === '/v1/audio/speech') {
+    const input = String(b.input || b.text || '').slice(0, 3000);
+    if (!input) return err(400, 'The "input" field (text to speak) is required.', 'invalid_request_error', 'input');
+    const voice = String(b.voice || 'Aoede');
+    const gkeys = keysOf(env.GEMINI_KEYS).length ? keysOf(env.GEMINI_KEYS) : keysOf(env.GEMINI_KEY);
+    if (!gkeys.length) return err(500, 'voice unavailable', 'server_error');
+    const gr = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': pick(gkeys) },
+      body: JSON.stringify({ contents: [{ parts: [{ text: input }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } } })
+    });
+    const gj = await gr.json().catch(() => null);
+    const b64 = gj && gj.candidates && gj.candidates[0] && gj.candidates[0].content && gj.candidates[0].content.parts && gj.candidates[0].content.parts[0] && gj.candidates[0].content.parts[0].inlineData && gj.candidates[0].content.parts[0].inlineData.data;
+    if (!gr.ok || !b64) return err(502, 'voice generation failed', 'server_error');
+    const pcm = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    await bill(0.03 * Math.max(1, input.length / 1000));
+    return new Response(_pcmToWav(pcm, 24000, 1, 16), { headers: { ...cors, 'Content-Type': 'audio/wav' } });
+  }
+
+  // ── 🔎 SEARCH endpoint — POST /v1/search {query} → {query, answer, sources} ──
+  if (url.pathname === '/v1/search') {
+    const query = String(b.query || b.q || '').slice(0, 400);
+    if (!query) return err(400, 'The "query" field is required for search.', 'invalid_request_error', 'query');
+    const tks = keysOf(env.TAVILY_KEYS);
+    if (!tks.length) return err(500, 'search unavailable', 'server_error');
+    const tr = await fetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: pick(tks), query, search_depth: 'basic', include_answer: 'advanced', max_results: 6 }) });
+    const tj = await tr.json().catch(() => null);
+    if (!tr.ok || !tj) return err(502, 'search failed', 'server_error');
+    const sources = (tj.results || []).slice(0, 6).map(r => ({ title: r.title, url: r.url }));
+    await bill(0.025);
+    return new Response(JSON.stringify({ query, answer: tj.answer || '', sources }), { headers: head });
+  }
+
+  // ── 💬 CHAT / 🔎 SEARCH ──
+  if (url.pathname !== '/v1/chat/completions') return err(404, 'Unknown endpoint ' + url.pathname + '. Valid endpoints: /v1/chat/completions, /v1/images/generations, /v1/audio/speech, /v1/search, /v1/models.', 'invalid_request_error');
+  const want = String(b.model || 'birgsol-3.5');
+  const msgs = Array.isArray(b.messages) ? b.messages.slice() : [];
+  if (b.model && want !== 'birgsol-search' && !CHAT[want]) return err(404, "The model '" + want + "' does not exist or is not available on BIRGSOL. See GET /v1/models for the full list.", 'model_not_found', 'model');
+  if (!msgs.length) return err(400, 'The "messages" field is required and must be a non-empty array of {role, content} objects.', 'invalid_request_error', 'messages');
+
+  // 🔎 birgsol-search — live web search returned as a chat completion
+  if (want === 'birgsol-search') {
+    const last = [...msgs].reverse().find(m => m && m.role === 'user');
+    const query = String((last && last.content) || '').slice(0, 400);
+    if (!query) return err(400, 'a user message (search query) is required');
+    const tks = keysOf(env.TAVILY_KEYS);
+    if (!tks.length) return err(500, 'search unavailable', 'server_error');
+    const tr = await fetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: pick(tks), query, search_depth: 'basic', include_answer: 'advanced', max_results: 6 }) });
+    const tj = await tr.json().catch(() => null);
+    if (!tr.ok || !tj) return err(502, 'search failed', 'server_error');
+    let answer = tj.answer || '';
+    if (tj.results && tj.results.length) answer += '\n\nSources:\n' + tj.results.slice(0, 5).map(r => '• ' + r.title + ' — ' + r.url).join('\n');
+    await bill(0.025);
+    return new Response(JSON.stringify({ id: 'birgsol-' + Date.now(), object: 'chat.completion', created: Math.floor(Date.now() / 1000), model: want, choices: [{ index: 0, message: { role: 'assistant', content: answer || 'No results found.' }, finish_reason: 'stop' }] }), { headers: head });
+  }
+
+  // 💬 regular chat → route to the mapped provider + model
+  const route = CHAT[want] || CHAT['birgsol-3.5'];
+
+  // ── 🔵 Gemini-backed chat (e.g. birgsol-3.5-flash) — Google generateContent, adapted to OpenAI shape ──
+  if (route[0] === 'gemini') {
+    const gkeys = keysOf(env.GEMINI_KEYS).length ? keysOf(env.GEMINI_KEYS) : keysOf(env.GEMINI_KEY);
+    if (!gkeys.length) return err(500, 'provider unavailable for ' + want, 'server_error');
+    let sysText = '';
+    const contents = [];
+    for (const m of msgs) {
+      const c = (m && typeof m.content === 'string') ? m.content : (m && Array.isArray(m.content) ? m.content.map(p => (p && p.text) || '').join(' ') : '');
+      if (m && m.role === 'system') { sysText += (sysText ? '\n' : '') + c; continue; }
+      contents.push({ role: (m && m.role === 'assistant') ? 'model' : 'user', parts: [{ text: String(c || '') }] });
+    }
+    if (!sysText) sysText = BIRGSOL_SYS;
+    const _gKey = pick(gkeys);
+    const _gUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + route[1] + ':generateContent';
+    const _baseCfg = { temperature: b.temperature != null ? b.temperature : 0.7, maxOutputTokens: b.max_tokens || 1024 };
+    const _callGemini = (cfg) => fetch(_gUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-goog-api-key': _gKey }, body: JSON.stringify({ contents, systemInstruction: { parts: [{ text: sysText }] }, generationConfig: cfg }) });
+    let gr = await _callGemini({ ..._baseCfg, thinkingConfig: { thinkingBudget: 0 } }); // answer directly, no thinking budget
+    if (!gr.ok) gr = await _callGemini(_baseCfg); // fallback: this model may not accept thinkingConfig
+    const gj = await gr.json().catch(() => null);
+    if (!gr.ok || !gj) return err(502, (gj && gj.error && gj.error.message) || 'upstream error', 'server_error');
+    // join only the ANSWER parts (skip "thought" parts so a thinking model's reasoning never leaks into the reply)
+    const text = (((gj.candidates && gj.candidates[0] && gj.candidates[0].content && gj.candidates[0].content.parts) || []).filter(p => p && !p.thought).map(p => (p && p.text) || '').join('')) || '';
+    const um = gj.usageMetadata || {}; const pin = um.promptTokenCount || 0, pout = um.candidatesTokenCount || 0;
+    await bill(chatCost(want, pin, pout));
+    const created = Math.floor(Date.now() / 1000), id = 'chatcmpl-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now());
+    if (b.stream) {
+      const sse = 'data: ' + JSON.stringify({ id, object: 'chat.completion.chunk', created, model: want, choices: [{ index: 0, delta: { role: 'assistant', content: text }, finish_reason: null }] }) + '\n\n'
+                + 'data: ' + JSON.stringify({ id, object: 'chat.completion.chunk', created, model: want, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }) + '\n\n'
+                + 'data: [DONE]\n\n';
+      return new Response(sse, { headers: { ...cors, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache' } });
+    }
+    return new Response(JSON.stringify({ id, object: 'chat.completion', created, model: want, choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }], usage: { prompt_tokens: pin, completion_tokens: pout, total_tokens: pin + pout } }), { headers: head });
+  }
+
+  const prov = PROV[route[0]];
+  if (!prov || !prov.keys.length) return err(500, 'provider unavailable for ' + want, 'server_error');
+  if (!msgs.some(m => m && m.role === 'system')) msgs.unshift({ role: 'system', content: BIRGSOL_SYS });
+  const payload = { model: route[1], messages: msgs, temperature: b.temperature != null ? b.temperature : 0.7, max_tokens: b.max_tokens || 1024, stream: !!b.stream };
+  const up = await fetch(prov.url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + pick(prov.keys), 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  if (b.stream) {
+    // streaming has no final usage here → bill an estimate (rough input tokens + capped output)
+    if (up.ok && _hash) { const estIn = Math.ceil(JSON.stringify(msgs).length / 4); await bill(chatCost(want, estIn, payload.max_tokens || 1024)); }
+    return new Response(up.body, { status: up.status, headers: { ...cors, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache' } });
+  }
+  if (up.status === 429) return err(429, 'The upstream model is busy right now (rate limited). Please retry in a few seconds.', 'rate_limit_exceeded');
+  const uj = await up.json().catch(() => null);
+  if (!up.ok || !uj) return err(502, (uj && uj.error && uj.error.message) || 'The upstream model provider returned an error. Try again or use another model.', 'server_error');
+  uj.model = want; uj.object = 'chat.completion'; try { delete uj.system_fingerprint; delete uj.x_groq; } catch (_) {}
+  const _u = uj.usage || {}; await bill(chatCost(want, _u.prompt_tokens || 0, _u.completion_tokens || 0));
+  return new Response(JSON.stringify(uj), { status: 200, headers: head });
 }
-loadPrice();
-</script>
-</body>
-</html>
+
+// ── Key validation + credit via ONE security-definer RPC `api_charge(h, amount)` ──
+// Works for EVERY registered user using only the PUBLIC anon key (no service_role needed):
+//   • api_charge(hash, 0)  → current balance ($), or null if the key is invalid/revoked  (validation + pre-check)
+//   • api_charge(hash, >0) → deducts (floored at 0) and returns the new balance           (per-call billing)
+// The RPC (SECURITY DEFINER) looks the key's owner up by SHA-256 hash in public.api_keys, so only the holder
+// of the real key can affect its own balance. Static test keys in BIRGSOL_API_KEYS bypass Supabase entirely.
+function _sbUrl(env) { return String(env.SUPABASE_URL || '').replace(/\/+$/, ''); }
+function _sbKey(env) { return env.SUPABASE_ANON_KEY || env.SUPABASE_SERVICE_KEY || ''; }
+async function _sha256hex(s) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+async function _apiCharge(hash, amount, env) {
+  if (!env.SUPABASE_URL || !_sbKey(env)) return null;
+  try {
+    const r = await fetch(_sbUrl(env) + '/rest/v1/rpc/api_charge', {
+      method: 'POST',
+      headers: { apikey: _sbKey(env), Authorization: 'Bearer ' + _sbKey(env), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ h: hash, amount: amount })
+    });
+    if (!r.ok) return null;
+    const v = await r.json().catch(() => null);
+    return (v == null) ? null : Number(v);
+  } catch (_) { return null; }
+}
+// Validate a user key + read balance (null = invalid/unavailable). amount=0 → no deduction.
+async function _keyBalance(hash, env) { return await _apiCharge(hash, 0, env); }
+// Best-effort per-call deduction — fail-open: never throws, never blocks the API response.
+async function _charge(hash, cost, env) { if (hash && cost > 0) { try { await _apiCharge(hash, Number(cost.toFixed(6)), env); } catch (_) {} } }
+
+// PCM16 mono → WAV bytes (prepends a 44-byte header so the audio is directly playable).
+function _pcmToWav(pcm, sampleRate, channels, bits) {
+  const blockAlign = channels * bits / 8, byteRate = sampleRate * blockAlign, dataLen = pcm.length;
+  const buf = new ArrayBuffer(44 + dataLen), dv = new DataView(buf);
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); dv.setUint32(4, 36 + dataLen, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, channels, true);
+  dv.setUint32(24, sampleRate, true); dv.setUint32(28, byteRate, true);
+  dv.setUint16(32, blockAlign, true); dv.setUint16(34, bits, true);
+  ws(36, 'data'); dv.setUint32(40, dataLen, true);
+  new Uint8Array(buf, 44).set(pcm);
+  return new Uint8Array(buf);
+}
