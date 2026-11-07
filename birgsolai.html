@@ -6528,6 +6528,20 @@ async function _answerToUserLang(text) {
         return out || text;
     } catch (e) { return text; }
 }
+// 📰 סיכום-חדשות עברי נקי — מביא תוצאות (native news או webSearch) ומסנתז אותן לעברית בלבד (בלי כותרות/קטעים באנגלית, בלי סוגרי-מסגרת).
+async function _newsHebrew(query) {
+    let raw = '';
+    try { if (typeof _isDesktop === 'function' && _isDesktop() && typeof _execNativeTool === 'function') raw = await _execNativeTool([null, String(query || '')], 'news'); } catch (e) {}
+    if (!raw || String(raw).length < 40) { try { if (typeof webSearch === 'function') raw = await webSearch('חדשות ' + String(query || '')); } catch (e) {} }
+    if (!raw) return 'לא מצאתי חדשות עדכניות כרגע.';
+    const sys = 'You summarize news. From the search results given, write a clear, concise summary of the main CURRENT news in HEBREW ONLY. Use short bullet points for the top headlines, each with its date when available. Rely ONLY on the given results — never add any fact, number, date or event not present. If the results are thin or not from today, say so in Hebrew. Output HEBREW ONLY: no English, no bracketed [tags], no raw URLs.';
+    try {
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: 'תוצאות החיפוש:\n\n' + String(raw).slice(0, 6000) + '\n\nכתוב סיכום חדשות קצר, ברור ומדויק בעברית בלבד.' }], temperature: 0.2, max_tokens: 900 }, { signal: AbortSignal.timeout(15000) });
+        if (r && r.ok) { const j = await r.json(); const t = (j?.choices?.[0]?.message?.content || '').trim(); if (t.length > 20) return t; }
+    } catch (e) {}
+    // גיבוי: ניקוי מסגרות + תרגום הגולמי לעברית
+    return await _answerToUserLang(String(raw).replace(/\[[^\]]*\]/g, '').replace(/https?:\/\/\S+/g, '').trim()) || 'לא מצאתי חדשות עדכניות כרגע.';
+}
 async function _tryTavilyKey(apiKey, query) {
     const isNews = _isNewsQuery(query);
     const payload = { api_key: apiKey, query, search_depth: 'basic', include_answer: 'advanced', max_results: 6 };
@@ -7873,7 +7887,7 @@ async function _handleAssistant(q) {
         if (t === 'weather') res = await _execNativeTool([null, String(o.city || o.query || '')], 'weather');
         else if (t === 'currency') res = await _execNativeTool([null, String(o.from || 'USD') + '|||' + String(o.to || 'ILS') + '|||' + String(o.amount || '1')], 'currency');
         else if (t === 'crypto') res = await _execNativeTool([null, String(o.coins || o.query || 'bitcoin')], 'crypto');
-        else if (t === 'news') res = await _execNativeTool([null, String(o.query || '')], 'news');
+        else if (t === 'news') res = await _newsHebrew(String(o.query || q || ''));
         else if (t === 'wiki') res = await _execNativeTool([null, String(o.query || '')], 'wiki');
         else if (t === 'geo') res = await _execNativeTool([null, String(o.query || '')], 'geo');
         else if (t === 'directions') res = await _execNativeTool([null, String(o.from || '') + '|||' + String(o.to || '')], 'directions');
@@ -7935,7 +7949,7 @@ async function _worldClient(t, o, q) {
         return 'מ-' + ga.display_name.slice(0, 60) + '\nל-' + gb.display_name.slice(0, 60) + '\nמרחק: ' + km.toFixed(1) + ' ק"מ | זמן נסיעה: ' + Math.round(mins) + ' דקות (' + (mins / 60).toFixed(1) + ' שעות)';
     }
     if (t === 'news') {
-        try { if (typeof webSearch === 'function') { const res = await webSearch('חדשות ' + String(o.query || q || '')); return res || 'לא נמצאו חדשות כרגע.'; } } catch (e) {}
+        try { const _nh = await _newsHebrew(String(o.query || q || '')); if (_nh) return _nh; } catch (e) {}
         return 'לא הצלחתי להביא חדשות כרגע.';
     }
     if (t === 'note' || t === 'remind' || t === 'contact') return _personalClient(t, o, q);
@@ -10858,13 +10872,9 @@ async function send() {
         const _ah = await _handleAssistant(q);
         if (_ah) { inp.value = ''; inp.style.height = 'auto'; return; }
     }
-    // 💻🖥️ דסקטופ + מצב קוד = סוכן אוטומטי. כל מה שנכתב במצב "קוד" בדסקטופ הולך ישר לסוכן (בלי צורך במילות-הדק).
-    // מצב "שיחה" נשאר שיחה רגילה. (בקשת דוד — פשטות: מצב קוד מדליק את הסוכן, מוכן)
-    if (q && typeof _isDesktop === 'function' && _isDesktop() && typeof currentMode !== 'undefined' && currentMode === 'code'
-        && !_isBrowserAct(q) && !fileUrl && !fileContent && !mediaFile) {
-        await runNativeAgent(q);
-        return;
-    }
+    // 💻 מצב "קוד" כבר לא מדליק סוכן על *כל* הודעה (בקשת דוד: שאלה שלא צריכה סוכן פשוט תיענה).
+    //    מחליט-הכוונה (_routeIntent) למטה מחליט לבד: משימת-בנייה/קוד → סוכן · שאלה/הסבר → תשובה ישירה.
+    //    (במצב קוד יש גם רשת-ביטחון: משימת-בנייה ברורה עוברת לסוכן גם אם המחליט סיווג כ"צ'אט".)
     // ── 🔗 המשך-סוכן: אם סוכן רץ בשיחה הזו (ולו לפני כמה הודעות), המודל מחליט אם ההודעה הזו היא המשך/תיקון
     //    של אותה משימה (להחזיר לסוכן) — שיפוט-כוונה, לא מילות-מפתח (בקשת דוד). רגקס רק כגיבוי אם המודל לא זמין. ──
     // יכולת-סוכן: הסוכן/דפדפן זמינים רק בדסקטופ (Electron) או עם גשר כרום/שליטה-נייטיבית. בנייד/ווב רגיל → לא רצים (אחרת מדליפים טקסט פנימי ומראים "התוסף לא נמצא" על כלום).
@@ -10893,6 +10903,8 @@ async function send() {
             else if (_isBrowserAct(q)) _route = 'browser';
             else _route = 'chat';
         }
+        // 💻 רשת-ביטחון למצב קוד: אם זו משימת-בנייה/קוד ברורה אבל המחליט סיווג כ"צ'אט" — בכל זאת לסוכן (שלא יענה במקום לבצע).
+        if ((typeof currentMode !== 'undefined' && currentMode === 'code') && _route === 'chat' && typeof _isCodeAgentTask === 'function' && _isCodeAgentTask(q) && !_isBrowserAct(q)) _route = 'agent';
         if (_route === 'agent' && typeof _isDesktop === 'function' && _isDesktop() && !_isBrowserAct(q)) { await runNativeAgent(q); return; }
         // דפדפן רק אם יש יכולת (גשר/תוסף) או שהמשתמש ביקש במפורש — אחרת שאלה פשוטה שנותבה בטעות ל"דפדפן" נופלת לצ'אט רגיל (בלי "התוסף לא נמצא")
         if (_route === 'browser' && (_agentCapable || (typeof _isBrowserAct === 'function' && _isBrowserAct(q)))) { await _browserAgent(q); return; }
