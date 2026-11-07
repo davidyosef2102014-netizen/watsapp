@@ -10425,8 +10425,16 @@ async function _browserAgent(goal, opts) {
         let _failStreak = 0; // כשלים רצופים בקבלת החלטה — נותנים כמה ניסיונות לפני עצירה
         let _actHist = [], _loopBreaks = 0; // גלאי לולאה — זיהוי חזרה על אותה פעולה בדיוק
         let _hardFails = 0; // כשלים רצופים בביצוע — טריגר ל-Hard-Reset (רענון הדף והמשך)
+        const _bDeadline = Date.now() + (_admin ? 12 : 4) * 60000; // ⏱️ מגבלת-זמן קשיחה — שגם סוכן-הדפדפן לא יתקע שעות
         for (let stepN = 1; stepN <= MAX && !_agentStop; stepN++) {
             if (state.stopped && _agentStop) { _step('נעצר על ידי המשתמש', false); break; } // רק עצירה אמיתית של הריצה הזו — לא דגל תקוע מריצה קודמת
+            if (Date.now() > _bDeadline) { // ⏱️ חריגת-זמן — עוצר ומדווח
+                _step('המשימה בדפדפן רצה יותר מדי זמן — עוצר ומדווח', false);
+                let _bm = await _agGenStuck(goal, stepsLog, 'the browser task ran past its time limit without finishing — stopping instead of trying forever').catch(() => null);
+                if (!_bm) _bm = 'עצרתי כי המשימה בדפדפן רצה יותר מדי זמן בלי להסתיים. תכתוב "תמשיך" ואמשיך מאותה נקודה, או שנחשוב על דרך אחרת.';
+                try { txt.innerHTML = ''; const _ba = document.createElement('div'); _ba.innerHTML = mdSafe(_bm); txt.appendChild(_ba); } catch (e) { txt.innerHTML = _esc(_bm); }
+                hist[hist.length - 1].content = _bm; break;
+            }
             // בונים תיאור הדף לסוכן
             const fieldsTxt = (state.fields || []).slice(0, 60).map(f =>
                 `[${f.ref}] ${f.kind}${f.label ? ' "' + f.label + '"' : ''}${f.value ? ' =' + JSON.stringify(f.value) : ''}${f.checked != null ? (f.checked ? ' (מסומן)' : ' (לא מסומן)') : ''}`).join('\n');
