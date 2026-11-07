@@ -1009,6 +1009,14 @@
         /* user chip in topbar */
         .user-chip { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); background: var(--surf); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; }
         .user-chip:hover { background: var(--surf2); }
+        /* account chip at the BOTTOM of the sidebar (Gemini-style: avatar + name + email) */
+        .sb-acct { display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin: 4px 0 2px; border-radius: 12px; cursor: pointer; border: 1px solid var(--border); background: var(--surf); }
+        .sb-acct:hover { background: var(--surf2); }
+        .sb-acct-dot { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg,#38bdf8,#4285F4); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex: none; text-transform: uppercase; }
+        .sb-acct-info { flex: 1; min-width: 0; text-align: start; }
+        .sb-acct-name { font-size: 13.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sb-acct-name .prem-badge { margin-inline-start: 5px; }
+        .sb-acct-email { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: start; }
         /* כפתורי אורח (סגנון ChatGPT) */
         .guest-login, .guest-signup { font-family: inherit; font-size: 13px; font-weight: 600; padding: 7px 15px; border-radius: 20px; cursor: pointer; white-space: nowrap; transition: opacity .15s, background .15s; }
         .guest-login { background: var(--text); color: var(--bg); border: none; }
@@ -1711,6 +1719,13 @@
                 <button class="sp-toggle" id="sp-autosave" onclick="toggleAutoSave()"></button>
             </div>
         </div>
+        <div class="sb-acct" id="user-chip" style="display:none">
+            <div class="sb-acct-dot" id="user-dot">?</div>
+            <div class="sb-acct-info">
+                <div class="sb-acct-name" id="user-label">—</div>
+                <div class="sb-acct-email" id="user-email"></div>
+            </div>
+        </div>
         <button class="sb-settings-btn" onclick="toggleSettings()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span data-i18n="settings">הגדרות</span>
@@ -1800,10 +1815,6 @@
             <button class="icon-btn" onclick="toggleSidebar()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
         </div>
         <div class="tb-left">
-            <div class="user-chip" id="user-chip">
-                <div class="user-dot" id="user-dot">?</div>
-                <span id="user-label">—</span>
-            </div>
             <div id="guest-auth" style="display:none;gap:8px;align-items:center">
                 <button class="guest-login" onclick="openAuth('login')" data-i18n="guest_login">התחבר</button>
                 <button class="guest-signup" onclick="openAuth('register')" data-i18n="guest_signup">הירשם בחינם</button>
@@ -3232,6 +3243,8 @@ function updateUserChip() {
         : disp;
     chip.onclick = openPricingModal;
     chip.style.cursor = 'pointer';
+    const em = document.getElementById('user-email');
+    if (em) em.textContent = (currentUser && String(currentUser).includes('@')) ? currentUser : (t.name || '');
     const spTier = document.getElementById('sp-tier');
     if (spTier) spTier.textContent = t.name;
 }
