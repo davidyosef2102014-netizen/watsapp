@@ -3961,12 +3961,12 @@ function _extractDomains(text) {
 const L10N = {
     he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את BIRGSOL AI...', foot:'BIRGSOL AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
           mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_camera:'מצלמה', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
-          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה', gemini_disclosure:'* מודלים המבוססים על Google Gemini (כגון BIRGSOL AI 3.5 FLASH) משתמשים בשירותי Google וכפופים למדיניות שלהם.',
+          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה', gemini_disclosure:'* מודלים המבוססים על Google Gemini (כגון BIRGSOL AI 3.5 FLASH) משתמשים בשירותי Google וכפופים למדיניות שלהם.', agent_inject_note:'↳ נוסף למשימה — הסוכן יקרא את זה בצעד הבא',
           settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות', del_confirm:'למחוק את השיחה הזו?',
           srv_busy:'השרת עמוס כרגע — מנסה שוב, נא להמתין…', srv_fail:'השרת עמוס מאוד כרגע. נסה שוב עוד רגע.', retry_btn:'נסה שוב' },
     en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask BIRGSOL AI...', foot:'BIRGSOL AI can make mistakes. Check important info.', newChat:'New chat',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_camera:'Camera', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
-          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language', gemini_disclosure:'* Models based on Google Gemini (such as BIRGSOL AI 3.5 FLASH) use Google services and are subject to their policies.',
+          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language', gemini_disclosure:'* Models based on Google Gemini (such as BIRGSOL AI 3.5 FLASH) use Google services and are subject to their policies.', agent_inject_note:'↳ Added to the task — the agent will read it on the next step',
           settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out', del_confirm:'Delete this chat?',
           srv_busy:'The server is busy — retrying, please wait…', srv_fail:'The server is very busy right now. Please try again in a moment.', retry_btn:'Try again' },
     ar: { greet:'مرحبا', sub:'كيف يمكنني مساعدتك اليوم؟', ph:'اسأل BIRGSOL AI...', foot:'قد يخطئ BIRGSOL AI. تحقق من المعلومات المهمة.', newChat:'محادثة جديدة',
@@ -5228,7 +5228,7 @@ function updateBtn() {
     btn.style.display = (has || busy) ? '' : 'none';
 }
 function handleKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (_agentRunning) { _sideAsk(); } else { send(); } }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (_agentRunning) { _agInject(); } else { send(); } }
     // Ctrl+V — try to read image directly from clipboard API (more reliable than paste event)
     if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         if (navigator.clipboard && navigator.clipboard.read) {
@@ -9004,8 +9004,8 @@ async function callAI(messages, onChunk, signal=null) {
 
 /* ── STOP / REGENERATE / EDIT ── */
 function sendOrStop() {
-    // בזמן שהסוכן עובד: אם יש טקסט → שאלה-צד ל-LLAMA (לא עוצר את הסוכן); אם ריק → עצירה
-    if (_agentRunning) { const inp = document.getElementById('userInput'); if (inp && inp.value.trim()) { _sideAsk(); return; } }
+    // בזמן שהסוכן עובד: אם יש טקסט → ההודעה נכנסת למשימה (הזרקה, לא עוצר את הסוכן); אם ריק → עצירה
+    if (_agentRunning) { const inp = document.getElementById('userInput'); if (inp && inp.value.trim()) { _agInject(); return; } }
     if (busy) stopGeneration(); else send();
 }
 
@@ -9517,7 +9517,8 @@ let _agUseChrome = false; // נקבע בתחילת הסוכן: האם הכרום
 let _lastAgentGoal = '', _lastAgentConv = null, _lastAgentKind = '';
 try { const _as = JSON.parse(localStorage.getItem('birgsol_lastAgent') || '{}'); if (_as && _as.goal) { _lastAgentGoal = _as.goal; _lastAgentConv = _as.conv; _lastAgentKind = _as.kind || ''; } } catch (e) {}
 function _saveAgentState() { try { localStorage.setItem('birgsol_lastAgent', JSON.stringify({ goal: _lastAgentGoal, conv: _lastAgentConv, kind: _lastAgentKind })); } catch (e) {} }
-let _agentRunning = false; // true בזמן שלולאת-הסוכן פעילה — מאפשר שאלות-צד ל-LLAMA תוך כדי
+let _agentRunning = false; // true בזמן שלולאת-הסוכן פעילה — מאפשר הזרקת-הודעות למשימה תוך כדי
+let _agInjectQueue = []; // 🗣️ הודעות שהמשתמש הקליד בזמן שהסוכן רץ — נכנסות למשימה בתחילת הצעד הבא
 function _looksLikeAgentFollowup(q) {
     if (!q) return false;
     if (q.length > 240) return false; // תיקון/הערה קצרה — לא נושא חדש וארוך
@@ -10055,6 +10056,13 @@ async function runNativeAgent(goal, opts) {
                 if (!_tm) _tm = 'עצרתי כי המשימה רצה יותר מדי זמן בלי להסתיים — עדיף שלא להמשיך לנסות שוב ושוב. תכתוב "תמשיך" ואמשיך מאותה נקודה, או שנחשוב יחד על כיוון אחר.';
                 const _ta = document.createElement('div'); try { _ta.innerHTML = mdSafe(_tm); } catch (e) { _ta.textContent = _tm; } txt.appendChild(_ta); hist[hist.length - 1].content = _tm;
                 _timedOut = true; break;
+            }
+            // 🗣️ הזרקת-משתמש תוך כדי: הודעות שהמשתמש הקליד בזמן שהסוכן רץ — נכנסות למשימה בתחילת הצעד, המוח קורא ומתאים.
+            if (_agInjectQueue.length) {
+                const _inj = _agInjectQueue.splice(0).join('  |  ');
+                stepsLog.push('🗣️ המשתמש הוסיף עכשיו הוראה תוך כדי המשימה — קרא אותה והתאם את ההמשך מיד (זו הנחיה חדשה מהמשתמש, לא פלט כלי): "' + _inj + '"');
+                _step('המשתמש הוסיף הוראה תוך כדי — מתאים את המשימה', false);
+                try { _agMouth('המשתמש הוסיף הנחיה תוך כדי שעבדת: "' + _inj + '". אמור משפט אחד קצר וחם שקלטת ושאתה מתאים — בלי לפרט תוכנית.').then(_o => { if (_o) _liveSay(body, _o); }).catch(() => {}); } catch (e) {}
             }
             const sys = '🎖️ YOU ARE IN FULL COMMAND of a real toolbox (terminal, files, code, web search, network, the browser, Office, and more) — YOU decide which tool to use and when, on your own, toward the goal; never wait to be told which tool and never just describe what could be done — reach for the right tool and DO it.\n'
                 + '⚙️ OPERATE LIKE A SHARP SENIOR ENGINEER: read the LAST tool output → work out the REAL cause → choose the ONE best next action with the RIGHT tool for it → then verify. Two hard rules: (1) NEVER repeat an action that just failed or did not help — if something failed, diagnose the exact error and do something DIFFERENT (another tool, another approach, a probe step), never the same thing again hoping it works. (2) STOP the moment the goal is genuinely done (done:true), and do not keep going once it is complete. Pick tools by the real GOAL, not by habit.\n'
@@ -10842,6 +10850,23 @@ async function _deepResearch(query, statusEl) {
 
 // 💬 שאלה-צדדית בזמן שהסוכן עובד: Axion עונה דרך LLAMA (מהיר, לא מתנגש בשרשרת GLM/NVIDIA של הסוכן),
 // במקביל ובלי לעצור את הסוכן. בונה בועות ידנית כדי לא לפגוע ב-hist שהסוכן כותב אליו בסוף.
+// 🗣️ הזרקת-הודעה למשימה הרצה: המשתמש מקליד תוך כדי שהסוכן עובד, וההודעה נכנסת לתור שהלולאה קוראת בתחילת הצעד הבא.
+function _agInject() {
+    const inp = document.getElementById('userInput');
+    let q = inp ? inp.value.trim() : '';
+    if (!q) return;
+    inp.value = ''; inp.style.height = 'auto';
+    _agInjectQueue.push(q);
+    const cw = document.getElementById('chat-window');
+    if (cw) {
+        try { showChat(); } catch (e) {}
+        const ur = document.createElement('div'); ur.className = 'msg-row user';
+        const note = (typeof _t === 'function') ? _t('agent_inject_note') : '↳ נוסף למשימה';
+        ur.innerHTML = '<div class="user-bub-wrap"><div class="user-bub">' + ((typeof escHtml === 'function' ? escHtml(q) : q)).replace(/\n/g, '<br>') + '</div><div style="font-size:11px;opacity:.6;margin-top:3px;text-align:end">' + note + '</div></div>';
+        cw.appendChild(ur);
+        cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
+    }
+}
 async function _sideAsk() {
     const inp = document.getElementById('userInput');
     let q = inp ? inp.value.trim() : '';
