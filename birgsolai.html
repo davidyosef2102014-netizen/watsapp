@@ -10324,9 +10324,14 @@ async function runNativeAgent(goal, opts) {
             {
                 const _ns = String(nres || '');
                 // 🧯 זיהוי-כשל מבוסס-תוצאה — לכל כלי (כולל ls/grep/readfile/scrape וקריסות קידוד), לא רק תת-קבוצה.
-                const _resErr = /^\s*\[[^\]]{0,40}(שגיאה|נכשל|failed|error)/i.test(_ns)
+                // סימני-כשל *מפורשים* של הכלי (בטוחים לכל כלי — אלה אומרים שהכלי נכשל, לא תוכן-קובץ):
+                const _hardFail = /^\s*\[[^\]]{0,40}(שגיאה|נכשל|failed)/i.test(_ns)
                     || /\[edit\][^\n]*(NOT FOUND|not found|לא נמצא|appears\s+\d+)/i.test(_ns)
-                    || /\b(Traceback \(most recent call last\)|UnicodeEncodeError|UnicodeDecodeError|SyntaxError:|ModuleNotFoundError|ImportError|command not found|No such file|ENOENT|is not defined|ReferenceError|fatal:|npm ERR!|permission denied|connection (refused|reset|timed out)|HTTP\/?1?\.?\d?\s*[45]\d\d|\bstatus[\"':\s]*[45]\d\d)\b/i.test(_ns.slice(0, 800));
+                    || /\b(No such file|ENOENT|permission denied|command not found)\b/i.test(_ns.slice(0, 300));
+                // סריקה-עמוקה של שגיאות — רק לכלי *ביצוע* ול-ls (הפלט שלהם הוא תוצאה/שגיאה, לא תוכן-קובץ שרירותי שעלול להכיל מילים כאלה).
+                const _deepScanOps = ['run', 'python', 'git', 'fetch', 'download', 'edit', 'writefile', 'append', 'multiedit', 'move', 'copy', 'delete', 'mkdir', 'openapp', 'createpdf', 'createpptx', 'ls'];
+                const _deepErr = _deepScanOps.includes(decision.op) && /\b(Traceback \(most recent call last\)|UnicodeEncodeError|UnicodeDecodeError|SyntaxError:|ModuleNotFoundError|ImportError|is not defined|ReferenceError|fatal:|npm ERR!|connection (refused|reset|timed out)|HTTP\/?1?\.?\d?\s*[45]\d\d|\bstatus[\"':\s]*[45]\d\d)\b/i.test(_ns.slice(0, 800));
+                const _resErr = _hardFail || _deepErr;
                 // טביעת-אצבע של השגיאה — לזהות את *אותה* שגיאה שחוזרת גם מפעולות *שונות* (לא רק חתימת-פעולה זהה).
                 const _errSig = _resErr ? String((_ns.match(/UnicodeEncodeError|UnicodeDecodeError|Traceback|SyntaxError|ModuleNotFoundError|ImportError|command not found|No such file|ENOENT|ReferenceError|fatal:|npm ERR!|permission denied|connection (?:refused|reset|timed out)|[45]\d\d|נכשל|לא נמצא/i) || [''])[0]).toLowerCase() : '';
                 if (_resErr) { _consecErr++; if (_errSig && _errSig === _lastErrSig) _sameErr++; else _sameErr = 1; _lastErrSig = _errSig; }
