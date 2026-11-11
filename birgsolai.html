@@ -1718,6 +1718,9 @@
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> <span data-i18n="autosave_label">שמירת קוד אוטומטית לתיקייה</span></span>
                 <button class="sp-toggle" id="sp-autosave" onclick="toggleAutoSave()"></button>
             </div>
+            <div class="sp-row" style="border-bottom:none">
+                <span class="sp-label" style="font-size:12px;color:var(--muted);line-height:1.5;font-weight:400" data-i18n="gemini_disclosure">* מודלים המבוססים על Google Gemini (כגון BIRGSOL AI 3.5 FLASH) משתמשים בשירותי Google וכפופים למדיניות שלהם.</span>
+            </div>
         </div>
         <div class="sb-acct" id="user-chip" style="display:none">
             <div class="sb-acct-dot" id="user-dot">?</div>
@@ -3958,12 +3961,12 @@ function _extractDomains(text) {
 const L10N = {
     he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את BIRGSOL AI...', foot:'BIRGSOL AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
           mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_camera:'מצלמה', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
-          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה',
+          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה', gemini_disclosure:'* מודלים המבוססים על Google Gemini (כגון BIRGSOL AI 3.5 FLASH) משתמשים בשירותי Google וכפופים למדיניות שלהם.',
           settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות', del_confirm:'למחוק את השיחה הזו?',
           srv_busy:'השרת עמוס כרגע — מנסה שוב, נא להמתין…', srv_fail:'השרת עמוס מאוד כרגע. נסה שוב עוד רגע.', retry_btn:'נסה שוב' },
     en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask BIRGSOL AI...', foot:'BIRGSOL AI can make mistakes. Check important info.', newChat:'New chat',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_camera:'Camera', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
-          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language',
+          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language', gemini_disclosure:'* Models based on Google Gemini (such as BIRGSOL AI 3.5 FLASH) use Google services and are subject to their policies.',
           settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out', del_confirm:'Delete this chat?',
           srv_busy:'The server is busy — retrying, please wait…', srv_fail:'The server is very busy right now. Please try again in a moment.', retry_btn:'Try again' },
     ar: { greet:'مرحبا', sub:'كيف يمكنني مساعدتك اليوم؟', ph:'اسأل BIRGSOL AI...', foot:'قد يخطئ BIRGSOL AI. تحقق من المعلومات المهمة.', newChat:'محادثة جديدة',
