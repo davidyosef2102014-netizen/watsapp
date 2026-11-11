@@ -7258,7 +7258,9 @@ async function _execNativeTool(m, kind) {
     if (!_isDesktop()) return '[' + kind + '] זמין רק באפליקציית הדסקטופ של BIRGSOL.';
     try {
         if (kind === 'run') {
-            const _c = (m[1] || '').trim();
+            let _c = (m[1] || '').trim();
+            // 🈶 מכריח מצב UTF-8 בכל הרצת-python (Windows cp1252 מקריס print/קריאה של עברית — זה תקע הרבה סקריפטים). -X utf8 בטוח ורק עוזר.
+            if (/^(python3?|py)\s/i.test(_c) && !/\s-X\s*utf8/i.test(_c)) _c = _c.replace(/^(python3?|py)\b/i, '$1 -X utf8');
             // 👁️ פתיחה עיוורת של HTML בדפדפן (start/explorer) לא מראה לסוכן כלום וגורמת ללולאה — מיירטים ומחזירים נדנוד לקרוא את הקובץ.
             //    (לראייה ויזואלית אמיתית יש סוכן-דפדפן נפרד; start זו לא הדרך.)
             if (/^(start|explorer|rundll32)\b/i.test(_c) && /\.html?(["'\s]|$)/i.test(_c)) {
@@ -7355,7 +7357,7 @@ async function _execNativeTool(m, kind) {
         if (kind === 'python') {
             const code = (m[1] || ''); if (!code.trim()) return '[python] אין קוד להרצה';
             // הקוד מועבר ב-base64 כדי לשמור שורות ותווים מיוחדים בלי בעיות escape של shell.
-            const cmd = 'python -c "import base64;exec(base64.b64decode(\'' + _b64n(code) + '\').decode(\'utf-8\'))"';
+            const cmd = 'python -X utf8 -c "import base64;exec(base64.b64decode(\'' + _b64n(code) + '\').decode(\'utf-8\'))"';
             const r = await window.BIRGSOL_NATIVE.runCommand(cmd); if (!r) return '[python נכשל]';
             const out = ((r.stdout || '') + (r.stderr ? '\n[שגיאות]\n' + r.stderr : '')).trim();
             return '[פלט Python]\n' + String(out || '(הקוד רץ — אין פלט מודפס)').slice(0, 9000);
