@@ -10044,7 +10044,7 @@ async function runNativeAgent(goal, opts) {
             if (_r.length) _convCtx = 'CONVERSATION BEFORE THIS TASK (what we were talking about — use it for context):\n' + _r.join('\n') + '\n\n';
         } catch (e) {}
         let MAX = _admin ? 80 : 8, _autoExt = 0; // _autoExt: המשך-אוטומטי בתקרת-הצעדים (בלי לבקש "תמשיך")
-        let _failStreak = 0, _actHist = [], _loopBreaks = 0, _doneChallenges = 0, _consecErr = 0;
+        let _failStreak = 0, _actHist = [], _loopBreaks = 0, _doneChallenges = 0, _consecErr = 0, _lastErrSig = '', _sameErr = 0;
         let stepN = 1;
         // ⏱️ מגבלת-זמן קשיחה — מונעת ריצה של שעות: הסוכן עוצר ומדווח כנה אם עבר הזמן (מנהל 12 דק', משתמש 4 דק').
         const _agDeadline = Date.now() + (_admin ? 12 : 4) * 60000; let _timedOut = false;
@@ -10315,13 +10315,27 @@ async function runNativeAgent(goal, opts) {
             stepsLog.push('   → ' + _stored);
             // 🧯 כשל-רצוף (לא בהכרח *זהה*) — אם כמה פעולות-ביצוע ברצף נכשלו באמת, מכריחים אבחון + גישה שונה במקום לנסות שוב ושוב (זה מה שגרם ל"נכשל כל פעם שעה").
             {
-                const _opActs = ['run', 'fetch', 'python', 'edit', 'writefile', 'append', 'download', 'git', 'multiedit', 'scrape', 'browser', 'openapp', 'createpdf', 'createpptx', 'move', 'copy', 'delete', 'mkdir'];
                 const _ns = String(nres || '');
-                const _resErr = _opActs.includes(decision.op) && (/^\s*\[\s*שגיאה/.test(_ns) || /\[edit\][^\n]*(NOT FOUND|not found|לא נמצא|appears\s+\d+)/i.test(_ns) || /\b(Traceback \(most recent call last\)|SyntaxError:|ModuleNotFoundError|ImportError|command not found|No such file|ENOENT|is not defined|ReferenceError|fatal:|npm ERR!|permission denied|connection (refused|reset|timed out)|HTTP\/?1?\.?\d?\s*[45]\d\d|\bstatus[\"':\s]*[45]\d\d)\b/i.test(_ns.slice(0, 600)));
-                if (_resErr) _consecErr++; else _consecErr = 0;
-                if (_consecErr === 4) {
-                    stepsLog.push('🛑 ארבע פעולות-ביצוע ברצף נכשלו. עצור לרגע — אל תנסה שוב את אותה גישה. קרא מילה-במילה את השגיאה האחרונה, אבחן את הסיבה *האמיתית*, ואז נסה משהו *שונה מהותית*: כלי אחר, פקודה/תחביר אחר, התקנת תלות חסרה, או צעד-ביניים שבודק הנחה (למשל ls/readfile כדי לראות מה באמת קיים). אם באמת אי אפשר להתקדם — סיים ב-done והסבר כן מה חסם, אל תמשיך לנסות לנצח.');
-                    _step('כמה כשלונות ברצף — חושב מחדש על גישה אחרת', false);
+                // 🧯 זיהוי-כשל מבוסס-תוצאה — לכל כלי (כולל ls/grep/readfile/scrape וקריסות קידוד), לא רק תת-קבוצה.
+                const _resErr = /^\s*\[[^\]]{0,40}(שגיאה|נכשל|failed|error)/i.test(_ns)
+                    || /\[edit\][^\n]*(NOT FOUND|not found|לא נמצא|appears\s+\d+)/i.test(_ns)
+                    || /\b(Traceback \(most recent call last\)|UnicodeEncodeError|UnicodeDecodeError|SyntaxError:|ModuleNotFoundError|ImportError|command not found|No such file|ENOENT|is not defined|ReferenceError|fatal:|npm ERR!|permission denied|connection (refused|reset|timed out)|HTTP\/?1?\.?\d?\s*[45]\d\d|\bstatus[\"':\s]*[45]\d\d)\b/i.test(_ns.slice(0, 800));
+                // טביעת-אצבע של השגיאה — לזהות את *אותה* שגיאה שחוזרת גם מפעולות *שונות* (לא רק חתימת-פעולה זהה).
+                const _errSig = _resErr ? String((_ns.match(/UnicodeEncodeError|UnicodeDecodeError|Traceback|SyntaxError|ModuleNotFoundError|ImportError|command not found|No such file|ENOENT|ReferenceError|fatal:|npm ERR!|permission denied|connection (?:refused|reset|timed out)|[45]\d\d|נכשל|לא נמצא/i) || [''])[0]).toLowerCase() : '';
+                if (_resErr) { _consecErr++; if (_errSig && _errSig === _lastErrSig) _sameErr++; else _sameErr = 1; _lastErrSig = _errSig; }
+                else { _consecErr = 0; _sameErr = 0; _lastErrSig = ''; }
+                const _optionalOp = ['ls', 'grep', 'readfile', 'search', 'scrape', 'wiki', 'news', 'weather', 'geo', 'sysinfo', 'proclist', 'browser'].includes(decision.op);
+                // פעולת-חקירה לא-חיונית שנכשלת שוב → דלג עליה לגמרי ועבור לפעולה המקדמת (זה מה שתקע את עץ-המשפחה על ls).
+                if (_resErr && _optionalOp && _consecErr >= 2) {
+                    stepsLog.push('🛑 הפעולה ' + decision.op + ' נכשלת שוב והיא לא-חיונית למטרה. אל תנסה אותה שוב ואל תנסה וריאציה שלה (למשל אותו דבר עם chcp/דגל אחר) — דלג עליה לגמרי ועבור *ישר* לפעולה שמקדמת את המטרה (writefile/edit/run). אתה לא צריך את החקירה הזו כדי להתקדם; הנתיב כבר ידוע לך.');
+                    _step('פעולת-חקירה נכשלת שוב — מדלג עליה וממשיך למטרה', false);
+                    _consecErr = 0; _sameErr = 0; _lastErrSig = '';
+                }
+                // אותה שגיאה חוזרת (גם מפעולות שונות) או כמה כשלים ברצף → הכרח שינוי-גישה מהותי, אחרת סיום כן.
+                else if (_resErr && (_sameErr >= 2 || _consecErr >= 3)) {
+                    stepsLog.push('🛑 ' + (_sameErr >= 2 ? ('אותה שגיאה חוזרת שוב ושוב: ' + (_errSig || 'כשל')) : 'כמה פעולות ברצף נכשלו') + '. עצור — הגישה הנוכחית לא עובדת. אל תחזור עליה ואל תנסה וריאציה קטנה. קרא מילה-במילה את השגיאה האחרונה, אבחן את הסיבה *האמיתית*, ועשה משהו *שונה מהותית*: כלי אחר, תחביר/קידוד אחר (למשל encoding=utf-8 בפייתון), התקנת תלות חסרה, או דלג על צעד לא-חיוני. אם באמת אי אפשר — סיים ב-done והסבר כן מה חסם, אל תמשיך לנסות לנצח.');
+                    _step('תקוע על אותו כשל — מכריח גישה אחרת', false);
+                    _consecErr = 0; _sameErr = 0; _lastErrSig = '';
                 }
             }
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
