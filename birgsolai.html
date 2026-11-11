@@ -9922,20 +9922,27 @@ async function _agDecide(sys, user) {
     // ⏱️ עדיפות-מוח + failover מהיר (בקשת דוד): המוח המועדף (GLM) רץ מיד ומנצח אם ענה מהר. אבל אם לא ענה
     //    תוך 8ש' — *או* אם כל המועדפים נפלו לפני כן — מריצים לידם את הגיבוי (Qwen3-Coder ואז nemotron/groq) *במקביל*,
     //    וההחלטה התקינה הראשונה מנצחת. ככה אין יותר תקיעה של "המודל לא ענה" ולא המתנה של 40ש' למוח מת. נכשל רק אם כולם נפלו.
+    // ⚡ מפרידים את המוח-הכבד (GLM המלא, עד 45ש') מה-GLM המהירים: אחרת הכבד משאיר glmPending>0 והגיבוי מחכה לטיימר
+    //    גם כשה-GLM המהירים כבר נכשלו ב-429 → זה גרם ל"מתאושש אבל לוקח זמן". עכשיו: GLM מהיר נכשל → גיבוי נכנס מיד.
+    const _heavyFn = _primary.includes(_heavyBrain) ? _heavyBrain : null;
+    const _fast = _primary.filter(f => f !== _heavyBrain);
     return await new Promise((resolve) => {
-        let settled = false, glmPending = 0, backupOn = false, backupPending = 0, t40 = null, cap = null;
+        let settled = false, fastPending = 0, heavyPending = 0, backupOn = false, backupPending = 0, t40 = null, cap = null;
         const finish = (d) => { if (!settled) { settled = true; if (t40) clearTimeout(t40); if (cap) clearTimeout(cap); resolve(d || null); } };
-        const allDead = () => { if (!settled && glmPending === 0 && backupOn && backupPending === 0) finish(null); };
+        const allDead = () => { if (!settled && fastPending === 0 && heavyPending === 0 && backupOn && backupPending === 0) finish(null); };
         const startBackup = () => {
             if (settled || backupOn) return; backupOn = true;
             _secondary.forEach(step => { backupPending++;
                 Promise.resolve().then(step).then(d => { backupPending--; if (d && d.op) return finish(d); allDead(); })
                                  .catch(() => { backupPending--; allDead(); }); });
         };
-        _primary.forEach(step => { glmPending++;
-            Promise.resolve().then(step).then(d => { glmPending--; if (d && d.op) return finish(d); if (glmPending === 0 && !backupOn) startBackup(); allDead(); })
-                             .catch(() => { glmPending--; if (glmPending === 0 && !backupOn) startBackup(); allDead(); }); });
-        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 8000); // מוח איטי 8ש' → גיבוי מצטרף במקביל
+        // ה-GLM המהירים — ברגע שכולם נכשלו (429/שגיאה) הגיבוי נכנס *מיד*, בלי להמתין לטיימר או למוח-הכבד.
+        _fast.forEach(step => { fastPending++;
+            Promise.resolve().then(step).then(d => { fastPending--; if (d && d.op) return finish(d); if (fastPending === 0 && !backupOn) startBackup(); allDead(); })
+                             .catch(() => { fastPending--; if (fastPending === 0 && !backupOn) startBackup(); allDead(); }); });
+        // המוח-הכבד רץ במקביל ועדיין יכול לנצח אם ענה — אבל לא חוסם את כניסת-הגיבוי.
+        if (_heavyFn) { heavyPending++; Promise.resolve().then(_heavyFn).then(d => { heavyPending--; if (d && d.op) return finish(d); allDead(); }).catch(() => { heavyPending--; allDead(); }); }
+        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 6000); // רשת-זמן: מוח מהיר תקוע 6ש' → גיבוי מצטרף במקביל
         cap = setTimeout(() => finish(null), 45000);                                 // רשת-ביטחון
     });
 }
