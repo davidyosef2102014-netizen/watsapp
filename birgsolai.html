@@ -1702,6 +1702,10 @@
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px;color:var(--blue,#4285F4);font-weight:700"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> <span data-i18n="install_app">התקן כאפליקציה</span></span>
                 <span style="color:var(--blue,#4285F4)">›</span>
             </div>
+            <div class="sp-row" style="cursor:pointer" onclick="openCloudPanel()">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> <span data-i18n="cloud_settings_row">סוכן ענן (רקע)</span></span>
+                <span style="color:var(--muted)">›</span>
+            </div>
             <div class="sp-row" style="cursor:pointer" onclick="openMemoryPanel()">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg> <span data-i18n="mem_row">מה BIRGSOL זוכר עליי</span></span>
                 <span style="color:var(--muted)">›</span>
@@ -3832,7 +3836,8 @@ async function doRegister() {
 async function doLogout(force) {
     if (!force && !await _confirm('להתנתק מ-BIRGSOL AI?')) return;
     // סגירת כל חלון צף כדי שכלום לא יחסום קליקים (תיקון "הכפתורים נתקעים")
-    ['admin-overlay','privacy-overlay','memory-overlay','pricing-modal','live-overlay'].forEach(id => { const el = document.getElementById(id); if (el) { el.classList.remove('on'); el.style.display = 'none'; } });
+    ['admin-overlay','privacy-overlay','memory-overlay','pricing-modal','live-overlay','cloud-overlay'].forEach(id => { const el = document.getElementById(id); if (el) { el.classList.remove('on'); el.style.display = 'none'; } });
+    try { if (typeof closeCloudPanel === 'function') closeCloudPanel(); } catch (e) {}
     try { busy = false; if (typeof updateBtn === 'function') updateBtn(); } catch {}
     localStorage.removeItem(AI_AUTH_KEY);
     currentUser = null; currentName = null; isPremium = false; freeLeft = FREE_LIMIT; hist = []; currentConvId = null; convList = []; userMemory = [];
@@ -3961,12 +3966,12 @@ function _extractDomains(text) {
 const L10N = {
     he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את BIRGSOL AI...', foot:'BIRGSOL AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
           mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_camera:'מצלמה', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
-          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה', gemini_disclosure:'* מודלים המבוססים על Google Gemini (כגון BIRGSOL AI 3.5 FLASH) משתמשים בשירותי Google וכפופים למדיניות שלהם.', agent_inject_note:'↳ נוסף למשימה — הסוכן יקרא את זה בצעד הבא',
+          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה', gemini_disclosure:'* מודלים המבוססים על Google Gemini (כגון BIRGSOL AI 3.5 FLASH) משתמשים בשירותי Google וכפופים למדיניות שלהם.', agent_inject_note:'↳ נוסף למשימה — הסוכן יקרא את זה בצעד הבא', cloud_title:'סוכן ענן', cloud_sub:'משימה שממשיכה לרוץ בענן גם כשסוגרים את האפליקציה — מחקר, מעקב ומשימות-ווב ברקע.', cloud_run:'☁️ הרץ בענן', cloud_kind:'סוג:', cloud_kind_web:'ווב / מחקר', cloud_kind_code:'קוד (קבצים)', cloud_empty:'אין עדיין משימות בענן. כתוב משימה והיא תרוץ ברקע.', cloud_pending:'ממתין', cloud_running:'רץ', cloud_done:'הושלם', cloud_error:'שגיאה', cloud_step:'צעד', cloud_err:'לא הצלחתי ליצור משימת ענן כרגע. נסה שוב.', cloud_settings_row:'סוכן ענן (רקע)', cloud_ph:'מה שהסוכן יעשה בענן... (למשל: עקוב אחרי חדשות על נושא מסוים וסכם לי)',
           settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות', del_confirm:'למחוק את השיחה הזו?',
           srv_busy:'השרת עמוס כרגע — מנסה שוב, נא להמתין…', srv_fail:'השרת עמוס מאוד כרגע. נסה שוב עוד רגע.', retry_btn:'נסה שוב' },
     en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask BIRGSOL AI...', foot:'BIRGSOL AI can make mistakes. Check important info.', newChat:'New chat',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_camera:'Camera', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
-          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language', gemini_disclosure:'* Models based on Google Gemini (such as BIRGSOL AI 3.5 FLASH) use Google services and are subject to their policies.', agent_inject_note:'↳ Added to the task — the agent will read it on the next step',
+          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language', gemini_disclosure:'* Models based on Google Gemini (such as BIRGSOL AI 3.5 FLASH) use Google services and are subject to their policies.', agent_inject_note:'↳ Added to the task — the agent will read it on the next step', cloud_title:'Cloud agent', cloud_sub:'A task that keeps running in the cloud even after you close the app — research, monitoring and web tasks in the background.', cloud_run:'☁️ Run in cloud', cloud_kind:'Type:', cloud_kind_web:'Web / research', cloud_kind_code:'Code (files)', cloud_empty:'No cloud tasks yet. Write a task and it will run in the background.', cloud_pending:'Pending', cloud_running:'Running', cloud_done:'Done', cloud_error:'Error', cloud_step:'Step', cloud_err:'Could not create a cloud task right now. Try again.', cloud_settings_row:'Cloud agent (background)', cloud_ph:'What the agent should do in the cloud... (e.g. track news about a topic and summarize it for me)',
           settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out', del_confirm:'Delete this chat?',
           srv_busy:'The server is busy — retrying, please wait…', srv_fail:'The server is very busy right now. Please try again in a moment.', retry_btn:'Try again' },
     ar: { greet:'مرحبا', sub:'كيف يمكنني مساعدتك اليوم؟', ph:'اسأل BIRGSOL AI...', foot:'قد يخطئ BIRGSOL AI. تحقق من المعلومات المهمة.', newChat:'محادثة جديدة',
@@ -10896,6 +10901,72 @@ function _agInject() {
         cw.appendChild(ur);
         cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
     }
+}
+/* ☁️ סוכן ענן (רקע) — יוצר משימה שרצה על ה-Worker (Cron) וממשיכה גם כשסוגרים את האפליקציה. */
+let _cloudPoll = null;
+async function _cloudRun(goal, kind) {
+    goal = String(goal || '').trim(); if (!goal || !currentUser) return null;
+    try {
+        const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'cloud-create', owner: currentUser, goal, kind: kind || 'web' }) });
+        const j = await r.json().catch(() => ({})); return (r.ok && j && j.ok) ? j : null;
+    } catch (e) { return null; }
+}
+async function _cloudList() {
+    if (!currentUser) return [];
+    try {
+        const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'cloud-list', owner: currentUser }) });
+        const j = await r.json().catch(() => ({})); return (r.ok && j && j.ok && Array.isArray(j.tasks)) ? j.tasks : [];
+    } catch (e) { return []; }
+}
+function openCloudPanel() {
+    if (!currentUser) return;
+    if (typeof toggleSettings === 'function') { const sp = document.getElementById('settings-panel'); if (sp && sp.classList.contains('open')) toggleSettings(); }
+    let ov = document.getElementById('cloud-overlay');
+    if (!ov) {
+        ov = document.createElement('div'); ov.id = 'cloud-overlay';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(10,16,32,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px';
+        ov.innerHTML = '<div style="background:var(--surf,#fff);color:var(--text);width:min(560px,96vw);max-height:88vh;overflow:auto;border-radius:18px;border:1px solid var(--border);box-shadow:0 30px 80px rgba(0,0,0,.4);padding:20px">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-size:18px;font-weight:800">☁️ <span data-i18n="cloud_title">סוכן ענן</span></div><button onclick="closeCloudPanel()" style="background:none;border:none;font-size:24px;line-height:1;cursor:pointer;color:var(--muted)">×</button></div>'
+            + '<div style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px" data-i18n="cloud_sub"></div>'
+            + '<textarea id="cloud-goal" style="width:100%;min-height:70px;padding:11px 13px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:14px;resize:vertical;box-sizing:border-box"></textarea>'
+            + '<div id="cloud-kind-row" style="display:none;align-items:center;gap:8px;margin-top:9px;font-size:13px"><span data-i18n="cloud_kind">סוג:</span><select id="cloud-kind" class="sp-select"><option value="web" data-i18n="cloud_kind_web">ווב</option><option value="code" data-i18n="cloud_kind_code">קוד</option></select></div>'
+            + '<button id="cloud-run-btn" onclick="_cloudRunUI()" style="margin-top:11px;background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:12px;padding:11px 20px;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px" data-i18n="cloud_run">☁️</button>'
+            + '<div id="cloud-list" style="margin-top:18px;display:flex;flex-direction:column;gap:10px"></div></div>';
+        document.body.appendChild(ov);
+        ov.addEventListener('click', e => { if (e.target === ov) closeCloudPanel(); });
+    }
+    ov.style.display = 'flex';
+    try { const admin = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser)); const kr = document.getElementById('cloud-kind-row'); if (kr) kr.style.display = admin ? 'flex' : 'none'; } catch (e) {}
+    try { if (typeof applyUILang === 'function') applyUILang(_resolveLang()); } catch (e) {}
+    try { const ta = document.getElementById('cloud-goal'); if (ta) ta.placeholder = _t('cloud_ph'); } catch (e) {}
+    _cloudRefresh();
+    if (_cloudPoll) clearInterval(_cloudPoll);
+    _cloudPoll = setInterval(_cloudRefresh, 15000);
+}
+function closeCloudPanel() { const ov = document.getElementById('cloud-overlay'); if (ov) ov.style.display = 'none'; if (_cloudPoll) { clearInterval(_cloudPoll); _cloudPoll = null; } }
+async function _cloudRunUI() {
+    const ta = document.getElementById('cloud-goal'), btn = document.getElementById('cloud-run-btn');
+    const goal = ta ? ta.value.trim() : ''; if (!goal) return;
+    const kind = (document.getElementById('cloud-kind') && document.getElementById('cloud-kind').value) || 'web';
+    if (btn) { btn.disabled = true; btn.style.opacity = '.6'; }
+    const r = await _cloudRun(goal, kind);
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    if (r) { if (ta) ta.value = ''; _cloudRefresh(); } else { try { _alert(_t('cloud_err')); } catch (e) {} }
+}
+async function _cloudRefresh() {
+    const box = document.getElementById('cloud-list'); if (!box) return;
+    const tasks = await _cloudList();
+    const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    if (!tasks.length) { box.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:10px">' + esc(_t('cloud_empty')) + '</div>'; return; }
+    const stMap = { pending: '⏳ ' + _t('cloud_pending'), running: '⚙️ ' + _t('cloud_running'), done: '✅ ' + _t('cloud_done'), error: '❌ ' + _t('cloud_error') };
+    box.innerHTML = tasks.map(t => {
+        const st = stMap[t.status] || esc(t.status);
+        const steps = Array.isArray(t.steps) ? t.steps : [];
+        const last = steps.length ? esc(String(steps[steps.length - 1].reason || steps[steps.length - 1].op || '')) : '';
+        const result = t.result ? '<div style="margin-top:7px;font-size:13px;line-height:1.55;white-space:pre-wrap">' + esc(t.result) + '</div>' : '';
+        const prog = (t.status === 'running' || t.status === 'pending') ? '<div style="font-size:12px;color:var(--muted);margin-top:4px">' + esc(_t('cloud_step')) + ' ' + (t.step_n || 0) + (last ? ' · ' + last : '') + '</div>' : '';
+        return '<div style="border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--surf2)"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div style="font-weight:600;font-size:14px;flex:1">' + esc(String(t.goal).slice(0, 110)) + '</div><div style="font-size:12px;white-space:nowrap">' + st + '</div></div>' + prog + result + '</div>';
+    }).join('');
 }
 async function _sideAsk() {
     const inp = document.getElementById('userInput');
