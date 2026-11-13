@@ -4084,6 +4084,8 @@ const RTL_LANGS = ['he','ar'];
 /* קביעת שפת ברירת מחדל: אם המשתמש בחר — לפי בחירתו.
    אחרת: משתמש קיים (יש לו חשבון שמור) → עברית · מבקר חדש → אנגלית */
 function _resolveLang() {
+    // ?lang=en בכתובת → כופה שפה (לשימוש בהטמעה/שיווק באנגלית, למשל ב-Hugging Face). נשמר כדי שכל חלקי הממשק יהיו עקביים.
+    try { const u = new URLSearchParams(location.search).get('lang'); if (u && typeof L10N !== 'undefined' && L10N[u]) { try { localStorage.setItem('birgsol_lang', u); } catch (e) {} return u; } } catch (e) {}
     const saved = localStorage.getItem('birgsol_lang');
     if (saved) return saved;
     return localStorage.getItem('birgsolai_auth') ? 'he' : 'en';
