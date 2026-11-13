@@ -1615,6 +1615,7 @@
         <button class="mode-pill" id="mode-code" onclick="setMode('code')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> <span data-i18n="mode_code">קוד</span></button>
         <button class="mode-pill" id="mode-image" onclick="setMode('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> <span data-i18n="mode_image">תמונה</span></button>
         <button class="mode-pill" id="mode-search" onclick="setMode('search')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> <span data-i18n="mode_search">חיפוש</span></button>
+        <button class="mode-pill" id="mode-cloud" onclick="_toggleCloudChat()" style="display:none" title="הרץ שיחה זו בענן"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> <span data-i18n="mode_cloud">ענן</span></button>
     </div>
     <button class="new-btn" onclick="openLibrary()" style="margin-top:6px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> <span data-i18n="library_btn">ספרייה</span></button>
     <div class="sb-sect-label" data-i18n="convs">שיחות</div>
@@ -3966,12 +3967,12 @@ function _extractDomains(text) {
 const L10N = {
     he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את BIRGSOL AI...', foot:'BIRGSOL AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
           mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_camera:'מצלמה', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
-          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה', gemini_disclosure:'* מודלים המבוססים על Google Gemini (כגון BIRGSOL AI 3.5 FLASH) משתמשים בשירותי Google וכפופים למדיניות שלהם.', agent_inject_note:'↳ נוסף למשימה — הסוכן יקרא את זה בצעד הבא', cloud_title:'סוכן ענן', cloud_sub:'משימה שממשיכה לרוץ בענן גם כשסוגרים את האפליקציה — מחקר, מעקב ומשימות-ווב ברקע.', cloud_run:'☁️ הרץ בענן', cloud_kind:'סוג:', cloud_kind_web:'ווב / מחקר', cloud_kind_code:'קוד (קבצים)', cloud_empty:'אין עדיין משימות בענן. כתוב משימה והיא תרוץ ברקע.', cloud_pending:'ממתין', cloud_running:'רץ', cloud_done:'הושלם', cloud_error:'שגיאה', cloud_step:'צעד', cloud_err:'לא הצלחתי ליצור משימת ענן כרגע. נסה שוב.', cloud_settings_row:'סוכן ענן (רקע)', cloud_ph:'מה שהסוכן יעשה בענן... (למשל: עקוב אחרי חדשות על נושא מסוים וסכם לי)',
+          your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה', gemini_disclosure:'* מודלים המבוססים על Google Gemini (כגון BIRGSOL AI 3.5 FLASH) משתמשים בשירותי Google וכפופים למדיניות שלהם.', agent_inject_note:'↳ נוסף למשימה — הסוכן יקרא את זה בצעד הבא', cloud_title:'סוכן ענן', cloud_sub:'משימה שממשיכה לרוץ בענן גם כשסוגרים את האפליקציה — מחקר, מעקב ומשימות-ווב ברקע.', cloud_run:'☁️ הרץ בענן', cloud_kind:'סוג:', cloud_kind_web:'ווב / מחקר', cloud_kind_code:'קוד (קבצים)', cloud_empty:'אין עדיין משימות בענן. כתוב משימה והיא תרוץ ברקע.', cloud_pending:'ממתין', cloud_running:'רץ', cloud_done:'הושלם', cloud_error:'שגיאה', cloud_step:'צעד', cloud_err:'לא הצלחתי ליצור משימת ענן כרגע. נסה שוב.', cloud_settings_row:'סוכן ענן (רקע)', cloud_ph:'מה שהסוכן יעשה בענן... (למשל: עקוב אחרי חדשות על נושא מסוים וסכם לי)', mode_cloud:'ענן', cloud_sent:'☁️ המשימה נשלחה לענן ורצה ברקע. אפשר לסגור את האפליקציה — עקוב בהגדרות ← סוכן ענן.',
           settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות', del_confirm:'למחוק את השיחה הזו?',
           srv_busy:'השרת עמוס כרגע — מנסה שוב, נא להמתין…', srv_fail:'השרת עמוס מאוד כרגע. נסה שוב עוד רגע.', retry_btn:'נסה שוב' },
     en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask BIRGSOL AI...', foot:'BIRGSOL AI can make mistakes. Check important info.', newChat:'New chat',
           mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_camera:'Camera', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
-          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language', gemini_disclosure:'* Models based on Google Gemini (such as BIRGSOL AI 3.5 FLASH) use Google services and are subject to their policies.', agent_inject_note:'↳ Added to the task — the agent will read it on the next step', cloud_title:'Cloud agent', cloud_sub:'A task that keeps running in the cloud even after you close the app — research, monitoring and web tasks in the background.', cloud_run:'☁️ Run in cloud', cloud_kind:'Type:', cloud_kind_web:'Web / research', cloud_kind_code:'Code (files)', cloud_empty:'No cloud tasks yet. Write a task and it will run in the background.', cloud_pending:'Pending', cloud_running:'Running', cloud_done:'Done', cloud_error:'Error', cloud_step:'Step', cloud_err:'Could not create a cloud task right now. Try again.', cloud_settings_row:'Cloud agent (background)', cloud_ph:'What the agent should do in the cloud... (e.g. track news about a topic and summarize it for me)',
+          your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language', gemini_disclosure:'* Models based on Google Gemini (such as BIRGSOL AI 3.5 FLASH) use Google services and are subject to their policies.', agent_inject_note:'↳ Added to the task — the agent will read it on the next step', cloud_title:'Cloud agent', cloud_sub:'A task that keeps running in the cloud even after you close the app — research, monitoring and web tasks in the background.', cloud_run:'☁️ Run in cloud', cloud_kind:'Type:', cloud_kind_web:'Web / research', cloud_kind_code:'Code (files)', cloud_empty:'No cloud tasks yet. Write a task and it will run in the background.', cloud_pending:'Pending', cloud_running:'Running', cloud_done:'Done', cloud_error:'Error', cloud_step:'Step', cloud_err:'Could not create a cloud task right now. Try again.', cloud_settings_row:'Cloud agent (background)', cloud_ph:'What the agent should do in the cloud... (e.g. track news about a topic and summarize it for me)', mode_cloud:'Cloud', cloud_sent:'☁️ Task sent to the cloud and running in the background. You can close the app — track it in Settings → Cloud agent.',
           settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out', del_confirm:'Delete this chat?',
           srv_busy:'The server is busy — retrying, please wait…', srv_fail:'The server is very busy right now. Please try again in a moment.', retry_btn:'Try again' },
     ar: { greet:'مرحبا', sub:'كيف يمكنني مساعدتك اليوم؟', ph:'اسأل BIRGSOL AI...', foot:'قد يخطئ BIRGSOL AI. تحقق من المعلومات المهمة.', newChat:'محادثة جديدة',
@@ -4546,6 +4547,9 @@ function setMode(mode) {
         if (btn) btn.classList.toggle('active', m === mode);
     });
     if (mode === 'code') _enterCodeCanvas(); else _exitCodeCanvas();
+    // ☁️ מתג-ענן מופיע רק במצב קוד; יוצאים ממצב קוד → מכבים אותו
+    const _cb = document.getElementById('mode-cloud');
+    if (_cb) { _cb.style.display = (mode === 'code') ? '' : 'none'; if (mode !== 'code') { _cloudChat = false; _cb.classList.remove('active'); } }
     _updateModeChip();
     if (typeof _syncCanvasToggle === 'function') _syncCanvasToggle();
     startNew();
@@ -10903,7 +10907,24 @@ function _agInject() {
     }
 }
 /* ☁️ סוכן ענן (רקע) — יוצר משימה שרצה על ה-Worker (Cron) וממשיכה גם כשסוגרים את האפליקציה. */
-let _cloudPoll = null;
+let _cloudPoll = null, _cloudChat = false;
+function _toggleCloudChat() {
+    _cloudChat = !_cloudChat;
+    const b = document.getElementById('mode-cloud'); if (b) b.classList.toggle('active', _cloudChat);
+}
+async function _cloudFromChat(goal) {
+    goal = String(goal || '').trim(); if (!goal) return;
+    try { showChat(); } catch (e) {}
+    addMsg('user', goal);
+    if (isFirstMsg) { try { addToHistory(goal); } catch (e) {} isFirstMsg = false; }
+    const row = addMsg('ai', ''); const txt = row.querySelector('.ai-txt');
+    try { txt.innerHTML = '<span style="opacity:.7">☁️ ' + _t('cloud_running') + '…</span>'; } catch (e) {}
+    const r = await _cloudRun(goal, 'code');
+    const msg = r ? _t('cloud_sent') : _t('cloud_err');
+    try { txt.innerHTML = mdSafe(msg); } catch (e) { txt.textContent = msg; }
+    try { hist[hist.length - 1].content = msg; } catch (e) {}
+    try { saveConversation(); } catch (e) {}
+}
 async function _cloudRun(goal, kind) {
     goal = String(goal || '').trim(); if (!goal || !currentUser) return null;
     try {
@@ -11006,6 +11027,13 @@ async function send() {
     // ── מצב אורח: אחרי GUEST_LIMIT הודעות (או ניסיון ליצור תמונה) → הזמנה להתחבר ──
     if (_guestGate()) return;
     if (!currentUser) localStorage.setItem('birgsol_guest_used', String(_guestUsed() + 1));
+
+    // ── ☁️ מצב ענן (קוד): השיחה סומנה לרוץ בענן → המשימה נשלחת לסוכן-הענן וממשיכה גם כשסוגרים ──
+    if (q && _cloudChat && currentMode === 'code' && currentUser) {
+        inp.value = ''; inp.style.height = 'auto';
+        await _cloudFromChat(q);
+        return;
+    }
 
     // ── 📩 SMS: זיהוי ישיר — "שלח SMS ל..." → שליחה נייטיב בתוך האפליקציה (או אפליקציית SMS בדפדפן). לפני וואטסאפ. ──
     if (q && !fileUrl && !fileContent && !mediaFile && _isSMSReq(q)) {
