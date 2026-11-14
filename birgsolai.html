@@ -4090,8 +4090,8 @@ const RTL_LANGS = ['he','ar'];
 /* קביעת שפת ברירת מחדל: אם המשתמש בחר — לפי בחירתו.
    אחרת: משתמש קיים (יש לו חשבון שמור) → עברית · מבקר חדש → אנגלית */
 function _resolveLang() {
-    // ?lang=en בכתובת → כופה שפה (לשימוש בהטמעה/שיווק באנגלית, למשל ב-Hugging Face). נשמר כדי שכל חלקי הממשק יהיו עקביים.
-    try { const u = new URLSearchParams(location.search).get('lang'); if (u && typeof L10N !== 'undefined' && L10N[u]) { try { localStorage.setItem('birgsol_lang', u); } catch (e) {} return u; } } catch (e) {}
+    // ?lang=en בכתובת → כופה שפה לטעינה הנוכחית בלבד (להטמעה/שיווק, למשל ב-Hugging Face). ❗לא נשמר — אחרת זה נועל משתמשים באנגלית לצמיתות.
+    try { const u = new URLSearchParams(location.search).get('lang'); if (u && typeof L10N !== 'undefined' && L10N[u]) return u; } catch (e) {}
     const saved = localStorage.getItem('birgsol_lang');
     if (saved) return saved;
     return localStorage.getItem('birgsolai_auth') ? 'he' : 'en';
@@ -10958,7 +10958,7 @@ function openCloudPanel() {
     }
     ov.style.display = 'flex';
     try { const admin = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser)); const kr = document.getElementById('cloud-kind-row'); if (kr) kr.style.display = admin ? 'flex' : 'none'; } catch (e) {}
-    try { if (typeof applyUILang === 'function') applyUILang(_resolveLang()); } catch (e) {}
+    try { ov.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (k) el.textContent = _t(k); }); } catch (e) {}
     try { const ta = document.getElementById('cloud-goal'); if (ta) ta.placeholder = _t('cloud_ph'); } catch (e) {}
     _cloudRefresh();
     if (_cloudPoll) clearInterval(_cloudPoll);
