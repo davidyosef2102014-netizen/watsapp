@@ -10924,10 +10924,29 @@ async function _cloudFromChat(goal) {
     const row = addMsg('ai', ''); const txt = row.querySelector('.ai-txt');
     try { txt.innerHTML = '<span style="opacity:.7">☁️ ' + _t('cloud_running') + '…</span>'; } catch (e) {}
     const r = await _cloudRun(goal, 'code');
-    const msg = r ? _t('cloud_sent') : _t('cloud_err');
-    try { txt.innerHTML = mdSafe(msg); } catch (e) { txt.textContent = msg; }
-    try { hist[hist.length - 1].content = msg; } catch (e) {}
+    if (!r || !r.id) { const m = _t('cloud_err'); try { txt.innerHTML = mdSafe(m); } catch (e) { txt.textContent = m; } try { hist[hist.length - 1].content = m; } catch (e) {} return; }
+    const sent = _t('cloud_sent');
+    const _prog = n => { try { txt.innerHTML = mdSafe(sent) + '<div style="font-size:12px;opacity:.6;margin-top:6px">⚙️ ' + _t('cloud_step') + ' ' + (n || 0) + '…</div>'; } catch (e) {} };
+    _prog(0);
+    try { hist[hist.length - 1].content = sent; } catch (e) {}
     try { saveConversation(); } catch (e) {}
+    // ⏱️ עוקב אחרי המשימה בענן; כשהיא מסתיימת — התוצאה מופיעה *בשיחה* (בקשת דוד), לא רק בפאנל.
+    let _tries = 0;
+    const _poll = setInterval(async () => {
+        _tries++;
+        if (_tries > 80) { clearInterval(_poll); return; } // ~20 דק'
+        let tasks = []; try { tasks = await _cloudList(); } catch (e) {}
+        const t = tasks.find(x => x.id === r.id); if (!t) return;
+        if (t.status === 'done' || t.status === 'error') {
+            clearInterval(_poll);
+            const res = String(t.result || (t.status === 'error' ? ('⚠️ ' + (t.error || 'שגיאה')) : 'בוצע')).trim();
+            const full = '☁️ ' + res;
+            try { txt.innerHTML = mdSafe(full); } catch (e) { txt.textContent = full; }
+            try { hist[hist.length - 1].content = full; } catch (e) {}
+            try { saveConversation(); } catch (e) {}
+            try { const cw = document.getElementById('chat-window'); if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); } catch (e) {}
+        } else { _prog(t.step_n); }
+    }, 15000);
 }
 async function _cloudRun(goal, kind) {
     goal = String(goal || '').trim(); if (!goal || !currentUser) return null;
