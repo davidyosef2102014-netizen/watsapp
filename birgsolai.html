@@ -5080,6 +5080,101 @@ function _checkForkSeed() {
     try { saveConversation(); } catch (e) {}
 }
 
+/* ══════════════ 🌐 רשת הסוכנים (Agent Network) — שלב 2 ══════════════
+   עיקרון פרטיות: שיתוף פרויקטים בלבד (אף פעם לא צ'אטים פרטיים), ואישור חד-פעמי לכל משתמש מבקש.
+   אחסון: קבצי JSON ב-GitHub דרך ה-Worker (אותה תשתית כמו שאר המערכת). */
+const _ANET = {
+    projPath:  u => 'db/ai_anet_projects_' + u + '.json',   // הפרויקטים הפומביים של משתמש
+    reqPath:   u => 'db/ai_anet_requests_' + u + '.json',   // בקשות-אישור נכנסות אליו
+    grantPath: u => 'db/ai_anet_grants_' + u + '.json'      // למי הוא נתן גישה (לפרויקטים שלו)
+};
+
+// פרסום השיחה/הפרויקט הנוכחי לרשת — ניתן לגילוי לפי שם משתמש. מחזיר מזהה פרויקט.
+async function _anetPublish(name, desc) {
+    if (!currentUser) { _alert(_tLang('Sign in first', 'התחבר קודם')); return null; }
+    if (!hist.length) { _alert(_tLang('No conversation to publish yet', 'אין שיחה לפרסם עדיין')); return null; }
+    const sid = Math.random().toString(36).slice(2, 10);
+    const conv = convList.find(c => c.id === currentConvId);
+    const okShare = await ghWrite('db/ai_share_' + sid + '.json', {
+        title: name || conv?.title || 'Project', from: currentUser, ts: Date.now(),
+        msgs: hist.slice(-200), project: true
+    });
+    if (!okShare) { _alert(_tLang('Publish failed', 'הפרסום נכשל')); return null; }
+    const pid = Math.random().toString(36).slice(2, 8);
+    await ghUpdate(_ANET.projPath(currentUser), d => {
+        d = (d && Array.isArray(d.projects)) ? d : { projects: [] };
+        d.projects.unshift({ id: pid, name: String(name || 'Project').slice(0, 80), desc: String(desc || '').slice(0, 300), shareId: sid, ts: Date.now() });
+        d.projects = d.projects.slice(0, 100);
+        return d;
+    });
+    return pid;
+}
+
+// רשימת הפרויקטים הפומביים של משתמש (מטא-דאטה בלבד — שם/תיאור; התוכן עצמו דורש אישור).
+async function _anetListUserProjects(user) {
+    if (!user) return [];
+    const d = await ghReadFresh(_ANET.projPath(user)) || await ghRead(_ANET.projPath(user));
+    return (d && Array.isArray(d.projects)) ? d.projects : [];
+}
+
+// האם למשתמש הנוכחי יש גישה מאושרת לפרויקטים של הבעלים.
+async function _anetHasAccess(owner) {
+    if (!owner || !currentUser) return false;
+    if (owner === currentUser) return true;
+    const g = await ghReadFresh(_ANET.grantPath(owner)) || await ghRead(_ANET.grantPath(owner));
+    return !!(g && g[currentUser]);
+}
+
+// שליחת בקשת-אישור חד-פעמית לבעלים. 'granted' אם כבר יש גישה · 'pending' אם כבר שלחת · 'sent' אם נשלחה.
+async function _anetRequestAccess(owner, projectId, projectName, question) {
+    if (!currentUser || !owner) return false;
+    if (await _anetHasAccess(owner)) return 'granted';
+    let dup = false;
+    const ok = await ghUpdate(_ANET.reqPath(owner), d => {
+        const arr = Array.isArray(d) ? d : [];
+        if (arr.some(r => r.from === currentUser && r.status === 'pending')) { dup = true; return undefined; }
+        arr.unshift({ id: Math.random().toString(36).slice(2, 8), from: currentUser, projectId: projectId || '', projectName: String(projectName || '').slice(0, 80), question: String(question || '').slice(0, 300), status: 'pending', ts: Date.now() });
+        return arr.slice(0, 200);
+    });
+    if (dup) return 'pending';
+    return ok ? 'sent' : false;
+}
+
+// תיבת הבקשות הנכנסות של המשתמש הנוכחי (ממתינות לאישור).
+async function _anetInbox() {
+    if (!currentUser) return [];
+    const d = await ghReadFresh(_ANET.reqPath(currentUser)) || await ghRead(_ANET.reqPath(currentUser));
+    return (Array.isArray(d) ? d : []).filter(r => r.status === 'pending');
+}
+
+// אישור/דחייה של בקשה. אישור → נכתב grant (גישה לפרויקטים בלבד, חד-פעמי למבקש הזה).
+async function _anetResolve(reqId, approve) {
+    if (!currentUser) return false;
+    let who = '';
+    await ghUpdate(_ANET.reqPath(currentUser), d => {
+        const arr = Array.isArray(d) ? d : [];
+        const r = arr.find(x => x.id === reqId);
+        if (!r) return undefined;
+        r.status = approve ? 'approved' : 'denied'; who = r.from;
+        return arr;
+    });
+    if (approve && who) {
+        await ghUpdate(_ANET.grantPath(currentUser), g => { g = g || {}; g[who] = { ts: Date.now(), scope: 'projects' }; return g; });
+    }
+    return true;
+}
+
+// שליפת תוכן פרויקט — פרויקטים בלבד, לעולם לא צ'אטים אחרים של הבעלים. דורש גישה מאושרת.
+async function _anetFetchProject(owner, projectId) {
+    if (!(await _anetHasAccess(owner))) return null;
+    const projs = await _anetListUserProjects(owner);
+    const p = projs.find(x => x.id === projectId) || projs[0];
+    if (!p || !p.shareId) return null;
+    const share = await ghReadFresh('db/ai_share_' + p.shareId + '.json') || await ghRead('db/ai_share_' + p.shareId + '.json');
+    if (!share) return null;
+    return { name: p.name, desc: p.desc, owner: owner, msgs: Array.isArray(share.msgs) ? share.msgs : [] };
+}
+
 /* ══════════════ CANVAS ══════════════ */
 let _canvasLang = 'html', _canvasExt = 'html', _canvasTimer = null;
 
