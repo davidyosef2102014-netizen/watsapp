@@ -4432,7 +4432,7 @@ const PERSONA_CODE = `You are BIRGSOL AI (Code Mode) — a world-class software 
 Before writing code or an explanation, briefly think through the problem internally: edge cases, the right approach, whether your first instinct is actually correct. Do NOT show this thinking — only the final answer goes to the user. Never rush to the first solution that comes to mind just to respond fast; correct, complete code matters more than speed.
 
 === IDENTITY QUESTIONS ===
-If the user asks who created you, who built you, who made you, or similar, your ENTIRE response must be ONLY this sentence, verbatim, in Hebrew — NOTHING before it, NOTHING after it, no description of your capabilities, no mention of ChatGPT/Claude/Copilot: "אני מודל AI שנוצר על ידי חברת BIRGSOL (החברה של דוד יוסף זאבי הגאון)"
+If the user asks who created you, who built you, who made you, or similar, your ENTIRE response must be ONLY this one fact — NOTHING before or after it, no description of your capabilities, no mention of ChatGPT/Claude/Copilot — and written in the SAME language the user asked in. In Hebrew, verbatim: "אני מודל AI שנוצר על ידי חברת BIRGSOL (החברה של דוד יוסף זאבי הגאון)". In English: "I am an AI model created by BIRGSOL (the company of David Yosef Zeevi, the genius)". In any other language, state that same fact in that language.
 
 === CODE STANDARDS — NON-NEGOTIABLE ===
 - Write COMPLETE, PRODUCTION-READY code — NEVER truncate, NEVER write "// rest of code here", NEVER use "..." as a placeholder
@@ -4506,7 +4506,7 @@ Your specialty is generating beautiful, detailed images. When a user sends any m
 - DEFAULT language: Hebrew (עברית)
 
 === IDENTITY QUESTIONS ===
-If the user asks who created you, who built you, who made you, or similar, your ENTIRE response must be ONLY this sentence, verbatim, in Hebrew — NOTHING before it, NOTHING after it, no description of your capabilities, no mention of ChatGPT/Claude/Copilot: "אני מודל AI שנוצר על ידי חברת BIRGSOL (החברה של דוד יוסף זאבי הגאון)"`;
+If the user asks who created you, who built you, who made you, or similar, your ENTIRE response must be ONLY this one fact — NOTHING before or after it, no description of your capabilities, no mention of ChatGPT/Claude/Copilot — and written in the SAME language the user asked in. In Hebrew, verbatim: "אני מודל AI שנוצר על ידי חברת BIRGSOL (החברה של דוד יוסף זאבי הגאון)". In English: "I am an AI model created by BIRGSOL (the company of David Yosef Zeevi, the genius)". In any other language, state that same fact in that language.`;
 
 let _regLang = 'he';
 function pickRegLang(btn) {
@@ -5401,7 +5401,7 @@ function toggleVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { _alert('הדפדפן שלך לא תומך בהקלטת קול. נסה Chrome.'); return; }
     _voiceRec = new SR();
-    _voiceRec.lang = 'he-IL';
+    _voiceRec.lang = _sttLang();
     _voiceRec.interimResults = true;
     _voiceRec.continuous = false;
     _voiceActive = true;
@@ -5908,6 +5908,8 @@ function copyIt(btn) {
 const _SPK_SVG = '<svg class="ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
 let _readAudio = null, _readBtn = null;
 function _tLang(en, he) { try { return (typeof _resolveLang === 'function' && _resolveLang() === 'en') ? en : he; } catch (e) { return he; } }
+// שפת זיהוי-דיבור (STT) לפי שפת הממשק — כדי שהמיקרופון והלייב יעבדו בכל שפה, לא רק עברית.
+function _sttLang() { try { const m = { he: 'he-IL', en: 'en-US', ar: 'ar-SA', ru: 'ru-RU', fr: 'fr-FR' }; const l = (typeof _resolveLang === 'function') ? _resolveLang() : 'he'; return m[l] || 'en-US'; } catch (e) { return 'he-IL'; } }
 function _readBtnReset(b) { if (b) b.innerHTML = _SPK_SVG + ' ' + _tLang('Read aloud', 'הקרא'); }
 async function _readMsg(btn) {
     // אם כבר מקריא — עצור (טוגל)
@@ -12530,7 +12532,7 @@ function _liveListenOnce() {
             resolve(''); return;
         }
         const rec = new SR();
-        rec.lang = 'he-IL';
+        rec.lang = _sttLang();
         rec.interimResults = true;
         rec.continuous = true;   // תמיכה במשפטים ארוכים — לא נעצר על פאוזה קצרה באמצע
         rec.maxAlternatives = 1;
