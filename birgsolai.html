@@ -9373,7 +9373,7 @@ function _updateFilesUI() {
     el.innerHTML = '';
     if (_bsDir) {
         const nm = document.createElement('span');
-        nm.textContent = '📁 ' + _bsDir.name;
+        nm.innerHTML = IC.folder + ' ' + String(_bsDir.name).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
         nm.style.cssText = 'color:var(--text);font-weight:600';
         const chg = document.createElement('button');
         chg.type = 'button'; chg.textContent = tr('files_change');
