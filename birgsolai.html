@@ -2250,12 +2250,9 @@ const OPENROUTER_KEY = '', OPENROUTER_KEY2 = '';
 const GEMINI_KEY = '';
 const HF_TOKEN   = '';
 const ELEVEN_KEY = '';
-// SiliconFlow — עריכת תמונות אמיתית (FLUX.1 Kontext). קריאה ישירה מהדפדפן (CORS פתוח). מספר מפתחות → רוטציה כשנגמר balance (402). ⚠️ מפתחות גלויים בקוד.
-const SILICONFLOW_KEYS = [
-    'sk-hhzatplvuuladupvkcsaxitblapnyxrlmtaaykpvoblrpsoc',
-    'sk-esjnoclxtixnviuizzbzpwrekafucnjlqshjgjjmfstdqufu'
-];
-let _sfKeyIdx = 0; // round-robin — מחלק את הבקשות בין המפתחות (כל מפתח: 3/דקה, 100/יום). 429/402 = rate-limit רגעי, לא הרג קבוע.
+// SiliconFlow — עריכת תמונות אמיתית (FLUX.1 Kontext). 🔒 הועבר ל-Worker המאובטח (סוד SILICONFLOW_KEYS, provider 'siliconflow') — אין יותר מפתח בקוד הציבורי.
+const SILICONFLOW_KEYS = []; // ריק — המפתחות מוזרקים בצד השרת ב-Worker
+let _sfKeyIdx = 0; // (נשאר לתאימות — הרוטציה נעשית ב-Worker)
 // DashScope (Alibaba, סינגפור) — qwen-image-edit. עריכה אמיתית, CORS פתוח, יש מכסה. ⚠️ מפתח גלוי בקוד — להעביר ל-Worker בהמשך.
 const DASHSCOPE_KEYS = []; // הועבר ל-Worker המאובטח (סוד QWEN_KEYS) — אין יותר מפתח DashScope בקוד הציבורי
 let _dsKeyIdx = 0;
@@ -6417,31 +6414,22 @@ async function _qwenImageEdit(imgDataUrl, engInstruction) {
 
 // עריכת תמונה אמיתית ברמת הפיקסלים — FLUX.1 Kontext דרך SiliconFlow (המודל הכי טוב לעריכה). מחזיר URL של התמונה הערוכה.
 async function _siliconflowEdit(imgDataUrl, engInstruction) {
-    const keys = SILICONFLOW_KEYS;
-    for (let i = 0; i < keys.length; i++) {
-        const key = keys[(_sfKeyIdx + i) % keys.length]; // round-robin — פיזור עומס בין המפתחות
+    // 🔒 מאובטח: עובר דרך ה-Worker (provider 'siliconflow'). המפתחות מוזרקים בצד השרת מהסוד SILICONFLOW_KEYS — אין יותר מפתח בקוד הציבורי.
+    try {
+        const r = await _ghProxy('siliconflow', '/v1/images/generations', {
+            model: 'black-forest-labs/FLUX.1-Kontext-dev', prompt: engInstruction, image: imgDataUrl, image_size: '1024x1024'
+        }, { signal: AbortSignal.timeout(28000) });
+        if (!r.ok) return null; // 429/402/401/ספק לא-מוגדר → נפילה לגיבוי (Qwen/DashScope/FLUX.2)
+        const j = await r.json();
+        const url = (j && j.images && j.images[0] && j.images[0].url) || null;
+        if (!url) return null;
+        // התמדה — ה-URL של SiliconFlow זמני; ננסה להמיר ל-data URL. אם CORS חוסם — נחזיר את ה-URL עצמו (עדיין מוצג).
         try {
-            const r = await fetch('https://api.siliconflow.com/v1/images/generations', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: 'black-forest-labs/FLUX.1-Kontext-dev', prompt: engInstruction, image: imgDataUrl, image_size: '1024x1024' }),
-                signal: AbortSignal.timeout(25000)
-            });
-            if (r.status === 429 || r.status === 402 || r.status === 401) continue; // rate-limit רגעי (3/דקה) — מפתח הבא, בלי הרג קבוע
-            if (!r.ok) continue;
-            const j = await r.json();
-            const url = (j && j.images && j.images[0] && j.images[0].url) || null;
-            if (!url) continue;
-            _sfKeyIdx = (_sfKeyIdx + i + 1) % keys.length; // הבא בתור בפעם הבאה
-            // נסה להמיר ל-data URL (התמדה — ה-URL של SiliconFlow זמני). אם CORS חוסם — נחזיר את ה-URL עצמו (עדיין מוצג).
-            try {
-                const ir = await fetch(url, { signal: AbortSignal.timeout(20000) });
-                if (ir.ok) { const blob = await ir.blob(); return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(url); fr.readAsDataURL(blob); }); }
-            } catch (e) {}
-            return url;
-        } catch (e) { if (e.name === 'AbortError') throw e; }
-    }
-    return null; // כל המפתחות מוגבלים כרגע → נפילה לגיבוי (תאר+צור מחדש)
+            const ir = await fetch(url, { signal: AbortSignal.timeout(20000) });
+            if (ir.ok) { const blob = await ir.blob(); return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(url); fr.readAsDataURL(blob); }); }
+        } catch (e) {}
+        return url;
+    } catch (e) { if (e.name === 'AbortError') throw e; return null; }
 }
 
 // 🎨 Qwen-Image-Edit דרך HuggingFace (ספק fal-ai) — עריכת תמונה אמיתית ואיכותית, חינם עם טוקן HF (בלי כרטיס אשראי!).
