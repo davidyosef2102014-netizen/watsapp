@@ -2316,6 +2316,13 @@ async function hashPassword(pass) {
         new TextEncoder().encode('birgsol2024_' + pass));
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
+// 🔐 אימות דרך ה-Worker (hash נשמר ב-KV הפרטי, לא ב-db הציבורי). ops: auth-register/login/change/reset.
+async function _authWorker(op, data) {
+    try {
+        const r = await fetch(GH_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ op: op }, data || {})), signal: AbortSignal.timeout(20000) });
+        return await r.json().catch(() => ({ ok: false, error: 'parse' }));
+    } catch (e) { return { ok: false, error: 'network' }; }
+}
 
 /* ══ ADMIN ══ — gated by the user's own real (already-hashed) login, not a separate hardcoded
    password. Shows registered usernames + signup date only — passwords are one-way hashed and were
@@ -2912,13 +2919,15 @@ async function doLogin() {
         // API טרי קודם — משתמש שנרשם/אופס לו סיסמה לפני רגע לא יופיע ב-CDN עד 5 דקות
         const cloudUsers = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
         if (!cloudUsers[user]) { err.textContent = '❌ שם המשתמש לא נמצא. צור חשבון חדש.'; err.style.display='block'; return; }
-        const hashed = await hashPassword(pass);
-        if (cloudUsers[user].password !== hashed) {
+        // 🔐 אימות דרך ה-Worker. oldhash = ה-hash הישן מה-db (למיגרציה חד-פעמית); ברגע שעבר — נמחק מה-db.
+        const _aRes = await _authWorker('auth-login', { user: user, pass: pass, oldhash: cloudUsers[user].password || '' });
+        if (!_aRes || !_aRes.ok) {
             const fails = ((_lk && _lk.count) || 0) + 1;
-            if (fails >= 5 && !ADMIN_USERS.includes(user)) { _setLoginLock(user, { count: fails, until: Date.now() + 15 * 60000 }); _bruteAlert(user); err.textContent = '⛔ יותר מדי ניסיונות שגויים — החשבון ננעל ל-15 דקות.'; }
+            if ((_aRes && _aRes.error === 'locked') || (fails >= 5 && !ADMIN_USERS.includes(user))) { _setLoginLock(user, { count: fails, until: Date.now() + 15 * 60000 }); _bruteAlert(user); err.textContent = '⛔ יותר מדי ניסיונות שגויים — החשבון ננעל ל-15 דקות.'; }
             else { _setLoginLock(user, { count: fails, until: 0 }); err.textContent = `❌ סיסמה שגויה. (${Math.max(0, 5 - fails)} ניסיונות נותרו)`; }
             err.style.display = 'block'; return;
         }
+        if (_aRes.migrated && cloudUsers[user].password) { try { await ghUpdate('db/ai_users.json', u => { if (u && u[user]) { delete u[user].password; u[user].hasPw = true; } return u; }); } catch (e) {} }
         _clearLoginLock(user);
         if (cloudUsers[user].suspended && !ADMIN_USERS.includes(user)) { err.textContent = '⛔ החשבון הושהה עקב פעילות חשודה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com'; err.style.display='block'; return; }
         await _finishLogin(user);
@@ -3823,14 +3832,13 @@ async function doRegister() {
 
     btn.textContent = '⏳ יוצר חשבון...'; btn.disabled = true;
     try {
-        const hashed = await hashPassword(pass);
         const instr = (document.getElementById('reg-instr')?.value || '').trim().slice(0, 400);
-        // יצירה אטומית — בדיקת שם תפוס והכתיבה קורות יחד, בלי מרווח שבו הרשמה מקבילה תידרס
+        // יצירה אטומית — בדיקת שם תפוס + יצירת הפרופיל (בלי סיסמה! הסיסמה נשמרת ב-Worker/KV).
         let taken = false;
         const ok = await ghUpdate('db/ai_users.json', users => {
             users = users || {};
             if (users[user]) { taken = true; return undefined; }
-            users[user] = { password: hashed, createdAt: Date.now(), lang: _regLang, instructions: instr };
+            users[user] = { createdAt: Date.now(), lang: _regLang, instructions: instr, hasPw: true };
             return users;
         });
         if (taken) {
@@ -3838,6 +3846,13 @@ async function doRegister() {
             err.style.display = 'block'; return;
         }
         if (!ok) { err.textContent = '❌ שגיאת חיבור. נסה שוב.'; err.style.display='block'; return; }
+        // 🔐 שמירת הסיסמה ב-Worker (PBKDF2 ב-KV). אם נכשל — מבטלים את הפרופיל כדי לא להשאיר חשבון בלי סיסמה.
+        const _reg = await _authWorker('auth-register', { user: user, pass: pass });
+        if (!_reg || !_reg.ok) {
+            try { await ghUpdate('db/ai_users.json', u => { if (u && u[user]) delete u[user]; return u; }); } catch (e) {}
+            err.textContent = (_reg && _reg.error === 'weak') ? '❌ הסיסמה חייבת להכיל לפחות 8 תווים.' : '❌ שגיאה ביצירת החשבון. נסה שוב.';
+            err.style.display = 'block'; return;
+        }
         localStorage.setItem('birgsol_lang', _regLang);
         localStorage.setItem('birgsol_instr_' + user, instr);
 
