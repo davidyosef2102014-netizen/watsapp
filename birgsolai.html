@@ -2504,17 +2504,19 @@ async function _renderAdminAlerts(body) {
 async function adminResetPassword(username) {
     if (!ADMIN_USERS.includes(currentUser)) return;
     if (!await _confirm(_trf('לאפס את הסיסמה של "{u}"? תיווצר סיסמה זמנית חדשה.', { u: username }))) return;
-    const tempPass = Math.random().toString(36).slice(-8);
-    const newHash = await hashPassword(tempPass);
-    let rpNotFound = false;
-    const ok = await ghUpdate('db/ai_users.json', users => {
-        if (!users || !users[username]) { rpNotFound = true; return undefined; }
-        users[username].password = newHash;
-        return users;
-    });
-    if (rpNotFound) { _alert('משתמש לא נמצא.'); return; }
-    if (ok) _alert(_trf('✅ הסיסמה הזמנית של "{u}" היא:\n\n{p}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.', { u: username, p: tempPass }));
-    else _alert('❌ שגיאה בשמירת הסיסמה החדשה — נסה שוב.');
+    const adminPass = await _prompt(_tLang('Enter YOUR password to confirm the reset:', 'הזן את הסיסמה שלך לאישור האיפוס:'), '');
+    if (!adminPass) return;
+    const tempPass = 'Bg' + Math.random().toString(36).slice(-7) + '9'; // ≥8 תווים, אותיות+ספרה
+    let adminOldhash = '';
+    try {
+        const uu = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
+        if (!uu[username]) { _alert('משתמש לא נמצא.'); return; }
+        adminOldhash = (uu[currentUser] && uu[currentUser].password) || '';
+    } catch (e) {}
+    const _res = await _authWorker('auth-reset', { user: username, newpass: tempPass, adminUser: currentUser, adminPass: adminPass, adminOldhash: adminOldhash });
+    if (!_res || !_res.ok) { _alert(_res && _res.error === 'admin-bad' ? '❌ הסיסמה שלך שגויה.' : (_res && _res.error === 'not-admin' ? '❌ אין הרשאת מנהל ב-Worker (בדוק את הסוד AUTH_ADMINS).' : '❌ שגיאה באיפוס — נסה שוב.')); return; }
+    try { await ghUpdate('db/ai_users.json', u => { if (u && u[username]) { delete u[username].password; u[username].hasPw = true; } return u; }); } catch (e) {}
+    _alert(_trf('✅ הסיסמה הזמנית של "{u}" היא:\n\n{p}\n\nמסור אותה למשתמש — היא מוצגת כאן פעם אחת בלבד ולא נשמרת בשום מקום.', { u: username, p: tempPass }));
 }
 
 async function adminDeleteUser(username) {
@@ -3710,17 +3712,18 @@ async function doEmailAuth() {
     if (pass.length < 4) { err.textContent = '❌ הסיסמה חייבת להכיל לפחות 4 תווים.'; err.style.display='block'; return; }
     const btn = document.getElementById('em-send-btn'); if (btn) { btn.disabled = true; btn.textContent = 'שולח קוד…'; }
     try {
-        const hashed = await hashPassword(pass);
         const users = await ghReadFresh('db/ai_users.json') || await ghRead('db/ai_users.json') || {};
         let isNew = false;
-        if (users[mail]) { // קיים — אימות סיסמה
-            if (!users[mail].password) { err.textContent = '❌ החשבון הזה נפתח עם Google — התחבר עם כפתור Google.'; err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='המשך ←';} return; }
-            if (users[mail].password !== hashed) { err.textContent = '❌ סיסמה שגויה.'; err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='המשך ←';} return; }
+        if (users[mail]) { // קיים — אימות סיסמה דרך ה-Worker
+            if (!users[mail].password && !users[mail].hasPw) { err.textContent = '❌ החשבון הזה נפתח עם Google — התחבר עם כפתור Google.'; err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='המשך ←';} return; }
+            const _aRes = await _authWorker('auth-login', { user: mail, pass: pass, oldhash: users[mail].password || '' });
+            if (!_aRes || !_aRes.ok) { err.textContent = (_aRes && _aRes.error === 'locked') ? '❌ יותר מדי ניסיונות — נסה מאוחר יותר.' : '❌ סיסמה שגויה.'; err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='המשך ←';} return; }
+            if (_aRes.migrated && users[mail].password) { try { await ghUpdate('db/ai_users.json', u => { if (u && u[mail]) { delete u[mail].password; u[mail].hasPw = true; } return u; }); } catch (e) {} }
         } else { isNew = true; }
         // 🔐 OTP חובה בכל כניסה עם מייל — שולחים קוד למייל לפני השלמת הכניסה
         const sent = await _otpSend(mail);
         if (!sent) { err.textContent = '❌ לא הצלחנו לשלוח את קוד האימות. נסה שוב בעוד רגע.'; err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='המשך ←';} return; }
-        _pendingEmail = { mail: mail, isNew: isNew, hashed: hashed };
+        _pendingEmail = { mail: mail, isNew: isNew, pass: pass };
         document.getElementById('em-step-1').style.display = 'none';
         document.getElementById('em-step-2').style.display = 'block';
         const oi = document.getElementById('em-otp'); if (oi) { oi.value = ''; oi.focus(); }
@@ -3740,8 +3743,11 @@ async function doEmailOtpVerify() {
             err.textContent = (vr && vr.error === 'expired') ? '❌ הקוד פג תוקף — חזור ושלח קוד חדש.' : ('❌ קוד שגוי.' + left);
             err.style.display='block'; if (btn){btn.disabled=false;btn.textContent='אמת והתחבר ←';} return;
         }
-        const mail = _pendingEmail.mail, isNew = _pendingEmail.isNew, hashed = _pendingEmail.hashed;
-        if (isNew) { await ghUpdate('db/ai_users.json', u => { u = u || {}; if (u[mail]) return undefined; u[mail] = { password: hashed, email: true, createdAt: Date.now(), lang: localStorage.getItem('birgsol_lang') || 'he' }; return u; }); }
+        const mail = _pendingEmail.mail, isNew = _pendingEmail.isNew, pass = _pendingEmail.pass;
+        if (isNew) {
+            await ghUpdate('db/ai_users.json', u => { u = u || {}; if (u[mail]) return undefined; u[mail] = { email: true, hasPw: true, createdAt: Date.now(), lang: localStorage.getItem('birgsol_lang') || 'he' }; return u; });
+            await _authWorker('auth-register', { user: mail, pass: pass });
+        }
         _pendingEmail = null;
         await _finishLogin(mail);
         _notifyLogin(mail, isNew, null); // ברוך-הבא (אם חדש) + התראת כניסה — ברקע
@@ -3771,17 +3777,10 @@ async function doForgot() {
     const err = document.getElementById('fp-err');
     err.style.display = 'none';
     if (!user) { err.textContent = '❌ יש להזין שם משתמש.'; err.style.display='block'; return; }
-    const cloudUsers = await ghRead('db/ai_users.json') || {};
-    if (!cloudUsers[user]) { err.textContent = '❌ שם המשתמש לא נמצא.'; err.style.display='block'; return; }
-    fpUsername = user;
-    fpPassRevealed = false;
-    document.getElementById('fp-current-pass').textContent = '(מוצפנת — לא ניתן להצגה)';
-    document.getElementById('fp-reveal-btn').style.display = 'none';
-    document.getElementById('fp-new-pass').value = '';
-    document.getElementById('fp-new-pass2').value = '';
-    document.getElementById('fp-err2').style.display = 'none';
-    document.getElementById('forgot-step1').style.display = 'none';
-    document.getElementById('forgot-step2').style.display = 'block';
+    // 🔒 אבטחה: אין איפוס-עצמי בלי אימות זהות (מנע השתלטות על חשבון). האיפוס נעשה ע"י המנהל בלבד.
+    err.style.color = 'var(--muted, #667)';
+    err.textContent = _tLang('For your security, a password reset is done by the admin. Contact: birgsolai@gmail.com', 'מטעמי אבטחה, איפוס סיסמה נעשה ע"י המנהל בלבד. פנה ל: birgsolai@gmail.com');
+    err.style.display = 'block';
 }
 function togglePassReveal() {
     // Passwords are hashed — cannot be revealed
