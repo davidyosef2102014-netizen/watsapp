@@ -11396,7 +11396,9 @@ async function send() {
         }
     }
     // ── זרוע הדפדפן: "תסתכל בדפדפן" → BIRGSOL מסתכל בדף הפתוח דרך התוסף ──
-    if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile) { await browserLook(q); return; }
+    // 🛡️ שמירה מפני over-trigger: אם ההודעה מכילה קוד מודבק (HTML/בלוק-קוד/תגיות), המשתמש שואל *על* הקוד — לא מבקש להסתכל בדפדפן.
+    if (typeof window._hasPastedCode !== 'function') { window._hasPastedCode = function (q) { const s = String(q || ''); if (/```|<!doctype|<html|<body|<script|<\/[a-z]|function\s+\w+\s*\(|=>\s*\{/i.test(s)) return true; const lines = s.split('\n'); if (lines.length >= 8 && lines.filter(l => /[{};=<>()]/.test(l)).length >= 5) return true; return false; }; }
+    if (_isBrowserLook(q) && !fileUrl && !fileContent && !mediaFile && !_hasPastedCode(q)) { await browserLook(q); return; }
 
     // ── 🧭 מחליט-כוונה: המודל מבין לבד לאן לנתב (סוכן / דפדפן / צ'אט) — שיקול-דעת, לא מילות-מפתח. נלטש אותו "מודל מודל". ──
     if (q && !fileUrl && !fileContent && !mediaFile) {
@@ -11410,7 +11412,7 @@ async function send() {
         if ((typeof currentMode !== 'undefined' && currentMode === 'code') && _route === 'chat' && typeof _isCodeAgentTask === 'function' && _isCodeAgentTask(q) && !_isBrowserAct(q)) _route = 'agent';
         if (_route === 'agent' && typeof _isDesktop === 'function' && _isDesktop() && !_isBrowserAct(q)) { await runNativeAgent(q); return; }
         // דפדפן רק אם יש יכולת (גשר/תוסף) או שהמשתמש ביקש במפורש — אחרת שאלה פשוטה שנותבה בטעות ל"דפדפן" נופלת לצ'אט רגיל (בלי "התוסף לא נמצא")
-        if (_route === 'browser' && (_agentCapable || (typeof _isBrowserAct === 'function' && _isBrowserAct(q)))) { await _browserAgent(q); return; }
+        if (_route === 'browser' && !_hasPastedCode(q) && (_agentCapable || (typeof _isBrowserAct === 'function' && _isBrowserAct(q)))) { await _browserAgent(q); return; }
         // 'chat' (או 'agent' ב-web בלי כלים) → ממשיך לצ'אט הרגיל, ששם המודל מחליט לבד תמונה/חיפוש/עריכה דרך תגיות
     }
 
