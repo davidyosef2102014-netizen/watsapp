@@ -2737,7 +2737,7 @@ const MODELS = [
     { id:'3.0pro', brand:'BIRGSOL AI 3.0 PRO',   kind:'cloudflare', minTier:'free', desc:'גיבוי יציב' },
     { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini',     minTier:'free', desc:'חכם ומהיר' },
     { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss',     minTier:'pro',  desc:'הכי חזק, מעולה לקוד' },
-    { id:'4.1pro', brand:'BIRGSOL AI 4.1 PRO',   kind:'agentpro',   minTier:'free', desc:'סוכן-קוד מומחה — מוח Qwen3-Coder', admin:true },
+    { id:'4.1pro', brand:'BIRGSOL AI 4.1 PRO',   kind:'agentpro',   minTier:'free', desc:'סוכן-קוד מומחה — מוח Nemotron-550B', admin:true },
     { id:'4.1flash', brand:'BIRGSOL AI 4.1 FLASH', kind:'nemotron',  minTier:'free', desc:'מהיר וחזק — מוח Nemotron 3.5 (NVIDIA)', admin:true },
     { id:'axion',  brand:'BIRGSOL Axion 4.1',    kind:'axion',      minTier:'free', desc:'דגל — צוות מודלים (מוח+שופט+קול)', admin:true },
 ];
@@ -9962,14 +9962,14 @@ async function _agDecide(sys, user) {
         async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         // (מוח-גיבוי Cloudflare הוסר — הוא חלק את מכסת ה-10K neurons עם התמונות ושרף אותה. Cloudflare = רק תמונות עכשיו.)
     ];
-    // 🥈 4.1 PRO — מוח **Qwen** (בקשת דוד). עבר מ-DashScope qwen3-coder-flash (המכסה החינמית נגמרה מהבדיקות) ל-**Groq qwen3.8-27b**:
-    //    מהיר, חינם, אמין, ובלי לשרוף את מכסת אליבאבא. אותו שלד-סוכן, רק מוח Qwen דרך Groq.
+    // 🥈 4.1 PRO — מוח **Nemotron-3-Ultra 550B** (NVIDIA, דרך OpenRouter free — בקשת דוד). מודל 550B חזק, עברית מצוינת, חינם.
+    //    4.1 PRO הוא מודל-אדמין (תעבורה נמוכה) ולכן מכסת-החינם היומית של 550B מספיקה. Qwen3-Coder + nemotron/groq = גיבוי סדרתי.
+    const _nemotron550 = async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'nvidia/nemotron-3-ultra-550b-a55b:free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(30000) }); return r.ok ? _pick(await r.json()) : null; };
     const _qwenCoder = async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'qwen/qwen3.8-27b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; };
     const _isPro = (typeof currentModelId === 'function') && currentModelId() === '4.1pro';
-    const _primary   = _isPro ? [_qwenCoder] : _glm;            // 4.1 PRO → מוח Qwen3-Coder · Axion → קבוצת GLM
-    // ל-PRO: אם Qwen נפל → nemotron/groq ואז GLM. ל-Axion: GLM ראשי, ו-Qwen3-Coder הוא הגיבוי ה*ראשון* (בקשת דוד:
-    // "עובד פצצה, אני רוצה אותו במקום השני בגיבוי ב-AXION") — אמין ומהיר, כך שלא יקרה "המודל לא ענה".
-    const _secondary = _isPro ? _backup.concat(_glm) : [_qwenCoder].concat(_backup);
+    const _primary   = _isPro ? [_nemotron550] : _glm;         // 4.1 PRO → מוח Nemotron-550B · Axion → קבוצת GLM
+    // ל-PRO: אם Nemotron-550B נפל/נגמרה המכסה → Qwen3-Coder ואז nemotron/groq ואז GLM (סדר נפילה מפורש). ל-Axion: GLM ראשי, Qwen3-Coder גיבוי ראשון.
+    const _secondary = _isPro ? [_qwenCoder].concat(_backup).concat(_glm) : [_qwenCoder].concat(_backup);
     // ⏱️ עדיפות-מוח + failover מהיר (בקשת דוד): המוח המועדף (GLM) רץ מיד ומנצח אם ענה מהר. אבל אם לא ענה
     //    תוך 8ש' — *או* אם כל המועדפים נפלו לפני כן — מריצים לידם את הגיבוי (Qwen3-Coder ואז nemotron/groq) *במקביל*,
     //    וההחלטה התקינה הראשונה מנצחת. ככה אין יותר תקיעה של "המודל לא ענה" ולא המתנה של 40ש' למוח מת. נכשל רק אם כולם נפלו.
