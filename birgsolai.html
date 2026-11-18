@@ -12432,22 +12432,24 @@ async function _describeFrameLive(dataUrl) {
 }
 // ראייה חיה ישירה — שולח את פריים המצלמה + שאלת המשתמש ישירות למודל הראייה, מקבל תשובה מדוברת בשלב אחד (מדויק יותר מתיאור-ואז-צ'אט)
 async function _callAILiveVision(frames, userText, sys) {
-    const arr = Array.isArray(frames) ? frames : [frames];
-    const parts = [{ text: (sys || '') + '\n\nהמשתמש מדבר איתך בשיחה קולית ואתה רואה את המצלמה שלו בזמן אמת. מצורפים כמה פריימים רצופים מהמצלמה (קטע וידאו קצר) — התייחס אליהם כאל וידאו: שים לב למה זז, מה משתנה ומה קורה לאורך הרצף, לא רק לתמונה אחת קפואה. ענה קצר וטבעי כאילו אתם מסתכלים יחד. מה שהוא אמר: ' + userText }];
-    for (const dataUrl of arr) {
-        if (!dataUrl) continue;
-        const mt = (dataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg';
-        const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
-        if (b64) parts.push({ inlineData: { mimeType: mt, data: b64 } });
-    }
-    if (parts.length < 2) return ''; // אין אף פריים
-    const contents = [{ role: 'user', parts }];
+    const arr = (Array.isArray(frames) ? frames : [frames]).filter(Boolean);
+    if (!arr.length) return '';
+    const promptTxt = (sys || '') + '\n\nהמשתמש מדבר איתך בשיחה קולית ואתה רואה את המצלמה שלו בזמן אמת. מצורפים פריימים רצופים מהמצלמה (וידאו קצר) — התייחס אליהם כווידאו: מה זז/משתנה לאורך הרצף. ענה קצר וטבעי. מה שהוא אמר: ' + userText;
+    // 1️⃣ Groq-vision (qwen3.8-27b) — מהיר ואמין (~1ש'), ראשי. Gemini היה עמוס (429/503) ולכן "לא ראה". פחות פריימים = מהיר.
     try {
-        const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents, generationConfig: { maxOutputTokens: 500 } }, { signal: AbortSignal.timeout(14000) });
-        if (!r.ok) return '';
-        const j = await r.json();
-        return (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
-    } catch { return ''; }
+        const _gc = [{ type: 'text', text: promptTxt }].concat(arr.slice(0, 2).map(d => ({ type: 'image_url', image_url: { url: d } })));
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'qwen/qwen3.8-27b', messages: [{ role: 'user', content: _gc }], max_tokens: 400, temperature: 0.4 }, { signal: AbortSignal.timeout(9000) });
+        if (r.ok) { const j = await r.json(); const t = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return t; }
+    } catch (e) {}
+    // 2️⃣ Gemini גיבוי — רק אם Groq נפל.
+    try {
+        const parts = [{ text: promptTxt }];
+        for (const dataUrl of arr) { const mt = (dataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg'; const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : ''; if (b64) parts.push({ inlineData: { mimeType: mt, data: b64 } }); }
+        if (parts.length < 2) return '';
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 500 } }, { signal: AbortSignal.timeout(13000) });
+        if (r.ok) { const j = await r.json(); return (((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter(p => p && !p.thought).map(p => (p && p.text) || '').join('')).trim(); }
+    } catch (e) {}
+    return '';
 }
 
 // ── פיצ'רים במצב לייב: הכדור מתכווץ למטה ורואים את התוצאה (צור תמונה / מצא תמונה אמיתית / חיפוש) ──
@@ -12546,7 +12548,7 @@ async function _liveLoop() {
         const v = document.getElementById('live-cam-video');
         if (v) v.classList.add('seeing');
         try {
-            const frames = await _captureBurst(4, 430); // רצף ~1.3ש' = וידאו קצר במקום תמונה בודדת
+            const frames = await _captureBurst(2, 350); // רצף ~0.7ש' (מהיר) — Groq-vision מקבל 2 פריימים, מספיק לתחושת-תנועה
             if (frames.length) {
                 const sysV = 'אתה BIRGSOL AI, עוזר קולי ידידותי (נבנה ע"י דוד יוסף זאבי).\n\nLIVE VOICE+VISION — אתה רואה את מצלמת המשתמש בזמן אמת כווידאו רציף. ענה קצר וטבעי (2-4 משפטים), עברית כברירת מחדל, בלי markdown/כוכביות/רשימות. דבר על מה שאתה רואה קורה (כולל תנועה/שינוי) ותענה טבעי — אל תגיד "לפי התמונה".';
                 reply = await _callAILiveVision(frames, transcript + liveSearchCtx, sysV);
