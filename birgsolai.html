@@ -9685,6 +9685,7 @@ try { const _as = JSON.parse(localStorage.getItem('birgsol_lastAgent') || '{}');
 function _saveAgentState() { try { localStorage.setItem('birgsol_lastAgent', JSON.stringify({ goal: _lastAgentGoal, conv: _lastAgentConv, kind: _lastAgentKind })); } catch (e) {} }
 let _agentRunning = false; // true בזמן שלולאת-הסוכן פעילה — מאפשר הזרקת-הודעות למשימה תוך כדי
 let _agInjectQueue = []; // 🗣️ הודעות שהמשתמש הקליד בזמן שהסוכן רץ — נכנסות למשימה בתחילת הצעד הבא
+let _agContGuard = false; // מונע רקורסיה כפולה כשממשיכים אוטומטית עם הזרקה שהגיעה בדיוק כשהסוכן סיים
 function _looksLikeAgentFollowup(q) {
     if (!q) return false;
     if (q.length > 240) return false; // תיקון/הערה קצרה — לא נושא חדש וארוך
@@ -10545,7 +10546,15 @@ async function runNativeAgent(goal, opts) {
             const d = document.createElement('div'); try { d.innerHTML = mdSafe(m); } catch (e) { d.textContent = m; } txt.appendChild(d); hist[hist.length - 1].content = m;
         }
     } catch (e) { txt.textContent = 'שגיאת סוכן: ' + (e && e.message || e); }
-    finally { busy = false; _agentRunning = false; updateBtn(); try { saveConversation(); } catch (e) {} } // שמירת שיחת הסוכן להיסטוריה
+    finally {
+        busy = false; _agentRunning = false; updateBtn();
+        try { saveConversation(); } catch (e) {} // שמירת שיחת הסוכן להיסטוריה
+        // 🗣️ הזרקה שהגיעה בדיוק כשהסוכן סיים (אין לה "צעד הבא" שיקרא אותה) — אל תאבד אותה: המשך איתה כהוראה חדשה, מיד אחרי בועת-התשובה.
+        try {
+            const _stillPending = _agInjectQueue.length && (typeof _timedOut === 'undefined' || !_timedOut) && !_agContGuard;
+            if (_stillPending) { _agContGuard = true; const _pend = _agInjectQueue.splice(0).join('  |  '); setTimeout(() => { _agContGuard = false; try { runNativeAgent(_pend); } catch (e) {} }, 250); }
+        } catch (e) {}
+    } // שמירת שיחת הסוכן להיסטוריה
     return (hist[hist.length - 1] && hist[hist.length - 1].content) || 'הסוכן סיים.';
 }
 
