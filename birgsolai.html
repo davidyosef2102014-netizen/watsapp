@@ -1916,7 +1916,7 @@
                         <div id="attach-menu" class="attach-menu">
                             <button type="button" onclick="_pickAttach('camera')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> <span data-i18n="attach_camera">מצלמה</span></button>
                             <button type="button" onclick="_pickAttach('gallery')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> <span data-i18n="attach_gallery">גלריה</span></button>
-                            <button type="button" onclick="_pickAttach('files')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> <span data-i18n="attach_files">קבצים</span></button>
+                            <button type="button" onclick="_pickAttach('files')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> <span data-i18n="attach_files">קבצים וסרטונים</span></button>
                         </div>
                     </div>
                     <input type="file" id="fi" multiple style="display:none" accept="image/*,.txt,.pdf,.csv,.md,.json,.docx,.xlsx,.xls,audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov" onchange="previewFile()">
@@ -4001,12 +4001,12 @@ function _extractDomains(text) {
 /* ── UI translations per language ── */
 const L10N = {
     he: { greet:'שלום', sub:'איך אוכל לעזור לך היום?', ph:'שאל את BIRGSOL AI...', foot:'BIRGSOL AI עשוי לטעות. בדוק מידע חשוב.', newChat:'שיחה חדשה',
-          mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_camera:'מצלמה', attach_gallery:'גלריה', attach_files:'קבצים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
+          mode_chat:'שיחה', mode_code:'קוד', mode_image:'תמונה', mode_search:'חיפוש', attach_camera:'מצלמה', attach_gallery:'גלריה', attach_files:'קבצים וסרטונים', convs:'שיחות', search_ph:'חפש שיחות...', library_btn:'ספרייה', library_title:'הספרייה שלי — כל התמונות שיצרת', settings_title:'הגדרות תצוגה', canvas_toggle:'קנבס',
           your_plan:'הגרסה שלך', dark_mode:'מצב כהה', greeting:'ברכה', suggestion_cards:'כרטיסי הצעות', ai_lang:'שפה', gemini_disclosure:'* מודלים המבוססים על Google Gemini (כגון BIRGSOL AI 3.5 FLASH) משתמשים בשירותי Google וכפופים למדיניות שלהם.', agent_inject_note:'↳ נוסף למשימה — הסוכן יקרא את זה בצעד הבא', cloud_title:'סוכן ענן', cloud_sub:'משימה שממשיכה לרוץ בענן גם כשסוגרים את האפליקציה — מחקר, מעקב ומשימות-ווב ברקע.', cloud_run:'הרץ בענן', cloud_kind:'סוג:', cloud_kind_web:'ווב / מחקר', cloud_kind_code:'קוד (קבצים)', cloud_empty:'אין עדיין משימות בענן. כתוב משימה והיא תרוץ ברקע.', cloud_pending:'ממתין', cloud_running:'רץ', cloud_done:'הושלם', cloud_error:'שגיאה', cloud_step:'צעד', cloud_err:'לא הצלחתי ליצור משימת ענן כרגע. נסה שוב.', cloud_settings_row:'סוכן ענן (רקע)', cloud_ph:'מה שהסוכן יעשה בענן... (למשל: עקוב אחרי חדשות על נושא מסוים וסכם לי)', mode_cloud:'ענן', cloud_sent:'☁️ המשימה נשלחה לענן ורצה ברקע. אפשר לסגור את האפליקציה — עקוב בהגדרות ← סוכן ענן.', api_dev_row:'API למפתחים', api_dev_title:'BIRGSOL Cloud — API למפתחים', api_dev_sub:'ל-BIRGSOL יש API חינמי תואם-OpenAI. חבר כל כלי או קוד ישירות — שיחה, חיפוש, תמונות וקול.', api_dev_ep:'כתובת (Endpoint):', api_dev_models:'רשימת המודלים', api_dev_sample:'דוגמה (curl):', api_dev_getkey:'קבל מפתח API', api_dev_copy:'העתק', api_dev_copied:'הועתק ✓', api_dev_note:'הדבק את המפתח שלך במקום YOUR_KEY.', share_conv_row:'שתף שיחה נוכחית',
           settings:'הגדרות', user_mgmt:'ניהול משתמשים', created_by:'נוצר ע"י דוד יוסף זאבי', logout:'התנתקות', del_confirm:'למחוק את השיחה הזו?',
           srv_busy:'השרת עמוס כרגע — מנסה שוב, נא להמתין…', srv_fail:'השרת עמוס מאוד כרגע. נסה שוב עוד רגע.', retry_btn:'נסה שוב' },
     en: { greet:'Hello', sub:'How can I help you today?', ph:'Ask BIRGSOL AI...', foot:'BIRGSOL AI can make mistakes. Check important info.', newChat:'New chat',
-          mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_camera:'Camera', attach_gallery:'Gallery', attach_files:'Files', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
+          mode_chat:'Chat', mode_code:'Code', mode_image:'Image', mode_search:'Search', attach_camera:'Camera', attach_gallery:'Gallery', attach_files:'Files & videos', convs:'Chats', search_ph:'Search chats...', library_btn:'Library', library_title:'My Library — all your generated images', settings_title:'Display settings', canvas_toggle:'Canvas',
           your_plan:'Your plan', dark_mode:'Dark mode', greeting:'Greeting', suggestion_cards:'Suggestion cards', ai_lang:'Language', gemini_disclosure:'* Models based on Google Gemini (such as BIRGSOL AI 3.5 FLASH) use Google services and are subject to their policies.', agent_inject_note:'↳ Added to the task — the agent will read it on the next step', cloud_title:'Cloud agent', cloud_sub:'A task that keeps running in the cloud even after you close the app — research, monitoring and web tasks in the background.', cloud_run:'Run in cloud', cloud_kind:'Type:', cloud_kind_web:'Web / research', cloud_kind_code:'Code (files)', cloud_empty:'No cloud tasks yet. Write a task and it will run in the background.', cloud_pending:'Pending', cloud_running:'Running', cloud_done:'Done', cloud_error:'Error', cloud_step:'Step', cloud_err:'Could not create a cloud task right now. Try again.', cloud_settings_row:'Cloud agent (background)', cloud_ph:'What the agent should do in the cloud... (e.g. track news about a topic and summarize it for me)', mode_cloud:'Cloud', cloud_sent:'☁️ Task sent to the cloud and running in the background. You can close the app — track it in Settings → Cloud agent.', api_dev_row:'Developer API', api_dev_title:'BIRGSOL Cloud — Developer API', api_dev_sub:'BIRGSOL has a free OpenAI-compatible API. Connect any tool or code directly — chat, search, images and voice.', api_dev_ep:'Endpoint:', api_dev_models:'Models list', api_dev_sample:'Example (curl):', api_dev_getkey:'Get API key', api_dev_copy:'Copy', api_dev_copied:'Copied ✓', api_dev_note:'Replace YOUR_KEY with your own key.', share_conv_row:'Share current chat',
           settings:'Settings', user_mgmt:'User management', created_by:'Created by David Yosef Zevi', logout:'Log out', del_confirm:'Delete this chat?',
           srv_busy:'The server is busy — retrying, please wait…', srv_fail:'The server is very busy right now. Please try again in a moment.', retry_btn:'Try again' },
@@ -5659,6 +5659,37 @@ async function _transcribeMedia(file) {
     if (!res.ok) throw new Error('transcribe ' + res.status);
     const j = await res.json().catch(() => ({}));
     return (j.text || j.transcription || '').trim();
+}
+
+// 🎬 חילוץ פריימים מסרטון (canvas) — כדי שה-AI *יראה* את הוידאו, לא רק יתמלל אודיו.
+async function _extractVideoFrames(file, n) {
+    n = n || 4;
+    return new Promise((resolve) => {
+        try {
+            const url = URL.createObjectURL(file);
+            const v = document.createElement('video');
+            v.src = url; v.muted = true; v.playsInline = true; v.preload = 'auto';
+            const frames = [];
+            const done = () => { try { URL.revokeObjectURL(url); } catch (e) {} resolve(frames); };
+            v.onerror = done;
+            v.onloadedmetadata = async () => {
+                try {
+                    const dur = (v.duration && isFinite(v.duration)) ? v.duration : 0;
+                    const c = document.createElement('canvas');
+                    const grab = (t) => new Promise(res => {
+                        let settled = false;
+                        const on = () => { if (settled) return; settled = true; v.removeEventListener('seeked', on); c.width = v.videoWidth || 320; c.height = v.videoHeight || 240; try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); frames.push(c.toDataURL('image/jpeg', 0.7)); } catch (e) {} res(); };
+                        v.addEventListener('seeked', on);
+                        setTimeout(() => { if (!settled) { settled = true; v.removeEventListener('seeked', on); res(); } }, 4000);
+                        try { v.currentTime = t; } catch (e) { on(); }
+                    });
+                    if (dur > 0.2) { for (let i = 0; i < n; i++) await grab(Math.min(dur - 0.1, (dur * (i + 0.5)) / n)); }
+                    else { await grab(0); }
+                } catch (e) {}
+                done();
+            };
+        } catch (e) { resolve([]); }
+    });
 }
 
 function _showDocPreview(name, size) {
