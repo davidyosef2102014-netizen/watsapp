@@ -2760,7 +2760,7 @@ const MODELS = [
     { id:'flash',  brand:'BIRGSOL AI 3.5 FLASH', kind:'gemini',     minTier:'free', desc:'חכם ומהיר' },
     { id:'pro',    brand:'BIRGSOL AI 3.5 PRO',   kind:'gptoss',     minTier:'pro',  desc:'הכי חזק, מעולה לקוד' },
     { id:'4.1pro', brand:'BIRGSOL AI 4.1 PRO',   kind:'agentpro',   minTier:'free', desc:'סוכן-קוד מומחה — מוח Nemotron-550B', admin:true },
-    { id:'4.1flash', brand:'BIRGSOL AI 4.1 FLASH', kind:'nemotron',  minTier:'free', desc:'מהיר וחזק — מוח Nemotron 3.5 (NVIDIA)', admin:true },
+    { id:'4.1flash', brand:'BIRGSOL AI 4.1 FLASH', kind:'nemotron',  minTier:'free', desc:'מהיר וחזק — מוח Gemini 4', admin:true },
     { id:'axion',  brand:'BIRGSOL Axion 4.1',    kind:'axion',      minTier:'free', desc:'דגל — צוות מודלים (מוח+שופט+קול)', admin:true },
 ];
 // admin:true → גלוי רק למנהל (בדיקות לפני השקה). שאר המשתמשים לא רואים/בוחרים אותו.
@@ -9108,6 +9108,19 @@ async function callAI(messages, onChunk, signal=null) {
             if (!t) throw new Error('nemotron empty');
             return _tw(t);
         } };
+        // 🌟 4.1 FLASH — מוח **Gemini 4** (hydrogen, הדור החדש של גוגל, חינם). ללא thinkingConfig (המודל דוחה thinkingLevel). נפילה ל-Nemotron אם 429/עמוס.
+        const _sGem4 = { name: 'Gemini-4', fn: async () => {
+            const _g4contents = messages.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: (typeof _toParts === 'function' ? _toParts(m.content) : [{ text: String(m.content || '') }]) }));
+            const _g4sys = messages.filter(m => m.role === 'system').map(m => String(m.content || '')).join('\n');
+            const _g4body = { contents: _g4contents, generationConfig: { maxOutputTokens: 2048, temperature: _isGroundedTurn ? 0.2 : 0.6 } };
+            if (_g4sys) _g4body.systemInstruction = { parts: [{ text: _g4sys }] };
+            const r = await _ghProxy('gemini', '/v1beta/models/gemini-4-hydrogen:generateContent', _g4body, { signal: AbortSignal.timeout(30000) });
+            if (!r.ok) throw new Error('gemini4 ' + r.status);
+            const j = await r.json();
+            const t = (((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter(p => p && !p.thought).map(p => (p && p.text) || '').join('')).trim();
+            if (!t) throw new Error('gemini4 empty');
+            return _tw(t);
+        } };
         // 🔎 מודל-חיפוש (כמו Perplexity) — gpt-5-search-api דרך OrcaRouter: חיפוש מובנה. ראשון לשאלות-מידע; אם נכשל/בתשלום → נופל לשרשרת הרגילה.
         const _sSearch = { name: 'gpt5-search', fn: async () => {
             const r = await _ghProxy('orcarouter', '/v1/chat/completions', { model: 'openai/gpt-5-search-api', messages, temperature: 0.3, max_tokens: 2048 }, { signal: AbortSignal.timeout(22000) });
@@ -9139,7 +9152,7 @@ async function callAI(messages, onChunk, signal=null) {
         if (_grounded) return [_sGem, _sGpt, _sGpt2, _sCloud]; // עובדות/משפט/חדשות — נאמנים (Gemini + Tavily). בלי Mistral (מזייף)
         if (_mid === 'pro')    return [_sGpt, _sGem, _sGpt2, _sCloud];            // 3.5 PRO — חזקים + Cloudflare רצפה. בלי Mistral (נחנק)
         if (_mid === 'flash')  return [_sGem, _sGpt, _sGpt2, _sCloud];            // 3.5 FLASH — Gemini ראשי, gpt-oss, 120b, Cloudflare רצפה. בלי Mistral (נחנק)
-        if (_mid === '4.1flash') return [_sNemo, _sGem, _sGpt2, _sCloud];         // ⚡ 4.1 FLASH — Nemotron-3.5-Super ראשי (חזק+אגנטי+מהיר), ואז Gemini/120b/Cloudflare גיבוי
+        if (_mid === '4.1flash') return [_sGem4, _sNemo, _sGpt2, _sCloud];        // 🌟 4.1 FLASH — Gemini 4 ראשי (הדור החדש, חינם), ואז Nemotron-3.5/120b/Cloudflare גיבוי מיידי אם 429
         if (_mid === '3.0pro') return [_sCloud, _sGem, _sGpt, _sGpt2];           // 3.0 PRO — Cloudflare ראשון
         if (_mid === '3.0')    return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 3.0 FLASH — Mistral חירום אחרון (אחרי Cloudflare)
         if (_mid === '2.0pro') return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 2.0 PRO
@@ -11301,6 +11314,58 @@ async function _anetLearnUI(i) {
 }
 async function _anetUpdateBadge() {
     try { const reqs = await _anetInbox(); const b = document.getElementById('anet-badge'); if (b) { if (reqs.length) { b.textContent = reqs.length; b.style.display = ''; } else { b.style.display = 'none'; } } } catch (e) {}
+}
+/* ══════════════ 🌐 דפדפן מובנה (בלי התקנה) — חלון גלישה בתוך BIRGSOL ══════════════
+   אתר שמרשה הטמעה נטען ב-iframe. אתר שחוסם → כפתור ✨ "תן ל-AI לקרוא" (הסוכן קורא דרך ה-Worker, בלי תוסף). */
+function closeInAppBrowser() { const ov = document.getElementById('iab-overlay'); if (ov) ov.style.display = 'none'; try { const fr = document.getElementById('iab-frame'); if (fr) fr.src = 'about:blank'; } catch (e) {} }
+function openInAppBrowser(url) {
+    let ov = document.getElementById('iab-overlay');
+    if (!ov) {
+        ov = document.createElement('div'); ov.id = 'iab-overlay';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:9100;background:var(--surf,#fff);display:flex;flex-direction:column';
+        const T = _tLang;
+        ov.innerHTML =
+            '<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surf2)">'
+            + '<button onclick="_iabNav(-1)" title="Back" style="background:none;border:none;cursor:pointer;color:var(--text);font-size:19px;padding:2px 6px;line-height:1">‹</button>'
+            + '<button onclick="_iabNav(1)" title="Forward" style="background:none;border:none;cursor:pointer;color:var(--text);font-size:19px;padding:2px 6px;line-height:1">›</button>'
+            + '<button onclick="_iabReload()" title="Reload" style="background:none;border:none;cursor:pointer;color:var(--text);font-size:15px;padding:2px 6px">⟳</button>'
+            + '<input id="iab-url" placeholder="' + T('Type a URL or search', 'הקלד כתובת או חיפוש') + '" onkeydown="if(event.key===String.fromCharCode(69,110,116,101,114)||event.keyCode===13)_iabGo()" style="flex:1;min-width:50px;padding:7px 12px;border:1px solid var(--border);border-radius:20px;background:var(--surf);color:var(--text);font-family:inherit;font-size:13px;direction:ltr">'
+            + '<button onclick="_iabGo()" style="background:linear-gradient(135deg,#38bdf8,#4285F4);color:#fff;border:none;border-radius:8px;padding:7px 13px;cursor:pointer;font-size:13px;font-weight:700">' + T('Go', 'עבור') + '</button>'
+            + '<button id="iab-read-btn" onclick="_iabRead()" title="' + T('Let the AI read this page (no install)', 'תן ל-AI לקרוא את הדף (בלי התקנה)') + '" style="display:inline-flex;align-items:center;gap:4px;background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:7px 11px;cursor:pointer;font-size:12px;color:var(--text);white-space:nowrap">' + IC.sparkles + '</button>'
+            + '<button onclick="closeInAppBrowser()" title="Close" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:21px;padding:2px 8px;line-height:1">×</button>'
+            + '</div>'
+            + '<div id="iab-note" style="display:none;padding:9px 12px;background:#fff7ed;color:#9a3412;font-size:12.5px;border-bottom:1px solid var(--border);line-height:1.5"></div>'
+            + '<iframe id="iab-frame" referrerpolicy="no-referrer" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" style="flex:1;border:none;width:100%;background:#fff"></iframe>';
+        document.body.appendChild(ov);
+    }
+    ov.style.display = 'flex';
+    const inp = document.getElementById('iab-url');
+    if (url && inp) { inp.value = url; _iabGo(); } else if (inp) { setTimeout(() => inp.focus(), 60); }
+}
+function _iabNormalizeUrl(u) { u = String(u || '').trim(); if (!u) return ''; if (/^https?:\/\//i.test(u)) return u; if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(u)) return 'https://' + u; return 'https://www.google.com/search?q=' + encodeURIComponent(u); }
+function _iabGo() {
+    const inp = document.getElementById('iab-url'), fr = document.getElementById('iab-frame'), note = document.getElementById('iab-note');
+    if (!inp || !fr) return;
+    const url = _iabNormalizeUrl(inp.value);
+    if (!url) return;
+    inp.value = url;
+    if (note) note.style.display = 'none';
+    try { fr.src = url; } catch (e) {}
+    clearTimeout(window._iabTimer);
+    window._iabTimer = setTimeout(() => {
+        if (note) { note.innerHTML = _tLang('Did the site stay blank? Many big sites (Google, YouTube) block embedding. Press ✨ and the AI will read the page for you — no install.', 'האתר נשאר ריק? אתרים גדולים (גוגל, יוטיוב) חוסמים הטמעה. לחץ ✨ וה-AI יקרא את הדף בשבילך — בלי התקנה.'); note.style.display = 'block'; }
+    }, 2600);
+}
+function _iabReload() { const fr = document.getElementById('iab-frame'); try { if (fr && fr.src && fr.src !== 'about:blank') fr.src = fr.src; } catch (e) {} }
+function _iabNav(dir) { const fr = document.getElementById('iab-frame'); try { if (fr && fr.contentWindow) fr.contentWindow.history.go(dir); } catch (e) {} }
+function _iabRead() {
+    const inp = document.getElementById('iab-url'); const url = inp ? _iabNormalizeUrl(inp.value) : '';
+    if (!url) return;
+    closeInAppBrowser();
+    try {
+        const ui = document.getElementById('userInput');
+        if (ui) { ui.value = _tLang('Read this page and summarize what it says: ', 'תקרא את הדף הזה ותסכם מה כתוב בו: ') + url; ui.style.height = 'auto'; if (typeof send === 'function') send(); }
+    } catch (e) {}
 }
 async function _sideAsk() {
     const inp = document.getElementById('userInput');
