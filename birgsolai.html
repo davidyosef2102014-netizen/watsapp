@@ -2931,7 +2931,7 @@ async function doLogin() {
         }
         if (_aRes.migrated && cloudUsers[user].password) { try { await ghUpdate('db/ai_users.json', u => { if (u && u[user]) { delete u[user].password; u[user].hasPw = true; } return u; }); } catch (e) {} }
         _clearLoginLock(user);
-        if (cloudUsers[user].suspended && !ADMIN_USERS.includes(user)) { err.textContent = '⛔ החשבון הושהה עקב פעילות חשודה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com'; err.style.display='block'; return; }
+        if (cloudUsers[user].suspended && !ADMIN_USERS.includes(user)) { err.textContent = _tLang('⛔ The account was suspended due to suspicious activity. Please contact customer service: birgsolai@gmail.com', '⛔ החשבון הושהה עקב פעילות חשודה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com'); err.style.display='block'; return; }
         await _finishLogin(user);
     } catch(e) {
         err.textContent = '❌ שגיאת חיבור — נסה שוב.'; err.style.display='block';
@@ -3076,7 +3076,7 @@ function _decodeJwt(token) {
 }
 async function handleGoogleLogin(response) {
     const p = _decodeJwt(response && response.credential);
-    if (!p || !p.email) { _alert('שגיאת התחברות עם Google. נסה שוב.'); return; }
+    if (!p || !p.email) { _alert(_tLang('Google sign-in error. Try again.', 'שגיאת התחברות עם Google. נסה שוב.')); return; }
     const username = p.email.trim().toLowerCase();
     try {
         // יצירה אטומית אם חדש; אם קיים — פשוט מתחברים
@@ -3091,7 +3091,7 @@ async function handleGoogleLogin(response) {
         currentName = p.name || null;
         await _finishLogin(username);
         _notifyLogin(username, _isNew, p.name || null); // גוגל — התראת כניסה (ובחדש גם ברוך-הבא), בלי OTP
-    } catch (e) { _alert('שגיאת חיבור — נסה שוב.'); }
+    } catch (e) { _alert(_tLang('Connection error — try again.', 'שגיאת חיבור — נסה שוב.')); }
 }
 let _gisInited = false;
 function _loadGIS() {
@@ -3132,7 +3132,7 @@ async function _finishLogin(user) {
     ghReadFresh('db/ai_users.json').then(u => {
         if (u && u[user]) {
             // חשבון מושהה (אבטחה) — דוד חסין; כל השאר מנותקים מיד
-            if (u[user].suspended && !ADMIN_USERS.includes(user)) { _alert('⛔ החשבון הושהה עקב פעילות חשודה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com'); doLogout(true); return; }
+            if (u[user].suspended && !ADMIN_USERS.includes(user)) { _alert(_tLang('⛔ The account was suspended due to suspicious activity. Please contact customer service: birgsolai@gmail.com', '⛔ החשבון הושהה עקב פעילות חשודה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com')); doLogout(true); return; }
             localStorage.setItem('birgsol_instr_' + user, u[user].instructions || '');
             syncTierFromCloud(user, u[user]);
             if (u[user].name) { currentName = u[user].name; updateUserChip(); updateGreeting(); }
@@ -5049,7 +5049,7 @@ async function shareConversation() {
         });
         if (!ok) { _alert(_tLang('Sharing failed — try again', 'שגיאה בשיתוף — נסה שוב')); return; }
         const link = location.origin + location.pathname + '?share=' + id;
-        try { await navigator.clipboard.writeText(link); _alert('קישור השיתוף הועתק!\nכל מי שיש לו את הקישור יוכל לצפות בשיחה.'); }
+        try { await navigator.clipboard.writeText(link); _alert(_tLang('Share link copied!\nAnyone with the link can view the chat.', 'קישור השיתוף הועתק!\nכל מי שיש לו את הקישור יוכל לצפות בשיחה.')); }
         catch { await _prompt('העתק את הקישור:', link); }
     } finally { if (btn) btn.style.opacity = ''; }
 }
@@ -5062,7 +5062,7 @@ async function loadSharedView(id) {
     // API קודם (טרי מיד אחרי שיתוף) — raw CDN עלול לפגר בכמה דקות
     const data = await ghReadFresh(`db/ai_share_${id}.json`) || await ghRead(`db/ai_share_${id}.json`);
     if (!data || !Array.isArray(data.msgs)) {
-        _alert('השיחה המשותפת לא נמצאה');
+        _alert(_tLang('Shared conversation not found', 'השיחה המשותפת לא נמצאה'));
         location.href = location.pathname;
         return;
     }
@@ -5422,7 +5422,7 @@ let _voiceActive = false;
 function toggleVoice() {
     if (_voiceActive) { _stopVoice(); return; }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { _alert('הדפדפן שלך לא תומך בהקלטת קול. נסה Chrome.'); return; }
+    if (!SR) { _alert(_tLang('Your browser does not support voice recording. Try Chrome.', 'הדפדפן שלך לא תומך בהקלטת קול. נסה Chrome.')); return; }
     _voiceRec = new SR();
     _voiceRec.lang = _sttLang();
     _voiceRec.interimResults = true;
@@ -5631,13 +5631,13 @@ function previewFile() {
         _loadXlsx(f);
     } else if (isMedia) {
         // אודיו/וידאו — נתמלל בעת השליחה (Whisper), כדי לא לשרוף מכסה אם המשתמש מבטל
-        if (f.size > 24 * 1048576) { _alert('הקובץ גדול מדי לתמלול (מקסימום ~24MB). נסה קובץ קצר יותר.'); document.getElementById('fi').value = ''; return; }
+        if (f.size > 24 * 1048576) { _alert(_tLang('File too large to transcribe (max ~24MB). Try a shorter file.', 'הקובץ גדול מדי לתמלול (מקסימום ~24MB). נסה קובץ קצר יותר.')); document.getElementById('fi').value = ''; return; }
         mediaFile = f; fileContent = ''; fileUrl = '';
         const kind = (f.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(f.name)) ? '🎬 וידאו' : '🎵 אודיו';
         _showDocPreview(f.name, f.size);
         document.getElementById('file-size-label').textContent = kind + ' · יתומלל בשליחה';
     } else {
-        _alert('סוג קובץ לא נתמך. נסה תמונה, PDF, Word, Excel, TXT, CSV, MD, JSON, או אודיו/וידאו.');
+        _alert(_tLang('Unsupported file type. Try an image, PDF, Word, Excel, TXT, CSV, MD, JSON, or audio/video.', 'סוג קובץ לא נתמך. נסה תמונה, PDF, Word, Excel, TXT, CSV, MD, JSON, או אודיו/וידאו.'));
         document.getElementById('fi').value = '';
     }
 }
@@ -7761,7 +7761,7 @@ function _waBtn(btn) { try { const n = btn.getAttribute('data-num'); const m = d
 // ייבוא איש קשר מהטלפון (Contact Picker API — אנדרואיד/כרום בלבד; הדפדפן דורש בחירה ידנית, אין קריאה אוטומטית של כל אנשי הקשר)
 async function _waPickContact() {
     try {
-        if (!(navigator.contacts && navigator.contacts.select)) { try { _alert('ייבוא אנשי קשר נתמך רק באנדרואיד/כרום. באייפון — תגיד לי את המספר ואשמור.'); } catch (e) {} return null; }
+        if (!(navigator.contacts && navigator.contacts.select)) { try { _alert(_tLang('Contact import is supported only on Android/Chrome. On iPhone — tell me the number and I will save it.', 'ייבוא אנשי קשר נתמך רק באנדרואיד/כרום. באייפון — תגיד לי את המספר ואשמור.')); } catch (e) {} return null; }
         const sel = await navigator.contacts.select(['name', 'tel'], { multiple: false });
         if (!sel || !sel.length) return null;
         const c = sel[0]; const name = (c.name && c.name[0]) || ''; const tel = (c.tel && c.tel[0]) || '';
@@ -9393,7 +9393,7 @@ async function _idbGet(k) { try { const db = await _idbOpen(); return await new 
 
 function _filesSupported() { return typeof window.showDirectoryPicker === 'function'; }
 async function connectFilesFolder() {
-    if (!_filesSupported()) { _alert('גישה לקבצים נתמכת ב-Chrome או Edge במחשב בלבד (לא בנייד).'); return false; }
+    if (!_filesSupported()) { _alert(_tLang('File access is supported only in Chrome or Edge on desktop (not mobile).', 'גישה לקבצים נתמכת ב-Chrome או Edge במחשב בלבד (לא בנייד).')); return false; }
     try {
         const parent = await window.showDirectoryPicker({ mode: 'readwrite' });
         _bsDir = await parent.getDirectoryHandle('BIRGSOL AI', { create: true });
@@ -9454,13 +9454,13 @@ async function disconnectFilesFolder() {
 // כתיבת קובץ לתיקייה — עם אישור (בפעם הראשונה לכל קובץ בסשן), אחר כך עדכון אוטומטי עם הודעה
 async function bsWriteFile(name, content, opts) {
     opts = opts || {};
-    if (!_bsDir) { if (!opts.silent) _alert('אין תיקייה מחוברת. חבר את תיקיית "BIRGSOL AI" בהגדרות.'); return false; }
+    if (!_bsDir) { if (!opts.silent) _alert(_tLang('No folder connected. Connect the "BIRGSOL AI" folder in Settings.', 'אין תיקייה מחוברת. חבר את תיקיית "BIRGSOL AI" בהגדרות.')); return false; }
     if (!opts.noConfirm && !_bsApproved.has(name)) {
         const ok = await _confirm('לשמור/לעדכן את הקובץ "' + name + '" בתיקיית BIRGSOL AI?\n(עדכונים הבאים לקובץ זה יישמרו אוטומטית)');
         if (!ok) return false;
         _bsApproved.add(name);
     }
-    if (!await _ensureFolderPerm()) { if (!opts.silent) _alert('אין הרשאה לתיקייה — חבר אותה מחדש בהגדרות.'); return false; }
+    if (!await _ensureFolderPerm()) { if (!opts.silent) _alert(_tLang('No folder permission — reconnect it in Settings.', 'אין הרשאה לתיקייה — חבר אותה מחדש בהגדרות.')); return false; }
     try {
         const fh = await _bsDir.getFileHandle(name, { create: true });
         const w = await fh.createWritable();
@@ -11001,7 +11001,7 @@ function downloadDesktopInstaller() {
         a.download = 'BIRGSOL-Desktop-Install.bat';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-        _alert('הורד הקובץ "BIRGSOL-Desktop-Install.bat".\n\nלחץ עליו לחיצה כפולה כדי להתקין ולהפעיל את אפליקציית הדסקטופ (בפעם הראשונה יוריד את Electron, ~110MB).\n\n(אם Windows מציג אזהרה: More info → Run anyway.)');
+        _alert(_tLang('Download the file "BIRGSOL-Desktop-Install.bat".\n\nDouble-click it to install and launch the desktop app (the first time it downloads Electron, ~110MB).\n\n(If Windows shows a warning: More info → Run anyway.)', 'הורד הקובץ "BIRGSOL-Desktop-Install.bat".\n\nלחץ עליו לחיצה כפולה כדי להתקין ולהפעיל את אפליקציית הדסקטופ (בפעם הראשונה יוריד את Electron, ~110MB).\n\n(אם Windows מציג אזהרה: More info → Run anyway.)'));
     } catch (e) { _alert('שגיאה בהורדת המתקין: ' + (e && e.message || e)); }
 }
 function toggleRemoteHost(on) {
@@ -11532,14 +11532,14 @@ async function send() {
     if (_sec) {
         const suspended = await _suspendAndAlert(_sec, q);
         inp.value = '';
-        if (suspended) { _alert('⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com'); doLogout(true); return; }
+        if (suspended) { _alert(_tLang('⛔ The account was suspended due to detected suspicious activity. Please contact customer service: birgsolai@gmail.com', '⛔ החשבון הושהה עקב פעילות חשודה שזוהתה. אנא פנו לשירות הלקוחות: birgsolai@gmail.com')); doLogout(true); return; }
     }
 
     // הגבלת-קצב בצד-הלקוח — הגנה מפני הצפה (25 הודעות/דקה). דוד פטור.
     if (!ADMIN_USERS.includes(currentUser)) {
         const _now = Date.now();
         _reqTimes = _reqTimes.filter(t => _now - t < 60000);
-        if (_reqTimes.length >= 25) { inp.value = ''; _alert('שלחת יותר מדי הודעות בזמן קצר. המתן דקה ונסה שוב.'); return; }
+        if (_reqTimes.length >= 25) { inp.value = ''; _alert(_tLang('You sent too many messages in a short time. Wait a minute and try again.', 'שלחת יותר מדי הודעות בזמן קצר. המתן דקה ונסה שוב.')); return; }
         _reqTimes.push(_now);
     }
 
@@ -11553,7 +11553,7 @@ async function send() {
         try { transcript = await _transcribeMedia(mf); }
         catch (e) { busy = false; updateBtn(); if (szLabel) szLabel.textContent = _tr('⚠️ התמלול נכשל'); _alert('התמלול נכשל — ודא שהקובץ תקין ולא ארוך מדי (עד ~24MB).'); return; }
         busy = false; updateBtn();
-        if (!transcript) { clearFile(); _alert('לא זוהה דיבור בקובץ.'); return; }
+        if (!transcript) { clearFile(); _alert(_tLang('No speech detected in the file.', 'לא זוהה דיבור בקובץ.')); return; }
         fileContent = transcript; fileName = mf.name;
         if (!q) { q = 'סכם בבקשה מה נאמר בהקלטה, בנקודות עיקריות.'; }
         // נמשיך לזרם הרגיל — ההודעה תוצג עם שם הקובץ, והתמלול ינותח כמסמך (כולל מסמכים ארוכים)
@@ -12418,13 +12418,13 @@ async function toggleLiveCam() {
         return;
     }
     try { await _startCamStream(_liveCamFacing); }
-    catch (e) { _liveCam = null; _alert('לא ניתן לגשת למצלמה — בדוק הרשאות בדפדפן.'); }
+    catch (e) { _liveCam = null; _alert(_tLang('Cannot access the camera — check browser permissions.', 'לא ניתן לגשת למצלמה — בדוק הרשאות בדפדפן.')); }
 }
 async function flipLiveCam() {
     if (!_liveCam) return;
     _liveCamFacing = (_liveCamFacing === 'environment') ? 'user' : 'environment';
     try { await _startCamStream(_liveCamFacing); }
-    catch (e) { _alert('לא ניתן להחליף מצלמה במכשיר הזה.'); }
+    catch (e) { _alert(_tLang('Cannot switch camera on this device.', 'לא ניתן להחליף מצלמה במכשיר הזה.')); }
 }
 function _captureFrame() {
     const v = document.getElementById('live-cam-video');
