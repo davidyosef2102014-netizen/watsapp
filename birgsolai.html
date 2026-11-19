@@ -11548,14 +11548,16 @@ async function send() {
         const mf = mediaFile; mediaFile = null;
         busy = true; updateBtn();
         const szLabel = document.getElementById('file-size-label');
-        if (szLabel) szLabel.textContent = '⏳ מתמלל…';
-        let transcript = '';
-        try { transcript = await _transcribeMedia(mf); }
-        catch (e) { busy = false; updateBtn(); if (szLabel) szLabel.textContent = _tr('⚠️ התמלול נכשל'); _alert('התמלול נכשל — ודא שהקובץ תקין ולא ארוך מדי (עד ~24MB).'); return; }
+        const _isVid = (mf.type && mf.type.startsWith('video/')) || /\.(mp4|webm|mov|mkv|avi)$/i.test(mf.name);
+        if (szLabel) szLabel.textContent = _isVid ? _tLang('⏳ Analyzing video…', '⏳ מנתח סרטון…') : _tLang('⏳ Transcribing…', '⏳ מתמלל…');
+        let transcript = '', _visual = '';
+        // 🎬 וידאו: גם ניתוח ויזואלי (חילוץ פריימים → Groq-vision) וגם תמלול הפסקול — ה-AI *רואה* את הסרטון, לא רק שומע.
+        if (_isVid) { try { const _vf = await _extractVideoFrames(mf, 4); if (_vf.length) _visual = await _callAILiveVision(_vf, 'תאר בפירוט מה רואים בסרטון: אובייקטים, אנשים, פעולות, סצנה, וטקסט אם יש.', 'אתה מנתח סרטון שהמשתמש העלה.'); } catch (e) {} }
+        try { transcript = await _transcribeMedia(mf); } catch (e) { transcript = ''; }
         busy = false; updateBtn();
-        if (!transcript) { clearFile(); _alert(_tLang('No speech detected in the file.', 'לא זוהה דיבור בקובץ.')); return; }
-        fileContent = transcript; fileName = mf.name;
-        if (!q) { q = 'סכם בבקשה מה נאמר בהקלטה, בנקודות עיקריות.'; }
+        if (!transcript && !_visual) { clearFile(); _alert(_isVid ? _tLang('Could not analyze the video — try another file (up to ~24MB).', 'לא הצלחתי לנתח את הסרטון — נסה קובץ אחר (עד ~24MB).') : _tLang('No speech detected in the file.', 'לא זוהה דיבור בקובץ.')); return; }
+        fileContent = (_visual ? ('מה שנראה בסרטון: ' + _visual) : '') + (_visual && transcript ? '\n\n' : '') + (transcript ? ('תמלול הפסקול: ' + transcript) : ''); fileName = mf.name;
+        if (!q) { q = _isVid ? _tLang('What is happening in this video?', 'מה קורה בסרטון הזה?') : _tLang('Please summarize what was said in the recording, in key points.', 'סכם בבקשה מה נאמר בהקלטה, בנקודות עיקריות.'); }
         // נמשיך לזרם הרגיל — ההודעה תוצג עם שם הקובץ, והתמלול ינותח כמסמך (כולל מסמכים ארוכים)
     }
 
