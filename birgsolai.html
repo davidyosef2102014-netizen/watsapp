@@ -3870,7 +3870,7 @@ async function doRegister() {
 
 /* ── logout ── */
 async function doLogout(force) {
-    if (!force && !await _confirm('להתנתק מ-BIRGSOL AI?')) return;
+    if (!force && !await _confirm(_tLang('Log out of BIRGSOL AI?', 'להתנתק מ-BIRGSOL AI?'))) return;
     // סגירת כל חלון צף כדי שכלום לא יחסום קליקים (תיקון "הכפתורים נתקעים")
     ['admin-overlay','privacy-overlay','memory-overlay','pricing-modal','live-overlay','cloud-overlay','api-overlay','anet-overlay'].forEach(id => { const el = document.getElementById(id); if (el) { el.classList.remove('on'); el.style.display = 'none'; } });
     try { if (typeof closeCloudPanel === 'function') closeCloudPanel(); } catch (e) {}
@@ -5035,7 +5035,7 @@ async function deepStream(messages, onChunk, signal) {
 
 /* ══════════════ SHARE CONVERSATION ══════════════ */
 async function shareConversation() {
-    if (!hist.length) { _alert('אין שיחה לשיתוף עדיין'); return; }
+    if (!hist.length) { _alert(_tLang('No conversation to share yet', 'אין שיחה לשיתוף עדיין')); return; }
     const btn = document.getElementById('share-btn');
     if (btn) btn.style.opacity = '.4';
     try {
@@ -5047,7 +5047,7 @@ async function shareConversation() {
             ts: Date.now(),
             msgs: hist.slice(-200)
         });
-        if (!ok) { _alert('שגיאה בשיתוף — נסה שוב'); return; }
+        if (!ok) { _alert(_tLang('Sharing failed — try again', 'שגיאה בשיתוף — נסה שוב')); return; }
         const link = location.origin + location.pathname + '?share=' + id;
         try { await navigator.clipboard.writeText(link); _alert('קישור השיתוף הועתק!\nכל מי שיש לו את הקישור יוכל לצפות בשיחה.'); }
         catch { await _prompt('העתק את הקישור:', link); }
