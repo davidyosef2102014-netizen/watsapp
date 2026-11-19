@@ -1711,6 +1711,10 @@
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> <span data-i18n="api_dev_row">API למפתחים</span></span>
                 <span style="color:var(--muted)">›</span>
             </div>
+            <div class="sp-row" style="cursor:pointer" onclick="toggleSettings();openInAppBrowser()">
+                <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> <span data-i18n="browser_row">דפדפן פנימי</span></span>
+                <span style="color:var(--muted)">›</span>
+            </div>
             <div class="sp-row" style="cursor:pointer" onclick="shareConversation()">
                 <span class="sp-label" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> <span data-i18n="share_conv_row">שתף שיחה נוכחית</span></span>
                 <span style="color:var(--muted)">›</span>
@@ -4051,7 +4055,7 @@ Object.keys(L10N_REG).forEach(l => Object.assign(L10N[l], L10N_REG[l]));
    מוגדר עברית + אנגלית; שאר השפות נופלות לאנגלית כדי שלא יישארו בעברית. */
 const L10N_EXTRA = {
     he: {
-        install_app:'התקן כאפליקציה', anet_row:'רשת הסוכנים', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)', desktop_app_label:'אפליקציית דסקטופ (כוח מלא)', desktop_app_btn:'הורד והתקן', agent_ext_label:'תוסף Chrome — סוכן הדפדפן', agent_ext_btn:'הורד והתקן', ext_browser_label:'דפדפן לסוכן (תוסף)', request_upgrade_btn:'בקש שדרוג',
+        install_app:'התקן כאפליקציה', browser_row:'דפדפן פנימי', anet_row:'רשת הסוכנים', mem_row:'מה BIRGSOL זוכר עליי', privacy_row:'מדיניות פרטיות', followups_label:'שאלות המשך', files_row:'תיקיית הקבצים (BIRGSOL AI)', style_picker_label:'בחירת סגנון לתמונה', remote_ctrl_label:'שליטה מרחוק (מחשב זה)', desktop_app_label:'אפליקציית דסקטופ (כוח מלא)', desktop_app_btn:'הורד והתקן', agent_ext_label:'תוסף Chrome — סוכן הדפדפן', agent_ext_btn:'הורד והתקן', ext_browser_label:'דפדפן לסוכן (תוסף)', request_upgrade_btn:'בקש שדרוג',
         privacy_title:'מדיניות פרטיות — BIRGSOL AI', got_it:'הבנתי',
         mem_off:'כבה זיכרון (אל תלמד עליי)', clear_all:'מחק הכל', mem_loading:'טוען…',
         mem_empty:'עדיין לא נשמרו עובדות עליך. ככל שתשוחח יותר, BIRGSOL ילמד ויזכור כאן דברים.',
@@ -4081,7 +4085,7 @@ const L10N_EXTRA = {
         sug_learn_t:'הסבר ולמידה', sug_learn_d:'מדע, היסטוריה, מתמטיקה', sug_learn_q:'הסבר לי בפשטות איך עובדת בינה מלאכותית'
     },
     en: {
-        install_app:'Install as app', anet_row:'Agent Network', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install', agent_ext_label:'Chrome extension — browser agent', agent_ext_btn:'Download & install', ext_browser_label:'Browser for the agent (extension)', request_upgrade_btn:'Request upgrade',
+        install_app:'Install as app', browser_row:'Internal browser', anet_row:'Agent Network', mem_row:'What BIRGSOL remembers about me', privacy_row:'Privacy policy', followups_label:'Follow-up questions', files_row:'Files folder (BIRGSOL AI)', style_picker_label:'Image style picker', remote_ctrl_label:'Remote control (this computer)', desktop_app_label:'Desktop app (full power)', desktop_app_btn:'Download & install', agent_ext_label:'Chrome extension — browser agent', agent_ext_btn:'Download & install', ext_browser_label:'Browser for the agent (extension)', request_upgrade_btn:'Request upgrade',
         privacy_title:'Privacy Policy — BIRGSOL AI', got_it:'Got it',
         mem_off:'Turn off memory (don\'t learn about me)', clear_all:'Delete all', mem_loading:'Loading…',
         mem_empty:'No facts saved about you yet. The more you chat, the more BIRGSOL will learn and remember here.',
@@ -9180,8 +9184,8 @@ async function callAI(messages, onChunk, signal=null) {
         // כלל: Mistral תמיד אחרון (מדליף/מזייף), ו-Cloudflare תמיד לפניו כרשת ביטחון.
         // 🏁 כלל: Cloudflare = הרצפה האחרונה (מכסה נפרדת, אמין תחת עומס). Mistral נחנק → הוסר מהמודלים הראשיים לגמרי;
         // נשאר רק בטיירים הבסיסיים כניסיון-חירום *אחרי* Cloudflare, עם timeout קצר כדי שלא ייתקע.
-        // 🖼️ תמונה בהודעה → רק מנועים שרואים: Groq llama-4-scout (מהיר, עברית) ראשי → Gemini → Cloudflare. gpt-oss/Mistral טקסט-בלבד → מדולגים.
-        if (hasImage) return [_sGroqVis, _sGem, _sCloud];
+        // 🖼️ תמונה בהודעה → רק מנועים *שרואים תמונות* (vision), בסדר מהירות+עמידות: Groq-qwen (מהיר ~0.9ש') → Gemini-3.6 → Gemini-4 (מפתח/מודל אחר, שורד עומס 3.6) → Nemotron-VL (ספק אחר לגמרי, NVIDIA — שורד נפילת Google). Cloudflare אחרון כי הוא *עיוור* (מוחק תמונות) — עדיף תשובה-טקסט מ"שגיאת חיבור", אבל רק אם כל הראייה נפלה. gpt-oss/Mistral/Cohere טקסט-בלבד → מדולגים.
+        if (hasImage) return [_sGroqVis, _sGem, _sGem4, _sNemo, _sCloud];
         // 🔎 מודל-החיפוש (gpt-5-search-api/OrcaRouter) — נבדק 2026-10-13: **בתשלום** (402 insufficient credits, $0.001/בקשה). רדום כרגע.
         //    להפעלה כשיתווספו קרדיטים ל-OrcaRouter: החזר את _sSearch לראש השרשרת למשתמשי פרימיום (Axion/4.1):
         //    const _premiumSearch = ADMIN_USERS.includes(currentUser) || /axion|4\.1/i.test(String(_mid||'')); if (_grounded) return _premiumSearch ? [_sSearch, _sGem, _sGpt, _sGpt2, _sCloud] : [...];
@@ -12480,7 +12484,13 @@ async function _callAILiveVision(frames, userText, sys) {
         for (const dataUrl of arr) { const mt = (dataUrl.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg'; const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : ''; if (b64) parts.push({ inlineData: { mimeType: mt, data: b64 } }); }
         if (parts.length < 2) return '';
         const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 500 } }, { signal: AbortSignal.timeout(13000) });
-        if (r.ok) { const j = await r.json(); return (((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter(p => p && !p.thought).map(p => (p && p.text) || '').join('')).trim(); }
+        if (r.ok) { const j = await r.json(); const gt = (((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter(p => p && !p.thought).map(p => (p && p.text) || '').join('')).trim(); if (gt) return gt; }
+    } catch (e) {}
+    // 3️⃣ Nemotron-VL (NVIDIA) — ספק *אחר לגמרי*: שורד גם אם Groq וגם Google נפלו יחד. פורמט image_url רגיל.
+    try {
+        const _nc = [{ type: 'text', text: promptTxt }].concat(arr.slice(0, 2).map(d => ({ type: 'image_url', image_url: { url: d } })));
+        const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-super-vl-120b-a12b', messages: [{ role: 'system', content: 'detailed thinking off' }, { role: 'user', content: _nc }], max_tokens: 400, temperature: 0.4 }, { signal: AbortSignal.timeout(14000) });
+        if (r.ok) { const j = await r.json(); const t = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim(); if (t) return t; }
     } catch (e) {}
     return '';
 }
