@@ -80,8 +80,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <style>
         :root {
-            /* 🎯 הלוגו (רוזטת-הספירוגרף) כ-SVG וקטורי למסכה — מתאים-את-עצמו: background-color קובע את הצבע, רקע שקוף, בלי ריבוע, חד בכל גודל */
-            --bsvg: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjAgMTIwIiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIxLjQiPg0KICAgIDxlbGxpcHNlIGN4PSI2MCIgY3k9IjYwIiByeD0iNDYiIHJ5PSIxOSIgdHJhbnNmb3JtPSJyb3RhdGUoMC4wMCA2MCA2MCkiLz4NCiAgICA8ZWxsaXBzZSBjeD0iNjAiIGN5PSI2MCIgcng9IjQ2IiByeT0iMTkiIHRyYW5zZm9ybT0icm90YXRlKDIwLjAwIDYwIDYwKSIvPg0KICAgIDxlbGxpcHNlIGN4PSI2MCIgY3k9IjYwIiByeD0iNDYiIHJ5PSIxOSIgdHJhbnNmb3JtPSJyb3RhdGUoNDAuMDAgNjAgNjApIi8+DQogICAgPGVsbGlwc2UgY3g9IjYwIiBjeT0iNjAiIHJ4PSI0NiIgcnk9IjE5IiB0cmFuc2Zvcm09InJvdGF0ZSg2MC4wMCA2MCA2MCkiLz4NCiAgICA8ZWxsaXBzZSBjeD0iNjAiIGN5PSI2MCIgcng9IjQ2IiByeT0iMTkiIHRyYW5zZm9ybT0icm90YXRlKDgwLjAwIDYwIDYwKSIvPg0KICAgIDxlbGxpcHNlIGN4PSI2MCIgY3k9IjYwIiByeD0iNDYiIHJ5PSIxOSIgdHJhbnNmb3JtPSJyb3RhdGUoMTAwLjAwIDYwIDYwKSIvPg0KICAgIDxlbGxpcHNlIGN4PSI2MCIgY3k9IjYwIiByeD0iNDYiIHJ5PSIxOSIgdHJhbnNmb3JtPSJyb3RhdGUoMTIwLjAwIDYwIDYwKSIvPg0KICAgIDxlbGxpcHNlIGN4PSI2MCIgY3k9IjYwIiByeD0iNDYiIHJ5PSIxOSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQwLjAwIDYwIDYwKSIvPg0KICAgIDxlbGxpcHNlIGN4PSI2MCIgY3k9IjYwIiByeD0iNDYiIHJ5PSIxOSIgdHJhbnNmb3JtPSJyb3RhdGUoMTYwLjAwIDYwIDYwKSIvPg0KPC9zdmc+") center/contain no-repeat;
             --bg:       #eef2fb;
             --surf:     #ffffff;
             --surf2:    #f4f5f7;
@@ -296,9 +294,8 @@
         .msg-row.ai { display: flex; flex-direction: row; gap: 14px; align-items: flex-start; }
         .ai-ava {
             width: 32px; height: 32px; flex-shrink: 0; margin-top: 2px;
-            -webkit-mask: var(--bsvg); mask: var(--bsvg);
-            background: var(--blue); /* מתאים-את-עצמו: רוזטה כחולה שקופה, בלי ריבוע */
-            display: flex; align-items: center;
+            background: url('birgsol-icon-192.png?v=8') center/cover;
+            border-radius: 50%; display: flex; align-items: center;
             justify-content: center; font-size: 0; color: transparent;
         }
         .ai-body { flex: 1; min-width: 0; }
@@ -1102,7 +1099,7 @@
             border-radius:50px; padding:8px 20px; white-space:nowrap;
             box-shadow:0 4px 20px rgba(60,110,180,.14);
         }
-        .live-header-logo { display:inline-block; width:22px; height:22px; -webkit-mask:var(--bsvg); mask:var(--bsvg); background:#fff; font-size:0; color:transparent; vertical-align:middle; }
+        .live-header-logo { display:inline-block; width:22px; height:22px; border-radius:50%; background:url('birgsol-icon-192.png?v=8') center/cover; font-size:0; color:transparent; vertical-align:middle; }
         .live-header-name { font-size:13px; font-weight:700;
             background:linear-gradient(to left,#8ab4f8,#d4a8ff);
             -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
