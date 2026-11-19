@@ -1556,6 +1556,8 @@
       </div>
 
     </div>
+    <!-- 🔒 גריד-מחירים חדש (FREE/PRO/MAX/TEAM) — תצוגה מקדימה למנהל בלבד, נבנה דינמית ב-_renderAdminTiers -->
+    <div id="pricing-grid-admin" class="pricing-grid" style="display:none"></div>
   </div>
 </div>
 
@@ -3305,7 +3307,62 @@ function openPricingModal() {
     if (unEl) unEl.textContent = currentUser;
     const balEl = document.getElementById('pm-bal');
     if (balEl) { const row = balEl.closest('.pm-bal-row, .pm-row, p, div'); if (row && row !== balEl) row.remove(); else balEl.textContent = ''; }
+    // 🔒 מחירים/שמות/מודלים חדשים (FREE/PRO/MAX/TEAM) — תצוגה מקדימה למנהל בלבד. לקוח רגיל רואה בדיוק כרגיל (הגריד הישן, בלי מחירים).
+    try {
+        const _adminGrid = document.getElementById('pricing-grid-admin');
+        const _oldGrid = document.querySelector('#pricing-modal .pricing-grid:not([id])');
+        const _isAdm = (typeof ADMIN_USERS !== 'undefined' && ADMIN_USERS.includes(currentUser));
+        if (_isAdm && _adminGrid) { _renderAdminTiers(); _adminGrid.style.display = ''; if (_oldGrid) _oldGrid.style.display = 'none'; }
+        else { if (_adminGrid) _adminGrid.style.display = 'none'; if (_oldGrid) _oldGrid.style.display = ''; }
+    } catch (e) {}
     document.getElementById('pricing-modal').classList.add('on');
+}
+// 🔒 בונה את כרטיסי-המחירים החדשים (רק למנהל, תצוגה מקדימה). דו-לשוני דרך _tLang. הלקוח הרגיל לא רואה את זה כלל.
+function _renderAdminTiers() {
+    const box = document.getElementById('pricing-grid-admin');
+    if (!box) return;
+    const L = (typeof _tLang === 'function') ? _tLang : function (en, he) { return he; };
+    const feat = function (t) { return '<li><span class="ck">✓</span> <span>' + t + '</span></li>'; };
+    const blackBtn = function (tid) { return '<div class="tier-buy" onclick="requestUpgrade(\'' + tid + '\')" style="background:#0f1420;color:#fff;border:1px solid #2a3450;text-align:center;cursor:pointer">' + L('Request upgrade', 'בקש שדרוג') + '</div>'; };
+    const priceRow = function (num, per) { return '<div class="tier-price-row"><span class="tier-price-num">' + num + '</span><div class="tier-price-per">' + per + '</div></div>'; };
+    const perMo = L('/ month', 'לחודש');
+    const cards = [];
+    cards.push('<div class="tier-card"><span class="tier-top-bar" style="background:linear-gradient(to left,#9aa0a6,#c4c9d0)"></span><div class="tier-body">'
+        + '<div class="tier-name">FREE</div><div class="tier-tagline">' + L('The basics · for everyone', 'הבסיס · לכולם') + '</div>'
+        + priceRow(L('Free', 'חינם'), '&nbsp;')
+        + '<div class="tier-divider"></div><ul class="tier-feats">'
+        + feat(L('Models up to BIRGSOL 3.5 PRO', 'מודלים עד BIRGSOL 3.5 PRO'))
+        + feat(L('20 images / day', '20 תמונות ביום'))
+        + feat(L('Daily usage quota', 'מכסת שימוש יומית'))
+        + '</ul><div class="tier-buy" style="background:var(--surf2);color:var(--muted);cursor:default;text-align:center">' + L('Base plan', 'גרסת הבסיס') + '</div></div></div>');
+    cards.push('<div class="tier-card"><span class="tier-top-bar" style="background:linear-gradient(to left,#4285F4,#5fa8ff)"></span><div class="tier-body">'
+        + '<div class="tier-name">PRO</div><div class="tier-tagline">' + L('For enthusiasts', 'למשתמשים נלהבים') + '</div>'
+        + priceRow('$3', perMo)
+        + '<div class="tier-divider"></div><ul class="tier-feats">'
+        + feat(L('Everything in Free', 'כל מה שב-FREE'))
+        + feat(L('+ Models up to BIRGSOL 4.1 PRO', '+ מודלים עד BIRGSOL 4.1 PRO'))
+        + feat(L('More images & higher quota', 'יותר תמונות ומכסה גבוהה'))
+        + feat(L('PRO badge', 'תג PRO'))
+        + '</ul>' + blackBtn('pro') + '</div></div>');
+    cards.push('<div class="tier-card recommended"><span class="tier-rec-badge">' + L('Popular', 'מומלץ') + '</span><span class="tier-top-bar" style="background:linear-gradient(to left,#38bdf8,#38bdf8)"></span><div class="tier-body">'
+        + '<div class="tier-name">MAX</div><div class="tier-tagline">' + L('Maximum power', 'הכוח המקסימלי') + '</div>'
+        + priceRow('$7', perMo)
+        + '<div class="tier-divider"></div><ul class="tier-feats">'
+        + feat(L('Everything in PRO', 'כל מה שב-PRO'))
+        + feat(L('+ AXION — the elite agent', '+ AXION — סוכן העל'))
+        + feat(L('Huge quota — virtually unlimited', 'מכסה ענקית — כמעט בלתי מוגבלת'))
+        + feat(L('MAX badge', 'תג MAX'))
+        + '</ul>' + blackBtn('max') + '</div></div>');
+    cards.push('<div class="tier-card"><span class="tier-top-bar" style="background:linear-gradient(to left,#38bdf8,#4285F4,#EA4335)"></span><div class="tier-body">'
+        + '<div class="tier-name">TEAM</div><div class="tier-tagline">' + L('For companies & teams', 'לחברות וצוותים') + '</div>'
+        + priceRow('$17', perMo)
+        + '<div class="tier-divider"></div><ul class="tier-feats">'
+        + feat(L('Everything in MAX', 'כל מה שב-MAX'))
+        + feat(L('Unlimited usage', 'שימוש ללא הגבלה'))
+        + feat(L('Multiple team seats', 'מספר מושבים לצוות'))
+        + feat(L('Priority support', 'תמיכה בעדיפות'))
+        + '</ul>' + blackBtn('team') + '</div></div>');
+    box.innerHTML = cards.join('');
 }
 function closePricingModal() {
     document.getElementById('pricing-modal').classList.remove('on');
