@@ -9888,7 +9888,7 @@ async function _agCapabilities() {
     try {
         if (_agHasNativeWeb()) browser = true;
         else if (desk && window.BIRGSOL_NATIVE && typeof window.BIRGSOL_NATIVE.chromeAlive === 'function') { const a = await window.BIRGSOL_NATIVE.chromeAlive(_selBrowser()).catch(() => null); browser = !!(a && a.alive); }
-        if (!browser) { const pg = await _extSend({ type: 'birgsol-ping' }, 3000).catch(() => null); browser = !!(pg && pg.ok); }
+        if (!browser) { const pg = await _extSend({ type: 'birgsol-ping' }, 1200).catch(() => null); browser = !!(pg && pg.ok); } // ⚡ ping קצר (היה 3ש') — מזרז את תחילת המשימה; אם התוסף שם הוא עונה מהר
     } catch (e) {}
     return [
         '- Terminal + files (op:run / readfile / writefile / edit / ls / grep): ' + (desk ? 'AVAILABLE' : 'NOT available (web only)'),
@@ -10206,7 +10206,7 @@ async function _agDecide(sys, user) {
     const _backup = [
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-super-vl-120b-a12b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
         async () => { const r = await _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-lightning-30b-a3b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
-        async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 8000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; },
+        async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 4000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; }, // ⚡ 4000 (היה 8000) — ההחלטה היא JSON קצר; מהיר וזול יותר
         // (מוח-גיבוי Cloudflare הוסר — הוא חלק את מכסת ה-10K neurons עם התמונות ושרף אותה. Cloudflare = רק תמונות עכשיו.)
     ];
     // 🥈 4.1 PRO — מוח **Nemotron-3-Ultra 550B** (NVIDIA, דרך OpenRouter free — בקשת דוד). מודל 550B חזק, עברית מצוינת, חינם.
@@ -10274,9 +10274,9 @@ async function _agGenStuck(goal, stepsLog, techReason) {
 // קורא את המטרה + יומן הפעולות-והפלטים האמיתי, ומחזיר אם הושלם + מה נותר. מונע עצירה מוקדמת (הסוכן ממשיך לעבוד).
 async function _agVerifyDone(goal, stepsLog) {
     const sys = 'You are a STRICT completion verifier for an autonomous coding agent. Given the GOAL and the real ACTION LOG (each action and its actual tool OUTPUT), decide whether the goal is GENUINELY and FULLY done AND actually verified by evidence in the log — not merely claimed. Be skeptical: if the goal implies tests/build/run/deploy, the log must SHOW it was run and the output was correct (e.g. tests "ALL PASS", server ran, DEPLOY-OK, file re-read and correct). If something is still missing, unverified, or only asserted without evidence, it is NOT done. 🚫 STUB CHECK (critical): if the goal was to build a file FROM data (a page with verses/rows/records), the log must SHOW a readfile of the OUTPUT proving the real data is actually inside it — a file that holds only a skeleton, an empty section, a placeholder comment ("content goes here"), a TODO, or a tiny byte size relative to the data is NOT complete, even though a file was written. In that case complete=false and remaining = embed the real data in full (write a generator script that reads the data file and outputs the whole page, then readfile the output to confirm the records are there). Reply ONLY JSON: {"complete":true|false,"remaining":"<if not complete: the ONE concrete next thing to do/verify, short Hebrew; else empty>"}';
-    const _log = (stepsLog || []).slice(-22).join('\n').slice(0, 6000);
+    const _log = (stepsLog || []).slice(-18).join('\n').slice(0, 4500); // ⚡ הקשר-אימות רזה יותר (היה 22/6000) — אותה החלטה, פחות טוקנים
     try {
-        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: 'GOAL: ' + goal + '\n\nACTION LOG (recent):\n' + _log }], temperature: 0.1, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
+        const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: sys }, { role: 'user', content: 'GOAL: ' + goal + '\n\nACTION LOG (recent):\n' + _log }], temperature: 0.1, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(10000) }); // ⚡ 10ש' (היה 15) — אימות best-effort
         if (!r || !r.ok) return null;
         const j = await r.json();
         const c = JSON.parse((j?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
@@ -10326,20 +10326,22 @@ async function runNativeAgent(goal, opts) {
     const cw = document.getElementById('chat-window');
     let stepsLog = []; const _fc = {}; // _fc = קבצים ששונו לכרטיס הסיכום
     try {
-        // 👄 פתיח מיידי — הפה אומר משפט *לפני* שמתחילים לעבוד (שהמשתמש לא יבהה בספינר שקט). רץ במקביל לתכנון, לא חוסם.
-        if (!opts.isFollowup) { _agMouth('המשתמש ביקש: ' + goal + '\n\nאמור משפט פתיחה אחד, קצר וחם — שאתה מתחיל לעבוד על זה עכשיו. בלי לפרט תוכנית, בלי רשימות.').then(_o => { if (_o) _liveSay(body, _o); }).catch(() => {}); }
-        let _plan = '';
-        // ⚡ ייעול פשוט: משימה פשוטה (פעולה אחת — המרה/שליפה/שאלה/חישוב) לא צריכה קריאת-תכנון נפרדת ולא אימות-סיום כבד. חוסך 1-3 קריאות-מודל. התכנון/האימות נשמרים למשימות קוד/קבצים/בנייה/דיבאג.
+        // ⚡ ייעול (#1): מזהים "משימה פשוטה" (פעולה אחת — המרה/שליפה/שאלה/חישוב) מול משימת-קוד (קוד/קבצים/בנייה/דיבאג).
+        //    משימה פשוטה מתחילה מיד — בלי פתיח-מוח, בלי תכנון, בלי הקשר-שיחה, בלי ping-דפדפן ובלי אימות-סיום כבד. חוסך כמה קריאות-מודל ועד ~3ש' המתנה.
         const _needsPlan = String(goal || '').length > 80 || /קוד\b|קובץ|קבצים|פרויקט|\brepo\b|תקן|תתקן|refactor|ריפקטור|אתר\b|אפליקצי|מערכת|טסט|בדיק|תבנה|בנה\b|תממש|דיבאג|debug|באג|שרת|\bserver\b|deploy|פרוס|מצגת|word|excel|docx|xlsx|pptx|תורה|פרש/i.test(String(goal || ''));
+        // 👄 פתיח מיידי — רק למשימה מורכבת (שתימשך); למשימה פשוטה התשובה מגיעה מיד, אז פתיח = קריאת-מודל מיותרת. (#2)
+        if (!opts.isFollowup && _needsPlan) { _agMouth('המשתמש ביקש: ' + goal + '\n\nאמור משפט פתיחה אחד, קצר וחם — שאתה מתחיל לעבוד על זה עכשיו. בלי לפרט תוכנית, בלי רשימות.').then(_o => { if (_o) _liveSay(body, _o); }).catch(() => {}); }
+        let _plan = '';
         if (_needsPlan) try {
             _step('מתכנן את המשימה…', true);
-            const _pr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'You plan tasks for an autonomous CODING agent with a real terminal, file read/write, content-search (grep), GitHub deploy, and web search. Break the GOAL into a SHORT ordered plan (2-6 concrete steps). Guidance: start with EXPLORATION (grep/ls to find the exact files) when touching existing code; if the goal is to build a file FROM a LARGE EXTERNAL data source with many records (dozens or more), plan to write a GENERATOR SCRIPT that reads the data and outputs the whole file (not record-by-record) — BUT if the data is small or given inline in the goal (a handful of records), plan to write the final file DIRECTLY in ONE step, with NO data file, NO generator script and NO browser step; always end with a VERIFY step (read the output / run it). Reply ONLY JSON: {"plan":["צעד 1", ...]} in Hebrew.' }, { role: 'user', content: 'GOAL: ' + goal }], temperature: 0.2, max_tokens: 400, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
+            const _pr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'You plan tasks for an autonomous CODING agent with a real terminal, file read/write, content-search (grep), GitHub deploy, and web search. Break the GOAL into a SHORT ordered plan (2-6 concrete steps). Guidance: start with EXPLORATION (grep/ls to find the exact files) when touching existing code; if the goal is to build a file FROM a LARGE EXTERNAL data source with many records (dozens or more), plan to write a GENERATOR SCRIPT that reads the data and outputs the whole file (not record-by-record) — BUT if the data is small or given inline in the goal (a handful of records), plan to write the final file DIRECTLY in ONE step, with NO data file, NO generator script and NO browser step; always end with a VERIFY step (read the output / run it). Reply ONLY JSON: {"plan":["צעד 1", ...]} in Hebrew.' }, { role: 'user', content: 'GOAL: ' + goal }], temperature: 0.2, max_tokens: 400, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(10000) }); // ⚡ 10ש' (היה 15) — התכנון best-effort, לא מחכים לו הרבה
             if (_pr.ok) { const _pj = await _pr.json(); const _pc = JSON.parse((_pj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_pc && Array.isArray(_pc.plan) && _pc.plan.length) { _plan = _pc.plan.map((s, i) => (i + 1) + '. ' + s).join('\n'); } /* התוכנית נשמרת למוח אך לא מוצגת כרשימה (בקשת דוד) */ }
         } catch (e) {}
-        const _caps = await _agCapabilities().catch(() => ''); // 🧭 הסוכן המאוחד יודע מה זמין (טרמינל/דפדפן/וורד) לפני שהוא בוחר כלי
-        // 🧠 הקשר השיחה שקדמה לסוכן — שיבין "על מה דיברנו", לא רק את המטרה הנוכחית. נבנה פעם אחת, רזה (חוסך טוקנים).
+        // 🧭 בדיקת-יכולות (#3): כוללת ping לדפדפן עד ~3ש'. למשימה פשוטה מדלגים — היא לא פותחת דפדפן; ואם בכל זאת תצטרך, _agUnifiedBrowser בודק שוב בעצמו.
+        const _caps = _needsPlan ? await _agCapabilities().catch(() => '') : '';
+        // 🧠 הקשר השיחה שקדמה לסוכן — שיבין "על מה דיברנו". רק למשימה מורכבת (#4) — פעולה פשוטה עומדת בפני עצמה, חוסך טוקנים.
         let _convCtx = '';
-        try {
+        if (_needsPlan) try {
             const _h = (typeof hist !== 'undefined' && Array.isArray(hist)) ? hist : [];
             const _r = _h.slice(-7).map(m => {
                 const role = (m && (m.role === 'assistant' || m.role === 'ai')) ? 'Assistant' : 'User';
@@ -10652,7 +10654,7 @@ async function runNativeAgent(goal, opts) {
                 }
             }
             if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' });
-            if (decision.consultJudge === true) { try { _step('פונה לשופט לעזרה (לבקשת המוח)…', true); const jr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'You are the 👁️ JUDGE of an autonomous coding agent. ROLE BOUNDARY (strict): your ONLY job is to assess whether the agent is STUCK (going in circles / not progressing) and, if so, give ONE short high-level Hebrew hint about WHAT TO RECONSIDER. You do NOT decide or dictate the concrete next action, command, or code — that is the BRAIN job; never interfere with it. If the agent is progressing fine, say stuck:false with empty advice. Reply ONLY JSON: {"stuck":true|false,"advice":"<one Hebrew sentence or empty>"}' }, { role: 'user', content: 'GOAL: ' + goal + '\nRECENT:\n' + stepsLog.slice(-10).join('\n') }], temperature: 0.1, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) }); if (jr.ok) { const jj = await jr.json(); const jd = JSON.parse((jj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (jd && jd.stuck && jd.advice) { stepsLog.push('🧭 JUDGE: ' + String(jd.advice).slice(0, 200)); _step('השופט: ' + String(jd.advice).slice(0, 60), false); } } } catch (e) {} }
+            if (decision.consultJudge === true) { try { _step('פונה לשופט לעזרה (לבקשת המוח)…', true); const jr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'You are the 👁️ JUDGE of an autonomous coding agent. ROLE BOUNDARY (strict): your ONLY job is to assess whether the agent is STUCK (going in circles / not progressing) and, if so, give ONE short high-level Hebrew hint about WHAT TO RECONSIDER. You do NOT decide or dictate the concrete next action, command, or code — that is the BRAIN job; never interfere with it. If the agent is progressing fine, say stuck:false with empty advice. Reply ONLY JSON: {"stuck":true|false,"advice":"<one Hebrew sentence or empty>"}' }, { role: 'user', content: 'GOAL: ' + goal + '\nRECENT:\n' + stepsLog.slice(-10).join('\n') }], temperature: 0.1, max_tokens: 300, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(10000) }); if (jr.ok) { const jj = await jr.json(); const jd = JSON.parse((jj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (jd && jd.stuck && jd.advice) { stepsLog.push('🧭 JUDGE: ' + String(jd.advice).slice(0, 200)); _step('השופט: ' + String(jd.advice).slice(0, 60), false); } } } catch (e) {} }
         }
         // 🔁 המשך-אוטומטי: אם הגענו לתקרת-הצעדים (stepN חרג מ-MAX) בלי done, בלי עצירה ובלי הודעת-לולאה — מרחיבים
         //    וממשיכים לבד (עד 2 פעמים), כדי שהמשתמש לא יצטרך לכתוב "תמשיך". עצירה/done/לולאה כבר כתבו תוכן → יוצאים.
@@ -10777,7 +10779,7 @@ async function _browserAgent(goal, opts) {
             const _natP = (typeof _isDesktop === 'function' && _isDesktop());
             _step('מתכנן את המשימה…', true);
             const _psys = 'You plan tasks for an autonomous agent that controls a real browser' + (_natP ? ', a terminal and files' : '') + '. Break the GOAL into a SHORT ordered plan (2-6 concrete high-level steps). Reply with ONLY JSON: {"plan":["צעד 1","צעד 2", ...]} — steps in Hebrew, concise.';
-            const _pr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: _psys }, { role: 'user', content: 'GOAL: ' + goal }], temperature: 0.2, max_tokens: 400, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
+            const _pr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: _psys }, { role: 'user', content: 'GOAL: ' + goal }], temperature: 0.2, max_tokens: 400, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(10000) }); // ⚡ 10ש' (היה 15) — התכנון best-effort, לא מחכים לו הרבה
             if (_pr.ok) { const _pj = await _pr.json(); const _pc = JSON.parse((_pj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_pc && Array.isArray(_pc.plan) && _pc.plan.length) { _plan = _pc.plan.map((s, i) => (i + 1) + '. ' + s).join('\n'); } /* התוכנית נשמרת למוח אך לא מוצגת כרשימה (בקשת דוד) */ }
         } catch (e) {}
         const MAX = _admin ? 80 : 6; // מנהל — עד 40 צעדים למשימות ארוכות (הזמנות/טפסים מרובי-שלבים). משתמש רגיל — 6 (הגבלה גבוהה)
