@@ -10192,6 +10192,12 @@ async function _agDecide(sys, user) {
     // 🥇 קבוצת GLM (מועדפת — דוד: "GLM יעבוד רוב הזמן"). רצים *כולם מיד*, חלון ~45ש' כדי לתת ל-GLM זמן לענות.
     //   GLM-5.3-flash חינם (OrcaRouter) · GLM-4.5-flash (Z.ai) · GLM-5.3 (OpenRouter) · GLM-5.3-flash (NVIDIA) · GLM-5.3 מלא.
     const _glm = [
+        // 🥇 GLM-5.3 מלא דרך Runcrate (חינם, אמין, ~2.9ש') — המוח הראשי של AXION. מפתח מקומי (AX_RUNCRATE_KEY) לבדיקה, או דרך ה-Worker (provider 'runcrate').
+        async () => { let rk = ''; try { rk = localStorage.getItem('AX_RUNCRATE_KEY') || ''; } catch (e) {}
+            const body = { model: 'zai-org/GLM-5.3', messages: msgs, max_tokens: 4000, temperature: 0.2 };
+            const r = rk ? await fetch('https://api.runcrate.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + rk }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) })
+                         : await _ghProxy('runcrate', '/v1/chat/completions', body, { signal: AbortSignal.timeout(20000) });
+            return r.ok ? _pick(await r.json()) : null; },
         async () => { let lk = ''; try { lk = localStorage.getItem('AX_ORCA_KEY') || ''; } catch (e) {}
             const body = { model: 'z-ai/glm-5.3-flash-free', messages: msgs, max_tokens: 4000, temperature: 0.2 };
             const r = lk ? await fetch('https://api.orcarouter.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + lk }, body: JSON.stringify(body), signal: AbortSignal.timeout(45000) })
@@ -10240,7 +10246,7 @@ async function _agDecide(sys, user) {
                              .catch(() => { fastPending--; if (fastPending === 0 && !backupOn) startBackup(); allDead(); }); });
         // המוח-הכבד רץ במקביל ועדיין יכול לנצח אם ענה — אבל לא חוסם את כניסת-הגיבוי.
         if (_heavyFn) { heavyPending++; Promise.resolve().then(_heavyFn).then(d => { heavyPending--; if (d && d.op) return finish(d); allDead(); }).catch(() => { heavyPending--; allDead(); }); }
-        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 2500); // ⚡ רשת-זמן 2.5ש' (היה 6): ברוב ה-GLM מתים/איטיים כרגע, אז מכניסים את הגיבוי המהיר (qwen/gpt-oss ~0.2ש') מוקדם — מונע תקיעת "מגבש"
+        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 3200); // ⚡ רשת-זמן 3.2ש' (היה 6): נותן ל-GLM-5.3 האמין (~2.9ש') לנצח כמוח האיכותי, אבל אם הוא איטי/נופל — הגיבוי המהיר (qwen/gpt-oss ~0.2ש') נכנס מיד ומונע תקיעת "מגבש"
         cap = setTimeout(() => finish(null), 45000);                                 // רשת-ביטחון
     });
 }
