@@ -10329,7 +10329,9 @@ async function runNativeAgent(goal, opts) {
         // 👄 פתיח מיידי — הפה אומר משפט *לפני* שמתחילים לעבוד (שהמשתמש לא יבהה בספינר שקט). רץ במקביל לתכנון, לא חוסם.
         if (!opts.isFollowup) { _agMouth('המשתמש ביקש: ' + goal + '\n\nאמור משפט פתיחה אחד, קצר וחם — שאתה מתחיל לעבוד על זה עכשיו. בלי לפרט תוכנית, בלי רשימות.').then(_o => { if (_o) _liveSay(body, _o); }).catch(() => {}); }
         let _plan = '';
-        try {
+        // ⚡ ייעול פשוט: משימה פשוטה (פעולה אחת — המרה/שליפה/שאלה/חישוב) לא צריכה קריאת-תכנון נפרדת ולא אימות-סיום כבד. חוסך 1-3 קריאות-מודל. התכנון/האימות נשמרים למשימות קוד/קבצים/בנייה/דיבאג.
+        const _needsPlan = String(goal || '').length > 80 || /קוד\b|קובץ|קבצים|פרויקט|\brepo\b|תקן|תתקן|refactor|ריפקטור|אתר\b|אפליקצי|מערכת|טסט|בדיק|תבנה|בנה\b|תממש|דיבאג|debug|באג|שרת|\bserver\b|deploy|פרוס|מצגת|word|excel|docx|xlsx|pptx|תורה|פרש/i.test(String(goal || ''));
+        if (_needsPlan) try {
             _step('מתכנן את המשימה…', true);
             const _pr = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'openai/gpt-oss-120b', messages: [{ role: 'system', content: 'You plan tasks for an autonomous CODING agent with a real terminal, file read/write, content-search (grep), GitHub deploy, and web search. Break the GOAL into a SHORT ordered plan (2-6 concrete steps). Guidance: start with EXPLORATION (grep/ls to find the exact files) when touching existing code; if the goal is to build a file FROM a LARGE EXTERNAL data source with many records (dozens or more), plan to write a GENERATOR SCRIPT that reads the data and outputs the whole file (not record-by-record) — BUT if the data is small or given inline in the goal (a handful of records), plan to write the final file DIRECTLY in ONE step, with NO data file, NO generator script and NO browser step; always end with a VERIFY step (read the output / run it). Reply ONLY JSON: {"plan":["צעד 1", ...]} in Hebrew.' }, { role: 'user', content: 'GOAL: ' + goal }], temperature: 0.2, max_tokens: 400, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(15000) });
             if (_pr.ok) { const _pj = await _pr.json(); const _pc = JSON.parse((_pj?.choices?.[0]?.message?.content || '{}').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (_pc && Array.isArray(_pc.plan) && _pc.plan.length) { _plan = _pc.plan.map((s, i) => (i + 1) + '. ' + s).join('\n'); } /* התוכנית נשמרת למוח אך לא מוצגת כרשימה (בקשת דוד) */ }
@@ -10416,7 +10418,8 @@ async function runNativeAgent(goal, opts) {
             }
             if (decision.done) {
                 // 🏁 שער-אימות: לפני שמקבלים "סיימתי" — לוודא שהמטרה באמת הושלמה ואומתה (עד 2 אתגורים). מונע עצירה מוקדמת.
-                if (_doneChallenges < 2) {
+                // ⚡ ייעול: משימה פשוטה (פעולה אחת) מקבלת done מיד בלי אימות כבד — האימות נחוץ רק למשימות קוד/בנייה/קבצים.
+                if (_needsPlan && _doneChallenges < 2) {
                     _step('בודק אם המשימה באמת הושלמה ואומתה…', true);
                     const _v = await _agVerifyDone(goal, stepsLog).catch(() => null);
                     if (_v && _v.complete === false && _v.remaining) {
