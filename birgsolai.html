@@ -10240,7 +10240,7 @@ async function _agDecide(sys, user) {
                              .catch(() => { fastPending--; if (fastPending === 0 && !backupOn) startBackup(); allDead(); }); });
         // המוח-הכבד רץ במקביל ועדיין יכול לנצח אם ענה — אבל לא חוסם את כניסת-הגיבוי.
         if (_heavyFn) { heavyPending++; Promise.resolve().then(_heavyFn).then(d => { heavyPending--; if (d && d.op) return finish(d); allDead(); }).catch(() => { heavyPending--; allDead(); }); }
-        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 6000); // רשת-זמן: מוח מהיר תקוע 6ש' → גיבוי מצטרף במקביל
+        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 2500); // ⚡ רשת-זמן 2.5ש' (היה 6): ברוב ה-GLM מתים/איטיים כרגע, אז מכניסים את הגיבוי המהיר (qwen/gpt-oss ~0.2ש') מוקדם — מונע תקיעת "מגבש"
         cap = setTimeout(() => finish(null), 45000);                                 // רשת-ביטחון
     });
 }
