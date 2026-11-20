@@ -10246,7 +10246,7 @@ async function _agDecide(sys, user) {
                              .catch(() => { fastPending--; if (fastPending === 0 && !backupOn) startBackup(); allDead(); }); });
         // המוח-הכבד רץ במקביל ועדיין יכול לנצח אם ענה — אבל לא חוסם את כניסת-הגיבוי.
         if (_heavyFn) { heavyPending++; Promise.resolve().then(_heavyFn).then(d => { heavyPending--; if (d && d.op) return finish(d); allDead(); }).catch(() => { heavyPending--; allDead(); }); }
-        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 3200); // ⚡ רשת-זמן 3.2ש' (היה 6): נותן ל-GLM-5.3 האמין (~2.9ש') לנצח כמוח האיכותי, אבל אם הוא איטי/נופל — הגיבוי המהיר (qwen/gpt-oss ~0.2ש') נכנס מיד ומונע תקיעת "מגבש"
+        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 5500); // ⚡ רשת-זמן 5.5ש' (בקשת דוד "תעלה טיימר"): GLM-5.3 דרך הוורקר הוא ~4-6ש', אז נותנים לו לנצח כמעט תמיד כמוח האיכותי; הגיבוי המהיר (qwen/gpt-oss) נכנס רק אם GLM נפל/נגמרה מכסתו — מונע תקיעת "מגבש"
         cap = setTimeout(() => finish(null), 45000);                                 // רשת-ביטחון
     });
 }
