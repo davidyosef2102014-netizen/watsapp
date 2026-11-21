@@ -2111,6 +2111,7 @@ function openLibrary() {
 function closeLibrary() { document.getElementById('library-overlay').style.display = 'none'; }
 
 let deletedConvIds = new Set();
+let _loadedConvCount = 0; // 🛡️ כמה שיחות נטענו מהענן — בסיס להשוואה, כדי לא לדרוס ענן-גדול בגרסה קטנה (שומר-המחיקה)
 
 async function deleteConversation(convId) {
     const _lang = (typeof _resolveLang === 'function') ? _resolveLang() : 'he';
@@ -2118,6 +2119,7 @@ async function deleteConversation(convId) {
     if (!await _confirm(_msg)) return;
     convList = convList.filter(c => c.id !== convId);
     deletedConvIds.add(convId);
+    _loadedConvCount = Math.max(0, _loadedConvCount - 1); // 🛡️ מחיקה מכוונת — מעדכן את הבסיס כדי שלא יפעיל-שווא את שומר-המחיקה
     if (currentConvId === convId) startNew();
     localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
     localStorage.setItem('birgsol_del_' + currentUser, JSON.stringify([...deletedConvIds]));
@@ -2644,6 +2646,7 @@ async function loadConversationsCloud() {
         const raw = localStorage.getItem(CONVS_KEY());
         convList = (raw ? JSON.parse(raw) : []).filter(c => !deletedConvIds.has(c.id));
     }
+    _loadedConvCount = convList.length; // 🛡️ בסיס לשומר-המחיקה
     renderConvList();
 }
 
@@ -2665,24 +2668,45 @@ async function syncConversations() {
     }
     convList = convList.filter(c => !deletedConvIds.has(c.id) || c.id === currentConvId);
     if (convList.length > 200) convList = convList.slice(0, 200);
-    let saved = false;
-    for (let trim = 0; trim < 5 && !saved; trim++) {
+    // 🛡️ תיקון באג-מחיקה קריטי: הענן מקבל את הרשימה ה*מלאה*. קודם, כשה-localStorage נמלא (התמונות המוטמעות ענקיות → 2-3MB),
+    //    ה-catch קיצץ את convList עצמו ואז ghWrite כתב את המקוצץ לענן → מחיקת שיחות אמיתית. עכשיו מקצצים *עותק מקומי בלבד*; הענן שלם תמיד.
+    const _cloudList = convList.slice();
+    let _local = convList, saved = false;
+    for (let trim = 0; trim < 6 && !saved; trim++) {
         try {
-            localStorage.setItem(CONVS_KEY(), JSON.stringify(convList));
+            localStorage.setItem(CONVS_KEY(), JSON.stringify(_local));
             localStorage.setItem('birgsol_open_conv_' + currentUser, currentConvId);
             saved = true;
         } catch (e) {
-            // localStorage מלא — מוחק את השיחות הישנות ביותר ומנסה שוב
-            if (convList.length > 10) convList = convList.slice(0, Math.floor(convList.length * 0.7));
-            else break;
+            // localStorage מלא — מקצצים את ה*עותק המקומי* (לא את convList ולא את הענן!) ומנסים שוב
+            if (_local.length > 8) _local = _local.slice(0, Math.floor(_local.length * 0.7));
+            else { try { localStorage.removeItem(CONVS_KEY()); } catch (_) {} break; }
         }
     }
     renderConvList();
-    // העלה לענן ברקע (לא חוסם) — לוג אם נכשל אחרי כל הניסיונות, כדי שכשל לא יהיה שקט/בלתי-נראה
-    ghWrite('db/ai_convs/' + currentUser + '.json', convList).then(ok => {
-        if (!ok) console.warn('[syncConversations] cloud sync failed for user:', currentUser);
-    });
+    _safeCloudSaveConvs(_cloudList); // 🛡️ שמירה-בטוחה לענן (ממזג אם הענן גדול בהרבה — הגנה נוספת מפני מחיקה)
     _genSmartTitle(currentConvId);
+}
+
+// 🛡️ שמירת-שיחות בטוחה לענן — לעולם לא דורסת קובץ-ענן גדול בגרסה קטנה בהרבה (סימן לקיצוץ localStorage / טעינה-חלקית).
+//    רק אם עומדים לכתוב *פחות* שיחות ממה שנטען — קורא את הענן הטרי וממזג לפי id (שומר הכל), ואז כותב. בלי-עלות במקרה הרגיל.
+async function _safeCloudSaveConvs(list) {
+    const u = currentUser;
+    if (!u || !Array.isArray(list)) return;
+    try {
+        if (typeof _loadedConvCount === 'number' && list.length < _loadedConvCount - 1) {
+            const fresh = await ghReadFresh('db/ai_convs/' + u + '.json').catch(() => null);
+            if (Array.isArray(fresh) && fresh.length > list.length) {
+                const byId = {};
+                fresh.forEach(c => { if (c && c.id && !deletedConvIds.has(c.id)) byId[c.id] = c; }); // כל שיחות-הענן (חוץ ממחוקות)
+                list.forEach(c => { if (c && c.id) byId[c.id] = c; });                               // המקומי מעדכן/מוסיף
+                list = Object.values(byId);
+                try { console.warn('[convs] 🛡️ guard merged to avoid wipe: cloud had ' + fresh.length + ', writing ' + list.length); } catch (_) {}
+            }
+        }
+    } catch (e) {}
+    try { if (typeof _loadedConvCount === 'number') _loadedConvCount = Math.max(_loadedConvCount, list.length); } catch (_) {}
+    ghWrite('db/ai_convs/' + u + '.json', list).then(ok => { if (!ok) console.warn('[convs] cloud sync failed:', u); });
 }
 
 /* ── כותרת חכמה לשיחה — פעם אחת, אחרי התשובה הראשונה ── */
