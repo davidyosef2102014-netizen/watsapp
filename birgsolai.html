@@ -10358,11 +10358,11 @@ async function runNativeAgent(goal, opts) {
             }).filter(Boolean).slice(-4);
             if (_r.length) _convCtx = 'CONVERSATION BEFORE THIS TASK (what we were talking about — use it for context):\n' + _r.join('\n') + '\n\n';
         } catch (e) {}
-        let MAX = _admin ? 80 : 8, _autoExt = 0; // _autoExt: המשך-אוטומטי בתקרת-הצעדים (בלי לבקש "תמשיך")
+        let MAX = _admin ? 120 : 8, _autoExt = 0; // _autoExt: המשך-אוטומטי בתקרת-הצעדים (בלי לבקש "תמשיך"). מנהל=120 (היה 80) למשימות גדולות
         let _failStreak = 0, _actHist = [], _loopBreaks = 0, _doneChallenges = 0, _consecErr = 0, _lastErrSig = '', _sameErr = 0;
         let stepN = 1;
-        // ⏱️ מגבלת-זמן קשיחה — מונעת ריצה של שעות: הסוכן עוצר ומדווח כנה אם עבר הזמן (מנהל 12 דק', משתמש 4 דק').
-        const _agDeadline = Date.now() + (_admin ? 12 : 4) * 60000; let _timedOut = false;
+        // ⏱️ מגבלת-זמן קשיחה — מונעת ריצה של שעות: הסוכן עוצר ומדווח כנה אם עבר הזמן (מנהל 25 דק' למשימות גדולות, משתמש 4 דק'). היה 12 למנהל — קצר מדי לעולם-3D/קובץ-ענק.
+        const _agDeadline = Date.now() + (_admin ? 25 : 4) * 60000; let _timedOut = false;
         while (true) { // 🔁 עטיפת המשך-אוטומטי: בתקרת-הצעדים (בלי done/עצירה/לולאה) מרחיבים ו ממשיכים לבד
         for (; stepN <= MAX && !_agentStop; stepN++) {
             if (Date.now() > _agDeadline) { // ⏱️ חריגת-זמן — עוצר ומדווח במקום להמשיך לנסות שעה וחצי
