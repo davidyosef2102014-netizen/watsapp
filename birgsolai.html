@@ -10258,10 +10258,13 @@ async function _agDecide(sys, user) {
                      : await _ghProxy('runcrate', '/v1/chat/completions', body, { signal: AbortSignal.timeout(30000) });
         return r.ok ? _pick(await r.json()) : null; };
     const _qwenCoder = async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'qwen/qwen3.8-27b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; };
+    // 🛟 גיבוי-2 ממאגרים *נפרדים לגמרי* (בקשת דוד) — Mistral + Cohere. המפתחות שלנו, לא חולקים עם Groq/NVIDIA/Runcrate/OpenRouter, אז כש*כולם* נחנקים ב-429 — אלה עדיין עונים. ככה "המודל לא עונה" כמעט נעלם.
+    const _mistralDecide = async () => { const r = await _ghProxy('mistral', '/v1/chat/completions', { model: 'mistral-small-latest', messages: msgs, max_tokens: 2000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(14000) }); return r.ok ? _pick(await r.json()) : null; };
+    const _cohereDecide = async () => { const _cm = msgs.map(m => ({ role: (m.role === 'assistant' ? 'assistant' : (m.role === 'system' ? 'system' : 'user')), content: typeof m.content === 'string' ? m.content : (m.content && m.content[0] && m.content[0].text) || '' })); const r = await _ghProxy('cohere', '/v2/chat', { model: 'command-a-03-2025', messages: _cm, temperature: 0.2, max_tokens: 2000 }, { signal: AbortSignal.timeout(15000) }); if (!r.ok) return null; const j = await r.json().catch(() => null); const t = (j && j.message && Array.isArray(j.message.content) ? j.message.content.filter(c => c.type === 'text').map(c => c.text).join('') : ''); return t ? _agParseDecision(t) : null; };
     const _isPro = (typeof currentModelId === 'function') && currentModelId() === '4.1pro';
     const _primary   = _isPro ? [_nemotron550, _deepseekV41] : _glm;  // 4.1 PRO → Nemotron-550B + DeepSeek V4.1 (2 מאגרים, עמיד) · Axion → קבוצת GLM
-    // ל-PRO: אם Nemotron-550B נפל/נגמרה המכסה → Qwen3-Coder ואז nemotron/groq ואז GLM (סדר נפילה מפורש). ל-Axion: GLM ראשי, Qwen3-Coder גיבוי ראשון.
-    const _secondary = _isPro ? [_qwenCoder].concat(_backup).concat(_glm) : [_qwenCoder].concat(_backup);
+    // ל-PRO: אם Nemotron-550B נפל/נגמרה המכסה → Qwen3-Coder ואז nemotron/groq ואז GLM (סדר נפילה מפורש). ל-Axion: GLM ראשי, Qwen3-Coder גיבוי ראשון. ובסוף גיבוי-2 נפרד (Mistral+Cohere).
+    const _secondary = (_isPro ? [_qwenCoder].concat(_backup).concat(_glm) : [_qwenCoder].concat(_backup)).concat([_mistralDecide, _cohereDecide]);
     // ⏱️ עדיפות-מוח + failover מהיר (בקשת דוד): המוח המועדף (GLM) רץ מיד ומנצח אם ענה מהר. אבל אם לא ענה
     //    תוך 8ש' — *או* אם כל המועדפים נפלו לפני כן — מריצים לידם את הגיבוי (Qwen3-Coder ואז nemotron/groq) *במקביל*,
     //    וההחלטה התקינה הראשונה מנצחת. ככה אין יותר תקיעה של "המודל לא ענה" ולא המתנה של 40ש' למוח מת. נכשל רק אם כולם נפלו.
