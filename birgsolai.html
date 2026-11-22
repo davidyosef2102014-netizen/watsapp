@@ -10262,35 +10262,27 @@ async function _agDecide(sys, user) {
     const _mistralDecide = async () => { const r = await _ghProxy('mistral', '/v1/chat/completions', { model: 'mistral-small-latest', messages: msgs, max_tokens: 2000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(14000) }); return r.ok ? _pick(await r.json()) : null; };
     const _cohereDecide = async () => { const _cm = msgs.map(m => ({ role: (m.role === 'assistant' ? 'assistant' : (m.role === 'system' ? 'system' : 'user')), content: typeof m.content === 'string' ? m.content : (m.content && m.content[0] && m.content[0].text) || '' })); const r = await _ghProxy('cohere', '/v2/chat', { model: 'command-a-03-2025', messages: _cm, temperature: 0.2, max_tokens: 2000 }, { signal: AbortSignal.timeout(15000) }); if (!r.ok) return null; const j = await r.json().catch(() => null); const t = (j && j.message && Array.isArray(j.message.content) ? j.message.content.filter(c => c.type === 'text').map(c => c.text).join('') : ''); return t ? _agParseDecision(t) : null; };
     const _isPro = (typeof currentModelId === 'function') && currentModelId() === '4.1pro';
-    const _primary   = _isPro ? [_nemotron550, _deepseekV41] : _glm;  // 4.1 PRO → Nemotron-550B + DeepSeek V4.1 (2 מאגרים, עמיד) · Axion → קבוצת GLM
-    // ל-PRO: אם Nemotron-550B נפל/נגמרה המכסה → Qwen3-Coder ואז nemotron/groq ואז GLM (סדר נפילה מפורש). ל-Axion: GLM ראשי, Qwen3-Coder גיבוי ראשון. ובסוף גיבוי-2 נפרד (Mistral+Cohere).
-    const _secondary = (_isPro ? [_qwenCoder].concat(_backup).concat(_glm) : [_qwenCoder].concat(_backup)).concat([_cohereDecide]); // Mistral הוסר — דורש חיוב עכשיו (429). Cohere = גיבוי-מאגר-נפרד אחרון.
-    // ⏱️ עדיפות-מוח + failover מהיר (בקשת דוד): המוח המועדף (GLM) רץ מיד ומנצח אם ענה מהר. אבל אם לא ענה
-    //    תוך 8ש' — *או* אם כל המועדפים נפלו לפני כן — מריצים לידם את הגיבוי (Qwen3-Coder ואז nemotron/groq) *במקביל*,
-    //    וההחלטה התקינה הראשונה מנצחת. ככה אין יותר תקיעה של "המודל לא ענה" ולא המתנה של 40ש' למוח מת. נכשל רק אם כולם נפלו.
-    // ⚡ מפרידים את המוח-הכבד (GLM המלא, עד 45ש') מה-GLM המהירים: אחרת הכבד משאיר glmPending>0 והגיבוי מחכה לטיימר
-    //    גם כשה-GLM המהירים כבר נכשלו ב-429 → זה גרם ל"מתאושש אבל לוקח זמן". עכשיו: GLM מהיר נכשל → גיבוי נכנס מיד.
-    const _heavyFn = _primary.includes(_heavyBrain) ? _heavyBrain : null;
-    const _fast = _primary.filter(f => f !== _heavyBrain);
-    return await new Promise((resolve) => {
-        let settled = false, fastPending = 0, heavyPending = 0, backupOn = false, backupPending = 0, t40 = null, cap = null;
-        const finish = (d) => { if (!settled) { settled = true; if (t40) clearTimeout(t40); if (cap) clearTimeout(cap); resolve(d || null); } };
-        const allDead = () => { if (!settled && fastPending === 0 && heavyPending === 0 && backupOn && backupPending === 0) finish(null); };
-        const startBackup = () => {
-            if (settled || backupOn) return; backupOn = true;
-            _secondary.forEach(step => { backupPending++;
-                Promise.resolve().then(step).then(d => { backupPending--; if (d && d.op) return finish(d); allDead(); })
-                                 .catch(() => { backupPending--; allDead(); }); });
-        };
-        // ה-GLM המהירים — ברגע שכולם נכשלו (429/שגיאה) הגיבוי נכנס *מיד*, בלי להמתין לטיימר או למוח-הכבד.
-        _fast.forEach(step => { fastPending++;
-            Promise.resolve().then(step).then(d => { fastPending--; if (d && d.op) return finish(d); if (fastPending === 0 && !backupOn) startBackup(); allDead(); })
-                             .catch(() => { fastPending--; if (fastPending === 0 && !backupOn) startBackup(); allDead(); }); });
-        // המוח-הכבד רץ במקביל ועדיין יכול לנצח אם ענה — אבל לא חוסם את כניסת-הגיבוי.
-        if (_heavyFn) { heavyPending++; Promise.resolve().then(_heavyFn).then(d => { heavyPending--; if (d && d.op) return finish(d); allDead(); }).catch(() => { heavyPending--; allDead(); }); }
-        t40 = setTimeout(() => { if (!settled && !backupOn) startBackup(); }, 2000); // ⚡ רשת-זמן 2ש': ה-GLM מקבל צ'אנס ראשון (~1.8ש'), אבל אם לא ענה — הגיבוי המהיר והאמין (qwen/gpt-oss של Groq, פחות משנייה, מאגר נפרד) נכנס *מיד*. בדיקה חיה: 3 מודלים מהירים תמיד עונים, אז אחרי 2ש' מובטחת החלטה. מתקן את "המודל לא עונה".
-        cap = setTimeout(() => finish(null), 45000);                                 // רשת-ביטחון
-    });
+    // 🦙 Llama (Groq) ו-🔵 Gemini כמקבלי-החלטה (חלק מהסדר שביקש דוד)
+    const _nemoSuper = _backup[0], _nemoLight = _backup[1], _gptOss = _backup[2];
+    const _llamaDecide = async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'llama-3.3-70b-versatile', messages: msgs, max_tokens: 2000, temperature: 0.2, response_format: { type: 'json_object' } }, { signal: AbortSignal.timeout(12000) }); return r.ok ? _pick(await r.json()) : null; };
+    const _geminiDecide = async () => {
+        const _st = msgs.filter(m => m.role === 'system').map(m => typeof m.content === 'string' ? m.content : '').join('\n');
+        const _ct = msgs.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: typeof m.content === 'string' ? m.content : ((m.content && m.content[0] && m.content[0].text) || '') }] }));
+        const _body = { contents: _ct, generationConfig: { maxOutputTokens: 2000, temperature: 0.2, responseMimeType: 'application/json' } };
+        if (_st) _body.systemInstruction = { parts: [{ text: _st }] };
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', _body, { signal: AbortSignal.timeout(12000) });
+        if (!r.ok) return null; const j = await r.json().catch(() => null);
+        const t = (((j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter(p => p && !p.thought).map(p => (p && p.text) || '').join('')).trim();
+        return t ? _agParseDecision(t) : null;
+    };
+    // 🧠 סדר מפורש וסדרתי (בקשת דוד): GLM → DeepSeek → Qwen → NVIDIA → Llama → Gemini → GPT-OSS (אחרון, "על הפנים"). PRO: Nemotron-550+DeepSeek קודם.
+    //    הראשון בשרשרת שמחזיר op תקין מנצח. לא מירוץ — סדר. כל מודל עד 8ש' (מודל תקוע/429 לא חוסם — עובר מיד להבא).
+    const _chain = _isPro
+        ? [_nemotron550, _deepseekV41].concat(_glm).concat([_qwenCoder, _nemoSuper, _nemoLight, _llamaDecide, _geminiDecide, _gptOss, _cohereDecide])
+        : _glm.concat([_deepseekV41, _qwenCoder, _nemoSuper, _nemoLight, _llamaDecide, _geminiDecide, _gptOss, _cohereDecide]);
+    const _capRun = (fn) => Promise.race([Promise.resolve().then(fn).catch(() => null), new Promise(r => setTimeout(() => r(null), 8000))]);
+    for (const fn of _chain) { try { const d = await _capRun(fn); if (d && d.op) return d; } catch (e) {} }
+    return null;
 }
 
 // 👄 "הפה" של הסוכן — מודל מהיר ולבבי (groq) שמדבר למשתמש. נפרד מ-🧠המוח (שמחליט) ומ-💪השרירים (שפועלים).
