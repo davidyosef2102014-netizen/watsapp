@@ -10409,9 +10409,11 @@ async function runNativeAgent(goal, opts) {
             // 🗣️ הזרקת-משתמש תוך כדי: הודעות שהמשתמש הקליד בזמן שהסוכן רץ — נכנסות למשימה בתחילת הצעד, המוח קורא ומתאים.
             if (_agInjectQueue.length) {
                 const _inj = _agInjectQueue.splice(0).join('  |  ');
+                // 🔧 הזז את בלוק-הסוכן אל *מתחת* להודעה שהמשתמש הזריק (שנוספה לתחתית הצ'אט), כדי שהאישור וההמשך יופיעו *אחריה* ולא מעליה.
+                try { if (cw && row && row.parentNode === cw && cw.lastChild !== row) cw.appendChild(row); } catch (e) {}
                 stepsLog.push('🗣️ המשתמש הוסיף עכשיו הוראה תוך כדי המשימה — קרא אותה והתאם את ההמשך מיד (זו הנחיה חדשה מהמשתמש, לא פלט כלי): "' + _inj + '"');
-                _step('המשתמש הוסיף הוראה תוך כדי — מתאים את המשימה', false);
-                try { _agMouth('המשתמש הוסיף הנחיה תוך כדי שעבדת: "' + _inj + '". אמור משפט אחד קצר וחם שקלטת ושאתה מתאים — בלי לפרט תוכנית.').then(_o => { if (_o) _liveSay(body, _o); }).catch(() => {}); } catch (e) {}
+                _step('קלטתי הודעה תוך כדי — מתאים את המשימה', false);
+                try { _agMouth('המשתמש הוסיף הנחיה תוך כדי שעבדת: "' + _inj + '". אמור משפט אחד קצר וחם שקלטת ושאתה מתאים — בלי לפרט תוכנית.').then(_o => { if (_o) { _liveSay(body, _o); try { if (cw) cw.scrollTo({ top: cw.scrollHeight, behavior: 'smooth' }); } catch (e) {} } }).catch(() => {}); } catch (e) {}
             }
             const sys = '🎖️ YOU ARE IN FULL COMMAND of a real toolbox (terminal, files, code, web search, network, the browser, Office, and more) — YOU decide which tool to use and when, on your own, toward the goal; never wait to be told which tool and never just describe what could be done — reach for the right tool and DO it.\n'
                 + '⚙️ OPERATE LIKE A SHARP SENIOR ENGINEER: read the LAST tool output → work out the REAL cause → choose the ONE best next action with the RIGHT tool for it → then verify. Two hard rules: (1) NEVER repeat an action that just failed or did not help — if something failed, diagnose the exact error and do something DIFFERENT (another tool, another approach, a probe step), never the same thing again hoping it works. (2) STOP the moment the goal is genuinely done (done:true), and do not keep going once it is complete. Pick tools by the real GOAL, not by habit.\n'
