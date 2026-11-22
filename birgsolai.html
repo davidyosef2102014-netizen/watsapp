@@ -10251,9 +10251,15 @@ async function _agDecide(sys, user) {
     // 🥈 4.1 PRO — מוח **Nemotron-3-Ultra 550B** (NVIDIA, דרך OpenRouter free — בקשת דוד). מודל 550B חזק, עברית מצוינת, חינם.
     //    4.1 PRO הוא מודל-אדמין (תעבורה נמוכה) ולכן מכסת-החינם היומית של 550B מספיקה. Qwen3-Coder + nemotron/groq = גיבוי סדרתי.
     const _nemotron550 = async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'nvidia/nemotron-3-ultra-550b-a55b:free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(30000) }); return r.ok ? _pick(await r.json()) : null; };
+    // 🧠 DeepSeek V4.1 Flash (Runcrate, חינם, מהיר ~2.4ש', עברית מצוינת) — נוסף למוח 4.1 PRO (בקשת דוד). מאגר-מכסה שונה מ-Nemotron → עמידות נוספת.
+    const _deepseekV41 = async () => { let rk = ''; try { rk = localStorage.getItem('AX_RUNCRATE_KEY') || ''; } catch (e) {}
+        const body = { model: 'deepseek-ai/DeepSeek-V4.1-Flash', messages: msgs, max_tokens: 4000, temperature: 0.2 };
+        const r = rk ? await fetch('https://api.runcrate.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + rk }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) })
+                     : await _ghProxy('runcrate', '/v1/chat/completions', body, { signal: AbortSignal.timeout(30000) });
+        return r.ok ? _pick(await r.json()) : null; };
     const _qwenCoder = async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'qwen/qwen3.8-27b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; };
     const _isPro = (typeof currentModelId === 'function') && currentModelId() === '4.1pro';
-    const _primary   = _isPro ? [_nemotron550] : _glm;         // 4.1 PRO → מוח Nemotron-550B · Axion → קבוצת GLM
+    const _primary   = _isPro ? [_nemotron550, _deepseekV41] : _glm;  // 4.1 PRO → Nemotron-550B + DeepSeek V4.1 (2 מאגרים, עמיד) · Axion → קבוצת GLM
     // ל-PRO: אם Nemotron-550B נפל/נגמרה המכסה → Qwen3-Coder ואז nemotron/groq ואז GLM (סדר נפילה מפורש). ל-Axion: GLM ראשי, Qwen3-Coder גיבוי ראשון.
     const _secondary = _isPro ? [_qwenCoder].concat(_backup).concat(_glm) : [_qwenCoder].concat(_backup);
     // ⏱️ עדיפות-מוח + failover מהיר (בקשת דוד): המוח המועדף (GLM) רץ מיד ומנצח אם ענה מהר. אבל אם לא ענה
@@ -10434,15 +10440,15 @@ async function runNativeAgent(goal, opts) {
             let decision = await _agDecide(sys, user);
             if (!decision || !decision.op) {
                 _failStreak++;
-                if (_failStreak >= 7) {
-                    _step('מודל ההחלטה לא הגיב 7 פעמים ברצף — מנסח דיווח כן', true);
+                if (_failStreak >= 12) {
+                    _step('מודל ההחלטה לא הגיב הרבה פעמים ברצף — מנסח דיווח כן', true);
                     let _msg = await _agGenStuck(goal, stepsLog, 'the decision model (that picks the next step) did not respond 7 times in a row — a temporary availability issue, not a bug in the user code');
                     if (!_msg) { const _lr = [...stepsLog].reverse().find(l => /^\d+\.\s/.test(l)); _msg = 'לא סיימתי את המשימה — מודל ההחלטה לא החזיר תשובה כמה פעמים ברצף. ' + (_lr ? ('הספקתי: ' + _lr.replace(/^\d+\.\s*/, '').slice(0, 90) + '. ') : '') + 'תכתוב "תמשיך" ואמשיך מהנקודה הזו.'; }
-                    _step('מודל ההחלטה לא הגיב 7 פעמים ברצף — עוצר ומדווח', false);
+                    _step('מודל ההחלטה לא הגיב הרבה פעמים ברצף — עוצר ומדווח', false);
                     _finishHdr(); txt.innerHTML = ''; const ans = document.createElement('div'); ans.style.whiteSpace = 'pre-wrap'; ans.textContent = _msg; txt.appendChild(ans); hist[hist.length - 1].content = _msg; break;
                 }
-                _step('מגבש את הצעד הבא…', true);
-                await new Promise(res => setTimeout(res, 400));
+                _step('מגבש את הצעד הבא… (ממתין שהעומס ירד)', true);
+                await new Promise(res => setTimeout(res, Math.min(1200 * _failStreak, 10000))); // ⏳ המתנה מתגברת (1.2ש'→10ש') — נותן למגבלות-הקצב להתאפס במקום לוותר מהר
                 continue;
             }
             _failStreak = 0;
@@ -10897,17 +10903,17 @@ async function _browserAgent(goal, opts) {
             }
             if (!decision || !decision.op) {
                 _failStreak++;
-                if (_failStreak >= 7) {
-                    _step('מודל ההחלטה לא הגיב 7 פעמים ברצף — מנסח דיווח כן', true);
+                if (_failStreak >= 12) {
+                    _step('מודל ההחלטה לא הגיב הרבה פעמים ברצף — מנסח דיווח כן', true);
                     let _m = await _agGenStuck(goal, stepsLog, 'the decision model (that picks the next browser action) did not respond 7 times in a row — a temporary availability issue, not a page problem');
                     if (!_m) { _m = 'לא סיימתי את המשימה — מודל ההחלטה שמחליט על הצעד הבא בדף לא החזיר תשובה כמה פעמים ברצף. תכתוב "תמשיך" ואמשיך מהנקודה שעצרתי בה.'; }
-                    _step('מודל ההחלטה לא הגיב 7 פעמים ברצף — עוצר ומדווח', false);
+                    _step('מודל ההחלטה לא הגיב הרבה פעמים ברצף — עוצר ומדווח', false);
                     try { _finishHdr(); } catch (e) {}
                     try { txt.innerHTML = ''; const _a = document.createElement('div'); _a.style.whiteSpace = 'pre-wrap'; _a.textContent = _m; txt.appendChild(_a); hist[hist.length - 1].content = _m; } catch (e) {}
                     stepsLog.push('(failed to decide x7)'); break;
                 }
-                _step('מגבש את הצעד הבא…', true);
-                await new Promise(res => setTimeout(res, 400));
+                _step('מגבש את הצעד הבא… (ממתין שהעומס ירד)', true);
+                await new Promise(res => setTimeout(res, Math.min(1200 * _failStreak, 10000))); // ⏳ המתנה מתגברת (1.2ש'→10ש') — נותן למגבלות-הקצב להתאפס במקום לוותר מהר
                 try { const _rs = await _agLook(); if (_rs && _rs.ok) state = _rs; } catch (e) {}
                 continue; // ניסיון חוזר — כשל בודד לא מפסיק את כל המשימה
             }
