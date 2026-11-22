@@ -10396,7 +10396,7 @@ async function runNativeAgent(goal, opts) {
         let _failStreak = 0, _actHist = [], _loopBreaks = 0, _doneChallenges = 0, _consecErr = 0, _lastErrSig = '', _sameErr = 0, _giveupRejects = 0;
         let stepN = 1;
         // ⏱️ מגבלת-זמן קשיחה — מונעת ריצה של שעות: הסוכן עוצר ומדווח כנה אם עבר הזמן (מנהל 25 דק' למשימות גדולות, משתמש 4 דק'). היה 12 למנהל — קצר מדי לעולם-3D/קובץ-ענק.
-        const _agDeadline = Date.now() + (_admin ? 25 : 4) * 60000; let _timedOut = false;
+        const _agDeadline = _admin ? Infinity : Date.now() + 4 * 60000; let _timedOut = false; // ⏱️ מנהל = בלי מגבלת-זמן (בקשת דוד); משתמש רגיל = 4 דק' לבטיחות
         while (true) { // 🔁 עטיפת המשך-אוטומטי: בתקרת-הצעדים (בלי done/עצירה/לולאה) מרחיבים ו ממשיכים לבד
         for (; stepN <= MAX && !_agentStop; stepN++) {
             if (Date.now() > _agDeadline) { // ⏱️ חריגת-זמן — עוצר ומדווח במקום להמשיך לנסות שעה וחצי
@@ -10835,7 +10835,7 @@ async function _browserAgent(goal, opts) {
         let _failStreak = 0; // כשלים רצופים בקבלת החלטה — נותנים כמה ניסיונות לפני עצירה
         let _actHist = [], _loopBreaks = 0; // גלאי לולאה — זיהוי חזרה על אותה פעולה בדיוק
         let _hardFails = 0; // כשלים רצופים בביצוע — טריגר ל-Hard-Reset (רענון הדף והמשך)
-        const _bDeadline = Date.now() + (_admin ? 12 : 4) * 60000; // ⏱️ מגבלת-זמן קשיחה — שגם סוכן-הדפדפן לא יתקע שעות
+        const _bDeadline = _admin ? Infinity : Date.now() + 4 * 60000; // ⏱️ מנהל = בלי מגבלת-זמן (בקשת דוד); משתמש רגיל = 4 דק'
         for (let stepN = 1; stepN <= MAX && !_agentStop; stepN++) {
             if (state.stopped && _agentStop) { _step('נעצר על ידי המשתמש', false); break; } // רק עצירה אמיתית של הריצה הזו — לא דגל תקוע מריצה קודמת
             if (Date.now() > _bDeadline) { // ⏱️ חריגת-זמן — עוצר ומדווח
