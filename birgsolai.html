@@ -6131,6 +6131,12 @@ function isImageEditRequest(q) {
     if (en.some(k => ql.includes(k))) return true;
     return false;
 }
+// 📄 בקשה שמכניסה תמונה *לתוך מסמך/מצגת/גיליון* (Word/PPT/Excel/PDF) — זו משימת-סוכן (הטמעה), לא עריכת-תמונה!
+//    מונע את הבאג "תוסיף את התמונה למסמך" → editImage (ערך את התמונה במקום להטמיע אותה).
+function _targetsDocFile(q) {
+    if (!q) return false;
+    return /מסמך|וורד|מצגת|שקופ|אקסל|גיליון|דו["']?ח\b|presentation|spreadsheet|document\b|report\b|slide|\bword\b|\bexcel\b|\bpowerpoint\b|\.docx?\b|\.pptx?\b|\.xlsx?\b|\.pdf\b/i.test(q);
+}
 
 /* ── Style picker: shows 4 buttons in chat, resolves with chosen style ── */
 function _askImageStyle() {
@@ -11746,7 +11752,7 @@ async function send() {
     }
 
     // Image editing — uploaded image + transformation request (בקשת קריאה/תרגום/ניתוח → ניתוח, לא עריכה)
-    if (fileUrl && q && !_wantsAnalyze && isImageEditRequest(q)) {
+    if (fileUrl && q && !_wantsAnalyze && isImageEditRequest(q) && !_targetsDocFile(q)) {
         if (!_quotaOK()) { _quotaBlock(q, fileUrl); return; }
         const imgToEdit = fileUrl;
         addMsg('user', q, imgToEdit);
