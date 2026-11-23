@@ -9847,6 +9847,44 @@ function _isCodeAgentTask(q) {
 // ניתוב פעולות דפדפן. עדיפות: (1) בדסקטופ אם התוסף מחובר דרך הגשר המקומי → הכרום האמיתי של המשתמש (chromeCmd);
 // (2) בדסקטופ עם שליטה נייטיבית → חלון-העבודה של הדסקטופ (web*); (3) בכרום עצמו → התוסף ישירות (_extSend).
 let _agUseChrome = false; // נקבע בתחילת הסוכן: האם הכרום האמיתי זמין דרך הגשר
+// ☁️ דפדפן-ענן (גיבוי): כשאין תוסף/גשר — הסוכן נופל לדפדפן אמיתי שרץ בענן (HF Space) דרך הוורקר.
+let _agUseCloud = false; // כשדולק — _agLook/_agAct מנתבים לענן במקום לתוסף
+let _cbId = null;        // מזהה סשן הדפדפן-בענן הנוכחי
+// קריאה לשרת הדפדפן-בענן דרך הוורקר (op:'cbrowser'). מחזיר JSON או {error}.
+async function _cbCall(path, payload) {
+    try {
+        const r = await fetch(GH_WORKER, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op: 'cbrowser', path, payload: payload || {} }),
+            signal: AbortSignal.timeout(50000)
+        });
+        return await r.json();
+    } catch (e) { return { error: 'cloud-browser: ' + String(e && e.message || e) }; }
+}
+// פותח סשן ענן חדש. מחזיר true אם הצליח.
+async function _cbStart() {
+    const r = await _cbCall('/session', {});
+    if (r && r.id) { _cbId = r.id; return true; }
+    return false;
+}
+// קורא את מצב הדף בענן — אותה צורה כמו _agLook של התוסף (fields/screenshot/url/title).
+async function _cbLook() {
+    if (!_cbId) return { ok: false, error: 'no cloud session' };
+    const r = await _cbCall('/look', { id: _cbId });
+    if (r && r.error && !r.fields) return { ok: false, error: r.error };
+    return { ok: true, ...r };
+}
+// מבצע פעולה בענן — ממפה את ה-op של המוח לקריאות השרת. אותה צורת-החזרה כמו _agAct.
+async function _cbAct(action) {
+    if (!_cbId) return { ok: false, error: 'no cloud session' };
+    const op = (action && action.op) || '';
+    let r;
+    if (op === 'navigate') r = await _cbCall('/goto', { id: _cbId, url: action.url || '' });
+    else if (op === 'wait') { await new Promise(res => setTimeout(res, Math.min(action.ms || 1000, 5000))); r = await _cbCall('/look', { id: _cbId }); }
+    else r = await _cbCall('/act', { id: _cbId, action: op, ref: action.ref, text: action.text, dir: action.dir, key: action.key });
+    if (r && r.error && !r.fields) return { ok: false, error: r.error };
+    return { ok: true, acted: true, ...r };
+}
 // 🔗 זיכרון-המשך לסוכן: כל עוד אנחנו באותה שיחה שבה הסוכן עבד, הודעת-תיקון קצרה חוזרת אליו
 // (ולא זולגת לצ'אט שממציא ריצות). כבול לשיחה — לא לטיימר.
 // מצב הסוכן האחרון — נשמר ב-localStorage כדי לשרוד רענון/עדכון-SW של העמוד (אחרת "תמשיך" אחרי רענון מאבד את ההקשר ונופל לצ'אט).
@@ -9904,6 +9942,7 @@ async function _agDetectChromeBridge() {
 }
 function _agHasNativeWeb() { return (typeof _isDesktop === 'function' && _isDesktop()) && !!(window.BIRGSOL_NATIVE && window.BIRGSOL_NATIVE.hasWebControl && typeof window.BIRGSOL_NATIVE.webLook === 'function'); }
 async function _agLook() {
+    if (_agUseCloud) return await _cbLook(); // ☁️ גיבוי ענן
     if (_agUseChrome) { // הכרום האמיתי דרך הגשר
         try { const r = await window.BIRGSOL_NATIVE.chromeCmd({ op: 'look' }, _selBrowser()); if (r && r.ok) return r; } catch (e) {}
     }
@@ -9914,6 +9953,7 @@ async function _agLook() {
     return await _extSend({ type: 'birgsol-look' }, 30000);
 }
 async function _agAct(action) {
+    if (_agUseCloud) return await _cbAct(action); // ☁️ גיבוי ענן
     if (_agUseChrome) { try { return await window.BIRGSOL_NATIVE.chromeCmd(action, _selBrowser()); } catch (e) { return { ok: false, error: String(e && e.message || e) }; } }
     if (_agHasNativeWeb()) { try { return await window.BIRGSOL_NATIVE.webAct(action); } catch (e) { return { ok: false, error: String(e && e.message || e) }; } }
     return await _extSend({ type: 'birgsol-act', action }, 45000);
@@ -10758,6 +10798,7 @@ async function _browserAgent(goal, opts) {
         addMsg('ai', 'סוכן הדפדפן זמין ל-Pro ו-Ultra בלבד. שדרג כדי ש-BIRGSOL יפעל בדפדפן עבורך.');
         return;
     }
+    _agUseCloud = false; _cbId = null; // ☁️ איפוס גיבוי-הענן בתחילת כל ריצה
     // זהה אם הכרום האמיתי של המשתמש מחובר דרך הגשר המקומי (עדיפות עליונה — "הדפדפן שלך")
     await _agDetectChromeBridge();
     // 🖥️ דסקטופ בלי כרום-אמיתי, בלי שליטה נייטיבית ובלי תוסף → סוכן-קוד (טרמינל/קבצים/גיטהאב/חיפוש).
@@ -10810,10 +10851,16 @@ async function _browserAgent(goal, opts) {
     try {
         // בדיקת תוסף + גרסה — כדי לתת הודעה מדויקת (חסר / ישן / תקין)
         _step('בודק את התוסף…', true);
-        const _pg = (_agUseChrome || _agHasNativeWeb()) ? { ok: true, agent: true, version: _agUseChrome ? 'chrome-bridge' : 'native' } : await _extSend({ type: 'birgsol-ping' }, 6000);
+        let _pg = (_agUseChrome || _agHasNativeWeb()) ? { ok: true, agent: true, version: _agUseChrome ? 'chrome-bridge' : 'native' } : await _extSend({ type: 'birgsol-ping' }, 6000);
         if (!_pg || !_pg.ok) {
-            const m = 'לא נמצא התוסף "זרוע BIRGSOL". התקן/הפעל אותו ורענן את הדף.';
-            txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; status.remove(); return;
+            // ☁️ אין תוסף/גשר → נופלים לדפדפן-ענן אמיתי (HF Space דרך הוורקר), כדי לא להיתקע
+            _step('אין תוסף — פותח דפדפן בענן…', true);
+            let _cbOk = false; try { _cbOk = await _cbStart(); } catch (e) {}
+            if (_cbOk) { _agUseCloud = true; _pg = { ok: true, agent: true, version: 'cloud' }; _step('דפדפן-ענן מוכן ☁️', false); }
+            else {
+                const m = 'לא נמצא התוסף "זרוע BIRGSOL" וגם הדפדפן-בענן לא זמין כרגע. נסה שוב בעוד רגע, או התקן/הפעל את התוסף ורענן.';
+                txt.innerHTML = _esc(m); hist[hist.length - 1].content = m; status.remove(); return;
+            }
         }
         if (!_pg.agent) { // גרסה ישנה (1.x) — יודעת רק לקרוא, לא ללחוץ
             const m = '⚠️ התוסף שלך בגרסה ' + (_pg.version || 'ישנה') + ' — הוא יודע רק לקרוא דף, לא ללחוץ.\n\nצריך גרסה 2.0.0:\n1. פתח chrome://extensions\n2. מצא "BIRGSOL AI — הזרוע"\n3. לחץ על אייקון הרענון (↻)\n4. ודא שכתוב "2.0.0"\n\nאם אחרי רענון עדיין כתוב 1.3.0 — התוסף לא נטען מהתיקייה המעודכנת (יש להסיר ולהוסיף מחדש דרך "Load unpacked" את התיקייה C:\\Users\\owner\\temp\\birgsol-extension).';
@@ -11054,6 +11101,8 @@ async function _browserAgent(goal, opts) {
     } finally {
         busy = false; _agentRunning = false; updateBtn();
         try { _extSend({ type: 'birgsol-stop' }); } catch (e) {}
+        try { if (_agUseCloud && _cbId) { _cbCall('/close', { id: _cbId }); } } catch (e) {} // ☁️ סגירת סשן הענן
+        _agUseCloud = false; _cbId = null;
         // 🔚 אם הסוכן פתח את הדפדפן לבד — סוגר אותו בסוף (לא סוגר דפדפן שהמשתמש פתח)
         try { if (_agOpenedBrowser && window.BIRGSOL_NATIVE && window.BIRGSOL_NATIVE.closeBrowser) { window.BIRGSOL_NATIVE.closeBrowser(_selBrowser()); } } catch (e) {} finally { _agOpenedBrowser = false; }
         try { saveConversation(); } catch (e) {} // שמירת שיחת הסוכן להיסטוריה
