@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BIRGSOL — כל האפליקציות</title>
+<meta name="description" content="BIRGSOL Hub — כל האפליקציות של BIRGSOL במקום אחד.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{ --teal:#38bdf8; --blue:#4285F4; --ink:#0a0e1a; --card:#121829; --muted:#8aa0c6; --line:rgba(255,255,255,.08); }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{min-height:100%;font-family:'Heebo',sans-serif;color:#eaf2ff;
+    background:radial-gradient(130% 110% at 50% 0%, #11182b 0%, #0a0e1a 55%, #05070d 100%);}
+  body{padding:40px 20px 60px}
+  .wrap{max-width:1000px;margin:0 auto}
+  header{text-align:center;margin-bottom:38px}
+  .brand{font-weight:900;letter-spacing:-.01em;font-size:clamp(34px,7vw,60px);line-height:1;
+    background:linear-gradient(100deg,#eaf2ff 0%,var(--teal) 45%,var(--blue) 100%);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 6px 36px rgba(56,189,248,.28))}
+  .tag{margin-top:12px;color:var(--muted);font-size:clamp(14px,2vw,18px);font-weight:400;letter-spacing:.02em}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+  .card{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);
+    border-radius:18px;padding:18px 18px;text-decoration:none;color:inherit;cursor:pointer;
+    transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease}
+  .card:hover{transform:translateY(-4px);border-color:rgba(56,189,248,.5);box-shadow:0 14px 40px rgba(0,0,0,.4)}
+  .ic{flex-shrink:0;width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;
+    font-size:26px;background:linear-gradient(135deg,var(--teal),var(--blue));box-shadow:0 6px 18px rgba(56,189,248,.3)}
+  .meta{min-width:0}
+  .name{font-weight:800;font-size:17px;line-height:1.2}
+  .desc{color:var(--muted);font-size:13px;margin-top:3px;font-weight:400;line-height:1.35}
+  .star{position:relative}
+  .star::after{content:'★ ראשי';position:absolute;top:-9px;inset-inline-start:14px;
+    background:linear-gradient(135deg,var(--teal),var(--blue));color:#fff;font-size:10px;font-weight:800;
+    padding:3px 9px;border-radius:999px;letter-spacing:.02em}
+  footer{text-align:center;margin-top:40px;color:#5f6f8c;font-size:12.5px}
+  footer b{color:var(--muted);font-weight:600}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">BIRGSOL</div>
+      <div class="tag">כל האפליקציות שלנו — במקום אחד</div>
+    </header>
+
+    <div class="grid" id="grid"></div>
+
+    <footer>נבנה על ידי <b>דוד יוסף זאבי</b> · BIRGSOL ✦</footer>
+  </div>
+
+<script>
+  const BASE = 'https://davidyosef2102014-netizen.github.io/';
+  const APPS = [
+    { ic:'🤖', name:'BIRGSOL AI', desc:"צ'אט, תמונות, קוד, חיפוש וסוכן", url: BASE+'watsapp/birgsolai.html', star:true },
+    { ic:'💻', name:'BirgsOS',    desc:'מערכת הפעלה שלמה בדפדפן', url: BASE+'biros/' },
+    { ic:'🔑', name:'BIRGSOL ID', desc:'חשבון מרכזי · התחבר עם BIRGSOL', url: BASE+'birgsol-id/' },
+    { ic:'💰', name:'הכסף שלי',    desc:'ניהול תקציב וכסף', url: BASE+'birgsol-budget/' },
+    { ic:'🌐', name:'AI Social',   desc:'רשת חברתית מבוססת AI', url: BASE+'birgsol-social/' },
+    { ic:'🗺️', name:'Pathly',      desc:'ניווט חכם (בסגנון Waze)', url: BASE+'watsapp/pathly.html' },
+    { ic:'💬', name:'WatsApp',     desc:'הודעות וצ׳אט', url: BASE+'watsapp/' },
+    { ic:'🎵', name:'PONITOK',     desc:'סרטונים קצרים', url: BASE+'watsapp/ponitok.html' },
+    { ic:'⚙️', name:'BIRGSOL API', desc:'API למפתחים', url: 'https://birgsol-cloud.lovable.app/' },
+  ];
+  const grid = document.getElementById('grid');
+  APPS.forEach(a => {
+    const el = document.createElement('a');
+    el.className = 'card' + (a.star ? ' star' : '');
+    el.href = a.url; el.target = '_blank'; el.rel = 'noopener';
+    el.innerHTML = '<div class="ic">'+a.ic+'</div>'
+      + '<div class="meta"><div class="name">'+a.name+'</div><div class="desc">'+a.desc+'</div></div>';
+    grid.appendChild(el);
+  });
+</script>
+</body>
+</html>
