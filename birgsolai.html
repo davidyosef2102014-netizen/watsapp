@@ -1943,6 +1943,11 @@
             </div>
             <!-- בורר מודלים — מתחת לתיבת הכתיבה. לחיצה פותחת רשימה לבחירה -->
             <div id="model-chip-row" style="position:relative;display:flex;direction:ltr;justify-content:flex-end;align-items:center;gap:10px;margin-top:8px;padding-inline-end:8px">
+                <!-- 🌐 WAB — מתג מצב-דפדפן (קוד בלבד): דלוק → הסוכן גולש בשבילך (תוסף או דפדפן-ענן) -->
+                <button id="wab-btn" type="button" onclick="_toggleWab()" title="מצב דפדפן — הסוכן גולש בשבילך" style="display:none;margin-inline-end:auto;align-items:center;gap:5px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:3px 10px;border-radius:12px">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span>WAB</span>
+                </button>
                 <button id="model-chip" type="button" onclick="_toggleModelMenu(event)" style="display:inline-flex;align-items:center;gap:5px;background:transparent;border:none;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:2px 5px;border-radius:9px">
                     <span id="model-chip-name">3.5 FLASH</span>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -4680,6 +4685,9 @@ function setMode(mode) {
     // ☁️ מתג-ענן מופיע רק במצב קוד; יוצאים ממצב קוד → מכבים אותו
     const _cb = document.getElementById('mode-cloud');
     if (_cb) { _cb.style.display = (mode === 'code') ? '' : 'none'; if (mode !== 'code') { _cloudChat = false; _cb.classList.remove('active'); } }
+    // 🌐 WAB — מתג מצב-דפדפן מופיע רק במצב קוד; יוצאים ממצב קוד → מכבים אותו
+    const _wb = document.getElementById('wab-btn');
+    if (_wb) { _wb.style.display = (mode === 'code') ? 'inline-flex' : 'none'; if (mode !== 'code' && _wabOn) { _wabOn = false; _wb.style.background = 'transparent'; _wb.style.color = 'var(--muted)'; _wb.style.borderColor = 'var(--border)'; } }
     _updateModeChip();
     if (typeof _syncCanvasToggle === 'function') _syncCanvasToggle();
     startNew();
@@ -11310,6 +11318,16 @@ function _agInject() {
 }
 /* ☁️ סוכן ענן (רקע) — יוצר משימה שרצה על ה-Worker (Cron) וממשיכה גם כשסוגרים את האפליקציה. */
 let _cloudPoll = null, _cloudChat = false;
+// 🌐 WAB — מתג מצב-דפדפן ידני (קוד): דלוק → כל הודעה נשלחת לסוכן-הדפדפן (תוסף או דפדפן-ענן)
+let _wabOn = false;
+function _toggleWab() {
+    _wabOn = !_wabOn;
+    const b = document.getElementById('wab-btn');
+    if (b) {
+        if (_wabOn) { b.style.background = 'linear-gradient(135deg,#38bdf8,#4285F4)'; b.style.color = '#fff'; b.style.borderColor = 'transparent'; }
+        else { b.style.background = 'transparent'; b.style.color = 'var(--muted)'; b.style.borderColor = 'var(--border)'; }
+    }
+}
 function _toggleCloudChat() {
     _cloudChat = !_cloudChat;
     const b = document.getElementById('mode-cloud'); if (b) b.classList.toggle('active', _cloudChat);
@@ -11637,6 +11655,13 @@ async function send() {
     if (q && _cloudChat && currentMode === 'code' && currentUser) {
         inp.value = ''; inp.style.height = 'auto';
         await _cloudFromChat(q);
+        return;
+    }
+
+    // ── 🌐 WAB: מתג מצב-דפדפן דלוק (קוד) → ההודעה נשלחת ישירות לסוכן-הדפדפן (תוסף או דפדפן-ענן) ──
+    if (q && _wabOn && currentMode === 'code') {
+        inp.value = ''; inp.style.height = 'auto';
+        await _browserAgent(q);
         return;
     }
 
