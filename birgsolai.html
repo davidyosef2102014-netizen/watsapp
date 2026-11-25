@@ -9371,13 +9371,13 @@ async function callAI(messages, onChunk, signal=null) {
     // עוקף את ה-cooldown — כך ש-429 על חשבון אחד מנתב מיד לחשבון Groq אחר, לתשובות מהירות גם בדקה עמוסה.
     const _groqTry = (payload) => _stream('groq', payload);
     // 🛡️ רצפות-אמינות עצמאיות (תשתית שונה מ-Google/Groq/Cloudflare): כשכל הראשיים נופלים יחד, אלה עדיין עונים → כמעט אף פעם לא "שגיאת חיבור".
-    const _sRun = { name: 'Runcrate', fn: async () => {
+    // DeepSeek-V4.1-Flash דרך TokenRouter (ספק שלא בשימוש אחר — חוסך את מכסת Runcrate ל-AXION). נבדק חי: 2.3ש', עברית נקייה, היגיון נכון.
+    const _sTR = { name: 'TokenRouter-DeepSeek', fn: async () => {
         const _code = (typeof currentMode !== 'undefined' && currentMode === 'code');
-        const r = await _ghProxy('runcrate', '/v1/chat/completions', { model: _code ? 'deepseek-ai/DeepSeek-V4.1-Flash' : 'zai-org/GLM-5.3-Flash', messages, temperature: _isGroundedTurn ? 0.2 : 0.6, max_tokens: _code ? 4000 : 2048 }, { signal: AbortSignal.timeout(_code ? 25000 : 13000) });
-        if (!r.ok) throw new Error('runcrate ' + r.status);
-        const j = await r.json(); let t = (j?.choices?.[0]?.message?.content || '').trim();
-        t = t.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-        if (!t) throw new Error('runcrate empty');
+        const r = await _ghProxy('tokenrouter', '/v1/chat/completions', { model: 'deepseek/deepseek-v4.1-flash-1017-free', messages, temperature: _isGroundedTurn ? 0.2 : 0.6, max_tokens: _code ? 4000 : 2048 }, { signal: AbortSignal.timeout(_code ? 25000 : 14000) });
+        if (!r.ok) throw new Error('tokenrouter ' + r.status);
+        const j = await r.json(); let t = (j?.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        if (!t) throw new Error('tokenrouter empty');
         return _tw(t);
     } };
     const _sOR = { name: 'OpenRouter-free', fn: async () => {
@@ -9466,7 +9466,7 @@ async function callAI(messages, onChunk, signal=null) {
         return [_sGpt, _sGem, _sCloud, _sMis];                                    // 2.0 FLASH — בסיסי
     })();
     // 🛡️ רצפות-אמינות עצמאיות בסוף כל שרשרת-טקסט (לא בתמונה — שם צריך מנוע-ראייה): אם כל הראשיים נפלו, Runcrate ואז OpenRouter-free עדיין עונים.
-    if (!hasImage && Array.isArray(stages)) { stages.push(_sRun, _sOR); }
+    if (!hasImage && Array.isArray(stages)) { stages.push(_sTR, _sOR); }
 
     // ריטריי אוטומטי — הלקוח לא רואה שגיאה. בין סבבים מציגים חיווי חלק "השרת עמוס — מנסה שוב",
     // וממשיכים לנסות. הכיתוב נעלם מעצמו ברגע שמנוע כלשהו מצליח (הוא דורס עם התשובה). קוד — פחות סבבים.
