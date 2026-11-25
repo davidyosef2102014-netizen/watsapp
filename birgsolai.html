@@ -4059,7 +4059,7 @@ function _startWakeWord() {
             for (let i = e.resultIndex; i < e.results.length; i++) txt += e.results[i][0].transcript;
             txt = txt.toLowerCase();
             // התאמה סלחנית ל-"hi birgsol" (STT עשוי לשמוע burgsol/bergsol/big soul)
-            if (/\b(hi|hey|hello|ok)\b[\s,]*(birgsol|birg|burg|berg|big\s*s[ou]?[ou]l)/.test(txt) || /\bbirgsol\b/.test(txt)) {
+            if (/\b(hi|hey|hello|ok|hay|hi,)\b[\s,]*(birgsol|birgso|birg|burgs|bergs|big\s*s[ou]?[ou]l|burg\s*soul)/.test(txt)) {
                 try { _stopWakeWord(true); } catch (e2) {}
                 try { startLive(); } catch (e2) {}
             }
