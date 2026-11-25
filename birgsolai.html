@@ -8959,6 +8959,37 @@ async function _axionPipeline(messages, onChunk, signal) {
     } catch (e) { stopStatus(); return null; }
 }
 
+// 🔗 ראייה→חיפוש (טבעי, אוטומטי): כשיש תמונה והשאלה כללית/תלויה-מידע-חי — המודל קורא את התמונה,
+//    מחליט אם צריך מידע עדכני מהרשת, בונה שאילתה ממה שראה, מחפש, ומזריק לתשובה. לא מתג — התנהגות מובנית.
+function _visWantsLookup(q) {
+    q = (q || '').trim();
+    // בקשות עצמאיות (תרגום/קריאה/פתרון) — לא צריך חיפוש, חוסך זמן
+    if (/תרגם|תתרגם|translate|מה\s*כתוב|מה\s*רשום|what does it say|read\b|קרא|תקרא|תפתור|פתור|solve|תחשב|calcul|כמה\s*יוצא/i.test(q)) return false;
+    // שאלה ריקה/כללית או שמבקשת מידע/עדכני → כן
+    return !q || /מה\s*(זה|זאת|קורה|העניין|הסיפור|המצב)|מי\s*(זה|זאת|הוא|היא|הם)|תחפש|חפש|חדשות|מבזק|עדכני|מחיר|כמה\s*(עולה|שווה)|שער|מני[יה]ה|בורסה|מה\s*ידוע|ספר\s*לי\s*על|מה\s*אפשר\s*לדעת|האם|what('?s| is| are)|who\s+(is|are)|happening|going on|latest|news|price|stock|tell me about|search|look up/i.test(q);
+}
+// מחליט (עם ראייה) אם צריך חיפוש ומה לחפש — מחזיר {search, query} או null.
+async function _visionSearchDecide(messages) {
+    let q = '';
+    for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].role === 'user') { const c = messages[i].content; q = typeof c === 'string' ? c : (Array.isArray(c) ? ((c.find(p => p.type === 'text') || {}).text || '') : ''); break; } }
+    const parts = [];
+    for (const m of messages) {
+        if (Array.isArray(m.content)) for (const c of m.content) { if (c.type === 'image_url' && c.image_url && c.image_url.url) { const url = c.image_url.url; const mt = (url.match(/^data:([^;]+);base64,/) || [])[1] || 'image/jpeg'; const b64 = url.includes(',') ? url.split(',')[1] : ''; if (b64) parts.push({ inlineData: { mimeType: mt, data: b64 } }); } }
+    }
+    if (!parts.length) return null;
+    parts.push({ text: 'User question: ' + (q || '(the user just sent the image — figure out what it is and what they would want to know)') });
+    const sys = 'You see an image and the user question. Decide if answering WELL needs CURRENT real-world info from the web — recent news, live prices/stock, sports scores, what is happening now, who a specific real person/company/product/place is, latest events. If YES, reply ONLY JSON: {"search":true,"query":"<concise web-search query combining what you SEE in the image (names, brands, people, places, text you recognize) with the user question, written in the user question language>"}. If the image is self-contained — a math problem, a meme, a generic object, a personal photo, code, something to translate/read — reply ONLY {"search":false}. Output JSON only, nothing else.';
+    const body = { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { maxOutputTokens: 200, responseMimeType: 'application/json' } };
+    try {
+        const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', body, { signal: AbortSignal.timeout(12000) });
+        if (!r.ok) return null;
+        const j = await r.json();
+        let t = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+        const d = JSON.parse(t);
+        return (d && d.search && d.query) ? { search: true, query: String(d.query).slice(0, 160) } : { search: false };
+    } catch (e) { return null; }
+}
+
 async function callAI(messages, onChunk, signal=null) {
     // ── בדוק אם יש תמונה ──
     const hasImage = messages.some(m => Array.isArray(m.content) &&
@@ -9023,6 +9054,21 @@ async function callAI(messages, onChunk, signal=null) {
         const _nemoVision = () => _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-super-vl-120b-a12b', messages: [{ role: 'system', content: 'detailed thinking off' }].concat(messages), temperature: 0.5, max_tokens: 1500 }, { signal: AbortSignal.timeout(20000) })
             .then(r => { if (!r.ok) throw new Error('nemo-v ' + r.status); return r.json(); })
             .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
+        // 🔗 ראייה→חיפוש אוטומטי: קרא את התמונה → החלט אם צריך מידע-חי → חפש → הזרק לתשובה (בלי מתג).
+        try {
+            const _lastU = (() => { for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].role === 'user') { const c = messages[i].content; return typeof c === 'string' ? c : (Array.isArray(c) ? ((c.find(p => p.type === 'text') || {}).text || '') : ''); } } return ''; })();
+            if (_visWantsLookup(_lastU)) {
+                try { onChunk('מסתכל ומחפש…'); } catch (e) {}
+                const vd = await _visionSearchDecide(messages);
+                if (vd && vd.search && vd.query) {
+                    const sr = await webSearch(vd.query).catch(() => null);
+                    if (sr && !/^❌/.test(sr)) {
+                        const um = [...messages].reverse().find(m => Array.isArray(m.content) && m.content.some(c => c.type === 'image_url'));
+                        if (um) um.content.push({ type: 'text', text: '\n\n[מידע עדכני מהאינטרנט על מה שבתמונה — הסתמך על זה לעובדות עדכניות, אל תמציא. חיפשתי: "' + vd.query + '":]\n' + sr });
+                    }
+                }
+            }
+        } catch (e) {}
         const _visionEngines = [_groqVision, _geminiVision, _geminiVision, _gem4Vision, _nemoVision];
         for (let vi = 0; vi < _visionEngines.length; vi++) {
             try {
