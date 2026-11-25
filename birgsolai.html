@@ -10449,11 +10449,10 @@ async function _agDecide(sys, user) {
     // 🥈 4.1 PRO — מוח **Nemotron-3-Ultra 550B** (NVIDIA, דרך OpenRouter free — בקשת דוד). מודל 550B חזק, עברית מצוינת, חינם.
     //    4.1 PRO הוא מודל-אדמין (תעבורה נמוכה) ולכן מכסת-החינם היומית של 550B מספיקה. Qwen3-Coder + nemotron/groq = גיבוי סדרתי.
     const _nemotron550 = async () => { const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'nvidia/nemotron-3-ultra-550b-a55b:free', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(30000) }); return r.ok ? _pick(await r.json()) : null; };
-    // 🧠 DeepSeek V4.1 Flash (Runcrate, חינם, מהיר ~2.4ש', עברית מצוינת) — נוסף למוח 4.1 PRO (בקשת דוד). מאגר-מכסה שונה מ-Nemotron → עמידות נוספת.
-    const _deepseekV41 = async () => { let rk = ''; try { rk = localStorage.getItem('AX_RUNCRATE_KEY') || ''; } catch (e) {}
-        const body = { model: 'deepseek-ai/DeepSeek-V4.1-Flash', messages: msgs, max_tokens: 4000, temperature: 0.2 };
-        const r = rk ? await fetch('https://api.runcrate.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + rk }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) })
-                     : await _ghProxy('runcrate', '/v1/chat/completions', body, { signal: AbortSignal.timeout(30000) });
+    // 🧠 DeepSeek V4.1 Flash — מוח 4.1 PRO (#2). עבר ל-TokenRouter (ספק לא-בשימוש → חוסך את מכסת Runcrate ל-AXION/GLM). נבדק חי: 2.3ש', עברית נקייה, היגיון נכון.
+    const _deepseekV41 = async () => {
+        const body = { model: 'deepseek/deepseek-v4.1-flash-1017-free', messages: msgs, max_tokens: 4000, temperature: 0.2 };
+        const r = await _ghProxy('tokenrouter', '/v1/chat/completions', body, { signal: AbortSignal.timeout(30000) });
         return r.ok ? _pick(await r.json()) : null; };
     const _qwenCoder = async () => { const r = await _ghProxy('groq', '/openai/v1/chat/completions', { model: 'qwen/qwen3.8-27b', messages: msgs, max_tokens: 4000, temperature: 0.2 }, { signal: AbortSignal.timeout(15000) }); return r.ok ? _pick(await r.json()) : null; };
     // 🛟 גיבוי-2 ממאגרים *נפרדים לגמרי* (בקשת דוד) — Mistral + Cohere. המפתחות שלנו, לא חולקים עם Groq/NVIDIA/Runcrate/OpenRouter, אז כש*כולם* נחנקים ב-429 — אלה עדיין עונים. ככה "המודל לא עונה" כמעט נעלם.
