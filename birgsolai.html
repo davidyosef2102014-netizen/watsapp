@@ -9370,6 +9370,24 @@ async function callAI(messages, onChunk, signal=null) {
     // _groqTry: קריאת Groq עם מפתח טרי (ה-Worker בוחר מפתח אקראי מ-13 המפתחות / כמה חשבונות בכל קריאה),
     // עוקף את ה-cooldown — כך ש-429 על חשבון אחד מנתב מיד לחשבון Groq אחר, לתשובות מהירות גם בדקה עמוסה.
     const _groqTry = (payload) => _stream('groq', payload);
+    // 🛡️ רצפות-אמינות עצמאיות (תשתית שונה מ-Google/Groq/Cloudflare): כשכל הראשיים נופלים יחד, אלה עדיין עונים → כמעט אף פעם לא "שגיאת חיבור".
+    const _sRun = { name: 'Runcrate', fn: async () => {
+        const _code = (typeof currentMode !== 'undefined' && currentMode === 'code');
+        const r = await _ghProxy('runcrate', '/v1/chat/completions', { model: _code ? 'deepseek-ai/DeepSeek-V4.1-Flash' : 'zai-org/GLM-5.3-Flash', messages, temperature: _isGroundedTurn ? 0.2 : 0.6, max_tokens: _code ? 4000 : 2048 }, { signal: AbortSignal.timeout(_code ? 25000 : 13000) });
+        if (!r.ok) throw new Error('runcrate ' + r.status);
+        const j = await r.json(); let t = (j?.choices?.[0]?.message?.content || '').trim();
+        t = t.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        if (!t) throw new Error('runcrate empty');
+        return _tw(t);
+    } };
+    const _sOR = { name: 'OpenRouter-free', fn: async () => {
+        const r = await _ghProxy('openrouter', '/api/v1/chat/completions', { model: 'nvidia/nemotron-3-ultra-550b-a55b:free', messages, temperature: _isGroundedTurn ? 0.2 : 0.6, max_tokens: 2048 }, { signal: AbortSignal.timeout(16000) });
+        if (!r.ok) throw new Error('openrouter ' + r.status);
+        const j = await r.json(); let t = (j?.choices?.[0]?.message?.content || '').trim();
+        t = t.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        if (!t) throw new Error('openrouter empty');
+        return _tw(t);
+    } };
     const stages = isCode ? [
         // קוד: gpt-oss-120b ראשון (הכי חזק לקוד), Gemini שני, Cloudflare רשת ביטחון. (לבקשת דוד)
         { name: 'Groq gpt-oss-120b (code)', fn: () => _groqTry({ model: 'openai/gpt-oss-120b', messages, ..._codeCfg }) },
@@ -9447,6 +9465,8 @@ async function callAI(messages, onChunk, signal=null) {
         if (_mid === '2.0pro') return [_sGpt, _sGem, _sGpt2, _sCloud, _sMis];     // 2.0 PRO
         return [_sGpt, _sGem, _sCloud, _sMis];                                    // 2.0 FLASH — בסיסי
     })();
+    // 🛡️ רצפות-אמינות עצמאיות בסוף כל שרשרת-טקסט (לא בתמונה — שם צריך מנוע-ראייה): אם כל הראשיים נפלו, Runcrate ואז OpenRouter-free עדיין עונים.
+    if (!hasImage && Array.isArray(stages)) { stages.push(_sRun, _sOR); }
 
     // ריטריי אוטומטי — הלקוח לא רואה שגיאה. בין סבבים מציגים חיווי חלק "השרת עמוס — מנסה שוב",
     // וממשיכים לנסות. הכיתוב נעלם מעצמו ברגע שמנוע כלשהו מצליח (הוא דורס עם התשובה). קוד — פחות סבבים.
