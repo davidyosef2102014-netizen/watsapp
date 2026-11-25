@@ -8978,43 +8978,33 @@ async function _visionSearchDecide(messages) {
     }
     if (!parts.length) return null;
     parts.push({ text: 'User question: ' + (q || '(the user just sent the image — figure out what it is and what they would want to know)') });
-    const sys = `You are the SEARCH-DECISION brain of a multimodal assistant. You see an IMAGE and the user's question. Decide whether answering WELL needs CURRENT or SPECIFIC real-world info from the web that a knowledgeable model would NOT reliably know from the image alone. Be precise — do not over-search, do not under-search.
+    const sys = `You are a THOROUGH visual analyst and research planner for a multimodal assistant. Examine the IMAGE in depth and read ALL text visible in it. Work carefully and completely — do not be lazy.
 
-SEARCH (search:true) when the answer depends on things that CHANGE or are SPECIFIC/RECENT:
-- news, current events, "what is happening" (a news screenshot, a headline, a breaking event, a dated caption)
-- live or recent prices, stocks, crypto, exchange rates, "how much now"
-- sports scores, results, standings, "who won"
-- a SPECIFIC real person, company, product, place or event the user wants CURRENT facts about (who they are now, latest status, recent actions)
-- anything time-sensitive — a date on screen, "today", "now", "latest", "this week/year"
+STEP 1 — EXTRACT everything concrete you can recognize:
+- people (give FULL names if you recognize them), companies, brands, products, logos, organizations
+- places, locations, on-screen captions, dates, numbers, headlines, UI/source labels (e.g. a news channel)
+- the MAIN subject or event, and the overall context
 
-DO NOT SEARCH (search:false) when the image is self-contained or timeless general knowledge the model already knows:
-- identify a generic object, animal, plant, food, or famous landmark and explain it
-- a math problem, puzzle, chart/diagram to read, code, a document, a form, a menu
-- translate or transcribe text in the image
-- a meme, a personal photo, artwork, aesthetics or opinions
-- timeless "how does this work" / "what breed is this"
+STEP 2 — Work out precisely and generously what the user wants to know (even if their question is short or empty).
 
-QUERY (only when search:true): a concise high-signal web query IN THE USER'S LANGUAGE. Put the exact names / brands / people / places / on-screen text you RECOGNIZE first, then the aspect asked. Add a recency cue (the year, "latest", "today") for current events. Never include generic words like "image" or "picture".
+STEP 3 — Decide if answering FULLY and ACCURATELY needs CURRENT or SPECIFIC real-world info from the web (news, prices/stock, who someone is now, latest events, what happened, a specific real person/company/product).
+- If YES (search:true): plan 1 to 3 FOCUSED, COMPLEMENTARY web-search queries that TOGETHER cover the key angles — e.g. one for the main event, one for a specific person, one for a price/number/background. Each query: high-signal, in the user's language, with exact recognized names and a recency cue (the year / "latest" / "today") when relevant. Do NOT make queries near-duplicates — each should cover a different angle.
+- If the image is self-contained or timeless general knowledge (math, translation/transcription, a generic object/animal/plant, code, a meme, a personal photo, aesthetics), set search:false and queries [].
 
 Reply with ONLY one JSON object, no prose:
-{"reason":"<=12 words","search":true|false,"query":"<query, empty string if search is false>"}
+{"entities":"<comma-separated list of the concrete things you recognized>","topic":"<one concise line: the main subject/event>","search":true|false,"queries":["q1","q2","q3"]}
 
 Examples:
-- News screenshot "NVIDIA stock surges", user "what's happening?" -> {"reason":"news screenshot, current market","search":true,"query":"מניית אנבידיה מזנקת נובמבר 2026"}
-- Photo of a math equation, user "solve" -> {"reason":"self-contained math","search":false,"query":""}
-- Photo of a flower, user "what is this?" -> {"reason":"general botany knowledge","search":false,"query":""}
-- Photo of a known politician, user "who is this, what did they do lately?" -> {"reason":"specific person, recent actions","search":true,"query":"<person name> latest news 2026"}
-- A restaurant menu, user "translate" -> {"reason":"transcription only","search":false,"query":""}
-- A product box, user "how much does it cost?" -> {"reason":"needs current price","search":true,"query":"<product name> price"}`;
-    const body = { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { maxOutputTokens: 260, responseMimeType: 'application/json' } };
-    try {
-        const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', body, { signal: AbortSignal.timeout(12000) });
-        if (!r.ok) return null;
-        const j = await r.json();
-        let t = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-        const d = JSON.parse(t);
-        return (d && d.search && d.query) ? { search: true, query: String(d.query).slice(0, 160) } : { search: false };
-    } catch (e) { return null; }
+- News screenshot "NVIDIA stock surges", NBC caption, a man hugging a woman, user "what's happening?" -> {"entities":"NVIDIA, Jensen Huang, NBC News, Santa Clara, stock surge","topic":"NVIDIA stock jump news clip","search":true,"queries":["מניית אנבידיה מזנקת נובמבר 2026","NVIDIA Jensen Huang employee hug video 2026","NVIDIA stock news today"]}
+- Photo of a math equation, user "solve" -> {"entities":"handwritten equation","topic":"math problem","search":false,"queries":[]}
+- Photo of a known politician, user "who is this and what did they do lately?" -> {"entities":"<person name>","topic":"public figure","search":true,"queries":["<person name> latest news 2026","<person name> recent statements"]}
+- A restaurant menu, user "translate" -> {"entities":"menu","topic":"menu to translate","search":false,"queries":[]}`;
+    const body = { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { maxOutputTokens: 600, responseMimeType: 'application/json' } };
+    const _pick = (j) => { try { const ps = (j?.candidates?.[0]?.content?.parts) || []; let t = ps.filter(p => p && !p.thought).map(p => (p && p.text) || '').join('').trim(); t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''); const d = JSON.parse(t); if (!d) return null; const qs = Array.isArray(d.queries) ? d.queries.filter(Boolean).map(s => String(s).slice(0, 180)).slice(0, 3) : (d.query ? [String(d.query).slice(0, 180)] : []); return { search: !!d.search && qs.length > 0, queries: qs, entities: d.entities || '', topic: d.topic || '' }; } catch (e) { return null; } };
+    // ניתוח-עומק: Gemini-4 (ראייה חזקה, יסודי) ראשון, ואם נכשל — Gemini-3.6 (מהיר).
+    try { const r = await _ghProxy('gemini', '/v1beta/models/gemini-4-hydrogen:generateContent', body, { signal: AbortSignal.timeout(22000) }); if (r.ok) { const d = _pick(await r.json()); if (d) return d; } } catch (e) {}
+    try { const r2 = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', body, { signal: AbortSignal.timeout(14000) }); if (r2.ok) { const d = _pick(await r2.json()); if (d) return d; } } catch (e) {}
+    return null;
 }
 
 async function callAI(messages, onChunk, signal=null) {
@@ -9081,17 +9071,19 @@ async function callAI(messages, onChunk, signal=null) {
         const _nemoVision = () => _ghProxy('nvidia', '/v1/chat/completions', { model: 'nvidia/nemotron-3.5-super-vl-120b-a12b', messages: [{ role: 'system', content: 'detailed thinking off' }].concat(messages), temperature: 0.5, max_tokens: 1500 }, { signal: AbortSignal.timeout(20000) })
             .then(r => { if (!r.ok) throw new Error('nemo-v ' + r.status); return r.json(); })
             .then(j => { const t = j?.choices?.[0]?.message?.content?.trim(); if (!t) throw new Error('empty'); return t; });
-        // 🔗 ראייה→חיפוש אוטומטי: קרא את התמונה → החלט אם צריך מידע-חי → חפש → הזרק לתשובה (בלי מתג).
+        // 🔗 ראייה→מחקר-עומק (אוטומטי, יסודי): קרא את התמונה לעומק → תכנן כמה חיפושים → חפש במקביל → הזרק מחקר מלא לתשובה.
         try {
             const _lastU = (() => { for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].role === 'user') { const c = messages[i].content; return typeof c === 'string' ? c : (Array.isArray(c) ? ((c.find(p => p.type === 'text') || {}).text || '') : ''); } } return ''; })();
             if (_visWantsLookup(_lastU)) {
-                try { onChunk('מסתכל ומחפש…'); } catch (e) {}
-                const vd = await _visionSearchDecide(messages);
-                if (vd && vd.search && vd.query) {
-                    const sr = await webSearch(vd.query).catch(() => null);
-                    if (sr && !/^❌/.test(sr)) {
+                try { onChunk('קורא את התמונה לעומק ומחקר…'); } catch (e) {}
+                const da = await _visionSearchDecide(messages);
+                if (da && da.search && da.queries && da.queries.length) {
+                    const qs = da.queries.slice(0, 3);
+                    const results = await Promise.all(qs.map(q => webSearch(q).catch(() => null)));
+                    const blocks = qs.map((q, i) => (results[i] && !/^❌/.test(results[i])) ? ('### חיפוש: ' + q + '\n' + results[i]) : '').filter(Boolean);
+                    if (blocks.length) {
                         const um = [...messages].reverse().find(m => Array.isArray(m.content) && m.content.some(c => c.type === 'image_url'));
-                        if (um) um.content.push({ type: 'text', text: '\n\n[מידע עדכני מהאינטרנט על מה שבתמונה — הסתמך על זה לעובדות עדכניות, אל תמציא. חיפשתי: "' + vd.query + '":]\n' + sr });
+                        if (um) um.content.push({ type: 'text', text: '\n\n[מחקר מעמיק מהאינטרנט על מה שבתמונה' + (da.topic ? (' (' + da.topic + ')') : '') + ' — הסתמך על זה לעובדות עדכניות ושלב את כל הזוויות לתשובה יסודית ומלאה; אל תמציא תאריכים/מספרים/שמות שלא מופיעים כאן:]\n' + blocks.join('\n\n') + '\n\n[ענה ביסודיות ובאופן מקיף: תאר מה רואים בתמונה, ואז פרט את כל מה שעולה מהמחקר — מי/מה/מתי/למה, ברור ומסודר.]' });
                     }
                 }
             }
