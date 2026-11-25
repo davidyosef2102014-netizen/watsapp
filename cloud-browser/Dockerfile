@@ -6,6 +6,8 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Ensure the Chromium build matching the installed Playwright exists (belt-and-suspenders).
+RUN playwright install chromium
 
 COPY app.py .
 
