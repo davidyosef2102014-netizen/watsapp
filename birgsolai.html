@@ -8978,8 +8978,35 @@ async function _visionSearchDecide(messages) {
     }
     if (!parts.length) return null;
     parts.push({ text: 'User question: ' + (q || '(the user just sent the image — figure out what it is and what they would want to know)') });
-    const sys = 'You see an image and the user question. Decide if answering WELL needs CURRENT real-world info from the web — recent news, live prices/stock, sports scores, what is happening now, who a specific real person/company/product/place is, latest events. If YES, reply ONLY JSON: {"search":true,"query":"<concise web-search query combining what you SEE in the image (names, brands, people, places, text you recognize) with the user question, written in the user question language>"}. If the image is self-contained — a math problem, a meme, a generic object, a personal photo, code, something to translate/read — reply ONLY {"search":false}. Output JSON only, nothing else.';
-    const body = { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { maxOutputTokens: 200, responseMimeType: 'application/json' } };
+    const sys = `You are the SEARCH-DECISION brain of a multimodal assistant. You see an IMAGE and the user's question. Decide whether answering WELL needs CURRENT or SPECIFIC real-world info from the web that a knowledgeable model would NOT reliably know from the image alone. Be precise — do not over-search, do not under-search.
+
+SEARCH (search:true) when the answer depends on things that CHANGE or are SPECIFIC/RECENT:
+- news, current events, "what is happening" (a news screenshot, a headline, a breaking event, a dated caption)
+- live or recent prices, stocks, crypto, exchange rates, "how much now"
+- sports scores, results, standings, "who won"
+- a SPECIFIC real person, company, product, place or event the user wants CURRENT facts about (who they are now, latest status, recent actions)
+- anything time-sensitive — a date on screen, "today", "now", "latest", "this week/year"
+
+DO NOT SEARCH (search:false) when the image is self-contained or timeless general knowledge the model already knows:
+- identify a generic object, animal, plant, food, or famous landmark and explain it
+- a math problem, puzzle, chart/diagram to read, code, a document, a form, a menu
+- translate or transcribe text in the image
+- a meme, a personal photo, artwork, aesthetics or opinions
+- timeless "how does this work" / "what breed is this"
+
+QUERY (only when search:true): a concise high-signal web query IN THE USER'S LANGUAGE. Put the exact names / brands / people / places / on-screen text you RECOGNIZE first, then the aspect asked. Add a recency cue (the year, "latest", "today") for current events. Never include generic words like "image" or "picture".
+
+Reply with ONLY one JSON object, no prose:
+{"reason":"<=12 words","search":true|false,"query":"<query, empty string if search is false>"}
+
+Examples:
+- News screenshot "NVIDIA stock surges", user "what's happening?" -> {"reason":"news screenshot, current market","search":true,"query":"מניית אנבידיה מזנקת נובמבר 2026"}
+- Photo of a math equation, user "solve" -> {"reason":"self-contained math","search":false,"query":""}
+- Photo of a flower, user "what is this?" -> {"reason":"general botany knowledge","search":false,"query":""}
+- Photo of a known politician, user "who is this, what did they do lately?" -> {"reason":"specific person, recent actions","search":true,"query":"<person name> latest news 2026"}
+- A restaurant menu, user "translate" -> {"reason":"transcription only","search":false,"query":""}
+- A product box, user "how much does it cost?" -> {"reason":"needs current price","search":true,"query":"<product name> price"}`;
+    const body = { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { maxOutputTokens: 260, responseMimeType: 'application/json' } };
     try {
         const r = await _ghProxy('gemini', '/v1beta/models/gemini-3.6-flash:generateContent', body, { signal: AbortSignal.timeout(12000) });
         if (!r.ok) return null;
