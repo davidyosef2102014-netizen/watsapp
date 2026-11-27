@@ -8854,8 +8854,9 @@ async function _axBrain(msgs, signal, say, level) {
     const _retry = (fn) => async () => { try { return await fn(); } catch (e) { await new Promise(r => setTimeout(r, 1500)); return await fn(); } };
     // deep = משימה קשה → GLM-5.3 (OpenRouter+NVIDIA) חלון מלא ואז Nemotron. mid = GLM מהיר ואז Nemotron. תמיד רשת-ביטחון בסוף.
     let chain;
-    if (level === 'deep') chain = [opus55, _retry(glm53orca), glm53or, () => glm53nv(2), _retry(nemotron), glm47, _retry(oss120)]; // deep: Opus 5.5 ראשון, ואז GLM-5.3 וכל הגיבויים
-    else                  chain = [opus55, _retry(glm53orca), glm53or, _retry(nemotron), glm47, _retry(oss120)]; // mid/רגיל: Opus 5.5 ראשון ואז GLM-5.3/Nemotron
+    void opus55; // ⏸️ Radox גידר את Opus 5.5 מאחורי אימות-תשלום (402) — מוסר מהשרשרת הפעילה כדי לא לבזבז זמן. להחזיר אם תהיה מכסה: הוסף opus55 לראש ה-chain.
+    if (level === 'deep') chain = [_retry(glm53orca), glm53or, () => glm53nv(2), _retry(nemotron), glm47, _retry(oss120)]; // deep: GLM-5.3-flash חינם ראשון, ואז שאר גיבויי GLM, ואז Nemotron
+    else                  chain = [_retry(glm53orca), glm53or, _retry(nemotron), glm47, _retry(oss120)]; // mid/רגיל: GLM-5.3 חינם ראשון ואז Nemotron
     for (const step of chain) { try { const res = await step(); if (res && res.text) return res; } catch (e) {} }
     return null;
 }
