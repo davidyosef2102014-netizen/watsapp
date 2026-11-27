@@ -8841,8 +8841,15 @@ async function _axBrain(msgs, signal, say, level) {
     const nemotron = async () => ({ text: await _nv('nvidia/nemotron-3.5-super-vl-120b-a12b', 35000), who: 'BIRGSOL-Core' });
     const glm47    = async () => ({ text: await _axCall('zai', '/api/paas/v4/chat/completions', 'glm-4.5-flash', msgs, 3500, AbortSignal.timeout(30000)), who: 'GLM-4.7-Flash' });
     const oss120   = async () => ({ text: await _axCall('groq', '/openai/v1/chat/completions', 'openai/gpt-oss-120b', msgs, 2500, signal || AbortSignal.timeout(30000)), who: 'GPT-OSS-120B' });
-    // 🏆 המוח העליון של AXION — claude-opus-5.5 דרך Radox (מכסה מוגבלת ~1.5M/חודש). ראשון בשרשרת; נופל מיד לשאר אם נכשל/נגמרה מכסה.
-    const opus55   = async () => ({ text: await _axCall('radox', '/v1/chat/completions', 'claude-opus-5.5', msgs, 3000, AbortSignal.timeout(40000)), who: 'BIRGSOL-Core' });
+    // 🏆 המוח העליון של AXION — claude-opus-5.5 דרך Radox, במצב reasoning LOW (חוסך ~60-70% טוקנים → מכסה מחזיקה הרבה). ראשון בשרשרת; נופל מיד לשאר אם נכשל/נגמרה מכסה.
+    const opus55   = async () => {
+        const r = await _ghProxy('radox', '/v1/chat/completions', { model: 'claude-opus-5.5', messages: msgs, max_tokens: 3000, temperature: 0.3, reasoning_effort: 'low' }, { signal: AbortSignal.timeout(40000) });
+        if (!r.ok) throw new Error('radox ' + r.status);
+        const j = await r.json(); const m = (j.choices && j.choices[0] && j.choices[0].message) || {};
+        const t = ((m.content || '') || (m.reasoning_content || '')).trim();
+        if (!t) throw new Error('radox empty');
+        return { text: t, who: 'BIRGSOL-Core' };
+    };
     // עטיפת retry — ניסיון שני על שגיאה רגעית (503/429/ריק), עם backoff קצר.
     const _retry = (fn) => async () => { try { return await fn(); } catch (e) { await new Promise(r => setTimeout(r, 1500)); return await fn(); } };
     // deep = משימה קשה → GLM-5.3 (OpenRouter+NVIDIA) חלון מלא ואז Nemotron. mid = GLM מהיר ואז Nemotron. תמיד רשת-ביטחון בסוף.
